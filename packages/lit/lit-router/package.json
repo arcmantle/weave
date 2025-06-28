@@ -1,0 +1,35 @@
+{
+	"name": "@roenlie/lit-router",
+	"version": "1.0.0",
+	"description": "",
+	"author": {
+		"name": "Kristoffer Roen-Lie",
+		"url": "https://github.com/RoenLie"
+	},
+	"type": "module",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"dev": "vite",
+		"build": "pnpm build:prepare && pnpm build:index && pnpm build:types && vite build",
+		"build:prepare": "rimraf dist",
+		"build:index": "pkg-toolbox build-indexes",
+		"build:types": "tsc --project ./src/tsconfig.json"
+	},
+	"exports": {
+		".": {
+			"types": "./dist/index.d.js",
+			"default": "./dist/index.js"
+		}
+	},
+	"dependencies": {
+		"@roenlie/core": "workspace:^",
+		"@roenlie/vite-lib-config": "workspace:^",
+		"lit": "^3.3.0",
+		"nanoid": "^5.1.5",
+		"urlpattern-polyfill": "^10.0.0"
+	}
+}

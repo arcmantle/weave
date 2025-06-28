@@ -1,0 +1,15 @@
+{
+	"name": "@roenlie/workspace-scripts",
+	"description": "pnpm monorepo workspace scripts",
+	"authors": "Kristoffer Roen-Lie",
+	"version": "1.0.0",
+	"type": "module",
+	"scripts": {
+		"build-toolbox": "node ./build-package.ts @roenlie/package-toolbox",
+		"build": "pnpm build-toolbox && node ./build-package.ts",
+		"release": "pnpm build-toolbox && node ./build-package.ts --publish"
+	},
+	"devDependencies": {
+		"@types/node": "^22.14.1"
+	}
+}

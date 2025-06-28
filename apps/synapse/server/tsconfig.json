@@ -1,0 +1,17 @@
+{
+	"extends": "@roenlie/tsconfig",
+	"compilerOptions": {
+		"types": [
+			"node"
+		]
+	},
+	"include": [
+		"./**/*.ts",
+		"./**/*.d.ts",
+		"src/features/logger/logger-transport.mjs",
+	],
+	"exclude": [
+		"./**/*.test.ts",
+		"./**/*.bench.ts",
+	]
+}

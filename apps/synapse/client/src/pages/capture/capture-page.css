@@ -1,0 +1,7 @@
+:host {
+	z-index: 1;
+	grid-row: 1/-1;
+
+	display: grid;
+	background-color: var(--background);
+}

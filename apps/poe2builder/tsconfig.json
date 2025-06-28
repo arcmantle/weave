@@ -1,0 +1,17 @@
+{
+	"extends": "@roenlie/tsconfig",
+	"compilerOptions": {
+		"target": "ESNext",
+		"moduleResolution": "bundler",
+		"emitDecoratorMetadata": false,
+		"experimentalDecorators": false,
+		"resolveJsonModule": false
+	},
+	"include": [
+		"./**/*.ts",
+		"./**/*.d.ts"
+	],
+	"exclude": [
+		"**/node_modules/**"
+	]
+}

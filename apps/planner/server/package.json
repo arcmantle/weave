@@ -1,0 +1,40 @@
+{
+	"name": "@roenlie/planner-server",
+	"version": "1.0.0",
+	"description": "",
+	"author": "Kristoffer Roen-Lie",
+	"private": true,
+	"main": "./dist/main.js",
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build && npm run move-build-runner",
+		"move-build-runner": "copyfiles -f ./build/run.cjs ./dist",
+		"start": "node dist/main.js",
+		"typecheck": "tsc --project ./tsconfig.json",
+		"build2": "pnpm tsm ./scripts/build.ts",
+		"file-to-workspace-deps": "pnpm tsm ./scripts/modify-deps/file-to-workspace-deps.ts",
+		"workspace-to-file-deps": "pnpm tsm ./scripts/modify-deps/workspace-to-file-deps.ts"
+	},
+	"dependencies": {
+		"@azure/cosmos": "^4.3.0",
+		"@faker-js/faker": "^9.7.0",
+		"@nestjs/common": "^11.0.20",
+		"@nestjs/core": "^11.0.20",
+		"@nestjs/platform-express": "^11.0.20",
+		"@nestjs/throttler": "^6.4.0",
+		"@roenlie/core": "workspace:^",
+		"@roenlie/planner-entities": "workspace:^",
+		"@roenlie/reflect-metadata": "workspace:^",
+		"dotenv": "^16.5.0",
+		"nanoid": "^5.1.5",
+		"rxjs": "^7.8.2",
+		"tslib": "^2.8.1"
+	},
+	"devDependencies": {
+		"@nestjs/cli": "^11.0.6",
+		"@nestjs/schematics": "^11.0.5",
+		"@nestjs/testing": "^11.0.20",
+		"@roenlie/package-toolbox": "workspace:^"
+	}
+}

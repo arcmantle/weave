@@ -1,0 +1,28 @@
+{
+	"name": "esplot",
+	"description": "description",
+	"authors": "author",
+	"version": "1.0.0",
+	"main": "pathToMain",
+	"files": [
+		"bin",
+		"src"
+	],
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build"
+	},
+	"exports": {
+		"node": {
+			"default": "./src/index.js"
+		},
+		"default": {
+			"default:": "./src/index.js"
+		}
+	},
+	"dependencies": {
+		"chart.js": "^4.4.9",
+		"chartjs-chart-wordcloud": "^4.4.4",
+		"vite": "^6.3.0"
+	}
+}

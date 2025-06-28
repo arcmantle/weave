@@ -1,0 +1,9 @@
+{
+	"extends": "@roenlie/tsconfig",
+	"compilerOptions": {
+		"outDir": "../dist",
+		"rootDir": ".",
+		"baseUrl": ".",
+		"checkJs": true,
+	},
+}

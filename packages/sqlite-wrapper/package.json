@@ -1,0 +1,28 @@
+{
+	"name": "@roenlie/sqlite-wrapper",
+	"description": "description",
+	"authors": "author",
+	"version": "1.0.0",
+	"type": "module",
+	"main": "pathToMain",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		}
+	},
+	"scripts": {
+		"build": "pnpm run --sequential \"/^build::.*/\"",
+		"build::index": "pkg-toolbox build-indexes",
+		"build::js": "vite build",
+		"build::types": "tsc --project ./src/tsconfig.json"
+	},
+	"dependencies": {
+		"better-sqlite3": "^11.9.1",
+		"tslib": "^2.8.1"
+	},
+	"devDependencies": {
+		"@roenlie/vite-lib-config": "workspace:^",
+		"@types/better-sqlite3": "^7.6.13"
+	}
+}

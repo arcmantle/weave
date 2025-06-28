@@ -1,0 +1,13 @@
+{
+	"extends": "@roenlie/tsconfig",
+	"compilerOptions": {
+		"types": [
+			"@roenlie/vite-plugin-import-css-sheet/client"
+		],
+		"jsx": "preserve",
+		"jsxImportSource": "jsx-lit",
+		"rootDir": ".",
+		"emitDecoratorMetadata": false,
+		"experimentalDecorators": false,
+	}
+}

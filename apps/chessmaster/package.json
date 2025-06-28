@@ -1,0 +1,51 @@
+{
+	"name": "@roenlie/mirage-chessmaster",
+	"description": "Mirage project",
+	"version": "1.0.0",
+	"author": "Kristoffer Roen-Lie",
+	"keywords": [
+		"web",
+		"components",
+		"web-components",
+		"typescript",
+		"lib"
+	],
+	"files": [
+		"LICENSE",
+		"dist"
+	],
+	"type": "module",
+	"main": "./dist/lib/index.js",
+	"typings": "./dist/lib/index.d.ts",
+	"engines": {
+		"node": ">=22"
+	},
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"preview": "vite preview --mode preview",
+		"package": "npm run build && npm run package:move",
+		"package:move": "node --no-warnings --experimental-modules --loader tsm ./scripts/move-output.ts --color",
+		"clean": "rimraf node_modules dist *.tsbuildinfo",
+		"clean:dist": "rimraf dist *.tsbuildinfo",
+		"clean:node": "rimraf node_modules",
+		"clean:vite": "rimraf node_modules/.vite",
+		"test": "vitest"
+	},
+	"dependencies": {
+		"@floating-ui/dom": "^1.6.13",
+		"@lit-labs/context": "^0.5.1",
+		"@lit-labs/virtualizer": "^2.1.0",
+		"lit": "^3.3.0",
+		"nanoid": "^5.1.5",
+		"ts-pattern": "^5.7.0",
+		"tslib": "^2.8.1"
+	},
+	"devDependencies": {
+		"@types/sharedworker": "^0.0.155",
+		"bootstrap-icons": "^1.11.3",
+		"rimraf": "^6.0.1",
+		"ts-toolbelt": "^9.6.0",
+		"type-fest": "^4.40.0"
+	}
+}

@@ -1,0 +1,10 @@
+{
+	"extends": "@roenlie/tsconfig",
+	"compilerOptions": {
+		"rootDir": ".",
+		"baseUrl": ".",
+		"outDir": "../dist",
+		"noEmit": false,
+		"emitDeclarationOnly": true,
+	},
+}

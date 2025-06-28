@@ -1,0 +1,14 @@
+{
+	"extends": "@roenlie/tsconfig",
+	"compilerOptions": {
+		"types": [],
+		"jsx": "preserve",
+		"jsxImportSource": "jsx-lit"
+	},
+	"exclude": [
+		"dist"
+	],
+	"include": [
+		"${configDir}/**/*.tsx",
+	]
+}

@@ -1,0 +1,7 @@
+{
+	"extends": "@roenlie/tsconfig",
+	"compilerOptions": {
+		"emitDecoratorMetadata": false,
+		"experimentalDecorators": false,
+	}
+}

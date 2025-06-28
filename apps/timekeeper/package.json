@@ -1,0 +1,44 @@
+{
+	"name": "@roenlie/mirage",
+	"description": "Mirage project",
+	"version": "1.0.0",
+	"author": "Kristoffer Roen-Lie",
+	"keywords": [
+		"web",
+		"components",
+		"web-components",
+		"typescript",
+		"lib"
+	],
+	"files": [
+		"LICENSE",
+		"/src/**/*.ts",
+		"/dist/lib/*",
+		"/dist/assets/*"
+	],
+	"type": "module",
+	"main": "./dist/lib/index.js",
+	"typings": "./dist/lib/index.d.ts",
+	"engines": {
+		"node": ">=22"
+	},
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"package": "npm run build && npm run package:move",
+		"package:move": "node --no-warnings --experimental-modules --loader tsm ./scripts/move-output.ts --color"
+	},
+	"dependencies": {
+		"@floating-ui/dom": "^1.6.13",
+		"@lit-labs/context": "^0.5.1",
+		"@lit-labs/virtualizer": "^2.1.0",
+		"lit": "^3.3.0",
+		"tslib": "^2.8.1"
+	},
+	"devDependencies": {
+		"@types/sharedworker": "^0.0.155",
+		"rimraf": "^6.0.1",
+		"ts-toolbelt": "^9.6.0",
+		"type-fest": "^4.40.0"
+	}
+}

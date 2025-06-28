@@ -1,0 +1,46 @@
+{
+	"name": "@roenlie/planner-client",
+	"version": "1.0.0",
+	"description": "Spiritual successor to Absence.",
+	"private": true,
+	"main": "./dist/lib/index.js",
+	"typings": "./dist/lib/index.d.ts",
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"typecheck": "tsc --project ./src/tsconfig.json"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Rotul-Solutions/planner-client.git"
+	},
+	"author": "Rotul Solutions",
+	"license": "ISC",
+	"bugs": {
+		"url": "https://github.com/Rotul-Solutions/planner-client/issues"
+	},
+	"homepage": "https://github.com/Rotul-Solutions/planner-client#readme",
+	"dependencies": {
+		"@floating-ui/dom": "^1.6.13",
+		"@lit-labs/context": "^0.5.1",
+		"@lukeed/uuid": "^2.0.1",
+		"@roenlie/core": "workspace:^",
+		"@roenlie/lit-router": "workspace:^",
+		"@roenlie/lit-utilities": "workspace:^",
+		"@roenlie/planner-entities": "workspace:^",
+		"@roenlie/reflect-metadata": "workspace:^",
+		"deepmerge-ts": "^7.1.5",
+		"fast-equals": "^5.2.2",
+		"inversify": "^7.5.0",
+		"lit": "^3.3.0",
+		"nanoid": "^5.1.5",
+		"tabbable": "^6.2.0",
+		"ts-pattern": "^5.7.0",
+		"tslib": "^2.8.1"
+	},
+	"devDependencies": {
+		"@faker-js/faker": "^9.7.0",
+		"dotenv": "^16.5.0"
+	}
+}

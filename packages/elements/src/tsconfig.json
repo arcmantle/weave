@@ -1,0 +1,20 @@
+{
+	"extends": "@roenlie/tsconfig",
+	"compilerOptions": {
+		"noEmit": true,
+		"emitDeclarationOnly": false,
+		"types": [
+			"vite/client",
+			"@roenlie/vite-plugin-import-css-sheet/client"
+		]
+	},
+	"include": [
+		"./**/*.ts",
+		"./**/*.d.ts",
+		"./**/*.js",
+	],
+	"exclude": [
+		"./**/*.test.ts",
+		"./**/*.bench.ts",
+	]
+}

@@ -1,0 +1,18 @@
+{
+	"extends": "@roenlie/tsconfig",
+	"compilerOptions": {
+		"rootDir": ".",
+		"baseUrl": ".",
+		"checkJs": true,
+		"types": [
+			"node"
+		]
+	},
+	"include": [
+		"scripts",
+		"vitest.workspace.ts"
+	],
+	"exclude": [
+		"node_modules",
+	],
+}

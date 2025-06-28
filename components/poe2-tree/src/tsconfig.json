@@ -1,0 +1,14 @@
+{
+	"extends": "@roenlie/tsconfig",
+	"compilerOptions": {
+		"experimentalDecorators": false,
+		"emitDecoratorMetadata": false,
+		"useDefineForClassFields": true
+	},
+	"include": [
+		"./**/*.ts"
+	],
+	"exclude": [
+		"node_modules"
+	]
+}

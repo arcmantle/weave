@@ -1,0 +1,18 @@
+{
+	"extends": "@roenlie/tsconfig",
+	"compilerOptions": {
+		"outDir": "../dist/lib",
+		"types": [
+			"vite/client",
+		]
+	},
+	"include": [
+		"./**/*.ts",
+		"./**/*.d.ts",
+		"./**/*.js",
+	],
+	"exclude": [
+		"./**/*.test.ts",
+		"./**/*.bench.ts",
+	]
+}

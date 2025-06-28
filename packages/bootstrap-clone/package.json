@@ -1,0 +1,21 @@
+{
+	"name": "@roenlie/bootstrap-clone",
+	"description": "a clone of bootstrap but written with web components",
+	"authors": "Kristoffer Roen-Lie",
+	"version": "1.0.0",
+	"main": "pathToMain",
+	"scripts": {
+		"dev": "vite --config ./docs/vite.config.ts",
+		"test": "vitest --dom ./src/**/*.test.ts"
+	},
+	"dependencies": {
+		"@roenlie/custom-element": "workspace:^",
+		"lit-html": "^3.3.0"
+	},
+	"devDependencies": {
+		"@roenlie/mirage-docs": "workspace:^",
+		"@roenlie/vite-lib-config": "workspace:^",
+		"@roenlie/vite-plugin-sass": "workspace:^",
+		"lit": "^3.3.0"
+	}
+}

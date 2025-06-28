@@ -1,0 +1,24 @@
+{
+	"name": "@roenlie/grid-layout",
+	"description": "A grid layout component for dashboard creation",
+	"authors": "Kristoffer Roen-Lie",
+	"version": "1.0.0",
+	"main": "./dist/index.js",
+	"type": "module",
+	"scripts": {
+		"dev": "vite serve demo",
+		"build-lib": "vite build",
+		"build-demo": "vite build demo",
+		"preview": "vite preview demo",
+		"lint-lib": "pnpm eslint src",
+		"lint-demo": "pnpm eslint demo/src",
+		"lint-windows": "set TIMING=1 && pnpm lint-lib && pnpm lint-demo"
+	},
+	"dependencies": {
+		"lit": "^3.3.0",
+		"tslib": "^2.8.1"
+	},
+	"devDependencies": {
+		"@roenlie/vite-lib-config": "workspace:^"
+	}
+}

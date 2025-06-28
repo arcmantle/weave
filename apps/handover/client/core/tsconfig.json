@@ -1,0 +1,10 @@
+{
+	"extends": "@roenlie/tsconfig",
+	"compilerOptions": {
+		"types": [],
+		"jsx": "react-jsx",
+		"jsxImportSource": "jsx-lit",
+		"emitDecoratorMetadata": false,
+		"experimentalDecorators": false,
+	}
+}

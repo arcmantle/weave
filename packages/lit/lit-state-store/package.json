@@ -1,0 +1,44 @@
+{
+	"name": "@roenlie/lit-state-store",
+	"version": "1.0.0",
+	"description": "State store primarily for use with LIT web components.",
+	"author": {
+		"name": "Kristoffer Roen-Lie",
+		"url": "https://github.com/RoenLie"
+	},
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/RoenLie/mimic.git"
+	},
+	"bugs": {
+		"url": "https://github.com/RoenLie/mimic/issues"
+	},
+	"homepage": "https://github.com/RoenLie/mimic#readme",
+	"type": "module",
+	"types": "./dist/index.d.ts",
+	"main": "./dist/index.js",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		}
+	},
+	"scripts": {
+		"dev": "vite --config ./demo/vite.config.ts",
+		"test": "vitest",
+		"test:dom": "vitest --dom",
+		"build": "pnpm build:prepare && pnpm build:index && pnpm build:types && vite build",
+		"build:prepare": "rimraf dist",
+		"build:index": "pkg-toolbox build-indexes",
+		"build:types": "tsc --project ./src/tsconfig.json"
+	},
+	"dependencies": {
+		"@roenlie/core": "workspace:^",
+		"lit": "^3.3.0"
+	},
+	"devDependencies": {
+		"@roenlie/vite-lib-config": "workspace:^"
+	},
+	"sideEffects": false
+}
