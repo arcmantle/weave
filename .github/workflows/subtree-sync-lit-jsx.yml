@@ -11,6 +11,6 @@ jobs:
     uses: arcmantle/github-workflows/.github/workflows/subtree-sync.yml@main
     with:
       package-path: packages/lit-jsx
-      target-repo: arcmantle/jsx-lit
+      target-repo: arcmantle/lit-jsx
     secrets:
       sync-token: ${{ secrets.SYNC_SUBTREE }}

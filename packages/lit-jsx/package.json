@@ -1,5 +1,5 @@
 {
-	"name": "jsx-lit",
+	"name": "@arcmantle/lit-jsx",
 	"description": "A JSX runtime and compiler that transforms JSX into Lit templates.",
 	"license": "Apache-2.0",
 	"contributors": [
@@ -7,7 +7,7 @@
 	],
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/RoenLie/jsx-lit.git"
+		"url": "git+https://github.com/arcmantle/lit-jsx.git"
 	},
 	"version": "1.1.0",
 	"files": [
