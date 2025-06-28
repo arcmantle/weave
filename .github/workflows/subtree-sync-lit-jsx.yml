@@ -8,7 +8,7 @@ on:
 
 jobs:
   sync-subtree:
-    uses: arcmantle/subtree-sync.yml@main
+    uses: arcmantle/github-workflows/subtree-sync.yml@main
     with:
       package-path: packages/lit-jsx
       target-repo: arcmantle/jsx-lit
