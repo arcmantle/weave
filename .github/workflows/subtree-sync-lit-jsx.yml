@@ -13,4 +13,4 @@ jobs:
       package-path: packages/lit-jsx
       target-repo: arcmantle/jsx-lit
     secrets:
-      sync-token: ${{ secrets.SUBTREE_SYNC }}
+      sync-token: ${{ secrets.SYNC_SUBTREE }}
