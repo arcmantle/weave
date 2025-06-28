@@ -1,6 +1,6 @@
-import { AegisElement, customElement } from '@roenlie/lit-aegis';
-import { emitEvent } from '@roenlie/core/dom';
-import { sharedStyles } from '@roenlie/lit-utilities/styles';
+import { AegisElement, customElement } from '@arcmantle/lit-aegis';
+import { emitEvent } from '@arcmantle/core/dom';
+import { sharedStyles } from '@arcmantle/lit-utilities/styles';
 import { html, type TemplateResult } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';

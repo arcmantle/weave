@@ -1,5 +1,5 @@
 {
-	"name": "@roenlie/elements",
+	"name": "@arcmantle/elements",
 	"version": "1.0.0",
 	"description": "Standalone custom elements created with LIT",
 	"license": "MIT",
@@ -35,17 +35,17 @@
 	},
 	"dependencies": {
 		"@floating-ui/dom": "^1.6.13",
-		"@roenlie/core": "workspace:^",
-		"@roenlie/lit-localize": "workspace:^",
-		"@roenlie/lit-utilities": "workspace:^",
+		"@arcmantle/core": "workspace:^",
+		"@arcmantle/lit-localize": "workspace:^",
+		"@arcmantle/lit-utilities": "workspace:^",
 		"lit": "^3.3.0",
 		"tslib": "^2.8.1"
 	},
 	"devDependencies": {
 		"@faker-js/faker": "^9.7.0",
-		"@roenlie/elements": "workspace:^",
-		"@roenlie/mirage-docs": "workspace:^",
-		"@roenlie/vite-lib-config": "workspace:^",
-		"@roenlie/vite-plugin-import-css-sheet": "workspace:^"
+		"@arcmantle/elements": "workspace:^",
+		"@arcmantle/mirage-docs": "workspace:^",
+		"@arcmantle/vite-lib-config": "workspace:^",
+		"@arcmantle/vite-plugin-import-css-sheet": "workspace:^"
 	}
 }

@@ -1,7 +1,7 @@
-import { alertPortal, MMAlert, MMAlertPortal } from '@roenlie/elements/alert';
-import { Alerts, type IAlertProps } from '@roenlie/elements/alert';
-import { MMButton } from '@roenlie/elements/button';
-import { MMIcon } from '@roenlie/elements/icon';
+import { alertPortal, MMAlert, MMAlertPortal } from '@arcmantle/elements/alert';
+import { Alerts, type IAlertProps } from '@arcmantle/elements/alert';
+import { MMButton } from '@arcmantle/elements/button';
+import { MMIcon } from '@arcmantle/elements/icon';
 import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';

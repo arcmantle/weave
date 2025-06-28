@@ -1,4 +1,4 @@
-import { libConfig } from '@roenlie/vite-lib-config';
+import { libConfig } from '@arcmantle/vite-lib-config';
 
 
 export default libConfig({

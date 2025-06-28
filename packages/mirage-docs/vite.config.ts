@@ -1,4 +1,4 @@
-import { getExternalImportPaths } from '@roenlie/package-toolbox/filesystem/get-import-paths.js';
+import { getExternalImportPaths } from '@arcmantle/package-toolbox/filesystem/get-import-paths.js';
 import { globby } from 'globby';
 import { resolve } from 'path';
 import { defineConfig, type UserConfig } from 'vite';

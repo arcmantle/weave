@@ -34,7 +34,7 @@ test('Wierd nested exports', () => {
 
 
 test('Single level nested with correct default', () => {
-	const packageName = '@roenlie/core';
+	const packageName = '@arcmantle/core';
 	const exports = {
 		'.': {
 			'types':   './dist/lib/index.d.ts',
@@ -57,9 +57,9 @@ test('Single level nested with correct default', () => {
 	const parsed = extractExports(packageName, exports);
 
 	expect([ ...parsed ]).to.be.deep.equal([
-		[ '@roenlie/core',           '@roenlie/core/dist/lib/index.js' ],
-		[ '@roenlie/core/animation', '@roenlie/core/dist/lib/animation/index.js' ],
-		[ '@roenlie/core/localize',  '@roenlie/core/dist/lib/localize/index.js' ],
-		[ '@roenlie/core/node-tree', '@roenlie/core/dist/lib/node-tree/index.js' ],
+		[ '@arcmantle/core',           '@arcmantle/core/dist/lib/index.js' ],
+		[ '@arcmantle/core/animation', '@arcmantle/core/dist/lib/animation/index.js' ],
+		[ '@arcmantle/core/localize',  '@arcmantle/core/dist/lib/localize/index.js' ],
+		[ '@arcmantle/core/node-tree', '@arcmantle/core/dist/lib/node-tree/index.js' ],
 	]);
 });

@@ -1,6 +1,6 @@
-import { resolvablePromise } from '@roenlie/core/async';
-import { customElement, MimicElement } from '@roenlie/lit-utilities/element';
-import { sharedStyles } from '@roenlie/lit-utilities/styles';
+import { resolvablePromise } from '@arcmantle/core/async';
+import { customElement, MimicElement } from '@arcmantle/lit-utilities/element';
+import { sharedStyles } from '@arcmantle/lit-utilities/styles';
 import { css, CSSResult, html } from 'lit';
 import { property, query } from 'lit/decorators.js';
 

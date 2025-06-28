@@ -1,5 +1,5 @@
 {
-	"name": "@roenlie/lit-context",
+	"name": "@arcmantle/lit-context",
 	"version": "1.0.0",
 	"description": "Context provider and consumer for Lit Elements",
 	"author": {
@@ -38,7 +38,7 @@
 		"tslib": "^2.8.1"
 	},
 	"devDependencies": {
-		"@roenlie/vite-lib-config": "workspace:^"
+		"@arcmantle/vite-lib-config": "workspace:^"
 	},
 	"sideEffects": false
 }

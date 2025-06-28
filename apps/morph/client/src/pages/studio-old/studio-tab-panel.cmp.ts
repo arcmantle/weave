@@ -1,6 +1,6 @@
-import { MMButton } from '@roenlie/elements/button';
-import { MMIcon } from '@roenlie/elements/icon';
-import { MimicElement, customElement } from '@roenlie/lit-utilities/element';
+import { MMButton } from '@arcmantle/elements/button';
+import { MMIcon } from '@arcmantle/elements/icon';
+import { MimicElement, customElement } from '@arcmantle/lit-utilities/element';
 import { css, html } from 'lit';
 import { queryAssignedElements } from 'lit/decorators.js';
 

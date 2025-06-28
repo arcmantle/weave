@@ -1,6 +1,6 @@
-import { libConfig } from '@roenlie/vite-lib-config';
-import { componentAutoImporter } from '@roenlie/vite-plugin-ce-auto-import';
-import { importCSSSheet } from '@roenlie/vite-plugin-import-css-sheet';
+import { libConfig } from '@arcmantle/vite-lib-config';
+import { componentAutoImporter } from '@arcmantle/vite-plugin-ce-auto-import';
+import { importCSSSheet } from '@arcmantle/vite-plugin-import-css-sheet';
 
 
 export default libConfig({

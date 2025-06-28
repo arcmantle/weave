@@ -31,6 +31,6 @@ jobs:
         run: pnpm install
 
       - name: Build dependencies, project and publish package.
-        run: pnpm release @roenlie/mirage-docs
+        run: pnpm release @arcmantle/mirage-docs
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}

@@ -1,4 +1,4 @@
-import type { IModule } from '@roenlie/morph/models/modules-model.js';
+import type { IModule } from '@arcmantle/morph/models/modules-model.js';
 import type { RequestHandler } from 'express';
 import { getByID, insertModule } from 'src/features/modules/modules-behavior.js';
 

@@ -14,9 +14,9 @@ export const docPageTemplate = (props: {
 	return `
 import { html } from 'lit';
 import { ifDefined } from 'lit/directives/if-defined.js'
-import { mermaid } from '@roenlie/mirage-docs/app/utilities/mermaid.js';
-import { PageAdapter } from '@roenlie/mirage-docs/app/components/page/page-element.${ fileExt() }';
-import { container } from '@roenlie/mirage-docs/container/container.${ fileExt() }'
+import { mermaid } from '@arcmantle/mirage-docs/app/utilities/mermaid.js';
+import { PageAdapter } from '@arcmantle/mirage-docs/app/components/page/page-element.${ fileExt() }';
+import { container } from '@arcmantle/mirage-docs/container/container.${ fileExt() }'
 
 // injected imports
 ${ props.imports }

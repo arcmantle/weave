@@ -1,4 +1,4 @@
-import dImport from '@roenlie/morph/server/features/modules/dynamic-import.js';
+import dImport from '@arcmantle/morph/server/features/modules/dynamic-import.js';
 import type { RequestHandler } from 'express';
 
 

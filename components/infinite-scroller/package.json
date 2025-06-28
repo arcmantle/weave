@@ -1,5 +1,5 @@
 {
-	"name": "@roenlie/infinite-scroller",
+	"name": "@arcmantle/infinite-scroller",
 	"description": "Infinite scroller base component.",
 	"authors": "Kristoffer Roen-Lie",
 	"version": "1.0.0",
@@ -24,11 +24,11 @@
 		"build::js": "vite build"
 	},
 	"dependencies": {
-		"@roenlie/core": "workspace:^",
+		"@arcmantle/core": "workspace:^",
 		"lit": "^3.3.0",
 		"tslib": "^2.8.1"
 	},
 	"devDependencies": {
-		"@roenlie/vite-lib-config": "workspace:^"
+		"@arcmantle/vite-lib-config": "workspace:^"
 	}
 }

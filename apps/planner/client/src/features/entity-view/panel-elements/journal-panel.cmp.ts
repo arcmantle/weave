@@ -1,6 +1,6 @@
-import { EventOf } from '@roenlie/core/dom';
-import { consume } from '@roenlie/lit-utilities/context';
-import { $Container, injectableElement, injectProp } from '@roenlie/lit-utilities/injectable';
+import { EventOf } from '@arcmantle/core/dom';
+import { consume } from '@arcmantle/lit-utilities/context';
+import { $Container, injectableElement, injectProp } from '@arcmantle/lit-utilities/injectable';
 import { JournalEntry } from '@rotul/planner-entities';
 import { Container } from 'inversify';
 import { css, html } from 'lit';

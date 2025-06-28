@@ -1,6 +1,6 @@
-import { emitEvent } from '@roenlie/core/dom';
-import { type Fn } from '@roenlie/core/types';
-import { customElement, MimicElement } from '@roenlie/lit-utilities/element';
+import { emitEvent } from '@arcmantle/core/dom';
+import { type Fn } from '@arcmantle/core/types';
+import { customElement, MimicElement } from '@arcmantle/lit-utilities/element';
 import { css, html } from 'lit';
 import { property } from 'lit/decorators.js';
 

@@ -1,5 +1,5 @@
 
-import { Route } from '@roenlie/lit-router';
+import { Route } from '@arcmantle/lit-router';
 
 import { routeAnimation } from '../../app/routes/route-animation.js';
 

@@ -1,4 +1,4 @@
-import { css } from '@roenlie/custom-element/adapter';
+import { css } from '@arcmantle/custom-element/adapter';
 
 
 export const buttonStyle = (

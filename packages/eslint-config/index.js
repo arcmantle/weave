@@ -7,7 +7,7 @@ import tseslint from 'typescript-eslint';
 
 /** @type {import('@typescript-eslint/utils').TSESLint.FlatConfig.ConfigArray} */
 const recommended  = tseslint.config({
-	name:    '@roenlie/eslint-config/recommended',
+	name:    '@arcmantle/eslint-config/recommended',
 	extends: [ eslint.configs.recommended ],
 	plugins: {
 		'@stylistic':         stylistic,
@@ -277,7 +277,7 @@ const recommended  = tseslint.config({
 
 /** @type { import('@typescript-eslint/utils').TSESLint.FlatConfig.ConfigArray } */
 const recommendedTs = tseslint.config({
-	name:    '@roenlie/eslint-config/recommended-ts',
+	name:    '@arcmantle/eslint-config/recommended-ts',
 	extends: [
 		...tseslint.configs.strict,
 		...tseslint.configs.stylistic,

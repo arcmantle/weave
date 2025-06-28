@@ -1,7 +1,7 @@
-import { debounce } from '@roenlie/core/timing';
-import { queryId, watch } from '@roenlie/lit-utilities/decorators';
-import { customElement, MimicElement } from '@roenlie/lit-utilities/element';
-import { sharedStyles } from '@roenlie/lit-utilities/styles';
+import { debounce } from '@arcmantle/core/timing';
+import { queryId, watch } from '@arcmantle/lit-utilities/decorators';
+import { customElement, MimicElement } from '@arcmantle/lit-utilities/element';
+import { sharedStyles } from '@arcmantle/lit-utilities/styles';
 import { css, html } from 'lit';
 import { eventOptions, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';

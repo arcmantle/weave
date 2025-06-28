@@ -2,10 +2,10 @@ import { html, LitElement } from 'lit';
 
 import { customElement } from 'lit/decorators.js';
 import { Routes, type RouteConfig } from '@lit-labs/router';
-import { provide } from '@roenlie/lit-context';
+import { provide } from '@arcmantle/lit-context';
 import { sharedStyles } from '../app/shared-styles.ts';
 import mainStyles from './main.css' with { type: 'css' };
-import { isMobile } from '@roenlie/core/dom';
+import { isMobile } from '@arcmantle/core/dom';
 
 
 export const mainRoutesID = 'main-routes';

@@ -1,4 +1,4 @@
-import { StringLiteral } from '@roenlie/core/types';
+import { StringLiteral } from '@arcmantle/core/types';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 

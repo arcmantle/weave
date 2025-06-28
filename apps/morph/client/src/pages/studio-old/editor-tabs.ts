@@ -1,5 +1,5 @@
-import { type EventOf, emitEvent } from '@roenlie/core/dom';
-import { MimicElement, customElement } from '@roenlie/lit-utilities/element';
+import { type EventOf, emitEvent } from '@arcmantle/core/dom';
+import { MimicElement, customElement } from '@arcmantle/lit-utilities/element';
 import { css, html } from 'lit';
 import { property } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';

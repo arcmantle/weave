@@ -1,5 +1,5 @@
 {
-	"name": "@roenlie/poe2builder",
+	"name": "@arcmantle/poe2builder",
 	"description": "description",
 	"authors": "author",
 	"version": "1.0.0",
@@ -13,8 +13,8 @@
 	"dependencies": {
 		"@codemirror/lang-json": "^6.0.1",
 		"@codemirror/view": "^6.36.5",
-		"@roenlie/core": "workspace:^",
-		"@roenlie/custom-element": "workspace:^",
+		"@arcmantle/core": "workspace:^",
+		"@arcmantle/custom-element": "workspace:^",
 		"@supabase/supabase-js": "^2.49.4",
 		"cm6-theme-basic-dark": "^0.2.0",
 		"codemirror": "^6.0.1",

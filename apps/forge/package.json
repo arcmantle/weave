@@ -10,9 +10,9 @@
 	},
 	"dependencies": {
 		"@lit-labs/preact-signals": "^1.0.3",
-		"@roenlie/core": "workspace:^",
-		"@roenlie/elements": "workspace:^",
-		"@roenlie/lit-utilities": "workspace:^",
+		"@arcmantle/core": "workspace:^",
+		"@arcmantle/elements": "workspace:^",
+		"@arcmantle/lit-utilities": "workspace:^",
 		"lit": "^3.3.0",
 		"posix-path-browser": "workspace:^",
 		"quill": "2.0.3",
@@ -20,7 +20,7 @@
 		"typescript": "^5.8.3"
 	},
 	"devDependencies": {
-		"@roenlie/vite-plugin-copy": "workspace:^",
-		"@roenlie/vite-plugin-import-css-sheet": "workspace:^"
+		"@arcmantle/vite-plugin-copy": "workspace:^",
+		"@arcmantle/vite-plugin-import-css-sheet": "workspace:^"
 	}
 }

@@ -33,8 +33,8 @@ jobs:
 
       - name: Build dependencies and project.
         run: |
-          pnpm build @roenlie/image-viewer
-          pnpm --filter @roenlie/image-viewer build-demo
+          pnpm build @arcmantle/image-viewer
+          pnpm --filter @arcmantle/image-viewer build-demo
 
       - name: Deploy
         uses: cloudflare/wrangler-action@v3

@@ -1,4 +1,4 @@
-import { AdapterElement, type CSSStyle, customElement, property } from '@roenlie/custom-element/adapter-element';
+import { AdapterElement, type CSSStyle, customElement, property } from '@arcmantle/custom-element/adapter-element';
 import { html } from 'lit-html';
 import { classMap } from 'lit-html/directives/class-map.js';
 

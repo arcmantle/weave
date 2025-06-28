@@ -1,7 +1,7 @@
 # Lit Fabric
 
-[![npm](https://img.shields.io/npm/dt/@roenlie/lit-fabric)](https://npm.im/@roenlie/lit-fabric)
-[![npm](https://img.shields.io/npm/v/@roenlie/lit-fabric)](https://npm.im/@roenlie/lit-fabric)
+[![npm](https://img.shields.io/npm/dt/@arcmantle/lit-fabric)](https://npm.im/@arcmantle/lit-fabric)
+[![npm](https://img.shields.io/npm/v/@arcmantle/lit-fabric)](https://npm.im/@arcmantle/lit-fabric)
 
 Fabric offers an alternative syntax for writing web-components through the [Lit component and templating system](https://lit.dev/).<br>
 The syntax and method of component creation is similar to React Hooks. With some minor changes to make it useable with standard web components. While being as minimal of a wrapper as possible.
@@ -14,12 +14,12 @@ component('demo-button', () => {
 	const inputQry = useQuery('inputQry', 'input');
 	let subCounter = 0;
 
-	useConnected((element) => { });	
-	
+	useConnected((element) => { });
+
 	useAfterConnected((element) => { });
 
 	useWillUpdate((props, element) => { }, [ 'counter' ]);
-	
+
 	useUpdate((props, element) => { }, [ 'counter' ]);
 
 	useUpdated((props, element) => { }, [ 'counter' ]);
@@ -55,7 +55,7 @@ component('demo-button', () => {
 ```
 
 ## Api
-Fabric uses method overriding as its primary mechanism of creating a valid web-component.  
+Fabric uses method overriding as its primary mechanism of creating a valid web-component.
 This allows for using all the Lit functionality without excessive amounts of indirection and redirection.
 
 There are hooks available that cover basically all of lits standard component functionality.
@@ -63,7 +63,7 @@ If a feature is not yet supported, it trivial to create your own hook with the n
 
 ### List of available hooks:
 
-- [useProperty](#useproperty) 
+- [useProperty](#useproperty)
 - [useState](#usestate)
 - [useQuery](#usequery)
 - [useStyles](#useStyles)
@@ -76,7 +76,7 @@ If a feature is not yet supported, it trivial to create your own hook with the n
 - [useController](#usecontroller)
 
 ## useProperty
-useProperty declares a reactive public property on the component.  
+useProperty declares a reactive public property on the component.
 Equivalent to using the `@property()` decorator in standard Lit components.
 Returns a tuple `[getter, setter]` that can be used to interact with the property.
 <br>[Back to list of hooks.](#list-of-available-hooks)

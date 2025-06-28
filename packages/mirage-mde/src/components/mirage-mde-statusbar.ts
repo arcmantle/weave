@@ -1,4 +1,4 @@
-import { iterate } from '@roenlie/core/iterators';
+import { iterate } from '@arcmantle/core/iterators';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { map } from 'lit/directives/map.js';

@@ -1,4 +1,4 @@
-import { DefaultTranslation, registerTranslation } from '@roenlie/core/localize';
+import { DefaultTranslation, registerTranslation } from '@arcmantle/core/localize';
 
 
 const translation: DefaultTranslation = {

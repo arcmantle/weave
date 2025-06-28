@@ -35,7 +35,7 @@ export class ModulesForm extends SignalWatcher(LitElement) {
 		super.connectedCallback();
 
 		subOnce(this.store.selectedModule, () => {
-			this.loadingEditor = import('@roenlie/monaco-editor-wc')
+			this.loadingEditor = import('@arcmantle/monaco-editor-wc')
 				.then(() => this.loadingEditor = undefined);
 		});
 	}

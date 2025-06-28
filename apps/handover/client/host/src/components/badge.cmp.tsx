@@ -1,5 +1,5 @@
-import { AdapterElement, css, customElement, property } from '@roenlie/custom-element/adapter';
-import { ifDefined } from '@roenlie/custom-element/shared';
+import { AdapterElement, css, customElement, property } from '@arcmantle/custom-element/adapter';
+import { ifDefined } from '@arcmantle/custom-element/shared';
 import { toJSX } from 'jsx-lit';
 
 import { cssreset } from '../styles/css-reset.ts';

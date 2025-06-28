@@ -1,4 +1,4 @@
-import { defineDocConfig } from '@roenlie/mirage-docs/server';
+import { defineDocConfig } from '@arcmantle/mirage-docs/server';
 
 
 export default defineDocConfig(

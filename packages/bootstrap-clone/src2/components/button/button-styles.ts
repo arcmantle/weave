@@ -1,5 +1,5 @@
 /* eslint-disable @stylistic/max-len */
-import { css, type CSSStyle } from '@roenlie/custom-element/adapter-element';
+import { css, type CSSStyle } from '@arcmantle/custom-element/adapter-element';
 
 import { style, styleVariables } from '../../style-variables.ts';
 import { borderRadius } from '../../styles/mixins/border-radius.ts';

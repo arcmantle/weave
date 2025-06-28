@@ -1,7 +1,7 @@
 import { clone, DOMQuery, emitEvent } from '@eyeshare/shared';
 import { watch } from '@eyeshare/web-components';
 import { EsIconCmp } from '@eyeshare/web-components/dist/lib/components/_Core/icon/icon.cmp.js';
-import { MirageElement } from '@roenlie/mirage-utils';
+import { MirageElement } from '@arcmantle/mirage-utils';
 import { html, PropertyValues } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { map } from 'lit/directives/map.js';

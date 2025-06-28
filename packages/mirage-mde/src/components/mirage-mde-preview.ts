@@ -1,4 +1,4 @@
-import { DisplayElement } from '@roenlie/mirage-mde-display';
+import { DisplayElement } from '@arcmantle/mirage-mde-display';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 

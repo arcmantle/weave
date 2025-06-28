@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { SQLite } from '../app/database.ts';
 import pacote from 'pacote';
-import { maybe } from '@roenlie/core/async';
+import { maybe } from '@arcmantle/core/async';
 
 
 export const test = () => {};

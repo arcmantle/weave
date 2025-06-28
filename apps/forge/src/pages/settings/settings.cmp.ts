@@ -1,4 +1,4 @@
-import { AegisElement, customElement } from '@roenlie/lit-aegis';
+import { AegisElement, customElement } from '@arcmantle/lit-aegis';
 import { Keystone, type KeystoneComponent, type SubProps, useStyle } from 'keystone-core';
 import { html } from 'lit';
 import { createRef, ref } from 'lit/directives/ref.js';

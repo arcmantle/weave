@@ -1,15 +1,15 @@
 import { html, LitElement, type PropertyValues } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import capturePageStyles from './capture-page.css' with { type: 'css' };
-import { consume, provide, type ContextProp } from '@roenlie/lit-context';
+import { consume, provide, type ContextProp } from '@arcmantle/lit-context';
 import { Routes } from '@lit-labs/router';
 import { sharedStyles } from '../../app/shared-styles.ts';
 import { mainRoutesID } from '../../layout/main.cmp.ts';
 import demofile from './components/demo-file.txt?raw';
 import './components/camera.cmp.ts';
 import type { Image } from './components/gallery.cmp.ts';
-import { domId } from '@roenlie/core/dom';
-import { IndexDBWrapper } from '@roenlie/core/indexdb';
+import { domId } from '@arcmantle/core/dom';
+import { IndexDBWrapper } from '@arcmantle/core/indexdb';
 import { CaptureSession } from './capture-session.ts';
 import { synapseIndexDB } from '../../app/index-db.ts';
 

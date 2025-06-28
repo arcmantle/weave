@@ -1,4 +1,4 @@
-import { Adapter } from '@roenlie/lit-aegis';
+import { Adapter } from '@arcmantle/lit-aegis';
 import type { SearchPageCmp } from './search-page.ts';
 import { html } from 'lit';
 

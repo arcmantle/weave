@@ -3,8 +3,8 @@ import {
 	AegisComponent,
 	customElement,
 	inject,
-} from '@roenlie/lit-aegis';
-import { FragmentTable } from '@roenlie/elements/fragment-table';
+} from '@arcmantle/lit-aegis';
+import { FragmentTable } from '@arcmantle/elements/fragment-table';
 import { css, html } from 'lit';
 import { HandoverRowScrollerCmp } from './handover-row.js';
 

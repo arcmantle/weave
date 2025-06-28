@@ -1,4 +1,4 @@
-import { AppRouterCmp } from '@roenlie/elements/router';
+import { AppRouterCmp } from '@arcmantle/elements/router';
 import { render } from 'lit';
 
 import { routes } from './features/router/routes.js';

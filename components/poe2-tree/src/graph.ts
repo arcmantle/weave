@@ -1,4 +1,4 @@
-import { domId } from '@roenlie/core/dom';
+import { domId } from '@arcmantle/core/dom';
 
 
 export interface Vector2 { x: number, y: number; }

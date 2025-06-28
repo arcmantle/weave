@@ -1,6 +1,6 @@
-import { traverseDomUp } from '@roenlie/core/dom';
-import type { Writeable } from '@roenlie/core/types';
-import { PluginContainer, PluginModule } from '@roenlie/injector';
+import { traverseDomUp } from '@arcmantle/core/dom';
+import type { Writeable } from '@arcmantle/core/types';
+import { PluginContainer, PluginModule } from '@arcmantle/injector';
 import { render, type RenderOptions } from 'lit-html';
 
 import { effect } from '../shared/effect.ts';

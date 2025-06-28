@@ -1,7 +1,7 @@
-import { AegisElement, customElement } from '@roenlie/lit-aegis';
-import { emitEvent } from '@roenlie/core/dom';
-import { tooltip } from '@roenlie/elements/tooltip';
-import { sharedStyles } from '@roenlie/lit-utilities/styles';
+import { AegisElement, customElement } from '@arcmantle/lit-aegis';
+import { emitEvent } from '@arcmantle/core/dom';
+import { tooltip } from '@arcmantle/elements/tooltip';
+import { sharedStyles } from '@arcmantle/lit-utilities/styles';
 import { html } from 'lit';
 import { property } from 'lit/decorators.js';
 import { map } from 'lit/directives/map.js';

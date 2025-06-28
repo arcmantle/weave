@@ -4,7 +4,7 @@
  * Copyright 2024 Kristoffer Roen-Lie
  * SPDX-License-Identifier: BSD-3-Clause
  */
-import { waitForPromises } from '@roenlie/core/async';
+import { waitForPromises } from '@arcmantle/core/async';
 import { URLPattern } from 'urlpattern-polyfill/urlpattern';
 
 import type { AdapterElement } from '../adapter/adapter-element.ts';

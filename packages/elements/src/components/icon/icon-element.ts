@@ -1,4 +1,4 @@
-import { customElement, MimicElement } from '@roenlie/lit-utilities/element';
+import { customElement, MimicElement } from '@arcmantle/lit-utilities/element';
 import { css, html, type PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';

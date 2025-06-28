@@ -1,5 +1,5 @@
 {
-	"name": "@roenlie/vite-plugin-copy",
+	"name": "@arcmantle/vite-plugin-copy",
 	"version": "1.0.0",
 	"description": "Copies files during vite build.",
 	"license": "MIT",
@@ -31,7 +31,7 @@
 		"globby": "^14.1.0"
 	},
 	"devDependencies": {
-		"@roenlie/vite-lib-config": "workspace:^",
+		"@arcmantle/vite-lib-config": "workspace:^",
 		"@types/fs-extra": "^11.0.4"
 	}
 }

@@ -1,5 +1,5 @@
 {
-	"name": "@roenlie/ferrite-server",
+	"name": "@arcmantle/ferrite-server",
 	"description": "description",
 	"authors": "author",
 	"version": "1.0.0",
@@ -13,8 +13,8 @@
 		"dev": "tsx watch src/server.ts"
 	},
 	"dependencies": {
-		"@roenlie/core": "workspace:^",
-		"@roenlie/ferrite-server": "file:",
+		"@arcmantle/core": "workspace:^",
+		"@arcmantle/ferrite-server": "file:",
 		"better-sqlite3": "^11.9.1",
 		"cors": "^2.8.5",
 		"dotenv": "^16.5.0",

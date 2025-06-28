@@ -1,4 +1,4 @@
-import type { Vec2 } from '@roenlie/core/types';
+import type { Vec2 } from '@arcmantle/core/types';
 import { createWorkerApi, type, type TransferableMouseEvent, type TransferableTouches, type TransferableTouchEvent } from './worker-interface.ts';
 
 

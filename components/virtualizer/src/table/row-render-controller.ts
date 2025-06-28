@@ -1,7 +1,7 @@
-import { range } from '@roenlie/core/array';
-import type { EventOf } from '@roenlie/core/dom';
-import { readPath } from '@roenlie/core/structs';
-import { throttle, withDebounce } from '@roenlie/core/timing';
+import { range } from '@arcmantle/core/array';
+import type { EventOf } from '@arcmantle/core/dom';
+import { readPath } from '@arcmantle/core/structs';
+import { throttle, withDebounce } from '@arcmantle/core/timing';
 import { css, html, nothing, type ReactiveController } from 'lit';
 import { map } from 'lit/directives/map.js';
 import { createRef, type Ref, ref } from 'lit/directives/ref.js';

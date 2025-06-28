@@ -1,5 +1,5 @@
 {
-	"name": "@roenlie/image-viewer",
+	"name": "@arcmantle/image-viewer",
 	"description": "Image viewer web component based on web-worker canvas image manipulation.",
 	"authors": "Kristoffer Roen-Lie",
 	"version": "1.0.0",
@@ -26,12 +26,12 @@
 		"preview-demo": "vite preview --config ./demo/vite.config.ts"
 	},
 	"dependencies": {
-		"@roenlie/core": "workspace:^",
-		"@roenlie/custom-element": "workspace:^",
+		"@arcmantle/core": "workspace:^",
+		"@arcmantle/custom-element": "workspace:^",
 		"lit-html": "^3.3.0",
 		"tslib": "^2.8.1"
 	},
 	"devDependencies": {
-		"@roenlie/vite-lib-config": "workspace:^"
+		"@arcmantle/vite-lib-config": "workspace:^"
 	}
 }

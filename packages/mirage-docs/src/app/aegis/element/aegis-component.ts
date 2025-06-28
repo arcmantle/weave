@@ -1,6 +1,6 @@
-import { type PromiseOrFunc, resolvablePromise, resolvePromiseOrFunc } from '@roenlie/core/async';
-import { isClass, typeOf } from '@roenlie/core/validation';
-import { useReflectMetadata } from '@roenlie/reflect-metadata';
+import { type PromiseOrFunc, resolvablePromise, resolvePromiseOrFunc } from '@arcmantle/core/async';
+import { isClass, typeOf } from '@arcmantle/core/validation';
+import { useReflectMetadata } from '@arcmantle/reflect-metadata';
 import { adoptStyles, type CSSResultOrNative, type PropertyValues } from 'lit';
 import { property } from 'lit/decorators.js';
 

@@ -1,4 +1,4 @@
-import type { PluginContainer } from '@roenlie/injector';
+import type { PluginContainer } from '@arcmantle/injector';
 
 export type PropertyType =
 	| StringConstructor

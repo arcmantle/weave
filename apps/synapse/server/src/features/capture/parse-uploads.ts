@@ -3,7 +3,7 @@ import { paths } from '../../app/paths.ts';
 import { performOCR } from '../ocr/perform-ocr.ts';
 import { OCRModel, type IOCRModel } from '../ocr/ocr-model.ts';
 import { basename, dirname } from 'node:path/posix';
-import { Query } from '@roenlie/sqlite-wrapper';
+import { Query } from '@arcmantle/sqlite-wrapper';
 import { ocrDbPath, ocrTable } from '../ocr/ocr-table.ts';
 import { insertOCRDataToWeaviate } from '../ocr/ocr-weaviate.ts';
 import { mkdir, rename, rmdir } from 'node:fs/promises';

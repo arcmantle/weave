@@ -1,5 +1,5 @@
-import { /*componentAutoImporter,*/ libConfig } from '@roenlie/vite-lib-config';
-import { transformSass } from '@roenlie/vite-plugin-sass';
+import { /*componentAutoImporter,*/ libConfig } from '@arcmantle/vite-lib-config';
+import { transformSass } from '@arcmantle/vite-plugin-sass';
 import { defineConfig } from 'vite';
 
 export default defineConfig(libConfig({

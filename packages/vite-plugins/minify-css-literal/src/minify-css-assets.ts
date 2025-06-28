@@ -9,7 +9,7 @@ export const minifyCssAssets = (dir?: string): Plugin => {
 	let config: ResolvedConfig;
 
 	return {
-		name:           '@roenlie/vite-minify-css-assets',
+		name:           '@arcmantle/vite-minify-css-assets',
 		configResolved: cfg => {
 			config = cfg;
 		},
@@ -23,7 +23,7 @@ export const minifyCssAssets = (dir?: string): Plugin => {
 						minify:   true,
 						filename: file,
 					});
-	
+
 					await writeFile(file, code);
 				}
 				catch (err) {

@@ -1,4 +1,4 @@
-import type { Vec2, Repeat } from '@roenlie/core/types';
+import type { Vec2, Repeat } from '@arcmantle/core/types';
 import { GraphNode } from '../../graph/graph-node.ts';
 import { dataNodes } from '../../graph/node-catalog.ts';
 import { Canvas2DObject } from '../canvas-object.ts';

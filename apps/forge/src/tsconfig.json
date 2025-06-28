@@ -1,10 +1,10 @@
 {
-	"extends": "@roenlie/tsconfig",
+	"extends": "@arcmantle/tsconfig",
 	"compilerOptions": {
 		"rootDir": ".",
 		"baseUrl": ".",
 		"types": [
-			"@roenlie/vite-plugin-import-css-sheet/client",
+			"@arcmantle/vite-plugin-import-css-sheet/client",
 		],
 	},
 }

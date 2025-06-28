@@ -1,5 +1,5 @@
 {
-	"name": "@roenlie/handover",
+	"name": "@arcmantle/handover",
 	"description": "description",
 	"authors": "author",
 	"version": "1.0.0",
@@ -9,11 +9,11 @@
 		"dev": "vite"
 	},
 	"dependencies": {
-		"@roenlie/core": "workspace:^",
-		"@roenlie/custom-element": "workspace:^",
-		"@roenlie/handover-core": "workspace:^",
-		"@roenlie/vite-plugin-import-css-sheet": "workspace:^",
-		"jsx-lit": "workspace:^",
+		"@arcmantle/core": "workspace:^",
+		"@arcmantle/custom-element": "workspace:^",
+		"@arcmantle/handover-core": "workspace:^",
+		"@arcmantle/vite-plugin-import-css-sheet": "workspace:^",
+		"@arcmantle/lit-jsx": "workspace:^",
 		"@tailwindcss/vite": "^4.1.7",
 		"tailwindcss": "^4.1.7",
 		"class-variance-authority": "^0.7.1",

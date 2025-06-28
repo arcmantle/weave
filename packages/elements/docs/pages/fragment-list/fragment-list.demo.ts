@@ -1,6 +1,6 @@
 import { faker } from '@faker-js/faker';
-import { range } from '@roenlie/core/array';
-import { sharedStyles } from '@roenlie/lit-utilities/styles';
+import { range } from '@arcmantle/core/array';
+import { sharedStyles } from '@arcmantle/lit-utilities/styles';
 import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { DemoFragmentList } from '../../../src/components/fragment-list/fragment-list.ts';

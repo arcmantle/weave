@@ -1,4 +1,4 @@
-import { componentAutoImporter } from '@roenlie/vite-plugin-ce-auto-import';
+import { componentAutoImporter } from '@arcmantle/vite-plugin-ce-auto-import';
 import { config } from 'dotenv';
 import { defineConfig } from 'vite';
 

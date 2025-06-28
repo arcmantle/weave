@@ -1,8 +1,8 @@
-//import '@roenlie/elements/styles';
+//import '@arcmantle/elements/styles';
 
-import { sleep } from '@roenlie/core/async';
-import { LangBlockStore } from '@roenlie/lit-localize/implement';
-import { appendToLangMap, createLangMapFromJson } from '@roenlie/lit-localize/utilities';
+import { sleep } from '@arcmantle/core/async';
+import { LangBlockStore } from '@arcmantle/lit-localize/implement';
+import { appendToLangMap, createLangMapFromJson } from '@arcmantle/lit-localize/utilities';
 
 import codes from './misc/language-en.json';
 

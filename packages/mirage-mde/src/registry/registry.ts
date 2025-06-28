@@ -1,4 +1,4 @@
-import { type stringliteral } from '@roenlie/core/types';
+import { type stringliteral } from '@arcmantle/core/types';
 
 import { type BuiltInAction, builtInActions, type ToolbarItem } from './action-registry.js';
 import { type BuiltInDrawables, builtInDraws } from './draw-registry.js';

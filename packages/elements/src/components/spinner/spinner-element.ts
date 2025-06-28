@@ -1,6 +1,6 @@
-import { customElement, MimicElement } from '@roenlie/lit-utilities/element';
-import { sharedStyles } from '@roenlie/lit-utilities/styles';
-import { tTerm } from '@roenlie/lit-localize/directive';
+import { customElement, MimicElement } from '@arcmantle/lit-utilities/element';
+import { sharedStyles } from '@arcmantle/lit-utilities/styles';
+import { tTerm } from '@arcmantle/lit-localize/directive';
 import { css, html } from 'lit';
 
 

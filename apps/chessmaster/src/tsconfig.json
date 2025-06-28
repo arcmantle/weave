@@ -1,5 +1,5 @@
 {
-	"extends": "@roenlie/tsconfig",
+	"extends": "@arcmantle/tsconfig",
 	"compilerOptions": {
 		"rootDir": ".",
 		"outDir": "../dist/lib",
@@ -8,7 +8,7 @@
 		"experimentalDecorators": true,
 		"useDefineForClassFields": false,
 		"types": [
-			"@roenlie/mirage-utils/globals",
+			"@arcmantle/mirage-utils/globals",
 			"vite/client"
 		]
 	},

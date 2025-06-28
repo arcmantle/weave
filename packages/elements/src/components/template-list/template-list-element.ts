@@ -1,10 +1,10 @@
-import { type PauseableEvent, pauseableEvent } from '@roenlie/core/async';
-import { emitEvent, findActiveElement } from '@roenlie/core/dom';
-import { noop } from '@roenlie/core/function';
-import { type Fn } from '@roenlie/core/types';
-import { EventController } from '@roenlie/lit-utilities/controllers';
-import { customElement, MimicElement } from '@roenlie/lit-utilities/element';
-import { sharedStyles } from '@roenlie/lit-utilities/styles';
+import { type PauseableEvent, pauseableEvent } from '@arcmantle/core/async';
+import { emitEvent, findActiveElement } from '@arcmantle/core/dom';
+import { noop } from '@arcmantle/core/function';
+import { type Fn } from '@arcmantle/core/types';
+import { EventController } from '@arcmantle/lit-utilities/controllers';
+import { customElement, MimicElement } from '@arcmantle/lit-utilities/element';
+import { sharedStyles } from '@arcmantle/lit-utilities/styles';
 import { css, html, type TemplateResult } from 'lit';
 import { eventOptions, property, query, state } from 'lit/decorators.js';
 import { map } from 'lit/directives/map.js';

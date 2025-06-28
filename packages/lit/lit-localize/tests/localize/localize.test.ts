@@ -1,4 +1,4 @@
-import { format } from '@roenlie/core/string';
+import { format } from '@arcmantle/core/string';
 import { expect, test } from 'vitest';
 
 import { term } from '../../src/core/localize-core.js';

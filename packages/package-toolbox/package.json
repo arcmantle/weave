@@ -1,5 +1,5 @@
 {
-	"name": "@roenlie/package-toolbox",
+	"name": "@arcmantle/package-toolbox",
 	"version": "1.0.0",
 	"description": "Utilities for typescript/javascript packages",
 	"license": "MIT",
@@ -61,7 +61,7 @@
 		"yargs": "^17.7.2"
 	},
 	"devDependencies": {
-		"@roenlie/vite-lib-config": "workspace:^",
+		"@arcmantle/vite-lib-config": "workspace:^",
 		"@types/fs-extra": "^11.0.4",
 		"@types/semver": "^7.7.0",
 		"@types/yargs": "^17.0.33"

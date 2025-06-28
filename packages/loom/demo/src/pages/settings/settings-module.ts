@@ -1,4 +1,4 @@
-import { Component, Module } from '@roenlie/loom';
+import { Component, Module } from '@arcmantle/loom';
 
 
 class SettingsCmp extends Component {

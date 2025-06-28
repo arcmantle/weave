@@ -1,4 +1,4 @@
-import { invariant } from '@roenlie/core/validation';
+import { invariant } from '@arcmantle/core/validation';
 
 import { getCurrentRef } from '../core/component.js';
 

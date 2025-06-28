@@ -1,4 +1,4 @@
-import eslintConfig from '@roenlie/eslint-config';
+import eslintConfig from '@arcmantle/eslint-config';
 
 
 export default [ ...eslintConfig.recommended ];

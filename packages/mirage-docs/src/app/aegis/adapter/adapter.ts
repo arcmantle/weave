@@ -4,7 +4,7 @@ import { injectable } from '../annotations/annotations.js';
 import { type Container } from '../container/container.js';
 import { ContainerFacility } from '../container/loader.js';
 import { type AegisComponent, currentAdapterElement } from '../element/aegis-component.js';
-import { useReflectMetadata } from '@roenlie/reflect-metadata';
+import { useReflectMetadata } from '@arcmantle/reflect-metadata';
 
 
 export class Adapter<T extends object = Record<keyof any, any>> {

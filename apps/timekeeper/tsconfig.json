@@ -6,7 +6,7 @@
 		"baseUrl": ".",
 		"emitDeclarationOnly": true,
 		"types": [
-			"@roenlie/mirage-utils/globals",
+			"@arcmantle/mirage-utils/globals",
 			"vite/client"
 		]
 	},

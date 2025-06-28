@@ -30,6 +30,6 @@ jobs:
         run: pnpm install
 
       - name: Build dependencies, project and publish package.
-        run: pnpm release @roenlie/vite-plugin-import-css-sheet
+        run: pnpm release @arcmantle/vite-plugin-import-css-sheet
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}

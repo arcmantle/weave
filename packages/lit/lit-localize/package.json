@@ -1,5 +1,5 @@
 {
-	"name": "@roenlie/lit-localize",
+	"name": "@arcmantle/lit-localize",
 	"version": "1.0.0",
 	"description": "A lightweight and reactive localization package, with a focus on use with LIT web components.",
 	"author": {
@@ -45,11 +45,11 @@
 		"lit": "^3.2.1"
 	},
 	"dependencies": {
-		"@roenlie/core": "workspace:^"
+		"@arcmantle/core": "workspace:^"
 	},
 	"devDependencies": {
 		"@lit-labs/preact-signals": "^1.0.3",
-		"@roenlie/vite-lib-config": "workspace:^",
+		"@arcmantle/vite-lib-config": "workspace:^",
 		"happy-dom": "^17.4.4",
 		"lit": "^3.3.0"
 	},

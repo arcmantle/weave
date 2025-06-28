@@ -1,5 +1,5 @@
 {
-	"name": "@roenlie/vite-plugin-ce-auto-import",
+	"name": "@arcmantle/vite-plugin-ce-auto-import",
 	"version": "1.0.1",
 	"description": "Automatically imports required web components.",
 	"license": "MIT",
@@ -28,6 +28,6 @@
 	},
 	"dependencies": {},
 	"devDependencies": {
-		"@roenlie/vite-lib-config": "workspace:^"
+		"@arcmantle/vite-lib-config": "workspace:^"
 	}
 }

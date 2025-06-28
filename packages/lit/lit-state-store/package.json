@@ -1,5 +1,5 @@
 {
-	"name": "@roenlie/lit-state-store",
+	"name": "@arcmantle/lit-state-store",
 	"version": "1.0.0",
 	"description": "State store primarily for use with LIT web components.",
 	"author": {
@@ -34,11 +34,11 @@
 		"build:types": "tsc --project ./src/tsconfig.json"
 	},
 	"dependencies": {
-		"@roenlie/core": "workspace:^",
+		"@arcmantle/core": "workspace:^",
 		"lit": "^3.3.0"
 	},
 	"devDependencies": {
-		"@roenlie/vite-lib-config": "workspace:^"
+		"@arcmantle/vite-lib-config": "workspace:^"
 	},
 	"sideEffects": false
 }

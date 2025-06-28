@@ -1,6 +1,6 @@
 import { faker } from '@faker-js/faker';
-import { range } from '@roenlie/core/array';
-import { type IModule, Module } from '@roenlie/morph/models/modules-model.js';
+import { range } from '@arcmantle/core/array';
+import { type IModule, Module } from '@arcmantle/morph/models/modules-model.js';
 
 import { SQLite } from '../sqlite/database.js';
 import { escapeString } from '../sqlite/escape-string.js';

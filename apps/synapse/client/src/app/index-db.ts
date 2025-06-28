@@ -1,4 +1,4 @@
-import { IndexDBWrapper } from '@roenlie/core/indexdb';
+import { IndexDBWrapper } from '@arcmantle/core/indexdb';
 import { CaptureSession } from '../pages/capture/capture-session.ts';
 
 

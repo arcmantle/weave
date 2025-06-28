@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 
-import { libConfig } from '@roenlie/vite-lib-config';
+import { libConfig } from '@arcmantle/vite-lib-config';
 import { rimraf } from 'rimraf';
 import type { Plugin, ResolvedConfig } from 'vite';
 

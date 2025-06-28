@@ -1,5 +1,5 @@
 {
-	"name": "@roenlie/monaco-editor-wc",
+	"name": "@arcmantle/monaco-editor-wc",
 	"description": "Web component wrapping the monaco editor.",
 	"author": {
 		"name": "Kristoffer Roen-Lie"
@@ -27,7 +27,7 @@
 	},
 	"devDependencies": {
 		"@microsoft/api-extractor": "^7.52.3",
-		"@roenlie/vite-lib-config": "workspace:^",
+		"@arcmantle/vite-lib-config": "workspace:^",
 		"lit": "^3.3.0",
 		"monaco-editor": "^0.52.2",
 		"rimraf": "^6.0.1",

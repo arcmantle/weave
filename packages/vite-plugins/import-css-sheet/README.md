@@ -1,4 +1,4 @@
-# @roenlie/vite-plugin-import-css-sheet
+# @arcmantle/vite-plugin-import-css-sheet
 Small plugin that enables the use of tc39/proposal-import-attributes for css files in vite.
 Any imported .css file that uses the with/assert syntax will be imported as a `CSSStyleSheet`.
 This plugin **only** covers .css imports and nothing else.
@@ -8,18 +8,18 @@ This plugin **only** covers .css imports and nothing else.
 
 #### npm
 ```
-npm i @roenlie/vite-plugin-import-css-sheet --save-dev
+npm i @arcmantle/vite-plugin-import-css-sheet --save-dev
 ```
 
 #### pnpm
 ```
-pnpm add -D @roenlie/vite-plugin-import-css-sheet
+pnpm add -D @arcmantle/vite-plugin-import-css-sheet
 ```
 
 ## Enable
 ```typescript
 import { defineConfig } from 'vite';
-import { importCSSSheet } from '@roenlie/vite-plugin-import-css-sheet';
+import { importCSSSheet } from '@arcmantle/vite-plugin-import-css-sheet';
 
 export default defineConfig({
 	plugins: [
@@ -35,14 +35,14 @@ For typings to work correctly, in your tsconfig.json file add the following:
 {
 	"compilerOptions": {
 		"types": [
-			"@roenlie/vite-plugin-import-css-sheet/client"
+			"@arcmantle/vite-plugin-import-css-sheet/client"
 		]
 	},
 }
 ```
 This adds the correct type to .css file imports.
 
-If you also use vite/client typings, `@roenlie/vite-plugin-import-css-sheet/client` must be below it.
+If you also use vite/client typings, `@arcmantle/vite-plugin-import-css-sheet/client` must be below it.
 
 ## Usage
 

@@ -1,4 +1,4 @@
-import type { stringliteral } from '@roenlie/core/types';
+import type { stringliteral } from '@arcmantle/core/types';
 
 import type { ReactiveController } from '../shared/reactive-controller.ts';
 import type { AdapterElement } from './adapter-element.ts';

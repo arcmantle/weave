@@ -1,5 +1,5 @@
-import { AdapterElement, css, type CSSStyle, customElement, PluginModule, provider } from '@roenlie/custom-element/adapter';
-import { Router } from '@roenlie/custom-element/router';
+import { AdapterElement, css, type CSSStyle, customElement, PluginModule, provider } from '@arcmantle/custom-element/adapter';
+import { Router } from '@arcmantle/custom-element/router';
 
 import { cssreset } from '../styles/css-reset.ts';
 import { BadgePage } from './badge-page.tsx';

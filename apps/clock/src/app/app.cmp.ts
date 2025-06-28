@@ -1,6 +1,6 @@
-import { component } from '@roenlie/lit-fabric/core';
-import { useConnected } from '@roenlie/lit-fabric/hooks';
-import { sharedStyles } from '@roenlie/lit-utilities/styles';
+import { component } from '@arcmantle/lit-fabric/core';
+import { useConnected } from '@arcmantle/lit-fabric/hooks';
+import { sharedStyles } from '@arcmantle/lit-utilities/styles';
 import { type Route, Router } from '@vaadin/router';
 import { css, html } from 'lit';
 

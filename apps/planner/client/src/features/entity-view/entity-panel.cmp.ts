@@ -1,9 +1,9 @@
-import { ITrackedPromise, TrackedPromise } from '@roenlie/core/async';
-import { breadthTraverseDOM } from '@roenlie/core/dom';
-import { removeSegments } from '@roenlie/core/string';
-import { catalogToList } from '@roenlie/core/structs';
-import { consume } from '@roenlie/lit-utilities/context';
-import { $Container, InjectableElement, injectableElement, injectProp } from '@roenlie/lit-utilities/injectable';
+import { ITrackedPromise, TrackedPromise } from '@arcmantle/core/async';
+import { breadthTraverseDOM } from '@arcmantle/core/dom';
+import { removeSegments } from '@arcmantle/core/string';
+import { catalogToList } from '@arcmantle/core/structs';
+import { consume } from '@arcmantle/lit-utilities/context';
+import { $Container, InjectableElement, injectableElement, injectProp } from '@arcmantle/lit-utilities/injectable';
 import { Container } from 'inversify';
 import { css, html } from 'lit';
 import { query, state } from 'lit/decorators.js';

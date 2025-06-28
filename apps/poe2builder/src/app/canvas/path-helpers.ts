@@ -1,4 +1,4 @@
-import type { Repeat, Vec2 } from '@roenlie/core/types';
+import type { Repeat, Vec2 } from '@arcmantle/core/types';
 
 
 export function getPathReduction(radius: number, a: Vec2, b: Vec2): [x: number, y: number];

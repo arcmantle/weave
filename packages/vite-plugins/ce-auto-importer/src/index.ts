@@ -59,7 +59,7 @@ export const componentAutoImportLoad = (props: AutoImportLoadProps): string | un
 			.replace('.ts', '.js')
 		}';`);
 
-	const msg = `/* Component imports injected from: @roenlie/vite-plugin-ce-auto-import */`;
+	const msg = `/* Component imports injected from: @arcmantle/vite-plugin-ce-auto-import */`;
 	imports.unshift(msg);
 	imports.push(`/*  */`);
 

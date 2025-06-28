@@ -1,4 +1,4 @@
-import { PluginContainer } from '@roenlie/injector';
+import { PluginContainer } from '@arcmantle/injector';
 
 
 export const container = new PluginContainer();

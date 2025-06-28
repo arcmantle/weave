@@ -1,8 +1,8 @@
-import { Adapter, state } from '@roenlie/lit-aegis';
+import { Adapter, state } from '@arcmantle/lit-aegis';
 import type { Image } from '../capture/components/gallery.cmp.ts';
-import { debounce } from '@roenlie/core/timing';
+import { debounce } from '@arcmantle/core/timing';
 import { ServerURL } from '../../app/server-url.ts';
-import { maybe } from '@roenlie/core/async';
+import { maybe } from '@arcmantle/core/async';
 import { html } from 'lit';
 import { map } from 'lit/directives/map.js';
 import { live } from 'lit/directives/live.js';

@@ -1,5 +1,5 @@
-import { type ResolvablePromise, resolvablePromise } from '@roenlie/core/async';
-import { domId, traverseDomUp } from '@roenlie/core/dom';
+import { type ResolvablePromise, resolvablePromise } from '@arcmantle/core/async';
+import { domId, traverseDomUp } from '@arcmantle/core/dom';
 import { LitElement, type PropertyValues } from 'lit';
 import { keyed } from 'lit/directives/keyed.js';
 

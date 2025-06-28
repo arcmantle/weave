@@ -1,5 +1,5 @@
 {
-	"extends": "@roenlie/tsconfig",
+	"extends": "@arcmantle/tsconfig",
 	"compilerOptions": {
 		"types": [
 			"vite/client",

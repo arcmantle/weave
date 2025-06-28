@@ -32,7 +32,7 @@ export const indexPageTemplate = (props: {
 		},
 		{
 			template: `<script type="module">
-			import index from "@roenlie/mirage-docs/assets/index.css?url";
+			import index from "@arcmantle/mirage-docs/assets/index.css?url";
 			const link = document.createElement('link');
 			link.rel = 'stylesheet';
 			link.href = index;
@@ -62,10 +62,10 @@ export const indexPageTemplate = (props: {
 	<midoc-page></midoc-page>
 	<div class="footer"></div>
 	<script type="module">
-		import { ensureColorScheme } from '@roenlie/mirage-docs/app/utilities/color-subscription.${ fileExt() }';
+		import { ensureColorScheme } from '@arcmantle/mirage-docs/app/utilities/color-subscription.${ fileExt() }';
 		ensureColorScheme();
 
-		import { PageElement } from '@roenlie/mirage-docs/app/components/page/page-element.${ fileExt() }';
+		import { PageElement } from '@arcmantle/mirage-docs/app/components/page/page-element.${ fileExt() }';
 		PageElement.register();
 	</script>
 </body>

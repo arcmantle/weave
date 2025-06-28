@@ -1,4 +1,4 @@
-import { animationSpeed, setDefaultAnimation } from '@roenlie/core/animation';
+import { animationSpeed, setDefaultAnimation } from '@arcmantle/core/animation';
 
 export const registerDrawerAnimations = () => {
 	const animationDurationMs = animationSpeed('medium');

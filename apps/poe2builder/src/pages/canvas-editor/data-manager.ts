@@ -1,13 +1,13 @@
-import { maybe, resolvablePromise, type ResolvablePromise } from '@roenlie/core/async';
+import { maybe, resolvablePromise, type ResolvablePromise } from '@arcmantle/core/async';
 import { GraphNode, type StorableGraphNode } from '../../app/graph/graph-node.ts';
 import { getGraphConnections, getGraphNodes, graphConnectionCollection, graphNodeCollection, type ConnectionChunk, type NodeChunk } from './firebase-queries.ts';
 import { addDoc, collection, deleteDoc, doc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../app/firebase.ts';
-import type { Vec2 } from '@roenlie/core/types';
+import type { Vec2 } from '@arcmantle/core/types';
 import type { NodeData } from '../../app/graph/node-catalog.ts';
 import { GraphConnection, type StorableGraphConnection } from '../../app/graph/graph-connection.ts';
 import { supabase } from '../../app/supabase.ts';
-import { range } from '@roenlie/core/array';
+import { range } from '@arcmantle/core/array';
 
 
 interface NodeChunkRef { chunkId: string; nodeId: string; }

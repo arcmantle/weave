@@ -1,5 +1,5 @@
 {
-	"name": "@roenlie/shade",
+	"name": "@arcmantle/shade",
 	"description": "description",
 	"authors": "author",
 	"version": "1.0.0",
@@ -13,7 +13,7 @@
 	},
 	"dependencies": {
 		"@preact/signals-core": "^1.8.0",
-		"@roenlie/shade": "workspace:^",
+		"@arcmantle/shade": "workspace:^",
 		"lit": "^3.3.0",
 		"tslib": "^2.8.1"
 	}

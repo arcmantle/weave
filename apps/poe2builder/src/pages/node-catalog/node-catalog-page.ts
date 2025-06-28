@@ -1,4 +1,4 @@
-import { CustomElement } from '@roenlie/custom-element';
+import { CustomElement } from '@arcmantle/custom-element';
 import { createClient } from '@supabase/supabase-js';
 
 

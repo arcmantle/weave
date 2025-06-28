@@ -1,4 +1,4 @@
-import { AegisElement, customElement } from '@roenlie/lit-aegis';
+import { AegisElement, customElement } from '@arcmantle/lit-aegis';
 import { css, html } from 'lit';
 import { property } from 'lit/decorators.js';
 

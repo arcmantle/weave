@@ -5,15 +5,15 @@ Primarily for use as a lightweight and function activated implementation shim to
 
 ### Manual activation
 #### .ts/.js
-```typescript 
-import { useReflectMetadata } from '@roenlie/reflect-metadata';
+```typescript
+import { useReflectMetadata } from '@arcmantle/reflect-metadata';
 
 useReflectMetadata();
 ```
 #### .html
 ```html
 <script type="module">
-	import { useReflectMetadata } from '@roenlie/reflect-metadata';
+	import { useReflectMetadata } from '@arcmantle/reflect-metadata';
 
 	useReflectMetadata();
 </script>
@@ -22,11 +22,11 @@ useReflectMetadata();
 ### Automatic activation
 #### .ts/.js
 ```typescript
-import '@roenlie/reflect-metadata/use';
+import '@arcmantle/reflect-metadata/use';
 ```
 #### .html
 ```html
-<script type="module" src="@roenlie/reflect-metadata/use"></script>
+<script type="module" src="@arcmantle/reflect-metadata/use"></script>
 ```
 
 

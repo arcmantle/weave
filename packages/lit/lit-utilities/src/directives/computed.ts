@@ -1,4 +1,4 @@
-import { type RecordOf } from '@roenlie/core/types';
+import { type RecordOf } from '@arcmantle/core/types';
 import { LitElement, type PropertyValues } from 'lit';
 
 

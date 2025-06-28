@@ -1,4 +1,4 @@
-import { AdapterElement, customElement } from '@roenlie/custom-element/adapter-element';
+import { AdapterElement, customElement } from '@arcmantle/custom-element/adapter-element';
 import { html } from 'lit-html';
 
 

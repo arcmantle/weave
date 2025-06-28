@@ -1,4 +1,4 @@
-import { AdapterElement, css, customElement, property } from '@roenlie/custom-element/adapter';
+import { AdapterElement, css, customElement, property } from '@arcmantle/custom-element/adapter';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { toJSX } from 'jsx-lit';
 

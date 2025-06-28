@@ -1,5 +1,5 @@
-import { AegisElement, customElement } from '@roenlie/lit-aegis';
-import { sharedStyles } from '@roenlie/lit-utilities/styles';
+import { AegisElement, customElement } from '@arcmantle/lit-aegis';
+import { sharedStyles } from '@arcmantle/lit-utilities/styles';
 import { css, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { live } from 'lit/directives/live.js';

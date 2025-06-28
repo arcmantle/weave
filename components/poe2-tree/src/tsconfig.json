@@ -1,5 +1,5 @@
 {
-	"extends": "@roenlie/tsconfig",
+	"extends": "@arcmantle/tsconfig",
 	"compilerOptions": {
 		"experimentalDecorators": false,
 		"emitDecoratorMetadata": false,

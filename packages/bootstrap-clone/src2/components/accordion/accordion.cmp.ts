@@ -1,4 +1,4 @@
-import { AdapterElement, type CSSStyle, customElement } from '@roenlie/custom-element/adapter-element';
+import { AdapterElement, type CSSStyle, customElement } from '@arcmantle/custom-element/adapter-element';
 import { html } from 'lit-html';
 
 import { styleVariables } from '../../style-variables.ts';

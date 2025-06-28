@@ -1,4 +1,4 @@
-import { defineToolbox } from '@roenlie/package-toolbox/toolbox';
+import { defineToolbox } from '@arcmantle/package-toolbox/toolbox';
 
 
 export default defineToolbox(async () => {

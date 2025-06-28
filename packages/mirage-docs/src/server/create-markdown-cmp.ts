@@ -96,7 +96,7 @@ export class MarkdownComponentFactory {
 		});
 
 		if (hasHeader) {
-			const importValue = `@roenlie/mirage-docs/app/components/page/page-header.${ fileExt() }`;
+			const importValue = `@arcmantle/mirage-docs/app/components/page/page-header.${ fileExt() }`;
 			this.imports.push(`import '${ importValue }';`);
 		}
 	}
@@ -124,7 +124,7 @@ export class MarkdownComponentFactory {
 
 		/* Only import the metadata viewer component if it is being used. */
 		if (!isEmptyObject(this.metadata)) {
-			const importValue = `@roenlie/mirage-docs/app/components/page/metadata-viewer.${ fileExt() }`;
+			const importValue = `@arcmantle/mirage-docs/app/components/page/metadata-viewer.${ fileExt() }`;
 			this.imports.push(`import '${ importValue }';`);
 		}
 	}
@@ -163,7 +163,7 @@ export class MarkdownComponentFactory {
 
 		/* only import the editor if it there are examples to be displayed. */
 		if (!isEmptyObject(this.examples)) {
-			const editorPath = `@roenlie/mirage-docs/app/components/page/source-editor.${ fileExt() }`;
+			const editorPath = `@arcmantle/mirage-docs/app/components/page/source-editor.${ fileExt() }`;
 			this.imports.push(`import '${ editorPath }';`);
 		}
 	}

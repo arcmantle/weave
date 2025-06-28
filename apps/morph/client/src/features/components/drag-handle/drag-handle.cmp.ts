@@ -1,4 +1,4 @@
-import { customElement, MimicElement } from '@roenlie/lit-utilities/element';
+import { customElement, MimicElement } from '@arcmantle/lit-utilities/element';
 import { css, html } from 'lit';
 
 import { sharedStyles } from '../../styles/shared-styles.js';

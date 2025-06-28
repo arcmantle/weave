@@ -1,10 +1,10 @@
-import type { ControllerMethod, ExpressController } from '@roenlie/synapse-server/utilities/file-routes.ts';
+import type { ControllerMethod, ExpressController } from '@arcmantle/synapse-server/utilities/file-routes.ts';
 import { join } from 'path/posix';
 import formidable from 'formidable';
 import { mkdir, readFile, rename } from 'fs/promises';
-import { maybe, maybeAll } from '@roenlie/core/async';
-import { paths } from '@roenlie/synapse-server/app/paths.ts';
-import { searchOCRData, ocrDataSchema } from '@roenlie/synapse-server/features/ocr/ocr-weaviate.ts';
+import { maybe, maybeAll } from '@arcmantle/core/async';
+import { paths } from '@arcmantle/synapse-server/app/paths.ts';
+import { searchOCRData, ocrDataSchema } from '@arcmantle/synapse-server/features/ocr/ocr-weaviate.ts';
 import { parseUploads } from '../../src/features/capture/parse-uploads.ts';
 import { logger } from '../../src/features/logger/logger.ts';
 
@@ -17,7 +17,7 @@ const clearAllData = async () => {
 		{ ocrDbPath, ocrTable },
 		{ uploadQueueTable },
 	] = await Promise.all([
-		import('@roenlie/sqlite-wrapper'),
+		import('@arcmantle/sqlite-wrapper'),
 		import('../../src/features/vectordb/create-collection.ts'),
 		import('../../src/features/vectordb/get-weaviate-db.ts'),
 		import('../../src/features/ocr/ocr-table.ts'),

@@ -1,5 +1,5 @@
 
-import { ContainerModule } from '@roenlie/lit-utilities/injectable';
+import { ContainerModule } from '@arcmantle/lit-utilities/injectable';
 
 import { $EntityView } from '../../../features/entity-view/entity-context.js';
 

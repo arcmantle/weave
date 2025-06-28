@@ -1,4 +1,4 @@
-import { ContainerModule } from '@roenlie/lit-aegis';
+import { ContainerModule } from '@arcmantle/lit-aegis';
 
 import { ExplorerStore } from '../../features/stores/explorer-store.js';
 

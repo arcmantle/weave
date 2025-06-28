@@ -1,4 +1,4 @@
-import { DataModel } from '@roenlie/sqlite-wrapper';
+import { DataModel } from '@arcmantle/sqlite-wrapper';
 import { createOcrTable } from './ocr-table.ts';
 
 createOcrTable();

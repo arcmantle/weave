@@ -1,5 +1,5 @@
-import { range } from '@roenlie/core/array';
-import type { Repeat, Vec2 } from '@roenlie/core/types';
+import { range } from '@arcmantle/core/array';
+import type { Repeat, Vec2 } from '@arcmantle/core/types';
 import { GraphDataManager, SupabaseGraphRepository } from '../../../pages/canvas-editor/data-manager.ts';
 import { type StorableGraphNode, GraphNode } from '../../graph/graph-node.ts';
 import { Canvas2DObject } from '../canvas-object.ts';
@@ -10,7 +10,7 @@ import { doRectsOverlap, getPathReduction } from '../path-helpers.ts';
 import { type TransferableMouseEvent, type TransferableTouchEvent, type TransferableTouches, type WorkerImplement, createPostMessage } from './canvas-worker-interface.ts';
 import { createClient, type Session } from '@supabase/supabase-js';
 import type { GraphConnection } from '../../graph/graph-connection.ts';
-import { WorkerView } from '@roenlie/core/canvas';
+import { WorkerView } from '@arcmantle/core/canvas';
 
 
 // Web workers don't have access to local storage.

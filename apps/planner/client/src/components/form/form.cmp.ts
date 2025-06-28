@@ -1,4 +1,4 @@
-import { EventOf } from '@roenlie/core/dom';
+import { EventOf } from '@arcmantle/core/dom';
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';

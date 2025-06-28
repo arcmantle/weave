@@ -1,4 +1,4 @@
-import { IndexDBSchema } from '@roenlie/core/indexdb';
+import { IndexDBSchema } from '@arcmantle/core/indexdb';
 import type { Image } from './components/gallery.cmp.ts';
 
 

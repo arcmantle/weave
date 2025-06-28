@@ -1,5 +1,5 @@
-import { htmlModules } from '@roenlie/vite-plugin-html-modules';
-import { importCSSSheet } from '@roenlie/vite-plugin-import-css-sheet';
+import { htmlModules } from '@arcmantle/vite-plugin-html-modules';
+import { importCSSSheet } from '@arcmantle/vite-plugin-import-css-sheet';
 import { defineConfig } from 'vite';
 
 
@@ -22,7 +22,7 @@ export default defineConfig({
 				preserveModules: true,
 
 				entryFileNames: ({ name }) => {
-					// node_modules/.pnpm/@roenlie_lit-aegis@1.0.33_lit@3.1.1/node_modules/@roenlie/lit-aegis/dist/lib/container/container
+					// node_modules/.pnpm/@arcmantle_lit-aegis@1.0.33_lit@3.1.1/node_modules/@arcmantle/lit-aegis/dist/lib/container/container
 					if (name.includes('node_modules/.pnpm/')) {
 						const [ version, path ] = name
 							.split('node_modules/.pnpm/')[1]!

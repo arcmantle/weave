@@ -1,6 +1,6 @@
 import { faker } from '@faker-js/faker';
-import { range } from '@roenlie/core/array';
-import { type IUser, User } from '@roenlie/morph/models/user-model.js';
+import { range } from '@arcmantle/core/array';
+import { type IUser, User } from '@arcmantle/morph/models/user-model.js';
 
 import { SQLite } from '../sqlite/database.js';
 import { escapeString } from '../sqlite/escape-string.js';

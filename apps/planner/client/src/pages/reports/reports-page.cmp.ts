@@ -1,4 +1,4 @@
-import { $Container, ContainerModule, InjectableElement, injectableElement, injectProp } from '@roenlie/lit-utilities/injectable';
+import { $Container, ContainerModule, InjectableElement, injectableElement, injectProp } from '@arcmantle/lit-utilities/injectable';
 import { Container } from 'inversify';
 import { css, html } from 'lit';
 

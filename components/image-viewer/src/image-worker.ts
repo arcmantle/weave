@@ -1,4 +1,4 @@
-import { WorkerView } from '@roenlie/core/canvas';
+import { WorkerView } from '@arcmantle/core/canvas';
 import { type ImageWorkerApiInImp, type ImageWorkerApiIn, type ImageWorkerApiOut } from './worker-api.ts';
 import { createPostMessage, createWorkerOnMessage } from './worker-interface.ts';
 

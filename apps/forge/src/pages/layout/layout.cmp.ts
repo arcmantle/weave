@@ -4,8 +4,8 @@ import {
 	AegisComponent,
 	customElement,
 	inject,
-} from '@roenlie/lit-aegis';
-import { sharedStyles } from '@roenlie/lit-utilities/styles';
+} from '@arcmantle/lit-aegis';
+import { sharedStyles } from '@arcmantle/lit-utilities/styles';
 import { css, html } from 'lit';
 import { classMap } from 'lit/directives/class-map.js';
 

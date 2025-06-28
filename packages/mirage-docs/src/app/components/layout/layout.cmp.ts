@@ -1,6 +1,6 @@
-import { waitForPromises } from '@roenlie/core/async';
-import { AdapterElement, customElement, query, state } from '@roenlie/custom-element/adapter';
-import { classMap, html, when } from '@roenlie/custom-element/shared';
+import { waitForPromises } from '@arcmantle/core/async';
+import { AdapterElement, customElement, query, state } from '@arcmantle/custom-element/adapter';
+import { classMap, html, when } from '@arcmantle/custom-element/shared';
 
 import type { SiteConfig } from '../../../shared/config.types.js';
 import { container } from '../../container/container.js';

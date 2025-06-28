@@ -1,5 +1,5 @@
 {
-	"name": "@roenlie/planner-server",
+	"name": "@arcmantle/planner-server",
 	"version": "1.0.0",
 	"description": "",
 	"author": "Kristoffer Roen-Lie",
@@ -23,9 +23,9 @@
 		"@nestjs/core": "^11.0.20",
 		"@nestjs/platform-express": "^11.0.20",
 		"@nestjs/throttler": "^6.4.0",
-		"@roenlie/core": "workspace:^",
-		"@roenlie/planner-entities": "workspace:^",
-		"@roenlie/reflect-metadata": "workspace:^",
+		"@arcmantle/core": "workspace:^",
+		"@arcmantle/planner-entities": "workspace:^",
+		"@arcmantle/reflect-metadata": "workspace:^",
 		"dotenv": "^16.5.0",
 		"nanoid": "^5.1.5",
 		"rxjs": "^7.8.2",
@@ -35,6 +35,6 @@
 		"@nestjs/cli": "^11.0.6",
 		"@nestjs/schematics": "^11.0.5",
 		"@nestjs/testing": "^11.0.20",
-		"@roenlie/package-toolbox": "workspace:^"
+		"@arcmantle/package-toolbox": "workspace:^"
 	}
 }

@@ -1,12 +1,12 @@
 import {
 	animateTo, getAnimation,
 	setDefaultAnimation, stopAnimations,
-} from '@roenlie/core/animation';
-import { emitEvent, waitForEvent } from '@roenlie/core/dom';
-import { SlotController } from '@roenlie/lit-utilities/controllers';
-import { watch } from '@roenlie/lit-utilities/decorators';
-import { customElement, MimicElement } from '@roenlie/lit-utilities/element';
-import { sharedStyles } from '@roenlie/lit-utilities/styles';
+} from '@arcmantle/core/animation';
+import { emitEvent, waitForEvent } from '@arcmantle/core/dom';
+import { SlotController } from '@arcmantle/lit-utilities/controllers';
+import { watch } from '@arcmantle/lit-utilities/decorators';
+import { customElement, MimicElement } from '@arcmantle/lit-utilities/element';
+import { sharedStyles } from '@arcmantle/lit-utilities/styles';
 import { css, html, type PropertyValues } from 'lit';
 import {  property, query } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';

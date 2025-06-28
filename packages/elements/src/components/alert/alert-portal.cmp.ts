@@ -1,5 +1,5 @@
-import { customElement, MimicElement } from '@roenlie/lit-utilities/element';
-import { sharedStyles } from '@roenlie/lit-utilities/styles';
+import { customElement, MimicElement } from '@arcmantle/lit-utilities/element';
+import { sharedStyles } from '@arcmantle/lit-utilities/styles';
 import { css, render } from 'lit';
 
 import { MMAlert } from './alert.cmp.js';

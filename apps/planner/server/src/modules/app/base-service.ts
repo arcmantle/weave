@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { maybe } from '@roenlie/core/async';
+import { maybe } from '@arcmantle/core/async';
 
 import { CosmosApi } from '../../app/api/client.js';
 

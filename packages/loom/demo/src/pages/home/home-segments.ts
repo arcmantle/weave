@@ -1,4 +1,4 @@
-import { Adapter, Segment } from '@roenlie/loom';
+import { Adapter, Segment } from '@arcmantle/loom';
 import { html } from 'lit';
 
 

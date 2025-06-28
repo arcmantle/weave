@@ -1,5 +1,5 @@
-import { createEntrypointsFromDirectories } from '@roenlie/package-toolbox/filesystem/create-index-entries.js';
-import { defineToolbox } from '@roenlie/package-toolbox/toolbox';
+import { createEntrypointsFromDirectories } from '@arcmantle/package-toolbox/filesystem/create-index-entries.js';
+import { defineToolbox } from '@arcmantle/package-toolbox/toolbox';
 
 export default defineToolbox(async () => {
 	const exclude = (path: string) => [

@@ -1,5 +1,5 @@
 {
-	"name": "@roenlie/vite-lib-config",
+	"name": "@arcmantle/vite-lib-config",
 	"version": "1.0.0",
 	"description": "Library configuration for vite",
 	"license": "MIT",

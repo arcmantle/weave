@@ -1,5 +1,5 @@
-import { Adapter, AegisComponent, customElement } from '@roenlie/lit-aegis';
-import { sharedStyles } from '@roenlie/lit-utilities/styles';
+import { Adapter, AegisComponent, customElement } from '@arcmantle/lit-aegis';
+import { sharedStyles } from '@arcmantle/lit-utilities/styles';
 import { html } from 'lit';
 
 import { ForgeFile } from '../../features/filesystem/forge-file.js';

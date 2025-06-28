@@ -1,4 +1,4 @@
-import type { Vec2 } from '@roenlie/core/types';
+import type { Vec2 } from '@arcmantle/core/types';
 import { Canvas2DObject } from '../canvas/canvas-object.ts';
 import { getPathReduction } from '../canvas/path-helpers.ts';
 import type { GraphNode } from './graph-node.ts';

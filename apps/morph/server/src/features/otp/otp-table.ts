@@ -1,4 +1,4 @@
-import type { IOneTimePassword } from '@roenlie/morph/models/otp-model.js';
+import type { IOneTimePassword } from '@arcmantle/morph/models/otp-model.js';
 
 import { Query } from '../sqlite/query.js';
 

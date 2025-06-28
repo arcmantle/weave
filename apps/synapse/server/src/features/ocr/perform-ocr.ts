@@ -1,4 +1,4 @@
-import { maybeAll } from '@roenlie/core/async';
+import { maybeAll } from '@arcmantle/core/async';
 import Tesseract from 'tesseract.js';
 
 

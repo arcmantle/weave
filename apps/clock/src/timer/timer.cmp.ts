@@ -1,15 +1,15 @@
-import '@roenlie/elements/text';
-import '@roenlie/elements/button';
-import '@roenlie/elements/icon';
-import '@roenlie/elements/input';
+import '@arcmantle/elements/text';
+import '@arcmantle/elements/button';
+import '@arcmantle/elements/icon';
+import '@arcmantle/elements/input';
 
-import { component } from '@roenlie/lit-fabric/core';
-import { useDisconnected, useProperty, useState, useWillUpdate } from '@roenlie/lit-fabric/hooks';
-import { askForNotificationPermissions, emitEvent, type EventOf, notification } from '@roenlie/core/dom';
-import { accurateTimer } from '@roenlie/core/timing';
-import type { stringliteral } from '@roenlie/core/types';
-import { DialogConfig } from '@roenlie/elements/dialog';
-import { sharedStyles } from '@roenlie/lit-utilities/styles';
+import { component } from '@arcmantle/lit-fabric/core';
+import { useDisconnected, useProperty, useState, useWillUpdate } from '@arcmantle/lit-fabric/hooks';
+import { askForNotificationPermissions, emitEvent, type EventOf, notification } from '@arcmantle/core/dom';
+import { accurateTimer } from '@arcmantle/core/timing';
+import type { stringliteral } from '@arcmantle/core/types';
+import { DialogConfig } from '@arcmantle/elements/dialog';
+import { sharedStyles } from '@arcmantle/lit-utilities/styles';
 import { css, html, LitElement } from 'lit';
 import { styleMap } from 'lit/directives/style-map.js';
 

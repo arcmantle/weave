@@ -1,4 +1,4 @@
-import { EventOf } from '@roenlie/core/dom';
+import { EventOf } from '@arcmantle/core/dom';
 import { html } from 'lit';
 
 import { Dialogs } from '../../components/dialog/dialog-setup-api.js';

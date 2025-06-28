@@ -1,4 +1,4 @@
-import { injectable } from '@roenlie/lit-aegis';
+import { injectable } from '@arcmantle/lit-aegis';
 
 import { signalState } from '../../app/rerender.js';
 import type { ForgeFile } from '../filesystem/forge-file.js';

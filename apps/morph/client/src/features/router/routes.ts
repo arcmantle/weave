@@ -1,4 +1,4 @@
-import { AppRouterCmp } from '@roenlie/elements/router';
+import { AppRouterCmp } from '@arcmantle/elements/router';
 import type { Route } from '@vaadin/router';
 
 export const routes: Route[] = [

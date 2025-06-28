@@ -2,7 +2,7 @@ import { promises } from 'node:fs';
 import { join, normalize, resolve, sep } from 'node:path';
 
 import { persistToFile } from '@orama/plugin-data-persistence/server';
-import { viteCopy } from '@roenlie/vite-plugin-copy';
+import { viteCopy } from '@arcmantle/vite-plugin-copy';
 import { deepmerge, deepmergeInto } from 'deepmerge-ts';
 import { type ConfigEnv, defineConfig, type UserConfig, type UserConfigFnPromise } from 'vite';
 
@@ -213,7 +213,7 @@ export const defineDocConfig = async (
 			viteCopy({
 				targets: [
 					{
-						from: './node_modules/@roenlie/mirage-docs/dist/workers',
+						from: './node_modules/@arcmantle/mirage-docs/dist/workers',
 						to:   join(internalProps.root, mergedConfig.publicDir, '.mirage'),
 					},
 				],

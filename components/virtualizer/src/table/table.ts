@@ -1,6 +1,6 @@
-import type { PathOf } from '@roenlie/core/types';
-import { queryId } from '@roenlie/lit-utilities/decorators';
-import { customElement, MimicElement } from '@roenlie/lit-utilities/element';
+import type { PathOf } from '@arcmantle/core/types';
+import { queryId } from '@arcmantle/lit-utilities/decorators';
+import { customElement, MimicElement } from '@arcmantle/lit-utilities/element';
 import { css, CSSResult, html, type TemplateResult } from 'lit';
 import { property } from 'lit/decorators.js';
 

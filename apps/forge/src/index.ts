@@ -1,6 +1,6 @@
 import './app/identifiers.js';
 
-import { initializeStyleTokens } from '@roenlie/elements/styles';
+import { initializeStyleTokens } from '@arcmantle/elements/styles';
 import { Router } from '@vaadin/router';
 import { render } from 'lit';
 

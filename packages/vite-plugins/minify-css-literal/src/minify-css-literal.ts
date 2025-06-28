@@ -17,7 +17,7 @@ export const minifyCssLiteral = (debugLevel: 'error' | 'silent' = 'silent'): Plu
 	let totalAfterMinify = 0;
 
 	return {
-		name: '@roenlie/vite-plugin-minify-css-literal',
+		name: '@arcmantle/vite-plugin-minify-css-literal',
 		configResolved(cfg) {
 			config = cfg;
 		},
@@ -105,7 +105,7 @@ export const minifyCssLiteral = (debugLevel: 'error' | 'silent' = 'silent'): Plu
 			if (config.mode === 'development')
 				return;
 
-			console.log('\n@roenlie/vite-plugin-minify-css-literal');
+			console.log('\n@arcmantle/vite-plugin-minify-css-literal');
 			console.log('Minified css literals by', totalBeforeMinify - totalAfterMinify, 'characters.');
 			console.log('Before minify:', totalBeforeMinify, '.\nAfter minify:', totalAfterMinify);
 		},

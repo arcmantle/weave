@@ -1,5 +1,5 @@
 {
-	"name": "@roenlie/morph",
+	"name": "@arcmantle/morph",
 	"version": "1.0.0",
 	"description": "",
 	"keywords": [],
@@ -21,10 +21,10 @@
 	"dependencies": {
 		"@faker-js/faker": "^9.7.0",
 		"@lit-labs/preact-signals": "^1.0.3",
-		"@roenlie/core": "workspace:^",
-		"@roenlie/live-ts-imports": "workspace:^",
-		"@roenlie/monaco-editor-wc": "workspace:^",
-		"@roenlie/morph": "workspace:^",
+		"@arcmantle/core": "workspace:^",
+		"@arcmantle/live-ts-imports": "workspace:^",
+		"@arcmantle/monaco-editor-wc": "workspace:^",
+		"@arcmantle/morph": "workspace:^",
 		"@types/cors": "^2.8.17",
 		"@types/express": "^5.0.1",
 		"bcrypt": "^5.1.1",

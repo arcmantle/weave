@@ -1,5 +1,5 @@
 {
-	"name": "@roenlie/synapse-server",
+	"name": "@arcmantle/synapse-server",
 	"description": "description",
 	"authors": "author",
 	"version": "1.0.0",
@@ -14,9 +14,9 @@
 		"./api/*": "./api/*"
 	},
 	"dependencies": {
-		"@roenlie/core": "workspace:^",
-		"@roenlie/sqlite-wrapper": "workspace:^",
-		"@roenlie/synapse-server": "workspace:^",
+		"@arcmantle/core": "workspace:^",
+		"@arcmantle/sqlite-wrapper": "workspace:^",
+		"@arcmantle/synapse-server": "workspace:^",
 		"better-sqlite3": "^11.9.1",
 		"cors": "^2.8.5",
 		"dotenv": "^16.5.0",

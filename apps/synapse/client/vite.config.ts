@@ -1,4 +1,4 @@
-import { importCSSSheet } from '@roenlie/vite-plugin-import-css-sheet';
+import { importCSSSheet } from '@arcmantle/vite-plugin-import-css-sheet';
 import { defineConfig } from 'vite';
 
 

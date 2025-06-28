@@ -1,6 +1,6 @@
-import { provide } from '@roenlie/lit-utilities/context';
-import { watch } from '@roenlie/lit-utilities/decorators';
-import { $Container, InjectableElement, injectableElement, injectProp } from '@roenlie/lit-utilities/injectable';
+import { provide } from '@arcmantle/lit-utilities/context';
+import { watch } from '@arcmantle/lit-utilities/decorators';
+import { $Container, InjectableElement, injectableElement, injectProp } from '@arcmantle/lit-utilities/injectable';
 import { Container, ContainerModule } from 'inversify';
 import { css, html, nothing } from 'lit';
 import { property } from 'lit/decorators.js';

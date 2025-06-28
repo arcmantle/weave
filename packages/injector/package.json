@@ -1,5 +1,5 @@
 {
-	"name": "@roenlie/injector",
+	"name": "@arcmantle/injector",
 	"description": "Dependency injection done simple.",
 	"license": "MIT",
 	"contributors": [
@@ -24,6 +24,6 @@
 	},
 	"dependencies": {},
 	"devDependencies": {
-		"@roenlie/vite-lib-config": "workspace:*"
+		"@arcmantle/vite-lib-config": "workspace:*"
 	}
 }

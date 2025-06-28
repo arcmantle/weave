@@ -1,4 +1,4 @@
-import { lazyMap, lazyWeakmap } from '@roenlie/core/structs';
+import { lazyMap, lazyWeakmap } from '@arcmantle/core/structs';
 import type { ReactiveControllerHost } from 'lit';
 
 

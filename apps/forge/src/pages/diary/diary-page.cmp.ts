@@ -1,4 +1,4 @@
-import { sharedStyles } from '@roenlie/lit-utilities/styles';
+import { sharedStyles } from '@arcmantle/lit-utilities/styles';
 import { Keystone, useStyle } from 'keystone-core';
 import { html } from 'lit';
 

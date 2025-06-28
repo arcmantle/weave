@@ -1,5 +1,5 @@
-import { animateTo, getAnimation, setDefaultAnimation, stopAnimations } from '@roenlie/core/animation';
-import { watch } from '@roenlie/lit-utilities/decorators';
+import { animateTo, getAnimation, setDefaultAnimation, stopAnimations } from '@arcmantle/core/animation';
+import { watch } from '@arcmantle/lit-utilities/decorators';
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 

@@ -1,6 +1,6 @@
-import { MMButton } from '@roenlie/elements/button';
-import { DialogConfig, MMDialog } from '@roenlie/elements/dialog';
-import { systemIcons } from '@roenlie/elements/utilities';
+import { MMButton } from '@arcmantle/elements/button';
+import { DialogConfig, MMDialog } from '@arcmantle/elements/dialog';
+import { systemIcons } from '@arcmantle/elements/utilities';
 import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 

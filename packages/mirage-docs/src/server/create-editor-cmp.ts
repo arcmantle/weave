@@ -19,7 +19,7 @@ export const createEditorComponent = async (
 		.replaceAll('`', '\\`')
 		.replaceAll('$', '\\$')
 		.replace(
-			"import { editorComponent } from '@roenlie/mirage-docs/app/components/page/editor-component.js';",
+			"import { editorComponent } from '@arcmantle/mirage-docs/app/components/page/editor-component.js';",
 			'const editorComponent = ({html, css}) => {}',
 		);
 

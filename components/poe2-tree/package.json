@@ -1,5 +1,5 @@
 {
-	"name": "@roenlie/poe2-tree",
+	"name": "@arcmantle/poe2-tree",
 	"description": "path of exile 2 passive tree web component",
 	"authors": "Kristoffer Roen-Lie",
 	"version": "0.0.1",
@@ -11,7 +11,7 @@
 		"dev": "vite --config ./demo/vite.config.ts"
 	},
 	"dependencies": {
-		"@roenlie/core": "workspace:^",
+		"@arcmantle/core": "workspace:^",
 		"lit": "^3.3.0",
 		"tslib": "^2.8.1"
 	}

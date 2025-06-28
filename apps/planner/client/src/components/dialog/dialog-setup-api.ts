@@ -1,4 +1,4 @@
-import { RecordOf } from '@roenlie/core/types';
+import { RecordOf } from '@arcmantle/core/types';
 import { TemplateResult } from 'lit';
 
 import { DialogCtrl, IDialogDef, IDialogGeneratedCtrl, IDialogPortal, IDialogProps } from './dialog.types.js';

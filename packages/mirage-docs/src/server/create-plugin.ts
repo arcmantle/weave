@@ -1,7 +1,7 @@
 import { promises } from 'node:fs';
 
-import { type ResolvablePromise, resolvablePromise } from '@roenlie/core/async';
-import { withDebounce } from '@roenlie/core/timing';
+import { type ResolvablePromise, resolvablePromise } from '@arcmantle/core/async';
+import { withDebounce } from '@arcmantle/core/timing';
 import type { HtmlTagDescriptor, ModuleNode, Plugin, ResolvedConfig } from 'vite';
 
 import { getCache } from './build/cache/cache-registry.js';
@@ -61,7 +61,7 @@ export const createPlugin = (args: {
 						attrs:    { type: 'module' },
 						injectTo: 'head-prepend',
 						children: `
-						import index from "@roenlie/mirage-docs/assets/index.css?url";
+						import index from "@arcmantle/mirage-docs/assets/index.css?url";
 						const link = document.createElement('link');
 						link.rel = 'stylesheet';
 						link.href = index;
@@ -82,10 +82,10 @@ export const createPlugin = (args: {
 						attrs:    { type: 'module' },
 						injectTo: 'head',
 						children: `
-						import { ensureColorScheme } from '@roenlie/mirage-docs/app/utilities/color-subscription.${ fileExt() }';
+						import { ensureColorScheme } from '@arcmantle/mirage-docs/app/utilities/color-subscription.${ fileExt() }';
 						ensureColorScheme();
 
-						import { LayoutCmp } from "@roenlie/mirage-docs/app/components/layout/layout.cmp.${ fileExt() }"
+						import { LayoutCmp } from "@arcmantle/mirage-docs/app/components/layout/layout.cmp.${ fileExt() }"
 						LayoutCmp.register();
 
 						document.body.appendChild(document.createElement('midoc-layout'));

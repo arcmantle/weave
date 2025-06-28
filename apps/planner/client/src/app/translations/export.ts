@@ -1,4 +1,4 @@
-import { LanguageExport } from '@roenlie/core/localize';
+import { LanguageExport } from '@arcmantle/core/localize';
 
 
 export const translationFiles: LanguageExport = {

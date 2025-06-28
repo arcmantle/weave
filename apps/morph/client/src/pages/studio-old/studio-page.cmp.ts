@@ -1,5 +1,5 @@
-import { provide } from '@roenlie/lit-context';
-import { MimicElement, customElement } from '@roenlie/lit-utilities/element';
+import { provide } from '@arcmantle/lit-context';
+import { MimicElement, customElement } from '@arcmantle/lit-utilities/element';
 import { css, html } from 'lit';
 
 import { EditorPanel } from './editor-panel.cmp.js';

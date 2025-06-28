@@ -1,5 +1,5 @@
 {
-	"name": "@roenlie/vite-plugin-minify-css-literal",
+	"name": "@arcmantle/vite-plugin-minify-css-literal",
 	"version": "1.0.0",
 	"description": "Minifies css literals.",
 	"license": "MIT",
@@ -34,7 +34,7 @@
 		"magic-string": "^0.30.17"
 	},
 	"devDependencies": {
-		"@roenlie/vite-lib-config": "workspace:^",
+		"@arcmantle/vite-lib-config": "workspace:^",
 		"@types/babel__traverse": "^7.20.7",
 		"lit": "^3.3.0",
 		"rollup": "^4.40.0",

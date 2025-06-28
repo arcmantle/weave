@@ -1,4 +1,4 @@
-import { maybe } from '@roenlie/core/async';
+import { maybe } from '@arcmantle/core/async';
 
 import { type IModule, Module } from '../../../models/modules-model.ts';
 

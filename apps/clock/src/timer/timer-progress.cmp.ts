@@ -1,6 +1,6 @@
-import { component } from '@roenlie/lit-fabric/core';
-import { useProperty, useQuery, useState, useWillUpdate } from '@roenlie/lit-fabric/hooks';
-import { sharedStyles } from '@roenlie/lit-utilities/styles';
+import { component } from '@arcmantle/lit-fabric/core';
+import { useProperty, useQuery, useState, useWillUpdate } from '@arcmantle/lit-fabric/hooks';
+import { sharedStyles } from '@arcmantle/lit-utilities/styles';
 import { css, html, LitElement } from 'lit';
 
 

@@ -6,8 +6,8 @@ export const siteConfigTemplate = (
 	siteConfig: Partial<SiteConfig>, routes: string[],
 ): string =>
 `
-import { ContainerLoader, ContainerModule } from '@roenlie/mirage-docs/app/aegis/index.${ fileExt() }'
-import { container } from '@roenlie/mirage-docs/container/container.${ fileExt() }'
+import { ContainerLoader, ContainerModule } from '@arcmantle/mirage-docs/app/aegis/index.${ fileExt() }'
+import { container } from '@arcmantle/mirage-docs/container/container.${ fileExt() }'
 
 
 const routes = ${ JSON.stringify(routes, null, 3) };

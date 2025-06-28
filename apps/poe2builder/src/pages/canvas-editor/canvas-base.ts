@@ -1,16 +1,16 @@
 import { html } from 'lit-html';
-import type { Vec2 } from '@roenlie/core/types';
+import type { Vec2 } from '@arcmantle/core/types';
 import { GraphNode, type StorableGraphNode } from '../../app/graph/graph-node.ts';
 import { type Viewport } from '../../app/canvas/is-outside-viewport.ts';
 import CanvasWorkerReader from '../../app/canvas/workers/canvas-reader.ts?worker';
 import { when } from 'lit-html/directives/when.js';
 import { createCanvasWorker, makeObjectTransferable, type CanvasReaderWorkerMethods, type TransferableMouseEvent, type TransferableWheelEvent } from '../../app/canvas/workers/canvas-worker-interface.ts';
 import { dataNodes } from '../../app/graph/node-catalog.ts';
-import { uppercaseFirstLetter } from '@roenlie/core/string';
+import { uppercaseFirstLetter } from '@arcmantle/core/string';
 import { ref, type RefOrCallback } from 'lit-html/directives/ref.js';
 import type { CanvasReaderWorkerApiOut } from '../../app/canvas/workers/reader-implementation.ts';
 import { supabase } from '../../app/supabase.ts';
-import { css, CustomElement, state, type CSSStyle } from '@roenlie/custom-element';
+import { css, CustomElement, state, type CSSStyle } from '@arcmantle/custom-element';
 
 
 const unsetPopover = css`

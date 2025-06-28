@@ -2,16 +2,16 @@ import { html, LitElement } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import galleryStyles from './gallery.css' with { type: 'css' };
 import { map } from 'lit/directives/map.js';
-import { consume, type ContextProp } from '@roenlie/lit-context';
+import { consume, type ContextProp } from '@arcmantle/lit-context';
 import type { Routes } from '@lit-labs/router';
 import { sharedStyles } from '../../../app/shared-styles.ts';
 import { captureRoutesID } from '../capture-page.ts';
 import { dataURItoBlob } from '../../../app/datauri-to-blob.ts';
-import { IndexDBWrapper } from '@roenlie/core/indexdb';
+import { IndexDBWrapper } from '@arcmantle/core/indexdb';
 import { CaptureSession } from '../capture-session.ts';
-import { emitEvent } from '@roenlie/core/dom';
+import { emitEvent } from '@arcmantle/core/dom';
 import { synapseIndexDB } from '../../../app/index-db.ts';
-import { maybe } from '@roenlie/core/async';
+import { maybe } from '@arcmantle/core/async';
 import { ServerURL } from '../../../app/server-url.ts';
 
 

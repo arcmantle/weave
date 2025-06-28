@@ -1,5 +1,5 @@
-import { Catalog } from '@roenlie/core/structs';
-import { RecordOf } from '@roenlie/core/types';
+import { Catalog } from '@arcmantle/core/structs';
+import { RecordOf } from '@arcmantle/core/types';
 import { NewUser, newUserEntity } from '@rotul/planner-entities';
 
 import { UserApi } from '../../../app/api/user.js';

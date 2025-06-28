@@ -17,11 +17,11 @@
 	},
 	"publish": {
 		"include": [
-		"dist",
-		"src",
-		"README.md",
-		"CHANGELOG.md",
-		"tsconfig.json"
+			"dist",
+			"src",
+			"README.md",
+			"CHANGELOG.md",
+			"tsconfig.json"
 		]
 	}
 }

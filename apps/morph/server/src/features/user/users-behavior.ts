@@ -1,4 +1,4 @@
-import type { IUser, User } from '@roenlie/morph/models/user-model.js';
+import type { IUser, User } from '@arcmantle/morph/models/user-model.js';
 
 import { Query } from '../sqlite/query.js';
 

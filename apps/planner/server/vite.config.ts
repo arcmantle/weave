@@ -1,4 +1,4 @@
-import { VitePluginNode } from '@roenlie/vite-plugin-node';
+import { VitePluginNode } from '@arcmantle/vite-plugin-node';
 import { config } from 'dotenv';
 import { defineConfig } from 'vite';
 

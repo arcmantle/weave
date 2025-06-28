@@ -1,4 +1,4 @@
-import { DataModel, Query } from '@roenlie/sqlite-wrapper';
+import { DataModel, Query } from '@arcmantle/sqlite-wrapper';
 import { ocrDbPath, ocrTable } from '../ocr/ocr-table.ts';
 
 

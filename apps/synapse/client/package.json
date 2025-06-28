@@ -10,8 +10,8 @@
 	},
 	"dependencies": {
 		"@lit-labs/router": "^0.1.4",
-		"@roenlie/core": "workspace:^",
-		"@roenlie/lit-context": "workspace:^",
+		"@arcmantle/core": "workspace:^",
+		"@arcmantle/lit-context": "workspace:^",
 		"bootstrap-icons": "^1.11.3",
 		"lit": "^3.3.0",
 		"tslib": "^2.8.1"

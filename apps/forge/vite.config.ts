@@ -1,5 +1,5 @@
-import { viteCopy } from '@roenlie/vite-plugin-copy';
-import { importCSSSheet } from '@roenlie/vite-plugin-import-css-sheet';
+import { viteCopy } from '@arcmantle/vite-plugin-copy';
+import { importCSSSheet } from '@arcmantle/vite-plugin-import-css-sheet';
 import { defineConfig } from 'vite';
 
 
@@ -11,7 +11,7 @@ export default defineConfig((env) => ({
 		viteCopy({
 			targets: [
 				{
-					from: './node_modules/@roenlie/elements/styles/*',
+					from: './node_modules/@arcmantle/elements/styles/*',
 					to:   './public/vendor/mimic-elements',
 				},
 			],

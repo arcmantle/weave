@@ -1,8 +1,8 @@
 import { faker } from '@faker-js/faker';
-import { range } from '@roenlie/core/array';
-import { type Column, FragmentTable, type Options } from '@roenlie/elements/fragment-table';
-import { MMTypeahead } from '@roenlie/elements/typeahead';
-import { sharedStyles } from '@roenlie/lit-utilities/styles';
+import { range } from '@arcmantle/core/array';
+import { type Column, FragmentTable, type Options } from '@arcmantle/elements/fragment-table';
+import { MMTypeahead } from '@arcmantle/elements/typeahead';
+import { sharedStyles } from '@arcmantle/lit-utilities/styles';
 import { css, html, LitElement } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
 import { map } from 'lit/directives/map.js';

@@ -1,5 +1,5 @@
-import { MMButton } from '@roenlie/elements/button';
-import { MMInput } from '@roenlie/elements/input';
+import { MMButton } from '@arcmantle/elements/button';
+import { MMInput } from '@arcmantle/elements/input';
 import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 

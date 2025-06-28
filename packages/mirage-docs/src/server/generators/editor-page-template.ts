@@ -11,9 +11,9 @@ export const editorPageTemplate = (props: {
 	const className = randomString(10);
 
 	return `
-import { ContainerLoader, ContainerModule } from '@roenlie/mirage-docs/app/aegis/index.${ fileExt() }';
-import { PageAdapter } from '@roenlie/mirage-docs/app/components/page/page-element.${ fileExt() }';
-import { ComponentEditor } from '@roenlie/mirage-docs/app/components/page/component-editor.${ fileExt() }';
+import { ContainerLoader, ContainerModule } from '@arcmantle/mirage-docs/app/aegis/index.${ fileExt() }';
+import { PageAdapter } from '@arcmantle/mirage-docs/app/components/page/page-element.${ fileExt() }';
+import { ComponentEditor } from '@arcmantle/mirage-docs/app/components/page/component-editor.${ fileExt() }';
 import { css, html } from 'lit';
 import '${ props.codeId }';
 

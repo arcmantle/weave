@@ -1,6 +1,6 @@
-import { MMIcon } from '@roenlie/elements/icon';
-import { MMNavRail } from '@roenlie/elements/nav-rail';
-import { systemIcons } from '@roenlie/elements/utilities';
+import { MMIcon } from '@arcmantle/elements/icon';
+import { MMNavRail } from '@arcmantle/elements/nav-rail';
+import { systemIcons } from '@arcmantle/elements/utilities';
 import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators/custom-element.js';
 

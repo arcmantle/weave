@@ -1,7 +1,7 @@
-import { css, CustomElement } from '@roenlie/custom-element';
+import { css, CustomElement } from '@arcmantle/custom-element';
 import { html, render } from 'lit-html';
 import { ImageViewer } from '../src/image-viewer.ts';
-import type { CSSStyle } from 'node_modules/@roenlie/custom-element/dist/signal-element';
+import type { CSSStyle } from 'node_modules/@arcmantle/custom-element/dist/signal-element';
 
 
 export class RootPage extends CustomElement {

@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 
-import viteDimensionConfig from '@roenlie/vite-dimension-config';
+import viteDimensionConfig from '@arcmantle/vite-dimension-config';
 
 
 // https://vitejs.dev/config/
@@ -13,8 +13,8 @@ export default defineConfig({
 			port: 8090,
 		},
 		auth: {
-			username: 'user1@roenlie.com',
-			password: 'user1@roenlie.com',
+			username: 'user1@arcmantle.com',
+			password: 'user1@arcmantle.com',
 		},
 	}),
 });

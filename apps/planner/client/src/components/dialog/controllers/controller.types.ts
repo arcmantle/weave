@@ -1,4 +1,4 @@
-import { ValueProvider } from '@roenlie/core/types';
+import { ValueProvider } from '@arcmantle/core/types';
 
 
 /** @internalexport */

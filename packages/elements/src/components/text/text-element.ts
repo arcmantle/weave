@@ -1,5 +1,5 @@
-import type { stringliteral } from '@roenlie/core/types';
-import { customElement, MimicElement } from '@roenlie/lit-utilities/element';
+import type { stringliteral } from '@arcmantle/core/types';
+import { customElement, MimicElement } from '@arcmantle/lit-utilities/element';
 import { css, html } from 'lit';
 import { property, state } from 'lit/decorators.js';
 

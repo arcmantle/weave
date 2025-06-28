@@ -1,4 +1,4 @@
-import { domId } from '@roenlie/core/dom';
+import { domId } from '@arcmantle/core/dom';
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 

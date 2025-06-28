@@ -30,7 +30,7 @@ class SassTransformer implements VitePlugin {
 	}>;
 
 	enforce:          Plugin['enforce'] = 'pre';
-	name:             string = '@roenlie/vite-plugin-sass-transformer';
+	name:             string = '@arcmantle/vite-plugin-sass-transformer';
 	resolvedConfig:   ResolvedConfig;
 	decoder:          TextDecoder = new TextDecoder();
 	identifierNames:  string[] = [ 'sass`', 'scss`' ];

@@ -1,4 +1,4 @@
-import { Query } from '@roenlie/sqlite-wrapper';
+import { Query } from '@arcmantle/sqlite-wrapper';
 import { paths } from '../../app/paths.ts';
 import type { IOCRModel } from './ocr-model.ts';
 import { join } from 'path/posix';

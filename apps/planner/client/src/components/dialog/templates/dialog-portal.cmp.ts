@@ -1,7 +1,7 @@
-import { animateTo, getAnimation, stopAnimations } from '@roenlie/core/animation';
-import { Hooks } from '@roenlie/core/coms';
-import { RecordOf } from '@roenlie/core/types';
-import { EventController, KeyboardController, LocalizeController } from '@roenlie/lit-utilities/controllers';
+import { animateTo, getAnimation, stopAnimations } from '@arcmantle/core/animation';
+import { Hooks } from '@arcmantle/core/coms';
+import { RecordOf } from '@arcmantle/core/types';
+import { EventController, KeyboardController, LocalizeController } from '@arcmantle/lit-utilities/controllers';
 import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';

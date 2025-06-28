@@ -1,5 +1,5 @@
 {
-	"name": "@roenlie/lit-fabric",
+	"name": "@arcmantle/lit-fabric",
 	"version": "1.0.0",
 	"description": "React hooks syntax for LIT",
 	"author": {
@@ -32,12 +32,12 @@
 		"typecheck": "tsc --project ./tsconfig.json"
 	},
 	"dependencies": {
-		"@roenlie/core": "workspace:^",
+		"@arcmantle/core": "workspace:^",
 		"lit": "^3.3.0"
 	},
 	"devDependencies": {
-		"@roenlie/mirage-docs": "workspace:^",
-		"@roenlie/vite-lib-config": "workspace:^"
+		"@arcmantle/mirage-docs": "workspace:^",
+		"@arcmantle/vite-lib-config": "workspace:^"
 	},
 	"sideEffects": false
 }

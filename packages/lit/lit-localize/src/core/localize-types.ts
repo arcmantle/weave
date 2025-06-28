@@ -1,4 +1,4 @@
-import type { Increment } from '@roenlie/core/types';
+import type { Increment } from '@arcmantle/core/types';
 
 
 export type DirectiveString = string & Record<never, never>;

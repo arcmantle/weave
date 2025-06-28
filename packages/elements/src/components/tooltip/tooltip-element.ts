@@ -2,12 +2,12 @@ import {
 	arrow, autoUpdate, computePosition,
 	flip, offset, type Placement, shift,
 } from '@floating-ui/dom';
-import { animateTo, getAnimation, parseDuration, stopAnimations } from '@roenlie/core/animation';
-import { createPromiseResolver } from '@roenlie/core/async';
-import { emitEvent, hasKeyboardFocus, waitForEvent } from '@roenlie/core/dom';
-import { EventController } from '@roenlie/lit-utilities/controllers';
-import { watch } from '@roenlie/lit-utilities/decorators';
-import { customElement, MimicElement } from '@roenlie/lit-utilities/element';
+import { animateTo, getAnimation, parseDuration, stopAnimations } from '@arcmantle/core/animation';
+import { createPromiseResolver } from '@arcmantle/core/async';
+import { emitEvent, hasKeyboardFocus, waitForEvent } from '@arcmantle/core/dom';
+import { EventController } from '@arcmantle/lit-utilities/controllers';
+import { watch } from '@arcmantle/lit-utilities/decorators';
+import { customElement, MimicElement } from '@arcmantle/lit-utilities/element';
 import { html, type TemplateResult } from 'lit';
 import { property, query } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';

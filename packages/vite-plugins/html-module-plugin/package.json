@@ -1,5 +1,5 @@
 {
-	"name": "@roenlie/vite-plugin-html-modules",
+	"name": "@arcmantle/vite-plugin-html-modules",
 	"description": "description",
 	"authors": "author",
 	"version": "1.0.0",
@@ -15,6 +15,6 @@
 		"tslib": "^2.8.1"
 	},
 	"devDependencies": {
-		"@roenlie/vite-lib-config": "workspace:^"
+		"@arcmantle/vite-lib-config": "workspace:^"
 	}
 }

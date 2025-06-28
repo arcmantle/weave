@@ -1,4 +1,4 @@
-import { getDefaultAnimation } from '@roenlie/core/animation';
+import { getDefaultAnimation } from '@arcmantle/core/animation';
 
 
 export const routeAnimation = () => {

@@ -1,8 +1,8 @@
-import { animateTo, animationSpeed, getAnimation, setDefaultAnimation, stopAnimations } from '@roenlie/core/animation';
-import { emitEvent, findActiveElement, lockBodyScrolling, Modal, unlockBodyScrolling, waitForEvent } from '@roenlie/core/dom';
-import { uppercaseFirstLetter } from '@roenlie/core/string';
-import { HasSlotController, LocalizeController } from '@roenlie/lit-utilities/controllers';
-import { watch } from '@roenlie/lit-utilities/decorators';
+import { animateTo, animationSpeed, getAnimation, setDefaultAnimation, stopAnimations } from '@arcmantle/core/animation';
+import { emitEvent, findActiveElement, lockBodyScrolling, Modal, unlockBodyScrolling, waitForEvent } from '@arcmantle/core/dom';
+import { uppercaseFirstLetter } from '@arcmantle/core/string';
+import { HasSlotController, LocalizeController } from '@arcmantle/lit-utilities/controllers';
+import { watch } from '@arcmantle/lit-utilities/decorators';
 import { html, LitElement } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';

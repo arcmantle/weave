@@ -1,5 +1,5 @@
-import { type ResolvablePromise, resolvablePromise as promise } from '@roenlie/core/async';
-import type { Writeable } from '@roenlie/core/types';
+import { type ResolvablePromise, resolvablePromise as promise } from '@arcmantle/core/async';
+import type { Writeable } from '@arcmantle/core/types';
 import { render } from 'lit-html';
 import { Signal } from 'signal-polyfill';
 

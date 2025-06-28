@@ -1,4 +1,4 @@
-import { MMText } from '@roenlie/elements/text';
+import { MMText } from '@arcmantle/elements/text';
 import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 

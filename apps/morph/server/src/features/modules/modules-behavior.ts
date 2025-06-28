@@ -1,4 +1,4 @@
-import { type IModule, Module } from '@roenlie/morph/models/modules-model.js';
+import { type IModule, Module } from '@arcmantle/morph/models/modules-model.js';
 
 import { Query } from '../sqlite/query.js';
 

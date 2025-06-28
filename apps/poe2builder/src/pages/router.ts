@@ -1,5 +1,5 @@
-import { Router } from '@roenlie/custom-element/router';
-import { css, type CSSStyle, CustomElement, state } from '@roenlie/custom-element/signal';
+import { Router } from '@arcmantle/custom-element/router';
+import { css, type CSSStyle, CustomElement, state } from '@arcmantle/custom-element/signal';
 import type { UserResponse } from '@supabase/supabase-js';
 import { browserLocalPersistence, getAuth, GoogleAuthProvider, setPersistence, signInWithPopup, type User } from 'firebase/auth';
 import { html } from 'lit-html';

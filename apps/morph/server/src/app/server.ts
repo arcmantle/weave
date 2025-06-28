@@ -1,4 +1,4 @@
-import { liveTsImports } from '@roenlie/live-ts-imports';
+import { liveTsImports } from '@arcmantle/live-ts-imports';
 
 import { registerFileRoutes } from '../utilities/register-file-routes.js';
 import { app, server } from './main.js';
@@ -11,8 +11,8 @@ liveTsImports({
 	packages:   [
 		'lit',
 		'@lit-labs/preact-signals',
-		'@roenlie/core',
-		'@roenlie/monaco-editor-wc',
+		'@arcmantle/core',
+		'@arcmantle/monaco-editor-wc',
 	],
 	client: [
 		{ path: '/', dir: 'client' },

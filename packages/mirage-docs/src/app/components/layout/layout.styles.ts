@@ -1,5 +1,5 @@
 
-import { css } from '@roenlie/custom-element/adapter';
+import { css } from '@arcmantle/custom-element/adapter';
 
 import { buttonStyle } from '../../styles/button.styles.js';
 

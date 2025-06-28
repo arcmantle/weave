@@ -1,4 +1,4 @@
-import { setDefaultAnimation } from '@roenlie/core/animation';
+import { setDefaultAnimation } from '@arcmantle/core/animation';
 
 
 export const registerTooltipAnimations = () => {

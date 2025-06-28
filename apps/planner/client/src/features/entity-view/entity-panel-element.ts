@@ -1,4 +1,4 @@
-import { InjectableElement } from '@roenlie/lit-utilities/injectable';
+import { InjectableElement } from '@arcmantle/lit-utilities/injectable';
 
 
 export class EntityPanelElement extends InjectableElement {

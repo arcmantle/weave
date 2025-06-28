@@ -1,7 +1,7 @@
 import { type ChangeSpec, EditorSelection } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
-import { iterate } from '@roenlie/core/iterators';
-import { isRangeInRanges } from '@roenlie/core/validation';
+import { iterate } from '@arcmantle/core/iterators';
+import { isRangeInRanges } from '@arcmantle/core/validation';
 
 import { getNodesInRange } from '../listeners/get-state.js';
 

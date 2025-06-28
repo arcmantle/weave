@@ -1,4 +1,4 @@
-import { css, type CSSStyle } from '@roenlie/custom-element/adapter-element';
+import { css, type CSSStyle } from '@arcmantle/custom-element/adapter-element';
 
 import { transition } from '../../styles/mixins/transition-mixin.ts';
 

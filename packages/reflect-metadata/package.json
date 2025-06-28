@@ -1,5 +1,5 @@
 {
-	"name": "@roenlie/reflect-metadata",
+	"name": "@arcmantle/reflect-metadata",
 	"version": "1.0.0",
 	"description": "",
 	"author": {
@@ -36,7 +36,7 @@
 		"build::ts": "tsc --project ./src/tsconfig.json"
 	},
 	"devDependencies": {
-		"@roenlie/vite-lib-config": "workspace:^"
+		"@arcmantle/vite-lib-config": "workspace:^"
 	},
 	"sideEffects": false
 }

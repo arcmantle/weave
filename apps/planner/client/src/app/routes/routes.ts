@@ -1,5 +1,5 @@
-import { setDefaultAnimation } from '@roenlie/core/animation';
-import { Route } from '@roenlie/lit-router';
+import { setDefaultAnimation } from '@arcmantle/core/animation';
+import { Route } from '@arcmantle/lit-router';
 
 import { routeAnimation } from './route-animation.js';
 

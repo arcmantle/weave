@@ -7,7 +7,7 @@ import { map } from 'lit-html/directives/map.js';
 import CanvasWorkerEditor from '../../app/canvas/workers/canvas-editor.ts?worker';
 import { createCanvasWorker, makeObjectTransferable, type CanvasEditorWorkerMethods } from '../../app/canvas/workers/canvas-worker-interface.ts';
 import type { CanvasEditorWorkerApiOut } from '../../app/canvas/workers/editor-implementation.ts';
-import { css, state, type CSSStyle } from '@roenlie/custom-element';
+import { css, state, type CSSStyle } from '@arcmantle/custom-element';
 
 
 export class PoeCanvasTree extends PoeCanvasBase {

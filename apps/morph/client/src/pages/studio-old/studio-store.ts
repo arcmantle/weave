@@ -1,4 +1,4 @@
-import { StateStore } from '@roenlie/lit-state-store';
+import { StateStore } from '@arcmantle/lit-state-store';
 
 import type {
 	ModuleNamespace,

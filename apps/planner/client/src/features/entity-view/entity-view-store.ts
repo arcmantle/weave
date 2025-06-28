@@ -1,6 +1,6 @@
-import { RecordOf } from '@roenlie/core/types';
-import { ContainerModule } from '@roenlie/lit-utilities/injectable';
-import { LitStateStore, type Stored, stored } from '@roenlie/lit-utilities/state-store';
+import { RecordOf } from '@arcmantle/core/types';
+import { ContainerModule } from '@arcmantle/lit-utilities/injectable';
+import { LitStateStore, type Stored, stored } from '@arcmantle/lit-utilities/state-store';
 import { injectable } from 'inversify';
 
 import { $EntityView } from './entity-context.js';

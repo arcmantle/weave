@@ -1,5 +1,5 @@
 {
-	"name": "@roenlie/grid-layout",
+	"name": "@arcmantle/grid-layout",
 	"description": "A grid layout component for dashboard creation",
 	"authors": "Kristoffer Roen-Lie",
 	"version": "1.0.0",
@@ -19,6 +19,6 @@
 		"tslib": "^2.8.1"
 	},
 	"devDependencies": {
-		"@roenlie/vite-lib-config": "workspace:^"
+		"@arcmantle/vite-lib-config": "workspace:^"
 	}
 }
