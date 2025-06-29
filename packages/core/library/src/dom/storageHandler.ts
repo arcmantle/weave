@@ -44,7 +44,7 @@ class LocalStorageHandler {
 		this.storage = storage;
 	}
 
-	getItem<T>(key: string, value?: T) {
+	getItem<T>(key: string, value?: T): T {
 		const existingValue = localStorage.getItem(key);
 		existingValue ?? localStorage.setItem(key, stringify(value));
 

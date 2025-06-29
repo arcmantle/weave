@@ -4,9 +4,9 @@
 	"description": "React hooks syntax for LIT",
 	"author": {
 		"name": "Kristoffer Roen-Lie",
-		"url": "https://github.com/RoenLie"
+		"url": "https://github.com/arcmantle"
 	},
-	"license": "MIT",
+	"license": "Apache-2.0",
 	"keywords": [],
 	"type": "module",
 	"exports": {

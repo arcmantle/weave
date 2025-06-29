@@ -12,7 +12,7 @@ export type ConditionalExportValue = string | {
 	module?: string | {
 		import?:  ConditionalExportValue;
 		default?: ConditionalExportValue;
-	},
+	};
 	import?:  ConditionalExportValue;
 	default?: ConditionalExportValue;
 };
@@ -22,13 +22,20 @@ export interface PkgJson {
 	type?:    'module' | 'commonjs';
 	main?:    string;
 	exports?: {
-		'.'?: ConditionalExportValue
+		'.'?: ConditionalExportValue;
 	} & Record<string, ConditionalExportValue>;
 	dependencies?: Record<string, string>;
 }
 
 
-export const getPkgDepsMap = (importMeta: ImportMeta, packageNames: string[]) => {
+export const getPkgDepsMap = (
+	importMeta: ImportMeta,
+	packageNames: string[],
+): Map<string, {
+	root:    string;
+	main:    string;
+	exports: PkgJson['exports'];
+}> => {
 	const callingFile = fileURLToPath(importMeta.url);
 
 	const require = createRequire(callingFile);
@@ -91,7 +98,7 @@ export const getPkgDepsMap = (importMeta: ImportMeta, packageNames: string[]) =>
 };
 
 
-export const getClosestPkgJson = (initialPath: string) => {
+export const getClosestPkgJson = (initialPath: string): string => {
 	let count = 0;
 	let pkgPath = '';
 	let dir = dirname(initialPath);
@@ -111,7 +118,7 @@ export const getClosestPkgJson = (initialPath: string) => {
 };
 
 
-export const getPkgDeps = (pkgJson: PkgJson) => {
+export const getPkgDeps = (pkgJson: PkgJson): string[] => {
 	const deps = pkgJson.dependencies ?? {};
 
 	return Object.keys(deps);
@@ -121,7 +128,7 @@ export const getPkgDeps = (pkgJson: PkgJson) => {
 export const extractExports = (
 	packageName: string,
 	exports: Record<string, ConditionalExportValue>,
-) => {
+): Map<string, string> => {
 	const map: Map<string, string> = new Map();
 
 	const startingDotExp = /^./;
@@ -148,6 +155,7 @@ export const extractExports = (
 
 	return map;
 };
+
 
 export const getRawExportPath = (expValue: ConditionalExportValue): string => {
 	let value: string | ConditionalExportValue | undefined;

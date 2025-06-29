@@ -1,6 +1,7 @@
-const url = 'ws://' + location.host;
+const url: string = 'ws://' + location.host;
 
-const setupConnection = () => {
+
+const setupConnection = (): void => {
 	try {
 		let socket = new WebSocket(url);
 
@@ -18,5 +19,4 @@ const setupConnection = () => {
 		setupConnection();
 	}
 };
-
 setupConnection();

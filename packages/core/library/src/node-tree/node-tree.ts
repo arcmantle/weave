@@ -126,8 +126,8 @@ export class NodeTree {
 		return fromSingleObject(objects, childProp);
 	}
 
-	static fromList = fromList;
+	static fromList: typeof fromList = fromList;
 
-	static unwrap = unwrap;
+	static unwrap: typeof unwrap = unwrap;
 
 }

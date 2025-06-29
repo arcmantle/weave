@@ -6,7 +6,7 @@
 	"author": {
 		"name": "Kristoffer Roen-Lie"
 	},
-	"license": "MIT",
+	"license": "Apache-2.0",
 	"main": "index.js",
 	"type": "module",
 	"scripts": {

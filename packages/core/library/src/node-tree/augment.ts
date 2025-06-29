@@ -2,7 +2,7 @@ import { Node } from './node.js';
 import { type Key, type TreeNode } from './types.js';
 
 
-export const $Augmented = Symbol();
+export const $Augmented: symbol = Symbol();
 
 
 export const augment = <

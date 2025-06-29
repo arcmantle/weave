@@ -17,7 +17,7 @@ export interface LiveTsImportsConfig {
 	server:      HTTPServer | HTTPSServer;
 	app:         express.Express;
 	packages:    string[];
-	client?:     { path: string, dir: string }[];
+	client?:     { path: string; dir: string; }[];
 	vendorDir?:  string;
 	clientPath?: string;
 	vendorPath?: string;
@@ -25,7 +25,9 @@ export interface LiveTsImportsConfig {
 }
 
 
-export const liveTsImports = (config: LiveTsImportsConfig) => {
+export const liveTsImports = (
+	config: LiveTsImportsConfig,
+): { wss: WebSocketServer; } => {
 	const {
 		app,
 		server,

@@ -9,11 +9,11 @@ export const createClientSymlinks = (
 	vendorDir: string,
 	pkgDepsMap: ReturnType<typeof getPkgDepsMap>,
 	dev: boolean,
-) => {
+): void => {
 	// Make sure the folder to put symlinks in exists.
 	mkdirSync(vendorDir, { recursive: true });
 
-	// symlink package deps spesified by consumer.
+	// symlink package deps specified by consumer.
 	pkgDepsMap.forEach(({ root }, key) => {
 		const dir = join(vendorDir, key.replaceAll('/', '-'));
 		if (!existsSync(dir))

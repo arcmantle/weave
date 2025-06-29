@@ -2,10 +2,9 @@
 /* auto generated */
 export type { Class, MixinFn, MixinResult } from './compose.js';
 export type { InferMapKey, InferMapValue } from './map.js';
-export type { IObservable } from './observable.js';
 export type { Catalog, Use } from './catalog.js';
 export type { Change } from './object-diff.js';
-export { ObservableMixin, makeObservableBase, ObservableSet, ObservableMap } from './observable.js';
+export { ObservableSet, ObservableMap } from './observable.js';
 export { catalogToList, getUsage, useContains, useCompare, useSort } from './catalog.js';
 export { isApplicationOf, hasMixin, createMixin, compose } from './compose.js';
 export { setsHaveSameItems, getEqualItems } from './sets-have-same-items.js';

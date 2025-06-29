@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/unified-signatures */
-import type { Interface, Writeable } from '@arcmantle/library/types';
 import { PluginContainer } from '@arcmantle/injector';
+import type { Interface, Writeable } from '@arcmantle/library/types';
 import { Signal } from 'signal-polyfill';
 
 import type { AdapterBase, AdapterElement } from './adapter-element.ts';

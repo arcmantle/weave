@@ -3,6 +3,7 @@ import type { Writeable } from '@arcmantle/library/types';
 import { render } from 'lit-html';
 import { Signal } from 'signal-polyfill';
 
+import type { CSSStyle } from '../shared/css.ts';
 import { effect } from '../shared/effect.ts';
 import { DisposingEventHost } from './auto-disposing-event-host.ts';
 
@@ -149,13 +150,13 @@ export class SignalElement extends DisposingEventHost {
 		this.__previousProps.clear();
 	}
 
-	/** Runs the immediatly after connectedCallback, the first time this component connects. */
+	/** Runs the immediately after connectedCallback, the first time this component connects. */
 	protected firstConnected(): void {}
 
 	/** Runs after render has completed and dom has been painted after a connectedCallback. */
 	protected afterConnected(): void {}
 
-	/** Runs immediatly before render is performed. */
+	/** Runs immediately before render is performed. */
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	protected beforeUpdate(changedProps: Set<string | symbol>): void {}
 
@@ -205,27 +206,12 @@ export class SignalElement extends DisposingEventHost {
 		});
 	}
 
-	/** Return a value which will be rendered into the componens shadowroot. */
+	/** Return a value which will be rendered into the components shadowroot. */
 	protected render(): unknown { return; }
 
 	static styles: CSSStyle;
 
 }
-
-
-export type CSSStyle = CSSStyleSheet | CSSStyleSheet[] | CSSStyle[];
-export const css = (strings: TemplateStringsArray, ...values: any[]): CSSStyle => {
-	const stylesheet = new EnhancedCSSStyleSheet();
-	stylesheet.replaceSync(strings.reduce((acc, str, i) => {
-		const value = values[i]!;
-		if (value instanceof EnhancedCSSStyleSheet)
-			return acc + str + value.text;
-
-		return acc + str + values[i];
-	}, ''));
-
-	return stylesheet;
-};
 
 
 export const state = () => <C extends SignalElement, V>(
@@ -299,15 +285,3 @@ export const property = (
 		},
 	};
 };
-
-
-export class EnhancedCSSStyleSheet extends CSSStyleSheet {
-
-	text: string;
-
-	override replaceSync(text: string): void {
-		this.text = text;
-		super.replaceSync(text);
-	}
-
-}

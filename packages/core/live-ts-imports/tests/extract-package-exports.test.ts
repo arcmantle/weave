@@ -3,7 +3,7 @@ import { expect, test } from 'vitest';
 import { extractExports } from '../src/resolve-pkg-deps.js';
 
 
-test('Wierd nested exports', () => {
+test('Weird nested exports', () => {
 	const packageName = 'tslib';
 	const exports = {
 		'.': {

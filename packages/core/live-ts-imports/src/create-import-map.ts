@@ -7,7 +7,7 @@ export const createImportMap = (
 	prefix: string,
 	pkgDepsMap: ReturnType<typeof getPkgDepsMap>,
 	dev: boolean,
-) => {
+): string => {
 	if (!prefix.startsWith('.'))
 		prefix = '.' + prefix;
 
@@ -61,7 +61,7 @@ export const createImportMap = (
 	// For correct JSON, the last item cannot have a trailing comma.
 	importLines[importLines.length - 1 ] = importLines.at(-1)!.slice(0, -1);
 
-	// Turn the return value into valid importmap syntax.
+	// Turn the return value into valid import-map syntax.
 	return '{\n"imports": {\n'
 		+ importLines.join('\n') +
 	'\n}\n}';

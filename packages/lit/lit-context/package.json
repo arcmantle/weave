@@ -4,17 +4,17 @@
 	"description": "Context provider and consumer for Lit Elements",
 	"author": {
 		"name": "Kristoffer Roen-Lie",
-		"url": "https://github.com/RoenLie"
+		"url": "https://github.com/arcmantle"
 	},
-	"license": "MIT",
+	"license": "Apache-2.0",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/RoenLie/mimic.git"
+		"url": "git+https://github.com/arcmantle/mimic.git"
 	},
 	"bugs": {
-		"url": "https://github.com/RoenLie/mimic/issues"
+		"url": "https://github.com/arcmantle/mimic/issues"
 	},
-	"homepage": "https://github.com/RoenLie/mimic#readme",
+	"homepage": "https://github.com/arcmantle/mimic#readme",
 	"type": "module",
 	"types": "./dist/index.d.ts",
 	"main": "./dist/index.js",

@@ -2,7 +2,7 @@
 	"name": "@arcmantle/tsconfig",
 	"version": "1.0.0",
 	"author": "Kristoffer Roen-Lie",
-	"license": "MIT",
+	"license": "Apache-2.0",
 	"description": "tsconfig with convenient defaults.",
 	"type": "module",
 	"exports": {

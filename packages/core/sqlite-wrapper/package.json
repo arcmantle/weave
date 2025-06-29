@@ -1,28 +1,22 @@
 {
 	"name": "@arcmantle/sqlite-wrapper",
-	"description": "description",
-	"authors": "author",
+	"description": "A modern, type-safe SQLite wrapper built on better-sqlite3 with fluent API, automatic resource management, and comprehensive TypeScript support",
+	"authors": "Kristoffer Roen-Lie",
+	"license": "Apache-2.0",
 	"version": "1.0.0",
 	"type": "module",
-	"main": "pathToMain",
+	"types": "./dist/index.d.ts",
+	"main": "./dist/index.js",
 	"exports": {
-		".": {
-			"types": "./dist/index.d.ts",
-			"default": "./dist/index.js"
-		}
+		".": "./dist/index.js"
 	},
 	"scripts": {
-		"build": "pnpm run --sequential \"/^build::.*/\"",
-		"build::index": "pkg-toolbox build-indexes",
-		"build::js": "vite build",
-		"build::types": "tsc --project ./src/tsconfig.json"
+		"build": "rimraf dist && tsc --project ./src/tsconfig.json"
 	},
 	"dependencies": {
-		"better-sqlite3": "^11.9.1",
-		"tslib": "^2.8.1"
+		"better-sqlite3": "^11.9.1"
 	},
 	"devDependencies": {
-		"@arcmantle/vite-lib-config": "workspace:^",
 		"@types/better-sqlite3": "^7.6.13"
 	}
 }

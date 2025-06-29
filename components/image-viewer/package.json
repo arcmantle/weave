@@ -27,7 +27,7 @@
 	},
 	"dependencies": {
 		"@arcmantle/library": "workspace:^",
-		"@arcmantle/custom-element": "workspace:^",
+		"@arcmantle/adapter-element": "workspace:^",
 		"lit-html": "^3.3.0",
 		"tslib": "^2.8.1"
 	},

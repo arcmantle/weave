@@ -1,5 +1,6 @@
 import type { PluginContainer } from '@arcmantle/injector';
 
+
 export type PropertyType =
 	| StringConstructor
 	| ObjectConstructor

@@ -1,7 +1,7 @@
 import { output } from '../output.ts';
 
 
-export const wordcloudChart = async () => {
+export const wordcloudChart = async (): Promise<void> => {
 	const code = `
 	import { Chart } from 'chart.js/auto';
 	import { WordCloudController, WordElement } from 'chartjs-chart-wordcloud';

@@ -21,6 +21,20 @@
  *	USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+/**
+ * This module contains the POSIX path implementation for the browser.
+ * It provides methods for working with file paths in a POSIX-compliant manner,
+ * including resolving, normalizing, joining, and parsing paths.
+ *
+ * @example
+ * ```typescript
+ * import { join } from '@arcmantle/posix-path-browser';
+ * const path = join('foo', 'bar', 'baz');
+ * ```
+ *
+ * @module
+ */
+
 import { validateObject, validateString } from './validators.js';
 
 const CHAR_FORWARD_SLASH = 47; /* / */
@@ -113,6 +127,19 @@ const normalizeString = (
 };
 
 
+/**
+ * The right-most parameter is considered {to}. Other parameters are considered an array of {from}.
+ *
+ * Starting from leftmost {from} parameter, resolves {to} to an absolute path.
+ *
+ * If {to} isn't already absolute, {from} arguments are prepended in right to left order,
+ * until an absolute path is found. If after using all {from} paths still no absolute path is found,
+ * the current working directory is used as well. The resulting path is normalized,
+ * and trailing slashes are removed unless the path gets resolved to the root directory.
+ *
+ * @param paths A sequence of paths or path segments.
+ * @throws {TypeError} if any of the arguments is not a string.
+ */
 export const resolve = (...args: string[]): string => {
 	let resolvedPath = '';
 	let resolvedAbsolute = false;
@@ -142,6 +169,15 @@ export const resolve = (...args: string[]): string => {
 	return resolvedPath.length > 0 ? resolvedPath : '.';
 };
 
+
+/**
+ * Normalize a string path, reducing '..' and '.' parts.
+ * When multiple slashes are found, they're replaced by a single one;
+ * when the path contains a trailing slash, it is preserved. On Windows backslashes are used.
+ *
+ * @param path string path to normalize.
+ * @throws {TypeError} if `path` is not a string.
+ */
 export const normalize = (path?: string): string => {
 	if (!validateString(path, 'path'))
 		throw new Error('Invalid string');
@@ -167,6 +203,16 @@ export const normalize = (path?: string): string => {
 	return isAbsolute ? `/${ path }` : path;
 };
 
+
+/**
+ * Determines whether {path} is an absolute path.
+ * An absolute path will always resolve to the same location, regardless of the working directory.
+ *
+ * If the given {path} is a zero-length string, `false` will be returned.
+ *
+ * @param path path to test.
+ * @throws {TypeError} if `path` is not a string.
+ */
 export const isAbsolute = (path: string): boolean => {
 	if (!validateString(path, 'path'))
 		throw new Error('invalid string');
@@ -174,6 +220,13 @@ export const isAbsolute = (path: string): boolean => {
 	return path.length > 0 && path.charCodeAt(0) === CHAR_FORWARD_SLASH;
 };
 
+
+/**
+ * Join all arguments together and normalize the resulting path.
+ *
+ * @param paths paths to join.
+ * @throws {TypeError} if any of the path segments is not a string.
+ */
 export const join = (...args: string[]): string => {
 	if (args.length === 0)
 		return '.';
@@ -195,6 +248,14 @@ export const join = (...args: string[]): string => {
 	return normalize(joined);
 };
 
+
+/**
+ * Solve the relative path from {from} to {to} based on the current working directory.
+ * At times we have two absolute paths, and we need to derive the relative path from
+ * one to the other. This is actually the reverse transform of path.resolve.
+ *
+ * @throws {TypeError} if either `from` or `to` is not a string.
+ */
 export const relative = (from: string, to: string): string => {
 	if (!validateString(from, 'from') || !validateString(to, 'to'))
 		throw new Error('invalid string');
@@ -266,11 +327,25 @@ export const relative = (from: string, to: string): string => {
 	return `${ out }${ to.slice(toStart + lastCommonSep) }`;
 };
 
+
+/**
+ * On Windows systems only, returns an equivalent namespace-prefixed path for the given path.
+ * If path is not a string, path will be returned without modifications.
+ * This method is meaningful only on Windows system.
+ * On POSIX systems, the method is non-operational and always returns path without modifications.
+ */
 export const toNamespacedPath = (path: string): string => {
 	// Non-op on posix systems
 	return path;
 };
 
+
+/**
+ * Return the directory name of a path. Similar to the Unix dirname command.
+ *
+ * @param path the path to evaluate.
+ * @throws {TypeError} if `path` is not a string.
+ */
 export const dirname = (path: string): string => {
 	if (!validateString(path, 'path'))
 		throw new Error('invalid string');
@@ -302,6 +377,15 @@ export const dirname = (path: string): string => {
 	return path.slice(0, end);
 };
 
+
+/**
+ * Return the last portion of a path. Similar to the Unix basename command.
+ * Often used to extract the file name from a fully qualified path.
+ *
+ * @param path the path to evaluate.
+ * @param suffix optionally, an extension to remove from the result.
+ * @throws {TypeError} if `path` is not a string or if `ext` is given and is not a string.
+ */
 export const basename = (path: string, suffix?: string): string => {
 	if (suffix !== undefined)
 		validateString(suffix, 'ext');
@@ -386,6 +470,14 @@ export const basename = (path: string, suffix?: string): string => {
 	return path.slice(start, end);
 };
 
+
+/**
+ * Return the extension of the path, from the last '.' to end of string in the last portion of the path.
+ * If there is no '.' in the last portion of the path or the first character of it is '.', then it returns an empty string.
+ *
+ * @param path the path to evaluate.
+ * @throws {TypeError} if `path` is not a string.
+ */
 export const extname = (path: string): string => {
 	if (!validateString(path, 'path'))
 		throw new Error('invalid string');
@@ -441,6 +533,12 @@ export const extname = (path: string): string => {
 	return path.slice(startDot, end);
 };
 
+
+/**
+ * Returns a path string from an object - the opposite of parse().
+ *
+ * @param pathObject path to evaluate.
+ */
 export const format = (pathObject: {
 	dir?:  string;
 	root?: string;
@@ -461,6 +559,13 @@ export const format = (pathObject: {
 		: `${ dir }${ sep }${ base }`;
 };
 
+
+/**
+ * Returns an object from a path string - the opposite of format().
+ *
+ * @param path path to evaluate.
+ * @throws {TypeError} if `path` is not a string.
+ */
 export const parse = (path: string): {
 	dir:  string;
 	root: string;
@@ -553,5 +658,14 @@ export const parse = (path: string): {
 	return ret;
 };
 
+
+/**
+ * The platform-specific file separator. '\\' or '/'.
+ */
 export const sep = '/';
+
+
+/**
+ * The platform-specific file delimiter. ';' or ':'.
+ */
 export const delimiter = ':';

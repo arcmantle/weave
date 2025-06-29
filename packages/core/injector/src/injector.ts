@@ -2,47 +2,128 @@
 // SPDX-License-Identifier: Apache-2.0
 
 type stringliteral = string & Record<never, never>;
+
+/**
+ * A unique identifier for a binding. Can be a string or symbol.
+ * Used to identify and retrieve specific bindings from the container.
+ */
 export type Identifier = string | symbol;
+
+/**
+ * Defines the lifetime behavior of a binding.
+ * - `singleton`: Same instance returned for all resolutions
+ * - `transient`: New instance created for each resolution
+ */
 export type Lifetimes = 'singleton' | 'transient';
+
+/**
+ * Utility type that excludes callable functions from type T.
+ * Used to ensure only non-function types are accepted in certain contexts.
+ */
 export type PureRecord<T> = T extends CallableFunction ? never : T;
 
 
+/**
+ * Base interface for all binding types in the dependency injection container.
+ * Contains common properties shared across different binding implementations.
+ */
 export interface BaseBinding {
+	/** The binding type - determines how the value is created ('class', 'factory', or 'constant') */
 	type:        stringliteral;
 	/**
-	 * A resolution of `first` denotes that the first container in the lineage with a binding will be used.\
+	 * A resolution of `first` denotes that the first container in the lineage with a binding will be used.
 	 * A resolution of `last` denotes that the last container in the lineage with a binding will be used.
 	 */
 	resolution:  'first' | 'last';
+	/** The value, constructor, or factory function used to create instances */
 	initializer: any;
+	/** Internal cache for singleton instances - stores the created instance to avoid recreating it */
 	cache:       any;
+	/** Lifetime management strategy - 'singleton' reuses instances, 'transient' creates new ones */
 	method:      Lifetimes;
+	/** Optional name for the binding to allow multiple bindings for the same identifier */
 	named?:      Identifier;
+	/** Optional tag used in combination with name for even more specific binding identification */
 	tagged?:     Identifier;
+	/** Internal identifier linking this binding to a specific module for organized loading/unloading */
 	moduleId?:   Identifier;
+	/** Optional post-creation hook that processes the instance before returning it */
 	activator?:  (instance: any, container: PluginContainer) => any;
 }
+
+/**
+ * Binding configuration for class constructors.
+ * Used when registering a class that should be instantiated when resolved.
+ */
 export interface ClassBinding extends BaseBinding {
 	type:        'class';
 	initializer: new (...args: any[]) => any;
 }
+
+/**
+ * Binding configuration for factory functions.
+ * Used when registering a factory function that creates instances dynamically.
+ *
+ * @template T The type of value produced by the factory function
+ */
 export interface FactoryBinding<T> extends BaseBinding {
 	type:        'factory';
 	initializer: (container: PluginContainer) => T;
 }
+
+/**
+ * Binding configuration for constant values.
+ * Used when registering pre-existing instances or primitive values.
+ */
 export interface ConstantBinding extends BaseBinding {
 	type: 'constant';
 }
 
-
+/**
+ * Union type representing all possible binding configurations.
+ * A binding can be a constant value, a class constructor, or a factory function.
+ */
 export type Binding =
-| ConstantBinding | ClassBinding | FactoryBinding<any>;
+| ConstantBinding
+| ClassBinding
+| FactoryBinding<any>;
 
+/**
+ * Type guard function to check if a binding is a class binding.
+ *
+ * @param binding The binding to check
+ * @returns True if the binding is a ClassBinding
+ */
 export const isClassBinding = (binding: Binding): binding is ClassBinding => binding.type === 'class';
+
+/**
+ * Type guard function to check if a binding is a factory binding.
+ *
+ * @param binding The binding to check
+ * @returns True if the binding is a FactoryBinding
+ */
 export const isFactoryBinding = (binding: Binding): binding is FactoryBinding<any> => binding.type === 'factory';
+
+/**
+ * Type guard function to check if a binding is a constant binding.
+ *
+ * @param binding The binding to check
+ * @returns True if the binding is a ConstantBinding
+ */
 export const isConstantBinding = (binding: Binding): binding is ConstantBinding => binding.type === 'constant';
 
 
+/**
+ * Fluent API class for configuring the initial binding type.
+ * This is the entry point for the binding configuration chain.
+ *
+ * @example
+ * ```typescript
+ * container.bind('service')
+ *   .constant(myService)
+ *   .singleton();
+ * ```
+ */
 export class RegisterInitializer {
 
 	constructor(protected binding: Binding) { }
@@ -74,6 +155,10 @@ export class RegisterInitializer {
 }
 
 
+/**
+ * Fluent API class for configuring the lifetime behavior of a binding.
+ * Provides methods to set singleton or transient lifetime management.
+ */
 export class RegisterLifetime {
 
 	constructor(protected binding: Binding) { }
@@ -98,6 +183,12 @@ export class RegisterLifetime {
 }
 
 
+/**
+ * Fluent API class for adding naming and tagging to bindings.
+ * Allows for more granular identification of bindings beyond just the identifier.
+ *
+ * @template T The type of the bound value
+ */
 export class RegisterSpecifier<T> {
 
 	constructor(protected binding: Binding) { }
@@ -129,6 +220,12 @@ export class RegisterSpecifier<T> {
 
 }
 
+/**
+ * Extended RegisterLifetime class that also supports activation hooks.
+ * Combines lifetime management with post-creation instance processing.
+ *
+ * @template T The type of the bound value
+ */
 export class RegisterLifetimeWithActivator<T> extends RegisterLifetime {
 
 	/**
@@ -143,6 +240,12 @@ export class RegisterLifetimeWithActivator<T> extends RegisterLifetime {
 
 }
 
+/**
+ * Combined fluent API class that provides both specifier and lifetime functionality.
+ * Used for class and factory bindings that support all configuration options.
+ *
+ * @template T The type of the bound value
+ */
 export class RegisterSpecifierWithLifetime<T> extends RegisterLifetimeWithActivator<T> {
 
 	/** Registers the binding with a name, allowing for additional granularity when resolving. */
@@ -163,6 +266,24 @@ export class RegisterSpecifierWithLifetime<T> extends RegisterLifetimeWithActiva
 }
 
 
+/**
+ * The main dependency injection container that manages bindings and resolves dependencies.
+ * Supports hierarchical container structures, multiple binding types, and module-based organization.
+ *
+ * @example
+ * ```typescript
+ * // Basic usage
+ * const container = new PluginContainer();
+ * container.bind('service').class(MyService).singleton();
+ * const service = container.get<MyService>('service');
+ *
+ * // With parent container
+ * const child = new PluginContainer({ parent: container });
+ *
+ * // With custom default lifetime
+ * const transientContainer = new PluginContainer({ defaultLifetime: 'transient' });
+ * ```
+ */
 export class PluginContainer {
 
 	constructor(args?: { defaultLifetime?: Lifetimes; parent?: PluginContainer; }) {
@@ -314,9 +435,7 @@ export class PluginContainer {
 		return this.resolveSingleBinding(container, bindings[0]!);
 	}
 
-	/**
-	 * Returns the value of the binding if it exists, otherwise returns undefined.
-	 */
+	/** Returns the value of the binding if it exists, otherwise returns undefined. */
 	tryGet<T>(id: Identifier): T | undefined {
 		if (!this.exists(id))
 			return undefined;
@@ -599,6 +718,21 @@ class AssertInjector {
 }
 
 
+/**
+ * A module that encapsulates related dependency bindings.
+ * Modules provide a way to organize and group related bindings together,
+ * making them easier to manage, load, and unload as a unit.
+ *
+ * @example
+ * ```typescript
+ * const databaseModule = new PluginModule(({ bind, bindOnce, rebind }) => {
+ *   bind('connection').factory(() => createConnection()).singleton();
+ *   bind('repository').class(UserRepository).singleton();
+ * });
+ *
+ * container.load(databaseModule);
+ * ```
+ */
 export class PluginModule {
 
 	readonly id: string = crypto.randomUUID();

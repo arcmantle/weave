@@ -1,11 +1,12 @@
-import { build  } from 'vite';
+import { spawn } from 'node:child_process';
+import { readFileSync, unlinkSync } from 'node:fs';
 import { platform, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { readFileSync, unlinkSync } from 'node:fs';
-import { spawn } from 'node:child_process';
+
+import { build  } from 'vite';
 
 
-export const output = async (code: string) => {
+export const output = async (code: string): Promise<void> => {
 	const tempDir = join(tmpdir(), 'esplot');
 	const filePath = join(tempDir, 'plot.js');
 

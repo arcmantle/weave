@@ -1,0 +1,16 @@
+{
+	"name": "@arcmantle/esplot",
+	"version": "1.0.0",
+	"license": "Apache-2.0",
+	"description": "Experimental data visualization library with TypeScript API and native desktop viewer",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"publish": {
+		"include": [
+			"bin",
+			"src",
+			"README.md"
+		]
+	}
+}

@@ -1,52 +1,85 @@
+import type Database from 'better-sqlite3';
+
 import type { Branded } from './brand.js';
-import { exists } from './exists.js';
 import { SQLite } from './database.js';
+import { exists } from './exists.js';
 import { escapeString } from './sql.js';
 
-
-// Wrapper around Better SQLite3
-// Purpose is to obscure away the database hooks that I will add into
-// all interactions with the actual DB.
+/**
+ * Main query builder class that provides a fluent interface for constructing and executing SQL queries.
+ * Automatically manages database connections and provides methods for SELECT, INSERT, UPDATE, DELETE, and DDL operations.
+ */
 export class Query {
 
 	#db: SQLite;
 
+	/**
+	 * Creates a new Query instance with a SQLite database connection.
+	 * Automatically enables WAL mode for better concurrency.
+	 */
 	constructor(filename?: string) {
 		this.#db = new SQLite(filename);
 		this.#db.pragma('journal_mode = WAL');
 	}
 
-	public from<T extends object = object>(table: string) {
+	/**
+	 * Creates a SELECT query builder for the specified table.
+	 */
+	from<T extends object = object>(table: string): SelectBuilder<T> {
 		return new SelectBuilder<T>(this.#db, table);
 	}
 
-	public insert<T extends object  = object>(table: string) {
+	/**
+	 * Creates an INSERT query builder for the specified table.
+	 */
+	insert<T extends object  = object>(table: string): InsertBuilder<T> {
 		return new InsertBuilder<T>(this.#db, table);
 	}
 
-	public update<T extends object = object>(table: string) {
+	/**
+	 * Creates an UPDATE query builder for the specified table.
+	 */
+	update<T extends object = object>(table: string): UpdateBuilder<T> {
 		return new UpdateBuilder<T>(this.#db, table);
 	}
 
-	public delete<T extends object = object>(table: string) {
+	/**
+	 * Creates a DELETE query builder for the specified table.
+	 */
+	delete<T extends object = object>(table: string): DeleteBuilder<T> {
 		return new DeleteBuilder<T>(this.#db, table);
 	}
 
-	public define<T extends object = object>(table: string) {
+	/**
+	 * Creates a table definition builder for creating or modifying table schemas.
+	 */
+	define<T extends object = object>(table: string): DefineBuilder<T> {
 		return new DefineBuilder<T>(this.#db, table);
 	}
 
-	public transaction(transaction: (query: Query) => void) {
+	/**
+	 * Executes multiple operations within a database transaction.
+	 * All operations will be rolled back if any operation fails.
+	 */
+	transaction(transaction: (query: Query) => void): void {
 		this.#db.transaction(() => void transaction(this));
 	}
 
-	public [Symbol.dispose] = () => {
+	/**
+	 * Disposes of the database connection by closing it.
+	 * This method is called automatically when using the 'using' keyword.
+	 */
+	[Symbol.dispose] = (): void => {
 		this.#db.close();
 	};
 
 }
 
 
+/**
+ * Abstract base class for all query builders.
+ * Provides common functionality for building and executing SQL queries.
+ */
 abstract class Builder {
 
 	constructor(
@@ -54,45 +87,69 @@ abstract class Builder {
 		protected table: string,
 	) {}
 
-	public get queryAsString() {
+	/**
+	 * Returns the built SQL query as a string for debugging or logging purposes.
+	 */
+	get queryAsString(): string {
 		return this.build();
 	}
 
+	/**
+	 * Abstract method that must be implemented by subclasses to build the SQL query string.
+	 */
 	protected abstract build(): string;
 
-	public abstract query(): unknown;
+	/**
+	 * Abstract method that must be implemented by subclasses to execute the query.
+	 */
+	abstract query(): unknown;
 
 }
 
-class DefineBuilder<T extends object, Exluded extends keyof T = never> extends Builder {
+/**
+ * Builder for creating table definitions and schemas.
+ * Supports creating tables with primary keys, columns with various types and constraints.
+ */
+class DefineBuilder<T extends object, Excluded extends keyof T = never> extends Builder {
 
 	#override = false;
 	#primaryKey = '';
 	#columns = '';
 
-	/** WARNING! This will drop the existing table and recreate it. */
-	public override() {
+	/**
+	 * Enables override mode which will drop the existing table before creating a new one.
+	 * WARNING! This will completely destroy all existing data in the table.
+	 */
+	override(): this {
 		this.#override = true;
 
 		return this;
 	}
 
-	public primaryKey<N extends Extract<keyof Omit<T, Exluded>, string | number>>(
+	/**
+	 * Defines a primary key column for the table.
+	 * The primary key is automatically set as INTEGER PRIMARY KEY.
+	 */
+	primaryKey<N extends Extract<keyof Omit<T, Excluded>, string | number>>(
 		name: N,
-	) {
+	): Omit<DefineBuilder<T, Excluded | N>, 'primaryKey'> {
 		this.#primaryKey = `${ name } INTEGER PRIMARY KEY`;
 
-		return this as Omit<DefineBuilder<T, Exluded | N>, 'primaryKey'>;
+		return this as any;
 	}
 
-	public column<N extends Extract<keyof Omit<T, Exluded>, string | number>>(
+	/**
+	 * Adds a column definition to the table.
+	 * Supports INTEGER, TEXT, and REAL types with optional default values and null constraints.
+	 */
+	column<N extends Extract<keyof Omit<T, Excluded>, string | number>>(
 		name: N,
 		type: 'INTEGER' | 'TEXT' | 'REAL',
 		options: {
 			value?:    string | boolean;
 			nullable?: boolean;
 		} = {},
-	) {
+	): DefineBuilder<T, Excluded | N> {
 		const { nullable } = options;
 		let { value } = options;
 
@@ -111,9 +168,13 @@ class DefineBuilder<T extends object, Exluded extends keyof T = never> extends B
 			+ ` ${ value !== undefined ? `DEFAULT ${ value }` : '' }`
 			+ ` ${ !nullable ? 'NOT NULL' : '' }`;
 
-		return this as DefineBuilder<T, Exluded | N>;
+		return this;
 	}
 
+	/**
+	 * Builds the CREATE TABLE SQL statement.
+	 * Includes DROP TABLE statement if override mode is enabled.
+	 */
 	protected override build(): string {
 		return `
 		${ this.#override ? `DROP TABLE ${ this.table }` : '' }
@@ -124,13 +185,19 @@ class DefineBuilder<T extends object, Exluded extends keyof T = never> extends B
 		`;
 	}
 
-	public override query() {
+	/**
+	 * Executes the table creation query and returns the result.
+	 */
+	override query(): Database.RunResult {
 		return this.db.prepare(this.build()).run();
 	}
 
 }
 
 
+/**
+ * Builder for SELECT queries with support for filtering, ordering, grouping, and pagination.
+ */
 class SelectBuilder<T extends object = object> extends Builder {
 
 	#select = '';
@@ -140,7 +207,11 @@ class SelectBuilder<T extends object = object> extends Builder {
 	#limit?:  number;
 	#offset?: number;
 
-	public select(...field: Extract<keyof T, string>[]) {
+	/**
+	 * Specifies which columns to select from the table.
+	 * If not called, all columns (*) will be selected.
+	 */
+	select(...field: Extract<keyof T, string>[]): SelectBuilder<T> {
 		field.forEach((name) => {
 			if (this.#select)
 				this.#select += ',';
@@ -151,13 +222,20 @@ class SelectBuilder<T extends object = object> extends Builder {
 		return this as SelectBuilder<T>;
 	}
 
-	public where(filter: (filter: Filter<T>) => FilterCondition) {
+	/**
+	 * Adds WHERE clause conditions using a filter function.
+	 * The filter function provides methods for building SQL conditions.
+	 */
+	where(filter: (filter: Filter<T>) => FilterCondition): this {
 		this.#where = filter(new Filter());
 
 		return this;
 	}
 
-	public groupBy(...field: Extract<keyof T, string>[]) {
+	/**
+	 * Adds GROUP BY clause for aggregating results by specified columns.
+	 */
+	groupBy(...field: Extract<keyof T, string>[]): this {
 		field.forEach(field => {
 			if (this.#groupBy)
 				this.#groupBy += ',';
@@ -168,11 +246,15 @@ class SelectBuilder<T extends object = object> extends Builder {
 		return this;
 	}
 
-	public orderBy(
+	/**
+	 * Adds ORDER BY clause for sorting results.
+	 * Supports ascending/descending order and NULLS LAST option.
+	 */
+	orderBy(
 		field: Extract<keyof T, string>,
 		order: 'asc' | 'desc' = 'asc',
 		nullsLast?: true,
-	) {
+	): this {
 		if (this.#orderBy)
 			this.#orderBy += ',';
 
@@ -182,19 +264,28 @@ class SelectBuilder<T extends object = object> extends Builder {
 		return this;
 	}
 
-	public limit(limit: number) {
+	/**
+	 * Limits the number of rows returned by the query.
+	 */
+	limit(limit: number): this {
 		this.#limit = limit;
 
 		return this;
 	}
 
-	public offset(offset: number) {
+	/**
+	 * Skips the specified number of rows before returning results.
+	 */
+	offset(offset: number): this {
 		this.#offset = offset;
 
 		return this;
 	}
 
-	protected getLimitOffset() {
+	/**
+	 * Helper method to build the LIMIT and OFFSET clause.
+	 */
+	protected getLimitOffset(): string {
 		const limitExists = exists(this.#limit);
 		const offsetExists = exists(this.#offset);
 		const bothExist = limitExists && offsetExists;
@@ -207,7 +298,10 @@ class SelectBuilder<T extends object = object> extends Builder {
 					: '';
 	}
 
-	protected build() {
+	/**
+	 * Builds the complete SELECT SQL statement with all specified clauses.
+	 */
+	protected build(): string {
 		return `
 		SELECT ${ this.#select ? this.#select : '*' }
 		FROM ${ this.table }
@@ -218,7 +312,11 @@ class SelectBuilder<T extends object = object> extends Builder {
 		`;
 	}
 
-	public query(): T[] {
+	/**
+	 * Executes the SELECT query and returns all matching rows.
+	 * Returns an empty array if the query fails or no rows are found.
+	 */
+	query(): T[] {
 		try {
 			return this.db.prepare(this.build()).all() as T[];
 		}
@@ -232,6 +330,10 @@ class SelectBuilder<T extends object = object> extends Builder {
 }
 
 
+/**
+ * Builder for UPDATE queries with support for conditional updates.
+ * Note: ORDER BY, LIMIT, and OFFSET require special SQLite compilation flags.
+ */
 class UpdateBuilder<T extends object = object> extends Builder {
 
 	#values = '';
@@ -240,7 +342,11 @@ class UpdateBuilder<T extends object = object> extends Builder {
 	#limit?:   number;
 	#offset?:  number;
 
-	public values(fields: Partial<T>) {
+	/**
+	 * Sets the values to update for the specified fields.
+	 * Automatically handles string escaping and skips undefined values.
+	 */
+	values(fields: Partial<T>): UpdateBuilder<T> {
 		Object.entries(fields).forEach(([ name, value ]) => {
 			if (value === undefined)
 				return;
@@ -257,17 +363,24 @@ class UpdateBuilder<T extends object = object> extends Builder {
 		return this as UpdateBuilder<T>;
 	}
 
-	public where(filter: (filter: Filter<T>) => FilterCondition) {
+	/**
+	 * Adds WHERE clause conditions to specify which rows to update.
+	 */
+	where(filter: (filter: Filter<T>) => FilterCondition): this {
 		this.#where = filter(new Filter());
 
 		return this;
 	}
 
-	public orderBy(
+	/**
+	 * Adds ORDER BY clause for the update operation.
+	 * WARNING: This feature requires SQLite to be compiled with SQLITE_ENABLE_UPDATE_DELETE_LIMIT.
+	 */
+	orderBy(
 		field: Extract<keyof T, string>,
 		order: 'asc' | 'desc' = 'asc',
 		nullsLast?: true,
-	) {
+	): this {
 		throw new Error('Using this requires '
 			+ 'https://www.sqlite.org/compile.html#enable_update_delete_limit');
 
@@ -280,7 +393,11 @@ class UpdateBuilder<T extends object = object> extends Builder {
 		return this;
 	}
 
-	public limit(limit: number) {
+	/**
+	 * Limits the number of rows to update.
+	 * WARNING: This feature requires SQLite to be compiled with SQLITE_ENABLE_UPDATE_DELETE_LIMIT.
+	 */
+	limit(limit: number): this {
 		throw new Error('Using this requires '
 			+ 'https://www.sqlite.org/compile.html#enable_update_delete_limit');
 
@@ -289,7 +406,11 @@ class UpdateBuilder<T extends object = object> extends Builder {
 		return this;
 	}
 
-	public offset(offset: number) {
+	/**
+	 * Specifies an offset for the update operation.
+	 * WARNING: This feature requires SQLite to be compiled with SQLITE_ENABLE_UPDATE_DELETE_LIMIT.
+	 */
+	offset(offset: number): this {
 		throw new Error('Using this requires '
 			+ 'https://www.sqlite.org/compile.html#enable_update_delete_limit');
 
@@ -298,7 +419,10 @@ class UpdateBuilder<T extends object = object> extends Builder {
 		return this;
 	}
 
-	protected getLimitOffset() {
+	/**
+	 * Helper method to build the LIMIT and OFFSET clause for UPDATE statements.
+	 */
+	protected getLimitOffset(): string {
 		const limitExists = exists(this.#limit);
 		const offsetExists = exists(this.#offset);
 		const bothExist = limitExists && offsetExists;
@@ -311,7 +435,10 @@ class UpdateBuilder<T extends object = object> extends Builder {
 					: '';
 	}
 
-	protected build() {
+	/**
+	 * Builds the complete UPDATE SQL statement.
+	 */
+	protected build(): string {
 		return `
 		UPDATE ${ this.table }
 		SET ${ this.#values }
@@ -321,7 +448,11 @@ class UpdateBuilder<T extends object = object> extends Builder {
 		`;
 	}
 
-	public query() {
+	/**
+	 * Executes the UPDATE query and returns information about the operation.
+	 * Returns undefined if the query fails.
+	 */
+	query(): Database.RunResult | undefined {
 		try {
 			return this.db.prepare(this.build()).run();
 		}
@@ -333,12 +464,20 @@ class UpdateBuilder<T extends object = object> extends Builder {
 }
 
 
+/**
+ * Builder for INSERT queries that supports inserting single rows.
+ */
 class InsertBuilder<T extends object = object> extends Builder {
 
 	#columns = '';
 	#values = '';
 
-	public values(fields: T) {
+	/**
+	 * Sets the values to insert for the new row.
+	 * Automatically handles string escaping and skips undefined values.
+	 * If no values are provided, generates an INSERT with DEFAULT VALUES.
+	 */
+	values(fields: T): this {
 		Object.entries(fields).forEach(([ name, value ]) => {
 			if (value === undefined)
 				return;
@@ -353,7 +492,11 @@ class InsertBuilder<T extends object = object> extends Builder {
 		return this;
 	}
 
-	protected build() {
+	/**
+	 * Builds the INSERT SQL statement.
+	 * Uses DEFAULT VALUES syntax if no columns and values are specified.
+	 */
+	protected build(): string {
 		if (!this.#columns && !this.#values)
 			return `INSERT INTO ${ this.table } DEFAULT VALUES`;
 
@@ -363,7 +506,11 @@ class InsertBuilder<T extends object = object> extends Builder {
 		`;
 	}
 
-	public query() {
+	/**
+	 * Executes the INSERT query and returns information about the operation.
+	 * Returns undefined if the query fails.
+	 */
+	query(): Database.RunResult | undefined {
 		try {
 			return this.db.prepare(this.build()).run();
 		}
@@ -375,24 +522,38 @@ class InsertBuilder<T extends object = object> extends Builder {
 }
 
 
+/**
+ * Builder for DELETE queries with support for conditional deletion.
+ */
 class DeleteBuilder<T extends object = object> extends Builder {
 
 	#where = '';
 
-	public where(filter: (filter: Filter<T>) => FilterCondition) {
+	/**
+	 * Adds WHERE clause conditions to specify which rows to delete.
+	 * Without a WHERE clause, all rows in the table will be deleted.
+	 */
+	where(filter: (filter: Filter<T>) => FilterCondition): this {
 		this.#where = filter(new Filter());
 
 		return this;
 	}
 
-	protected build() {
+	/**
+	 * Builds the DELETE SQL statement.
+	 */
+	protected build(): string {
 		return `
 		DELETE FROM ${ this.table }
 		${ this.#where ? `WHERE ${ this.#where }` : '' }
 		`;
 	}
 
-	public query() {
+	/**
+	 * Executes the DELETE query and returns information about the operation.
+	 * Returns undefined if the query fails.
+	 */
+	query(): Database.RunResult | undefined {
 		try {
 			return this.db.prepare(this.build()).run();
 		}
@@ -405,21 +566,40 @@ class DeleteBuilder<T extends object = object> extends Builder {
 
 
 type FilterCondition = Branded<string, 'FilterCondition'>;
+
+/**
+ * Filter builder class that provides methods for creating SQL WHERE clause conditions.
+ * All methods return branded FilterCondition strings that can be combined with logical operators.
+ */
 export class Filter<T = Record<string, string | number>> {
 
-	public and(...conditions: FilterCondition[]) {
+	/**
+	 * Combines multiple filter conditions with AND logic.
+	 */
+	and(...conditions: FilterCondition[]): FilterCondition {
 		return `${ conditions.join(' AND ') }` as FilterCondition;
 	}
 
-	public or(...conditions: FilterCondition[]) {
+	/**
+	 * Combines multiple filter conditions with OR logic.
+	 * Automatically wraps the result in parentheses.
+	 */
+	or(...conditions: FilterCondition[]): FilterCondition {
 		return `(${ conditions.join(' OR ') })` as FilterCondition;
 	}
 
-	public eq<K extends Extract<keyof T, string>>(field: K, value: T[K]) {
+	/**
+	 * Creates an equality condition for exact value matching.
+	 */
+	eq<K extends Extract<keyof T, string>>(field: K, value: T[K]): FilterCondition {
 		return `${ field } = '${ value }'` as FilterCondition;
 	}
 
-	public startsWith(field: Extract<keyof T, string>, value: string) {
+	/**
+	 * Creates a LIKE condition for matching strings that start with the given value.
+	 * Automatically handles SQL wildcard character escaping.
+	 */
+	startsWith(field: Extract<keyof T, string>, value: string): FilterCondition {
 		const mustEscape = this.mustEscape(value);
 		if (mustEscape)
 			value = this.escape(value);
@@ -427,7 +607,11 @@ export class Filter<T = Record<string, string | number>> {
 		return this.finalize(`${ field } LIKE '${ value }%'`, mustEscape);
 	}
 
-	public endsWith(field: Extract<keyof T, string>, value: string) {
+	/**
+	 * Creates a LIKE condition for matching strings that end with the given value.
+	 * Automatically handles SQL wildcard character escaping.
+	 */
+	endsWith(field: Extract<keyof T, string>, value: string): FilterCondition {
 		const mustEscape = this.mustEscape(value);
 		if (mustEscape)
 			value = this.escape(value);
@@ -435,7 +619,11 @@ export class Filter<T = Record<string, string | number>> {
 		return this.finalize(`${ field } LIKE '%${ value }'`, mustEscape);
 	}
 
-	public contains(field: Extract<keyof T, string>, value: string) {
+	/**
+	 * Creates a LIKE condition for matching strings that contain the given value.
+	 * Automatically handles SQL wildcard character escaping.
+	 */
+	contains(field: Extract<keyof T, string>, value: string): FilterCondition {
 		const mustEscape = this.mustEscape(value);
 		if (mustEscape)
 			value = this.escape(value);
@@ -443,7 +631,11 @@ export class Filter<T = Record<string, string | number>> {
 		return this.finalize(`${ field } LIKE '%${ value }%'`, mustEscape);
 	}
 
-	public oneOf<K extends Extract<keyof T, string>>(field: K, ...values: T[K][]) {
+	/**
+	 * Creates an IN condition for matching any of the provided values.
+	 * Automatically handles string quoting for string values.
+	 */
+	oneOf<K extends Extract<keyof T, string>>(field: K, ...values: T[K][]): FilterCondition {
 		const escapedValues = values.map(v => {
 			return typeof v === 'string'
 				? `'${ v }'`
@@ -453,34 +645,55 @@ export class Filter<T = Record<string, string | number>> {
 		return `${ field } IN (${ escapedValues })` as FilterCondition;
 	}
 
-	public notOneOf<K extends Extract<keyof T, string>>(field: K, ...values: T[K][]) {
+	/**
+	 * Creates a NOT IN condition for excluding any of the provided values.
+	 */
+	notOneOf<K extends Extract<keyof T, string>>(field: K, ...values: T[K][]): FilterCondition {
 		return `${ field } NOT IN (${ values.join(',') })` as FilterCondition;
 	}
 
-	public exists(field: Extract<keyof T, string>) {
+	/**
+	 * Creates an IS NOT NULL condition to check if a field has a value.
+	 */
+	exists(field: Extract<keyof T, string>): FilterCondition {
 		return `${ field } IS NOT NULL` as FilterCondition;
 	}
 
-	public notExists(field: Extract<keyof T, string>) {
+	/**
+	 * Creates an IS NULL condition to check if a field is null.
+	 */
+	notExists(field: Extract<keyof T, string>): FilterCondition {
 		return `${ field } IS NULL` as FilterCondition;
 	}
 
-	public glob(field: Extract<keyof T, string>, value: string) {
+	/**
+	 * Creates a GLOB condition for pattern matching using Unix shell-style wildcards.
+	 */
+	glob(field: Extract<keyof T, string>, value: string): FilterCondition {
 		return `${ field } GLOB '${ value }'` as FilterCondition;
 	}
 
-	protected mustEscape(value: string) {
+	/**
+	 * Checks if a string value contains SQL wildcard characters that need escaping.
+	 */
+	protected mustEscape(value: string): boolean {
 		const mustEscape = value.includes('%') || value.includes('_');
 
 		return mustEscape;
 	}
 
-	protected escape(value: string) {
+	/**
+	 * Escapes SQL wildcard characters in a string value.
+	 */
+	protected escape(value: string): string {
 		return value = value.replaceAll(/%/g, '\\%')
 			.replaceAll(/_/g, '\\_');
 	}
 
-	protected finalize(value: string, escape: boolean) {
+	/**
+	 * Finalizes a LIKE condition by adding ESCAPE clause if needed.
+	 */
+	protected finalize(value: string, escape: boolean): FilterCondition {
 		return value + (escape ? ` ESCAPE '\\'` : '') as FilterCondition;
 	}
 

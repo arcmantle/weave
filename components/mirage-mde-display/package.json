@@ -3,7 +3,7 @@
 	"name": "@arcmantle/mirage-mde-display",
 	"description": "",
 	"author": "Kristoffer Roen-Lie",
-	"license": "MIT",
+	"license": "Apache-2.0",
 	"type": "module",
 	"types": "./dist/lib/mirage-mde-display.d.ts",
 	"main": "./dist/lib/mirage-mde-display.js",

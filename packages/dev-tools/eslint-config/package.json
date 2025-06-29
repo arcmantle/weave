@@ -2,7 +2,7 @@
 	"name": "@arcmantle/eslint-config",
 	"version": "1.0.0",
 	"author": "Kristoffer Roen-Lie",
-	"license": "MIT",
+	"license": "Apache-2.0",
 	"description": "eslint config preferences.",
 	"type": "module",
 	"main": "index.js",

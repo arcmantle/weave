@@ -1,0 +1,31 @@
+{
+	"name": "@arcmantle/library",
+	"version": "1.0.0",
+	"license": "Apache-2.0",
+	"description": "",
+	"exports": {
+		"./animation": "./src/animation/index.ts",
+		"./array": "./src/array/index.ts",
+		"./async": "./src/async/index.ts",
+		"./coms": "./src/coms/index.ts",
+		"./dom": "./src/dom/index.ts",
+		"./enum": "./src/enum/index.ts",
+		"./function": "./src/function/index.ts",
+		"./iterators": "./src/iterators/index.ts",
+		"./math": "./src/math/index.ts",
+		"./node-tree": "./src/node-tree/index.ts",
+		"./string": "./src/string/index.ts",
+		"./structs": "./src/structs/index.ts",
+		"./timing": "./src/timing/index.ts",
+		"./types": "./src/types/index.ts",
+		"./validation": "./src/validation/index.ts",
+		"./indexdb": "./src/indexdb/index.ts",
+		"./canvas": "./src/canvas/index.ts"
+	},
+	"publish": {
+		"include": [
+			"src",
+			"README.md"
+		]
+	}
+}

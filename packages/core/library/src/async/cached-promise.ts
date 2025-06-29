@@ -10,7 +10,7 @@ export const cachedPromise = <T extends (...args: any) => Promise<any>>(
 	 * @default true
 	 */
 	flush = true,
-) => {
+): (...args: Parameters<T>) => Promise<Awaited<ReturnType<T>>> => {
 	let promise: Promise<Awaited<ReturnType<T>>> | undefined;
 
 	return (...args: Parameters<T>): Promise<Awaited<ReturnType<T>>> => {

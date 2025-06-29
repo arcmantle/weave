@@ -14,21 +14,17 @@ export type MixinFn<TInt = any, TBase extends Ctor = Ctor> =
 export type MixinResult<T extends MixinFn[], TBase extends Ctor> =
 	UnionToIntersection<ExtractReturnTypes<T>[number]> & TBase;
 
-declare global {
-	// eslint-disable-next-line no-var
-	var Δcompose: boolean | undefined;
-}
 
-
-if (globalThis.Δcompose) {
+const global = globalThis as any as { Δcompose: boolean | undefined; };
+if (global.Δcompose) {
 	console.warn(
-		'Duplicate versions of mixwith have been instantiated.',
-		'Mixwith will continue to work as expected,',
+		'Duplicate versions of MixWith have been instantiated.',
+		'MixWith will continue to work as expected,',
 		'but weakmap related lookup functionality might fail, as there will be multiple sources of truth.',
 	);
 }
 else {
-	globalThis.Δcompose = true;
+	global.Δcompose = true;
 }
 
 
@@ -37,7 +33,7 @@ else {
  * This reference then has another weakmap which holds a reference to the
  * mixin, with the result of that mixin combination.
  * This allows each combination of mixins to only be performed once,
- * thus reducing class dupliation and hopefully saving some memory.
+ * thus reducing class duplication and hopefully saving some memory.
  */
 const classWeakMap: WeakMap<Ctor, WeakMap<MixinFn, Ctor>> = new WeakMap();
 

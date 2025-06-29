@@ -9,7 +9,7 @@
 		"test": "vitest --dom ./src/**/*.test.ts"
 	},
 	"dependencies": {
-		"@arcmantle/custom-element": "workspace:^",
+		"@arcmantle/adapter-element": "workspace:^",
 		"lit-html": "^3.3.0"
 	},
 	"devDependencies": {

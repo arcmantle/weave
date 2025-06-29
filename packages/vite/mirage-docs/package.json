@@ -3,10 +3,10 @@
 	"version": "2.0.24",
 	"description": "",
 	"author": "Kristoffer Roen-Lie",
-	"license": "MIT",
+	"license": "Apache-2.0",
 	"repository": "github/roenlie/mirage-docs",
 	"bugs": {
-		"url": "https://github.com/RoenLie/mirage-docs/issues",
+		"url": "https://github.com/arcmantle/mirage-docs/issues",
 		"email": "KristofferRoenLie@gmail.com"
 	},
 	"files": [
@@ -44,7 +44,7 @@
 		"@orama/plugin-match-highlight": "3.1.6",
 		"@orama/plugin-parsedoc": "3.1.6",
 		"@arcmantle/library": "workspace:^",
-		"@arcmantle/custom-element": "workspace:^",
+		"@arcmantle/adapter-element": "workspace:^",
 		"@arcmantle/injector": "workspace:^",
 		"@arcmantle/monaco-editor-wc": "workspace:^",
 		"@arcmantle/vite-plugin-copy": "workspace:^",

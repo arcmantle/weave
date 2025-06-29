@@ -1,84 +1,33 @@
 {
 	"name": "@arcmantle/library",
-	"version": "2.0.0",
+	"version": "1.0.0",
 	"description": "A versatile collection of TypeScript helper functions and utilities",
 	"author": {
 		"name": "Kristoffer Roen-Lie",
-		"url": "https://github.com/RoenLie"
+		"url": "https://github.com/arcmantle"
 	},
-	"license": "MIT",
+	"license": "Apache-2.0",
 	"type": "module",
-	"types": "./dist/lib/index.d.ts",
-	"main": "./dist/lib/index.js",
+	"types": "./dist/index.d.ts",
+	"main": "./dist/index.js",
 	"exports": {
-		"./animation": {
-			"types": "./dist/lib/animation/index.d.ts",
-			"default": "./dist/lib/animation/index.js"
-		},
-		"./array": {
-			"types": "./dist/lib/array/index.d.ts",
-			"default": "./dist/lib/array/index.js"
-		},
-		"./async": {
-			"types": "./dist/lib/async/index.d.ts",
-			"default": "./dist/lib/async/index.js"
-		},
-		"./coms": {
-			"types": "./dist/lib/coms/index.d.ts",
-			"default": "./dist/lib/coms/index.js"
-		},
-		"./dom": {
-			"types": "./dist/lib/dom/index.d.ts",
-			"default": "./dist/lib/dom/index.js"
-		},
-		"./enum": {
-			"types": "./dist/lib/enum/index.d.ts",
-			"default": "./dist/lib/enum/index.js"
-		},
-		"./function": {
-			"types": "./dist/lib/function/index.d.ts",
-			"default": "./dist/lib/function/index.js"
-		},
-		"./iterators": {
-			"types": "./dist/lib/iterators/index.d.ts",
-			"default": "./dist/lib/iterators/index.js"
-		},
-		"./math": {
-			"types": "./dist/lib/math/index.d.ts",
-			"default": "./dist/lib/math/index.js"
-		},
-		"./node-tree": {
-			"types": "./dist/lib/node-tree/index.d.ts",
-			"default": "./dist/lib/node-tree/index.js"
-		},
-		"./string": {
-			"types": "./dist/lib/string/index.d.ts",
-			"default": "./dist/lib/string/index.js"
-		},
-		"./structs": {
-			"types": "./dist/lib/structs/index.d.ts",
-			"default": "./dist/lib/structs/index.js"
-		},
-		"./timing": {
-			"types": "./dist/lib/timing/index.d.ts",
-			"default": "./dist/lib/timing/index.js"
-		},
-		"./types": {
-			"types": "./dist/lib/types/index.d.ts",
-			"default": "./dist/lib/types/index.js"
-		},
-		"./validation": {
-			"types": "./dist/lib/validation/index.d.ts",
-			"default": "./dist/lib/validation/index.js"
-		},
-		"./indexdb": {
-			"types": "./dist/lib/indexdb/index.d.ts",
-			"default": "./dist/lib/indexdb/index.js"
-		},
-		"./canvas": {
-			"types": "./dist/lib/canvas/index.d.ts",
-			"default": "./dist/lib/canvas/index.js"
-		}
+		"./animation": "./dist/animation/index.js",
+		"./array": "./dist/array/index.js",
+		"./async": "./dist/async/index.js",
+		"./coms": "./dist/coms/index.js",
+		"./dom": "./dist/dom/index.js",
+		"./enum": "./dist/enum/index.js",
+		"./function": "./dist/function/index.js",
+		"./iterators": "./dist/iterators/index.js",
+		"./math": "./dist/math/index.js",
+		"./node-tree": "./dist/node-tree/index.js",
+		"./string": "./dist/string/index.js",
+		"./structs": "./dist/structs/index.js",
+		"./timing": "./dist/timing/index.js",
+		"./types": "./dist/types/index.js",
+		"./validation": "./dist/validation/index.js",
+		"./indexdb": "./dist/indexdb/index.js",
+		"./canvas": "./dist/canvas/index.js"
 	},
 	"sideEffects": false,
 	"files": [

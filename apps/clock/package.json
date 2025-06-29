@@ -2,7 +2,7 @@
 	"name": "@arcmantle/clock",
 	"version": "1.0.0",
 	"author": "Kristoffer Roen-Lie",
-	"license": "MIT",
+	"license": "Apache-2.0",
 	"description": "",
 	"private": true,
 	"main": "./dist/gate/index.js",

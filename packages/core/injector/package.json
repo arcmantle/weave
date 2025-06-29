@@ -5,28 +5,20 @@
 	"contributors": [
 		"Kristoffer Roen-Lie"
 	],
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"files": [
 		"dist",
 		"src",
 		"LICENSE"
 	],
 	"type": "module",
-	"main": "./dist/lib/index.js",
-	"types": "./dist/lib/index.d.ts",
+	"types": "./dist/index.d.ts",
+	"main": "./dist/index.js",
 	"exports": {
-		".": "./dist/lib/index.js"
+		".": "./dist/index.js"
 	},
 	"sideEffects": false,
 	"scripts": {
-		"build": "pnpm run --sequential \"/^build::.?/\"",
-		"build::js": "vite build",
-		"build::types": "tsc --project ./src/tsconfig.json --noEmit false"
-	},
-	"dependencies": {},
-	"devDependencies": {
-		"@arcmantle/vite-lib-config": "workspace:*",
-		"@arcmantle/tsconfig": "workspace:*",
-		"typescript": "^5.8.3"
+		"build": "rimraf dist && tsc --project ./src/tsconfig.json"
 	}
 }

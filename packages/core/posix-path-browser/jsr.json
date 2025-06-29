@@ -1,0 +1,15 @@
+{
+	"name": "@arcmantle/posix-path-browser",
+	"version": "1.0.3",
+	"license": "Apache-2.0",
+	"description": "",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"publish": {
+		"include": [
+			"src",
+			"README.md"
+		]
+	}
+}

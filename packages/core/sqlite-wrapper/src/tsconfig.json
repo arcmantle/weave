@@ -1,14 +1,8 @@
 {
-	"extends": "@arcmantle/tsconfig",
+	"extends": "@arcmantle/tsconfig/build",
 	"compilerOptions": {
-		"types": []
-	},
-	"include": [
-		"./**/*.ts",
-		"./**/*.d.ts",
-	],
-	"exclude": [
-		"./**/*.test.ts",
-		"./**/*.bench.ts",
-	]
+		"emitDecoratorMetadata": false,
+		"experimentalDecorators": false,
+		"useDefineForClassFields": true
+	}
 }

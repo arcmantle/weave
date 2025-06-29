@@ -2,10 +2,10 @@
 	"name": "@arcmantle/vite-plugin-sass",
 	"version": "1.0.0",
 	"description": "Applies SASS transformer to sass literals and allows importing sass files.",
-	"license": "MIT",
+	"license": "Apache-2.0",
 	"author": {
 		"name": "Kristoffer Roen-Lie",
-		"url": "https://github.com/RoenLie"
+		"url": "https://github.com/arcmantle"
 	},
 	"files": [
 		"dist",

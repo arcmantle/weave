@@ -2,19 +2,19 @@
 	"name": "@arcmantle/elements",
 	"version": "1.0.0",
 	"description": "Standalone custom elements created with LIT",
-	"license": "MIT",
+	"license": "Apache-2.0",
 	"author": {
 		"name": "Kristoffer Roen-Lie",
-		"url": "https://github.com/RoenLie"
+		"url": "https://github.com/arcmantle"
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/RoenLie/mimic.git"
+		"url": "git+https://github.com/arcmantle/mimic.git"
 	},
 	"bugs": {
-		"url": "https://github.com/RoenLie/mimic/issues"
+		"url": "https://github.com/arcmantle/mimic/issues"
 	},
-	"homepage": "https://github.com/RoenLie/mimic#readme",
+	"homepage": "https://github.com/arcmantle/mimic#readme",
 	"files": [
 		"dist",
 		"src"

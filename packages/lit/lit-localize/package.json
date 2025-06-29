@@ -4,9 +4,9 @@
 	"description": "A lightweight and reactive localization package, with a focus on use with LIT web components.",
 	"author": {
 		"name": "Kristoffer Roen-Lie",
-		"url": "https://github.com/RoenLie"
+		"url": "https://github.com/arcmantle"
 	},
-	"license": "MIT",
+	"license": "Apache-2.0",
 	"type": "module",
 	"types": "./dist/index.d.ts",
 	"main": "./dist/index.ts",

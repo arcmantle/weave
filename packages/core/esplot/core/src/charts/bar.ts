@@ -1,7 +1,9 @@
 import { output } from '../output.ts';
 
 
-export const barChart = async (...lines: { year: number, count: number }[]) => {
+export const barChart = async (
+	...lines: { year: number; count: number; }[]
+): Promise<void> => {
 	const code = `
 	import Chart from 'chart.js/auto'
 

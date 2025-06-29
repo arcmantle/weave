@@ -98,7 +98,7 @@ export class IterablePipeline<T, R, O = T> extends TransformIterable<T, R> {
 		return new IterablePipeline<P, P, O>(iterable as any, [ ...this.transformers, transformer as any ]);
 	}
 
-	toPipeline() {
+	toPipeline(): (iterable: Iterable<O>) => Exclude<R, undefined>[] {
 		return (iterable: Iterable<O>): Exclude<R, undefined>[] => {
 			return new IterableTransformer<O, R>(iterable, this.transformers as any).toArray();
 		};

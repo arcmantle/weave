@@ -4,6 +4,11 @@ const kValidateObjectAllowArray = 1 << 1;
 const kValidateObjectAllowFunction = 1 << 2;
 
 
+/**
+ * Validates that the value is an object.
+ * Throws an error if the value is not an object, or if it is null or an array,
+ * depending on the options provided.
+ */
 export const validateObject = <T>(
 	value: T,
 	name: string,
@@ -38,6 +43,10 @@ export const validateObject = <T>(
 };
 
 
+/**
+ * Validates that the value is a string.
+ * Returns true if the value is a string, false otherwise.
+ */
 export const validateString = (value: any, _name: string): value is string => {
 	if (typeof value !== 'string')
 		return false;

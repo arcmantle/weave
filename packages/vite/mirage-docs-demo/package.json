@@ -6,10 +6,10 @@
 	"author": {
 		"name": "Kristoffer Roen-Lie"
 	},
-	"license": "MIT",
+	"license": "Apache-2.0",
 	"repository": "github/roenlie/mirage-docs",
 	"bugs": {
-		"url": "https://github.com/RoenLie/mirage-docs/issues",
+		"url": "https://github.com/arcmantle/mirage-docs/issues",
 		"email": "KristofferRoenLie@gmail.com"
 	},
 	"type": "module",

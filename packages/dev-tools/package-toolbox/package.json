@@ -2,8 +2,8 @@
 	"name": "@arcmantle/package-toolbox",
 	"version": "1.0.0",
 	"description": "Utilities for typescript/javascript packages",
-	"license": "MIT",
-	"homepage": "https://github.com/RoenLie/package-toolbox#readme",
+	"license": "Apache-2.0",
+	"homepage": "https://github.com/arcmantle/package-toolbox#readme",
 	"files": [
 		"bin",
 		"dist",
@@ -13,14 +13,14 @@
 	],
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/RoenLie/package-toolbox.git"
+		"url": "git+https://github.com/arcmantle/package-toolbox.git"
 	},
 	"author": {
 		"name": "Kristoffer Roen-Lie",
 		"email": "KristofferRoenLie@gmail.com"
 	},
 	"bugs": {
-		"url": "https://github.com/RoenLie/package-toolbox/issues"
+		"url": "https://github.com/arcmantle/package-toolbox/issues"
 	},
 	"bin": {
 		"pkg-toolbox": "./bin/index.js"

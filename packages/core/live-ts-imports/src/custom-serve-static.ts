@@ -76,7 +76,7 @@ export const tsStatic = (
 			file = handleIndexHtml(file as string, importmap, vendorPath, dev);
 
 		return res.send(file);
-	}) satisfies RequestHandler;
+	}) as RequestHandler;
 };
 
 
@@ -106,7 +106,7 @@ const handleTypescript = async (
 
 const handleIndexHtml = (
 	file: string, importmap: string, vendorPath: string, dev: boolean,
-) => {
+): string => {
 	const dom = parse(file);
 	const head = dom.querySelector('head')
 		?? dom.insertAdjacentHTML(
@@ -128,7 +128,7 @@ const handleIndexHtml = (
 };
 
 
-const mimeCharsets = (mimeType: string, fallback?: string) => {
+const mimeCharsets = (mimeType: string, fallback?: string): string => {
 	// Assume text types are utf8
 	return (/^text\/|^application\/(javascript|json)/)
 		.test(mimeType) ? 'UTF-8' : fallback ?? '';

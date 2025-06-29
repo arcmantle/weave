@@ -1,5 +1,5 @@
 //import { wordcloudChart } from '../src/charts/wordcloud.ts';
-import { barChart } from '../src/index.ts';
+import { barChart } from '../dist/index.js';
 
 await barChart(
 	{ year: 2010, count: 10 },

@@ -119,7 +119,7 @@ class Database {
 
 	constructor(public database: Promise<IDBDatabase>) {}
 
-	collection<T extends typeof IndexDBSchema<any>>(schema: T) {
+	collection<T extends typeof IndexDBSchema<any>>(schema: T): Collection<T> {
 		return new Collection(
 			schema,
 			async (mode) => {
@@ -187,7 +187,7 @@ class Collection<T extends typeof IndexDBSchema<any>> {
 			: undefined as any;
 	}
 
-	async getAll() {
+	async getAll(): Promise<InstanceType<T>[]> {
 		const coll = await this.collection('readonly');
 		const promise = await new Promise<T[]>((res, rej) => {
 			const req = coll.getAll();

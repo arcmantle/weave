@@ -1,0 +1,6 @@
+{
+	"extends": "@arcmantle/tsconfig/build",
+	"compilerOptions": {
+		"rootDir": ".."
+	}
+}

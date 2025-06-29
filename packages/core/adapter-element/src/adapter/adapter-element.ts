@@ -1,12 +1,12 @@
+import { PluginContainer, PluginModule } from '@arcmantle/injector';
 import { traverseDomUp } from '@arcmantle/library/dom';
 import type { Writeable } from '@arcmantle/library/types';
-import { PluginContainer, PluginModule } from '@arcmantle/injector';
 import { render, type RenderOptions } from 'lit-html';
 
+import { type CSSStyle, getFlatStyles } from '../shared/css.ts';
 import { effect } from '../shared/effect.ts';
 import type { ReactiveController, ReactiveControllerHost } from '../shared/reactive-controller.ts';
-import type { CSSStyle } from './helpers.ts';
-import { getFlatStyles, getPrototypeChain } from './helpers.ts';
+import { getPrototypeChain } from './helpers.ts';
 import type { AdapterMetadata } from './types.ts';
 
 
@@ -176,7 +176,7 @@ export class AdapterBase extends HTMLElement {
 }
 
 
-export const adapterBase = { value: AdapterBase };
+export const adapterBase: { value: typeof AdapterBase; } = { value: AdapterBase };
 
 
 export class AdapterElement implements ReactiveControllerHost {

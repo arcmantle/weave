@@ -3,9 +3,18 @@ import type SQLite from 'better-sqlite3';
 import { getCreateQuery } from './get-create-query.ts';
 import { sql } from './sql.ts';
 
-
-/** Drops a column from sqlite table. */
-export const dropColumn = (db: SQLite.Database, table: string, column: string) => {
+/**
+ * Drops a column from an SQLite table.
+ * Since SQLite doesn't support DROP COLUMN directly, this function recreates
+ * the table without the specified column by:
+ * 1. Creating a new table with the modified schema
+ * 2. Copying data from the original table (excluding the dropped column)
+ * 3. Dropping the original table
+ * 4. Renaming the new table to the original name
+ *
+ * The operation is performed within a transaction with foreign keys temporarily disabled.
+ */
+export const dropColumn = (db: SQLite.Database, table: string, column: string): void => {
 	const originalCreateQry = getCreateQuery(db, table);
 
 	// We get the columns, trim and filter away

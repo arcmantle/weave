@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-function-type */
 import { expect, suite, test } from 'vitest';
 
 import { ReflectMetadata } from '../src/reflect-metadata.js';

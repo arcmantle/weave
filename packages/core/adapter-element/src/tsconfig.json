@@ -1,5 +1,5 @@
 {
-	"extends": "@arcmantle/tsconfig",
+	"extends": "@arcmantle/tsconfig/build",
 	"compilerOptions": {
 		"emitDecoratorMetadata": false,
 		"experimentalDecorators": false,
