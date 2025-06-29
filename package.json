@@ -30,6 +30,10 @@
 			"sharp",
 			"tesseract.js",
 			"workerd"
-		]
+		],
+		"overrides": {
+			"@arcmantle/library": "workspace:^",
+			"@arcmantle/injector": "workspace:^"
+		}
 	}
 }

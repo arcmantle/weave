@@ -256,7 +256,7 @@ export class Routes implements ReactiveController {
 
 	hostConnected(): void {
 		this.host.addEventListener(
-			RoutesConnectedEvent.eventName,
+			RoutesConnectedEvent.eventName as any,
 			this.onRoutesConnected,
 		);
 		const event = new RoutesConnectedEvent(this);
@@ -340,8 +340,8 @@ export class RoutesConnectedEvent extends Event {
 }
 
 
-declare global {
-	interface HTMLElementEventMap {
-		[RoutesConnectedEvent.eventName]: RoutesConnectedEvent;
-	}
-}
+//declare global {
+//	interface HTMLElementEventMap {
+//		[RoutesConnectedEvent.eventName]: RoutesConnectedEvent;
+//	}
+//}

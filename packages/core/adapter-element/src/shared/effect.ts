@@ -22,7 +22,7 @@ function processPending() {
 }
 
 
-export function effect(callback: () => any) {
+export function effect(callback: () => any): () => void {
 	let cleanup: ((...args: any) => any) | undefined = undefined;
 
 	const computed = new Signal.Computed(() => {

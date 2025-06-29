@@ -2,7 +2,7 @@ import { html, render } from 'lit-html';
 
 import { AdapterElement } from '../src/adapter/adapter-element.ts';
 import { property, state } from '../src/adapter/decorators.ts';
-import { css, type CSSStyle } from '../src/adapter/helpers.ts';
+import { css, type CSSStyle } from '../src/shared/css.ts';
 
 
 export class RootPage extends AdapterElement {

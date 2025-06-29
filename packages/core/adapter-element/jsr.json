@@ -1,0 +1,19 @@
+{
+	"name": "@arcmantle/adapter-element",
+	"version": "1.0.0",
+	"license": "Apache-2.0",
+	"description": "Custom element wrapper using signals and lit-html.",
+	"exports": {
+		".": "./src/adapter/index.ts",
+		"./adapter": "./src/adapter/index.ts",
+		"./shared": "./src/shared/index.ts",
+		"./router": "./src/router/index.ts",
+		"./signal": "./src/signal/index.ts"
+	},
+	"publish": {
+		"include": [
+			"src",
+			"README.md"
+		]
+	}
+}
