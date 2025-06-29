@@ -1,9 +1,0 @@
-{
-	"extends": "@arcmantle/tsconfig",
-	"compilerOptions": {},
-	"include": [
-		"./**/*.ts",
-		"./**/*.d.ts",
-		"./**/*.js"
-	],
-}

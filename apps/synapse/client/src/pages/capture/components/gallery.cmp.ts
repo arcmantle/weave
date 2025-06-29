@@ -7,11 +7,11 @@ import type { Routes } from '@lit-labs/router';
 import { sharedStyles } from '../../../app/shared-styles.ts';
 import { captureRoutesID } from '../capture-page.ts';
 import { dataURItoBlob } from '../../../app/datauri-to-blob.ts';
-import { IndexDBWrapper } from '@arcmantle/core/indexdb';
+import { IndexDBWrapper } from '@arcmantle/library/indexdb';
 import { CaptureSession } from '../capture-session.ts';
-import { emitEvent } from '@arcmantle/core/dom';
+import { emitEvent } from '@arcmantle/library/dom';
 import { synapseIndexDB } from '../../../app/index-db.ts';
-import { maybe } from '@arcmantle/core/async';
+import { maybe } from '@arcmantle/library/async';
 import { ServerURL } from '../../../app/server-url.ts';
 
 

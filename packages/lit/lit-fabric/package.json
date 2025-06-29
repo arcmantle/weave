@@ -10,29 +10,16 @@
 	"keywords": [],
 	"type": "module",
 	"exports": {
-		"./hooks": {
-			"types": "./dist/hooks/index.d.ts",
-			"default": "./dist/hooks/index.js"
-		},
-		"./core": {
-			"types": "./dist/core/index.d.ts",
-			"default": "./dist/core/index.js"
-		},
-		"./utilities": {
-			"types": "./dist/utilities/index.d.ts",
-			"default": "./dist/utilities/index.js"
-		}
+		"./hooks": "./dist/hooks/index.js",
+		"./core": "./dist/core/index.js",
+		"./utilities": "./dist/utilities/index.js"
 	},
 	"scripts": {
-		"dev": "vite --config ./docs/vite.config.ts",
-		"build": "pnpm build:prepare && pnpm build:index && pnpm build:types && vite build",
-		"build:prepare": "rimraf dist",
-		"build:index": "pkg-toolbox build-indexes",
-		"build:types": "tsc --project ./src/tsconfig.json",
-		"typecheck": "tsc --project ./tsconfig.json"
+		"build": "rimraf dist && tsc --project ./src/tsconfig.json",
+		"typecheck": "tsc --project ./tsconfig.json --noEmit"
 	},
 	"dependencies": {
-		"@arcmantle/core": "workspace:^",
+		"@arcmantle/library": "workspace:^",
 		"lit": "^3.3.0"
 	},
 	"devDependencies": {

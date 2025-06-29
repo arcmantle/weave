@@ -1,0 +1,70 @@
+{
+	"name": "@arcmantle/mirage-docs",
+	"version": "2.0.24",
+	"description": "",
+	"author": "Kristoffer Roen-Lie",
+	"license": "MIT",
+	"repository": "github/roenlie/mirage-docs",
+	"bugs": {
+		"url": "https://github.com/RoenLie/mirage-docs/issues",
+		"email": "KristofferRoenLie@gmail.com"
+	},
+	"files": [
+		"./dist",
+		"./src",
+		"./LICENSE",
+		"./package.json",
+		"./README.md"
+	],
+	"type": "module",
+	"main": "./dist/app/index.js",
+	"types": "./dist/app/index.d.ts",
+	"exports": {
+		"./server": "./dist/server/index.js",
+		"./app/*": "./dist/app/*",
+		"./workers/*": "./dist/workers/*",
+		"./assets/*": "./src/assets/*",
+		"./aegis/*": "./src/app/aegis/*"
+	},
+	"scripts": {
+		"test": "vitest --config ./tests/vite.config.ts",
+		"build": "pnpm run --sequential \"/^build:.+/\"",
+		"build:server": "vite build --config ./vite.config.ts",
+		"build:workers": "vite build --config ./vite-workers.config.ts",
+		"build:types": "tsc --project ./src/app/tsconfig.json && tsc --project ./src/server/tsconfig.json",
+		"merge-tsconfig": "pnpm run --sequential \"/^merge-tsconfig:.+/\"",
+		"merge-tsconfig:1": "pkg-toolbox merge-tsconfig --config ./src/app/tsconfig.json",
+		"merge-tsconfig:2": "pkg-toolbox merge-tsconfig --config ./src/server/tsconfig.json",
+		"merge-tsconfig:3": "pkg-toolbox merge-tsconfig --config ./src/workers/tsconfig.json"
+	},
+	"dependencies": {
+		"@custom-elements-manifest/analyzer": "^0.10.4",
+		"@orama/orama": "3.1.6",
+		"@orama/plugin-data-persistence": "3.1.6",
+		"@orama/plugin-match-highlight": "3.1.6",
+		"@orama/plugin-parsedoc": "3.1.6",
+		"@arcmantle/library": "workspace:^",
+		"@arcmantle/custom-element": "workspace:^",
+		"@arcmantle/injector": "workspace:^",
+		"@arcmantle/monaco-editor-wc": "workspace:^",
+		"@arcmantle/vite-plugin-copy": "workspace:^",
+		"@sindresorhus/slugify": "^2.2.1",
+		"deepmerge-ts": "^7.1.5",
+		"globby": "^14.1.0",
+		"highlight.js": "^11.11.1",
+		"markdown-it": "^14.1.0",
+		"markdown-it-anchor": "^9.2.0",
+		"mermaid": "^11.6.0",
+		"tabbable": "^6.2.0",
+		"tslib": "^2.8.1"
+	},
+	"peerDependencies": {
+		"lit": "^3.2.1",
+		"vite": "^6.2.4"
+	},
+	"devDependencies": {
+		"@types/markdown-it": "^14.1.2",
+		"@types/sharedworker": "^0.0.155"
+	},
+	"sideEffects": []
+}

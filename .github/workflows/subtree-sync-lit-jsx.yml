@@ -3,14 +3,14 @@ name: Sync lit-jsx to standalone repo
 on:
   push:
     branches: [main]
-    paths: ['packages/lit-jsx/**']
+    paths: ['packages/lit/lit-jsx/**']
   workflow_dispatch:
 
 jobs:
   sync-subtree:
     uses: arcmantle/github-workflows/.github/workflows/subtree-sync.yml@main
     with:
-      package-path: packages/lit-jsx
+      package-path: packages/lit/lit-jsx
       target-repo: arcmantle/lit-jsx
     secrets:
       sync-token: ${{ secrets.SYNC_SUBTREE }}

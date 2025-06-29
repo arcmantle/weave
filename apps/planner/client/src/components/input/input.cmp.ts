@@ -1,5 +1,5 @@
-import { paintCycle } from '@arcmantle/core/async';
-import { emitEvent, EventOf, hasKeyboardFocus } from '@arcmantle/core/dom';
+import { paintCycle } from '@arcmantle/library/async';
+import { emitEvent, EventOf, hasKeyboardFocus } from '@arcmantle/library/dom';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';

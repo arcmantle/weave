@@ -1,4 +1,4 @@
-import type { Fn } from '@arcmantle/core/types';
+import type { Fn } from '@arcmantle/library/types';
 
 /**
  * Takes in a `func`, returns a new function that performs the same task as the original,

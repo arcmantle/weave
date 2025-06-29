@@ -1,5 +1,5 @@
 import { AegisElement, customElement } from '@arcmantle/lit-aegis';
-import { emitEvent } from '@arcmantle/core/dom';
+import { emitEvent } from '@arcmantle/library/dom';
 import { sharedStyles } from '@arcmantle/lit-utilities/styles';
 import { html, type TemplateResult } from 'lit';
 import { property, state } from 'lit/decorators.js';

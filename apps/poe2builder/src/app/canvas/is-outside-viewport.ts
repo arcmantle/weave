@@ -1,4 +1,4 @@
-import type { Vec2 } from '@arcmantle/core/types';
+import type { Vec2 } from '@arcmantle/library/types';
 
 
 export interface Viewport { x1: number, x2: number, y1: number, y2: number }

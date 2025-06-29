@@ -11,7 +11,7 @@ liveTsImports({
 	packages:   [
 		'lit',
 		'@lit-labs/preact-signals',
-		'@arcmantle/core',
+		'@arcmantle/library',
 		'@arcmantle/monaco-editor-wc',
 	],
 	client: [

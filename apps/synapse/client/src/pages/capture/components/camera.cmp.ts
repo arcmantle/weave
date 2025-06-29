@@ -4,7 +4,7 @@ import cameraStyles from './camera.css' with { type: 'css' };
 import { map } from 'lit/directives/map.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { sharedStyles } from '../../../app/shared-styles.ts';
-import { maybe } from '@arcmantle/core/async';
+import { maybe } from '@arcmantle/library/async';
 
 
 @customElement('syn-capture-camera')

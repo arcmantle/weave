@@ -1,4 +1,4 @@
-import { LanguageExport } from '@arcmantle/core/localize';
+import { LanguageExport } from '@arcmantle/library/localize';
 
 
 export const translationFiles: LanguageExport = {

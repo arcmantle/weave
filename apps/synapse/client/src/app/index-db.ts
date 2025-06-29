@@ -1,4 +1,4 @@
-import { IndexDBWrapper } from '@arcmantle/core/indexdb';
+import { IndexDBWrapper } from '@arcmantle/library/indexdb';
 import { CaptureSession } from '../pages/capture/capture-session.ts';
 
 

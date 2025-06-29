@@ -13,7 +13,7 @@
 		"dev": "tsx watch src/server.ts"
 	},
 	"dependencies": {
-		"@arcmantle/core": "workspace:^",
+		"@arcmantle/library": "workspace:^",
 		"@arcmantle/ferrite-server": "file:",
 		"better-sqlite3": "^11.9.1",
 		"cors": "^2.8.5",

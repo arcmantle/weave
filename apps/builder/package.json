@@ -6,7 +6,7 @@
 	"type": "module",
 	"main": "pathToMain",
 	"dependencies": {
-		"@arcmantle/core": "workspace:^",
+		"@arcmantle/library": "workspace:^",
 		"lightningcss": "^1.29.3",
 		"lit": "^3.3.0",
 		"magic-string": "^0.30.17",

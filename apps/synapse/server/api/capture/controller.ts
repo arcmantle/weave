@@ -2,7 +2,7 @@ import type { ControllerMethod, ExpressController } from '@arcmantle/synapse-ser
 import { join } from 'path/posix';
 import formidable from 'formidable';
 import { mkdir, readFile, rename } from 'fs/promises';
-import { maybe, maybeAll } from '@arcmantle/core/async';
+import { maybe, maybeAll } from '@arcmantle/library/async';
 import { paths } from '@arcmantle/synapse-server/app/paths.ts';
 import { searchOCRData, ocrDataSchema } from '@arcmantle/synapse-server/features/ocr/ocr-weaviate.ts';
 import { parseUploads } from '../../src/features/capture/parse-uploads.ts';

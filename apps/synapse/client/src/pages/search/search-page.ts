@@ -1,6 +1,6 @@
 import { sharedStyles } from '../../app/shared-styles.ts';
 import { AegisComponent, ContainerModule, customElement } from '@arcmantle/lit-aegis';
-import { isMobile } from '@arcmantle/core/dom';
+import { isMobile } from '@arcmantle/library/dom';
 
 
 @customElement('syn-search-page', true)

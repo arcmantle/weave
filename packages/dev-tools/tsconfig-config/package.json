@@ -1,0 +1,23 @@
+{
+	"name": "@arcmantle/tsconfig",
+	"version": "1.0.0",
+	"author": "Kristoffer Roen-Lie",
+	"license": "MIT",
+	"description": "tsconfig with convenient defaults.",
+	"type": "module",
+	"exports": {
+		".": "./tsconfig.dev.json",
+		"./build": "./tsconfig.build.json"
+	},
+	"files": [
+		"tsconfig.dev.json",
+		"tsconfig.build.json"
+	],
+	"keywords": [
+		"tsconfig",
+		"typescript",
+		"ts",
+		"config",
+		"configuration"
+	]
+}

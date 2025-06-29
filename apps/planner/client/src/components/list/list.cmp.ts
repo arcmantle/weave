@@ -1,7 +1,7 @@
-import { PauseableEvent, pauseableEvent } from '@arcmantle/core/async';
-import { emitEvent, findActiveElement } from '@arcmantle/core/dom';
-import { noop } from '@arcmantle/core/function';
-import { Fn } from '@arcmantle/core/types';
+import { PauseableEvent, pauseableEvent } from '@arcmantle/library/async';
+import { emitEvent, findActiveElement } from '@arcmantle/library/dom';
+import { noop } from '@arcmantle/library/function';
+import { Fn } from '@arcmantle/library/types';
 import { EventController } from '@arcmantle/lit-utilities/controllers';
 import { css, html, LitElement, TemplateResult } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';

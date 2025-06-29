@@ -1,4 +1,4 @@
-import { Catalog } from '@arcmantle/core/structs';
+import { Catalog } from '@arcmantle/library/structs';
 import { TemplateResult } from 'lit';
 
 import { EntityListStore, EntityPanelStore, EntityViewStore } from './entity-view-store.js';

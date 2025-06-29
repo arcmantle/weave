@@ -13,7 +13,7 @@
 	"dependencies": {
 		"@codemirror/lang-json": "^6.0.1",
 		"@codemirror/view": "^6.36.5",
-		"@arcmantle/core": "workspace:^",
+		"@arcmantle/library": "workspace:^",
 		"@arcmantle/custom-element": "workspace:^",
 		"@supabase/supabase-js": "^2.49.4",
 		"cm6-theme-basic-dark": "^0.2.0",

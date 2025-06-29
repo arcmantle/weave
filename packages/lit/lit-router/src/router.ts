@@ -1,9 +1,9 @@
 import './utilities/polyfills.js';
 
-import { animateTo, type ElementAnimation, stopAnimations } from '@arcmantle/core/animation';
-import { createPromiseResolver } from '@arcmantle/core/async';
-import { trimPostfix } from '@arcmantle/core/string';
-import { clone } from '@arcmantle/core/structs';
+import { animateTo, type ElementAnimation, stopAnimations } from '@arcmantle/library/animation';
+import { createPromiseResolver } from '@arcmantle/library/async';
+import { trimPostfix } from '@arcmantle/library/string';
+import { clone } from '@arcmantle/library/structs';
 
 import { RouteHistory } from './route-history-base.js';
 

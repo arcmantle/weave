@@ -1,12 +1,3 @@
 {
-	"extends": "@arcmantle/tsconfig",
-	"compilerOptions": {
-		"types": [
-			"vite/client"
-		]
-	},
-	"exclude": [
-		"dist",
-		"node_modules"
-	]
+	"extends": "@arcmantle/tsconfig"
 }

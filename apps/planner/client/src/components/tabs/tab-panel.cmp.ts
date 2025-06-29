@@ -1,4 +1,4 @@
-import { domId } from '@arcmantle/core/dom';
+import { domId } from '@arcmantle/library/dom';
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 

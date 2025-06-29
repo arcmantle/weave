@@ -23,7 +23,7 @@
 		"@nestjs/core": "^11.0.20",
 		"@nestjs/platform-express": "^11.0.20",
 		"@nestjs/throttler": "^6.4.0",
-		"@arcmantle/core": "workspace:^",
+		"@arcmantle/library": "workspace:^",
 		"@arcmantle/planner-entities": "workspace:^",
 		"@arcmantle/reflect-metadata": "workspace:^",
 		"dotenv": "^16.5.0",

@@ -1,4 +1,4 @@
-import { EventOf } from '@arcmantle/core/dom';
+import { EventOf } from '@arcmantle/library/dom';
 import { consume } from '@arcmantle/lit-utilities/context';
 import { $Container, injectableElement, injectProp } from '@arcmantle/lit-utilities/injectable';
 import { JournalEntry } from '@rotul/planner-entities';

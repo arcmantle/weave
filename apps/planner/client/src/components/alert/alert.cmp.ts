@@ -1,5 +1,5 @@
-import { animateTo, animationSpeed, getAnimation, setDefaultAnimation, stopAnimations } from '@arcmantle/core/animation';
-import { emitEvent, waitForEvent } from '@arcmantle/core/dom';
+import { animateTo, animationSpeed, getAnimation, setDefaultAnimation, stopAnimations } from '@arcmantle/library/animation';
+import { emitEvent, waitForEvent } from '@arcmantle/library/dom';
 import { HasSlotController, LocalizeController } from '@arcmantle/lit-utilities/controllers';
 import { watch } from '@arcmantle/lit-utilities/decorators';
 import { css, html, LitElement, PropertyValues } from 'lit';

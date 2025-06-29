@@ -3,9 +3,8 @@
 	"name": "weave-workspace",
 	"type": "module",
 	"scripts": {
-		"build-toolbox": "pnpm --filter @arcmantle/workspace-scripts build-toolbox",
 		"build": "pnpm build-package",
-		"release": "pnpm --filter @arcmantle/workspace-scripts release",
+		"release": "pnpm build-package --release",
 		"clean-dist": "rimraf --glob **/dist",
 		"clean-node": "rimraf --glob **/node_modules",
 		"clean-all": "rimraf --glob **/node_modules **/dist"
@@ -13,16 +12,10 @@
 	"devDependencies": {
 		"@arcmantle/build-package": "workspace:^",
 		"@arcmantle/eslint-config": "workspace:^",
-		"@arcmantle/package-toolbox": "workspace:^",
 		"@arcmantle/tsconfig": "workspace:^",
 		"@types/node": "^24.0.3",
-		"@vitest/browser": "^3.2.4",
-		"playwright": "^1.53.1",
-		"tsx": "^4.20.3",
 		"typescript": "^5.8.3",
-		"vite": "^6.3.0",
-		"vitest": "^3.2.4",
-		"wrangler": "^4.20.5"
+		"vitest": "^3.2.4"
 	},
 	"pnpm": {
 		"onlyBuiltDependencies": [

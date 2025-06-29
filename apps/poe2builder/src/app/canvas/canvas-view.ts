@@ -1,4 +1,4 @@
-import type { Vec2 } from '@arcmantle/core/types';
+import type { Vec2 } from '@arcmantle/library/types';
 import type { Viewport } from './is-outside-viewport.ts';
 
 

@@ -1,4 +1,4 @@
-import type { RecordOf } from '@arcmantle/core/types';
+import type { RecordOf } from '@arcmantle/library/types';
 import type { ReactiveElement } from 'lit';
 
 import { decorateProperty } from './decorator-utility.js';

@@ -1,4 +1,4 @@
-import { type Fn } from '@arcmantle/core/types';
+import { type Fn } from '@arcmantle/library/types';
 import { type ReactiveController } from 'lit';
 import { nanoid } from 'nanoid';
 

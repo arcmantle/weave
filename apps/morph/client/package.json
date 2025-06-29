@@ -22,7 +22,7 @@
 		"@faker-js/faker": "^9.7.0",
 		"@floating-ui/dom": "^1.6.13",
 		"@lit-labs/preact-signals": "^1.0.3",
-		"@arcmantle/core": "workspace:^",
+		"@arcmantle/library": "workspace:^",
 		"@arcmantle/elements": "workspace:^",
 		"@arcmantle/lit-context": "workspace:^",
 		"@arcmantle/lit-state-store": "workspace:^",

@@ -5,9 +5,9 @@ import '@arcmantle/elements/input';
 
 import { component } from '@arcmantle/lit-fabric/core';
 import { useDisconnected, useProperty, useState, useWillUpdate } from '@arcmantle/lit-fabric/hooks';
-import { askForNotificationPermissions, emitEvent, type EventOf, notification } from '@arcmantle/core/dom';
-import { accurateTimer } from '@arcmantle/core/timing';
-import type { stringliteral } from '@arcmantle/core/types';
+import { askForNotificationPermissions, emitEvent, type EventOf, notification } from '@arcmantle/library/dom';
+import { accurateTimer } from '@arcmantle/library/timing';
+import type { stringliteral } from '@arcmantle/library/types';
 import { DialogConfig } from '@arcmantle/elements/dialog';
 import { sharedStyles } from '@arcmantle/lit-utilities/styles';
 import { css, html, LitElement } from 'lit';

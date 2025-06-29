@@ -1,7 +1,7 @@
-import { ITrackedPromise, TrackedPromise } from '@arcmantle/core/async';
-import { breadthTraverseDOM } from '@arcmantle/core/dom';
-import { removeSegments } from '@arcmantle/core/string';
-import { catalogToList } from '@arcmantle/core/structs';
+import { ITrackedPromise, TrackedPromise } from '@arcmantle/library/async';
+import { breadthTraverseDOM } from '@arcmantle/library/dom';
+import { removeSegments } from '@arcmantle/library/string';
+import { catalogToList } from '@arcmantle/library/structs';
 import { consume } from '@arcmantle/lit-utilities/context';
 import { $Container, InjectableElement, injectableElement, injectProp } from '@arcmantle/lit-utilities/injectable';
 import { Container } from 'inversify';

@@ -1,5 +1,5 @@
-import { animateTo, getAnimation, setDefaultAnimation, shimKeyframesHeightAuto, stopAnimations } from '@arcmantle/core/animation';
-import { sleep, waitForPromiseSet } from '@arcmantle/core/async';
+import { animateTo, getAnimation, setDefaultAnimation, shimKeyframesHeightAuto, stopAnimations } from '@arcmantle/library/animation';
+import { sleep, waitForPromiseSet } from '@arcmantle/library/async';
 import { Submission } from '@rotul/planner-entities';
 import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';

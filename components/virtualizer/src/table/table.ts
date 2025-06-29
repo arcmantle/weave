@@ -1,4 +1,4 @@
-import type { PathOf } from '@arcmantle/core/types';
+import type { PathOf } from '@arcmantle/library/types';
 import { queryId } from '@arcmantle/lit-utilities/decorators';
 import { customElement, MimicElement } from '@arcmantle/lit-utilities/element';
 import { css, CSSResult, html, type TemplateResult } from 'lit';

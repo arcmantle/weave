@@ -1,4 +1,4 @@
-import { format } from '@arcmantle/core/string';
+import { format } from '@arcmantle/library/string';
 import { expect, test } from 'vitest';
 
 import { term } from '../../src/core/localize-core.js';

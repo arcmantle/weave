@@ -6,8 +6,8 @@ import {
 	inject,
 	state,
 } from '@arcmantle/lit-aegis';
-import { domId } from '@arcmantle/core/dom';
-import { forOf } from '@arcmantle/core/iterators';
+import { domId } from '@arcmantle/library/dom';
+import { forOf } from '@arcmantle/library/iterators';
 import { MMIcon } from '@arcmantle/elements/icon';
 import { tooltip } from '@arcmantle/elements/tooltip';
 import { sharedStyles } from '@arcmantle/lit-utilities/styles';

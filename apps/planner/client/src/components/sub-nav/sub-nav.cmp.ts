@@ -1,4 +1,4 @@
-import { findActiveElement } from '@arcmantle/core/dom';
+import { findActiveElement } from '@arcmantle/library/dom';
 import { EventController } from '@arcmantle/lit-utilities/controllers';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, queryAssignedElements } from 'lit/decorators.js';

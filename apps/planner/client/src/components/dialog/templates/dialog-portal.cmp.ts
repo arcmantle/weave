@@ -1,6 +1,6 @@
-import { animateTo, getAnimation, stopAnimations } from '@arcmantle/core/animation';
-import { Hooks } from '@arcmantle/core/coms';
-import { RecordOf } from '@arcmantle/core/types';
+import { animateTo, getAnimation, stopAnimations } from '@arcmantle/library/animation';
+import { Hooks } from '@arcmantle/library/coms';
+import { RecordOf } from '@arcmantle/library/types';
 import { EventController, KeyboardController, LocalizeController } from '@arcmantle/lit-utilities/controllers';
 import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';

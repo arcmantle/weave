@@ -24,7 +24,7 @@
 		"build::js": "vite build"
 	},
 	"dependencies": {
-		"@arcmantle/core": "workspace:^",
+		"@arcmantle/library": "workspace:^",
 		"lit": "^3.3.0",
 		"tslib": "^2.8.1"
 	},

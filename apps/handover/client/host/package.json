@@ -9,7 +9,7 @@
 		"dev": "vite"
 	},
 	"dependencies": {
-		"@arcmantle/core": "workspace:^",
+		"@arcmantle/library": "workspace:^",
 		"@arcmantle/custom-element": "workspace:^",
 		"@arcmantle/handover-core": "workspace:^",
 		"@arcmantle/vite-plugin-import-css-sheet": "workspace:^",

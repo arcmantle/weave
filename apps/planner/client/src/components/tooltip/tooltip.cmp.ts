@@ -1,7 +1,7 @@
 import { arrow, autoUpdate, computePosition, flip, offset, type Placement, shift } from '@floating-ui/dom';
-import { animateTo, getAnimation, parseDuration, setDefaultAnimation, stopAnimations } from '@arcmantle/core/animation';
-import { createPromiseResolver } from '@arcmantle/core/async';
-import { emitEvent, hasKeyboardFocus, waitForEvent } from '@arcmantle/core/dom';
+import { animateTo, getAnimation, parseDuration, setDefaultAnimation, stopAnimations } from '@arcmantle/library/animation';
+import { createPromiseResolver } from '@arcmantle/library/async';
+import { emitEvent, hasKeyboardFocus, waitForEvent } from '@arcmantle/library/dom';
 import { EventController } from '@arcmantle/lit-utilities/controllers';
 import { watch } from '@arcmantle/lit-utilities/decorators';
 import { html, LitElement, TemplateResult } from 'lit';

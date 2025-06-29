@@ -8,8 +8,8 @@ import { mainRoutesID } from '../../layout/main.cmp.ts';
 import demofile from './components/demo-file.txt?raw';
 import './components/camera.cmp.ts';
 import type { Image } from './components/gallery.cmp.ts';
-import { domId } from '@arcmantle/core/dom';
-import { IndexDBWrapper } from '@arcmantle/core/indexdb';
+import { domId } from '@arcmantle/library/dom';
+import { IndexDBWrapper } from '@arcmantle/library/indexdb';
 import { CaptureSession } from './capture-session.ts';
 import { synapseIndexDB } from '../../app/index-db.ts';
 

@@ -14,7 +14,7 @@
 		"./api/*": "./api/*"
 	},
 	"dependencies": {
-		"@arcmantle/core": "workspace:^",
+		"@arcmantle/library": "workspace:^",
 		"@arcmantle/sqlite-wrapper": "workspace:^",
 		"@arcmantle/synapse-server": "workspace:^",
 		"better-sqlite3": "^11.9.1",

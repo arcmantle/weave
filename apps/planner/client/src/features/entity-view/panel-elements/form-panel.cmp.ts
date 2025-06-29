@@ -1,7 +1,7 @@
-import { TrackedPromise } from '@arcmantle/core/async';
-import { catalogToList, clone } from '@arcmantle/core/structs';
-import { RecordOf } from '@arcmantle/core/types';
-import { ifDefined } from '@arcmantle/core/validation';
+import { TrackedPromise } from '@arcmantle/library/async';
+import { catalogToList, clone } from '@arcmantle/library/structs';
+import { RecordOf } from '@arcmantle/library/types';
+import { ifDefined } from '@arcmantle/library/validation';
 import { consume } from '@arcmantle/lit-utilities/context';
 import { watch } from '@arcmantle/lit-utilities/decorators';
 import { $Container, injectableElement, injectProp } from '@arcmantle/lit-utilities/injectable';

@@ -26,7 +26,7 @@
 		}
 	},
 	"dependencies": {
-		"@arcmantle/core": "workspace:^",
+		"@arcmantle/library": "workspace:^",
 		"@arcmantle/vite-lib-config": "workspace:^",
 		"lit": "^3.3.0",
 		"nanoid": "^5.1.5",

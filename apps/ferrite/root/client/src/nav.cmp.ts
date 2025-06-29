@@ -1,5 +1,5 @@
-import { domId } from '@arcmantle/core/dom';
-import { forOf } from '@arcmantle/core/iterators';
+import { domId } from '@arcmantle/library/dom';
+import { forOf } from '@arcmantle/library/iterators';
 import { css, html, LitElement } from 'lit';
 import { classMap } from 'lit/directives/class-map.js';
 import { map } from 'lit/directives/map.js';

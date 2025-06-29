@@ -1,4 +1,4 @@
-import type { Vec2 } from '@arcmantle/core/types';
+import type { Vec2 } from '@arcmantle/library/types';
 import { createWorkerApi, type, type TransferableMouseEvent, type TransferableTouches, type TransferableTouchEvent } from './worker-interface.ts';
 
 

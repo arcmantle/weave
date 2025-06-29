@@ -1,8 +1,0 @@
-{
-	"extends": "@arcmantle/tsconfig",
-	"compilerOptions": {},
-	"exclude": [
-		"node_modules",
-		"dist",
-	]
-}

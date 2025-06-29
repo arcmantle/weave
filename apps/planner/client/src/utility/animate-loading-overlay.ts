@@ -1,5 +1,5 @@
-import { animateTo, animationSpeed, getAnimation, setDefaultAnimation, stopAnimations } from '@arcmantle/core/animation';
-import { AsyncFn, Fn } from '@arcmantle/core/types';
+import { animateTo, animationSpeed, getAnimation, setDefaultAnimation, stopAnimations } from '@arcmantle/library/animation';
+import { AsyncFn, Fn } from '@arcmantle/library/types';
 import { LitElement } from 'lit';
 
 

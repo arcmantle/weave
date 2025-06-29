@@ -14,7 +14,7 @@
 		"typecheck": "tsc --project ./tsconfig.json"
 	},
 	"dependencies": {
-		"@arcmantle/core": "workspace:^",
+		"@arcmantle/library": "workspace:^",
 		"@arcmantle/elements": "workspace:^",
 		"@arcmantle/lit-fabric": "workspace:^",
 		"@arcmantle/lit-utilities": "workspace:^",

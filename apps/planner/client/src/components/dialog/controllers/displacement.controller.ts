@@ -1,5 +1,5 @@
-import { arraySum } from '@arcmantle/core/array';
-import { resolveValueProvider } from '@arcmantle/core/function';
+import { arraySum } from '@arcmantle/library/array';
+import { resolveValueProvider } from '@arcmantle/library/function';
 import { LitElement, ReactiveController, ReactiveControllerHost } from 'lit';
 
 import { IConstraints } from './controller.types.js';

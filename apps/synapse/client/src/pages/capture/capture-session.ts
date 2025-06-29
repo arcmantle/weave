@@ -1,4 +1,4 @@
-import { IndexDBSchema } from '@arcmantle/core/indexdb';
+import { IndexDBSchema } from '@arcmantle/library/indexdb';
 import type { Image } from './components/gallery.cmp.ts';
 
 

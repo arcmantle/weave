@@ -1,8 +1,8 @@
 import { Adapter, state } from '@arcmantle/lit-aegis';
 import type { Image } from '../capture/components/gallery.cmp.ts';
-import { debounce } from '@arcmantle/core/timing';
+import { debounce } from '@arcmantle/library/timing';
 import { ServerURL } from '../../app/server-url.ts';
-import { maybe } from '@arcmantle/core/async';
+import { maybe } from '@arcmantle/library/async';
 import { html } from 'lit';
 import { map } from 'lit/directives/map.js';
 import { live } from 'lit/directives/live.js';

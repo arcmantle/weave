@@ -1,4 +1,4 @@
-import { debounce } from '@arcmantle/core/timing';
+import { debounce } from '@arcmantle/library/timing';
 import { queryId, watch } from '@arcmantle/lit-utilities/decorators';
 import { customElement, MimicElement } from '@arcmantle/lit-utilities/element';
 import { sharedStyles } from '@arcmantle/lit-utilities/styles';

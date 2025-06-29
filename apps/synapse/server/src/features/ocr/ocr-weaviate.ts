@@ -1,7 +1,7 @@
 import type { DataObject, WeaviateReturn } from 'weaviate-client';
 import { createCollection, moduleConfigs, type WeaviateClass } from '../vectordb/create-collection.ts';
 import { getWeaviateDb } from '../vectordb/get-weaviate-db.ts';
-import { maybe } from '@arcmantle/core/async';
+import { maybe } from '@arcmantle/library/async';
 
 
 export const ocrDataSchema: WeaviateClass = {

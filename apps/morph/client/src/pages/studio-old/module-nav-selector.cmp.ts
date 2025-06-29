@@ -1,4 +1,4 @@
-import { type EventOf, emitEvent } from '@arcmantle/core/dom';
+import { type EventOf, emitEvent } from '@arcmantle/library/dom';
 import { MimicElement, customElement } from '@arcmantle/lit-utilities/element';
 import { css, html } from 'lit';
 import { property } from 'lit/decorators.js';

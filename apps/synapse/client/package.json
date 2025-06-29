@@ -10,7 +10,7 @@
 	},
 	"dependencies": {
 		"@lit-labs/router": "^0.1.4",
-		"@arcmantle/core": "workspace:^",
+		"@arcmantle/library": "workspace:^",
 		"@arcmantle/lit-context": "workspace:^",
 		"bootstrap-icons": "^1.11.3",
 		"lit": "^3.3.0",

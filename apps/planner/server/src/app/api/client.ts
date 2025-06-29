@@ -1,5 +1,5 @@
 import { Container, CosmosClient } from '@azure/cosmos';
-import { createPromiseResolver } from '@arcmantle/core/async';
+import { createPromiseResolver } from '@arcmantle/library/async';
 
 const endpoint = process.env.COSMOS_ENDPOINT;
 const key = process.env.COSMOS_KEY;

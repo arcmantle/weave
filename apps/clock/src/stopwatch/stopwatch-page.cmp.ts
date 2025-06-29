@@ -4,8 +4,8 @@ import '@arcmantle/elements/text';
 
 import { component } from '@arcmantle/lit-fabric/core';
 import { useConnected, useDisconnected, useState } from '@arcmantle/lit-fabric/hooks';
-import { domId } from '@arcmantle/core/dom';
-import { accurateTimer } from '@arcmantle/core/timing';
+import { domId } from '@arcmantle/library/dom';
+import { accurateTimer } from '@arcmantle/library/timing';
 import { sharedStyles } from '@arcmantle/lit-utilities/styles';
 import { css, html, nothing } from 'lit';
 import { map } from 'lit/directives/map.js';

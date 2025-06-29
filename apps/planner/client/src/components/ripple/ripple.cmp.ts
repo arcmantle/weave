@@ -1,5 +1,5 @@
-import { emitEvent } from '@arcmantle/core/dom';
-import { Fn } from '@arcmantle/core/types';
+import { emitEvent } from '@arcmantle/library/dom';
+import { Fn } from '@arcmantle/library/types';
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 

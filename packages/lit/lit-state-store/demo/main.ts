@@ -1,4 +1,4 @@
-import { range } from '@arcmantle/core/array';
+import { range } from '@arcmantle/library/array';
 import { css, html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { map } from 'lit/directives/map.js';

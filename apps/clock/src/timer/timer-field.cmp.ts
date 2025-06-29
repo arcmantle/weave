@@ -3,8 +3,8 @@ import {
 	useController, useProperty,
 	useState, useWillUpdate,
 } from '@arcmantle/lit-fabric/hooks';
-import { emitEvent } from '@arcmantle/core/dom';
-import { curryDebounce } from '@arcmantle/core/timing';
+import { emitEvent } from '@arcmantle/library/dom';
+import { curryDebounce } from '@arcmantle/library/timing';
 import { KeyboardController } from '@arcmantle/lit-utilities/controllers';
 import { sharedStyles } from '@arcmantle/lit-utilities/styles';
 import { css, html, LitElement } from 'lit';

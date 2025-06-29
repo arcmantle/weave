@@ -1,4 +1,4 @@
-import { maybe } from '@arcmantle/core/async';
+import { maybe } from '@arcmantle/library/async';
 import { JournalEntry } from '@rotul/planner-entities';
 
 import { Interact } from '../../features/interact/interact.js';

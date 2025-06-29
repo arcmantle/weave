@@ -3,8 +3,8 @@ import '@arcmantle/elements/icon';
 
 import { component } from '@arcmantle/lit-fabric/core';
 import { useOnEvent } from '@arcmantle/lit-fabric/hooks';
-import { swapItems } from '@arcmantle/core/array';
-import { domId, type EventOf } from '@arcmantle/core/dom';
+import { swapItems } from '@arcmantle/library/array';
+import { domId, type EventOf } from '@arcmantle/library/dom';
 import { DialogConfig } from '@arcmantle/elements/dialog';
 import { sharedStyles } from '@arcmantle/lit-utilities/styles';
 import { css, html } from 'lit';

@@ -3,7 +3,7 @@ import { html } from 'lit-html';
 import { createWorkerProxy, makeObjectTransferable, type TransferableWheelEvent, type WorkerApi } from './worker-interface.ts';
 import { workerApiIn, type ImageWorkerApiIn, type ImageWorkerApiOut, type ImageWorkerApiOutImp } from './worker-api.ts';
 import imageWorker from './image-worker.ts?worker';
-import { resolvablePromise, type ResolvablePromise } from '@arcmantle/core/async';
+import { resolvablePromise, type ResolvablePromise } from '@arcmantle/library/async';
 
 
 export class ImageViewer extends CustomElement implements ImageWorkerApiOutImp {

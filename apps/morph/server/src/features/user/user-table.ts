@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker';
-import { range } from '@arcmantle/core/array';
+import { range } from '@arcmantle/library/array';
 import { type IUser, User } from '@arcmantle/morph/models/user-model.js';
 
 import { SQLite } from '../sqlite/database.js';

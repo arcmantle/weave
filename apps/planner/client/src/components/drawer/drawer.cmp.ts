@@ -1,6 +1,6 @@
-import { animateTo, animationSpeed, getAnimation, setDefaultAnimation, stopAnimations } from '@arcmantle/core/animation';
-import { emitEvent, findActiveElement, lockBodyScrolling, Modal, unlockBodyScrolling, waitForEvent } from '@arcmantle/core/dom';
-import { uppercaseFirstLetter } from '@arcmantle/core/string';
+import { animateTo, animationSpeed, getAnimation, setDefaultAnimation, stopAnimations } from '@arcmantle/library/animation';
+import { emitEvent, findActiveElement, lockBodyScrolling, Modal, unlockBodyScrolling, waitForEvent } from '@arcmantle/library/dom';
+import { uppercaseFirstLetter } from '@arcmantle/library/string';
 import { HasSlotController, LocalizeController } from '@arcmantle/lit-utilities/controllers';
 import { watch } from '@arcmantle/lit-utilities/decorators';
 import { html, LitElement } from 'lit';

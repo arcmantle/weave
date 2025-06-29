@@ -1,4 +1,4 @@
-import type { EventOf } from '@arcmantle/core/dom';
+import type { EventOf } from '@arcmantle/library/dom';
 import { css, html, nothing, type ReactiveController } from 'lit';
 import { map } from 'lit/directives/map.js';
 import { when } from 'lit/directives/when.js';

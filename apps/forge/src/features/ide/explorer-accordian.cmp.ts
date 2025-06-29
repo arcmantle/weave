@@ -1,5 +1,5 @@
 import { AegisElement, customElement } from '@arcmantle/lit-aegis';
-import { emitEvent } from '@arcmantle/core/dom';
+import { emitEvent } from '@arcmantle/library/dom';
 import { tooltip } from '@arcmantle/elements/tooltip';
 import { sharedStyles } from '@arcmantle/lit-utilities/styles';
 import { html } from 'lit';

@@ -1,5 +1,5 @@
 import { type ContextProp, consume } from '@arcmantle/lit-context';
-import { maybe } from '@arcmantle/core/async';
+import { maybe } from '@arcmantle/library/async';
 import { MMButton } from '@arcmantle/elements/button';
 import { MimicElement, customElement } from '@arcmantle/lit-utilities/element';
 import { LitElement, html } from 'lit';

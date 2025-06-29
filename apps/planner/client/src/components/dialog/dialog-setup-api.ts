@@ -1,4 +1,4 @@
-import { RecordOf } from '@arcmantle/core/types';
+import { RecordOf } from '@arcmantle/library/types';
 import { TemplateResult } from 'lit';
 
 import { DialogCtrl, IDialogDef, IDialogGeneratedCtrl, IDialogPortal, IDialogProps } from './dialog.types.js';

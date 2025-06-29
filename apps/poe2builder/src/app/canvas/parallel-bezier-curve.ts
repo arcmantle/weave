@@ -1,4 +1,4 @@
-import type { Repeat } from '@arcmantle/core/types';
+import type { Repeat } from '@arcmantle/library/types';
 
 
 export type Bezier = Repeat<4, Repeat<2, number>>;

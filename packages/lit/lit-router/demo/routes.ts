@@ -1,4 +1,4 @@
-import { getAnimation, setDefaultAnimation } from '@arcmantle/core/animation';
+import { getAnimation, setDefaultAnimation } from '@arcmantle/library/animation';
 
 export const generateRoutes = (el: Element) => {
 	return [

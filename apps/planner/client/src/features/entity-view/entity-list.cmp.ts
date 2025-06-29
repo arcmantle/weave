@@ -1,9 +1,9 @@
-import { paintCycle, sleep } from '@arcmantle/core/async';
-import { findActiveElement, getFirstSelector } from '@arcmantle/core/dom';
-import { catalogToList, clone } from '@arcmantle/core/structs';
-import { curryDebounce } from '@arcmantle/core/timing';
-import { RecordOf } from '@arcmantle/core/types';
-import { ifDefined } from '@arcmantle/core/validation';
+import { paintCycle, sleep } from '@arcmantle/library/async';
+import { findActiveElement, getFirstSelector } from '@arcmantle/library/dom';
+import { catalogToList, clone } from '@arcmantle/library/structs';
+import { curryDebounce } from '@arcmantle/library/timing';
+import { RecordOf } from '@arcmantle/library/types';
+import { ifDefined } from '@arcmantle/library/validation';
 import { consume } from '@arcmantle/lit-utilities/context';
 import { $Container, InjectableElement, injectableElement, injectProp } from '@arcmantle/lit-utilities/injectable';
 import { Container } from 'inversify';

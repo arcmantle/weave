@@ -1,4 +1,4 @@
-import { domId } from '@arcmantle/core/dom';
+import { domId } from '@arcmantle/library/dom';
 import { ScriptTarget, transpile } from 'typescript';
 
 import { ForgeFile, ForgeFileDB } from '../filesystem/forge-file.js';

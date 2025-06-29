@@ -1,4 +1,4 @@
-import { domId } from '@arcmantle/core/dom';
+import { domId } from '@arcmantle/library/dom';
 
 
 export interface Vector2 { x: number, y: number; }

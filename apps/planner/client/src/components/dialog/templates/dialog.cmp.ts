@@ -1,7 +1,7 @@
-import { paintCycle } from '@arcmantle/core/async';
-import { findActiveElement, getTabbableBoundary } from '@arcmantle/core/dom';
-import { noop } from '@arcmantle/core/function';
-import { typeOf } from '@arcmantle/core/validation';
+import { paintCycle } from '@arcmantle/library/async';
+import { findActiveElement, getTabbableBoundary } from '@arcmantle/library/dom';
+import { noop } from '@arcmantle/library/function';
+import { typeOf } from '@arcmantle/library/validation';
 import { EventController, KeyboardController } from '@arcmantle/lit-utilities/controllers';
 import { css, html, LitElement, type TemplateResult } from 'lit';
 import { customElement, property } from 'lit/decorators.js';

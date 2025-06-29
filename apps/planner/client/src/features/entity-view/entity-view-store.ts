@@ -1,4 +1,4 @@
-import { RecordOf } from '@arcmantle/core/types';
+import { RecordOf } from '@arcmantle/library/types';
 import { ContainerModule } from '@arcmantle/lit-utilities/injectable';
 import { LitStateStore, type Stored, stored } from '@arcmantle/lit-utilities/state-store';
 import { injectable } from 'inversify';

@@ -1,4 +1,4 @@
-import { setDefaultAnimation } from '@arcmantle/core/animation';
+import { setDefaultAnimation } from '@arcmantle/library/animation';
 import { Route } from '@arcmantle/lit-router';
 
 import { routeAnimation } from './route-animation.js';

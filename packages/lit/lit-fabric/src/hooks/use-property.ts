@@ -1,4 +1,4 @@
-import { invariant } from '@arcmantle/core/validation';
+import { invariant } from '@arcmantle/library/validation';
 import type { LitElement, PropertyDeclaration } from 'lit';
 
 import { component, getCurrentRef } from '../core/component.js';

@@ -1,7 +1,7 @@
-import { animateTo, animationSpeed, stopAnimations } from '@arcmantle/core/animation';
-import { paintCycle } from '@arcmantle/core/async';
-import { emitEvent, scrollIntoView } from '@arcmantle/core/dom';
-import { oneOf } from '@arcmantle/core/validation';
+import { animateTo, animationSpeed, stopAnimations } from '@arcmantle/library/animation';
+import { paintCycle } from '@arcmantle/library/async';
+import { emitEvent, scrollIntoView } from '@arcmantle/library/dom';
+import { oneOf } from '@arcmantle/library/validation';
 import { KeyboardController, LocalizeController } from '@arcmantle/lit-utilities/controllers';
 import { watch } from '@arcmantle/lit-utilities/decorators';
 import { css, html, LitElement } from 'lit';

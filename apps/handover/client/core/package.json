@@ -12,7 +12,7 @@
 		"build": "vite build"
 	},
 	"dependencies": {
-		"@arcmantle/core": "workspace:^",
+		"@arcmantle/library": "workspace:^",
 		"@arcmantle/custom-element": "workspace:^",
 		"@arcmantle/lit-jsx": "workspace:^",
 		"tslib": "^2.8.1",

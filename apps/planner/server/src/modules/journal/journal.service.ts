@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { maybe } from '@arcmantle/core/async';
+import { maybe } from '@arcmantle/library/async';
 import { JournalEntry, NewJournalEntry, newJournalEntry } from '@rotul/planner-entities';
 
 import { BaseService } from '../app/base-service.js';

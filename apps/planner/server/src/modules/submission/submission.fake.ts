@@ -1,6 +1,6 @@
 import { faker } from '@faker-js/faker';
-import { randomElement } from '@arcmantle/core/array';
-import { domId } from '@arcmantle/core/dom';
+import { randomElement } from '@arcmantle/library/array';
+import { domId } from '@arcmantle/library/dom';
 import { ABSENCE_TYPE, AbsenceType, Submission, SUBMISSION_STATUS, SubmissionStatus } from '@rotul/planner-entities';
 
 

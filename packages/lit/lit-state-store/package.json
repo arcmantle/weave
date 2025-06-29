@@ -34,7 +34,7 @@
 		"build:types": "tsc --project ./src/tsconfig.json"
 	},
 	"dependencies": {
-		"@arcmantle/core": "workspace:^",
+		"@arcmantle/library": "workspace:^",
 		"lit": "^3.3.0"
 	},
 	"devDependencies": {

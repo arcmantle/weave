@@ -1,5 +1,5 @@
 import { consume, type ContextProp } from '@arcmantle/lit-context';
-import { maybe } from '@arcmantle/core/async';
+import { maybe } from '@arcmantle/library/async';
 import { customElement, MimicElement } from '@arcmantle/lit-utilities/element';
 import { css, html } from 'lit';
 import { state } from 'lit/decorators.js';

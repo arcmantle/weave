@@ -10,7 +10,7 @@
 	},
 	"dependencies": {
 		"@lit-labs/preact-signals": "^1.0.3",
-		"@arcmantle/core": "workspace:^",
+		"@arcmantle/library": "workspace:^",
 		"@arcmantle/elements": "workspace:^",
 		"@arcmantle/lit-utilities": "workspace:^",
 		"lit": "^3.3.0",

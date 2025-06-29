@@ -1,4 +1,4 @@
-import { invariant } from '@arcmantle/core/validation';
+import { invariant } from '@arcmantle/library/validation';
 
 import { getCurrentRef } from '../core/component.js';
 
@@ -9,7 +9,7 @@ type UseAfterConnected = (
 
 
 export const useAfterConnected = ((func: () => void) => {
-	const cls = getCurrentRef();
+	const cls = getCurrentRef() as any;
 	invariant(cls, 'Could not get component instance.');
 
 	let firstUpdated = true;

@@ -1,7 +1,7 @@
-import { ITrackedPromise, TrackedPromise } from '@arcmantle/core/async';
-import { Hooks } from '@arcmantle/core/coms';
-import { domId } from '@arcmantle/core/dom';
-import { RecordOf } from '@arcmantle/core/types';
+import { ITrackedPromise, TrackedPromise } from '@arcmantle/library/async';
+import { Hooks } from '@arcmantle/library/coms';
+import { domId } from '@arcmantle/library/dom';
+import { RecordOf } from '@arcmantle/library/types';
 import { TemplateResult } from 'lit';
 
 import { DialogHooks, IDialogDef, IDialogInstanceCtrl, IDialogPortalCtrl, IDialogProps } from './dialog.types.js';

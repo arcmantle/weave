@@ -1,6 +1,6 @@
-import { Hooks } from '@arcmantle/core/coms';
-import { Localize } from '@arcmantle/core/localize';
-import { RecordOf } from '@arcmantle/core/types';
+import { Hooks } from '@arcmantle/library/coms';
+import { Localize } from '@arcmantle/library/localize';
+import { RecordOf } from '@arcmantle/library/types';
 import type { TemplateResult } from 'lit';
 
 import type { Coordinates, IConstraints } from './controllers/controller.types.js';

@@ -1,4 +1,4 @@
-import type { ComputedFlat } from '@arcmantle/core/types';
+import type { ComputedFlat } from '@arcmantle/library/types';
 import { LitElement, type ReactiveController } from 'lit';
 
 

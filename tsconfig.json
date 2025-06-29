@@ -4,13 +4,15 @@
 		"rootDir": ".",
 		"baseUrl": ".",
 		"checkJs": true,
+		"allowJs": true,
+		"isolatedDeclarations": false,
 		"types": [
 			"node"
 		]
 	},
 	"include": [
-		"scripts",
-		"vitest.workspace.ts"
+		"**/vite.config.ts",
+		"**/vitest.config.ts"
 	],
 	"exclude": [
 		"node_modules",

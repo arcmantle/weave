@@ -1,5 +1,5 @@
 import { Canvas2DObject } from '../canvas/canvas-object.ts';
-import type { Vec2 } from '@arcmantle/core/types';
+import type { Vec2 } from '@arcmantle/library/types';
 import { dataNodes, type NodeData } from './node-catalog.ts';
 import type { GraphConnection } from './graph-connection.ts';
 

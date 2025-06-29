@@ -1,26 +1,3 @@
 {
-	"extends": "@arcmantle/tsconfig",
-	"compilerOptions": {
-		"moduleResolution": "NodeNext",
-		"module": "NodeNext",
-		"target": "ESNext",
-		"outDir": "../dist",
-		"rootDir": ".",
-		"baseUrl": ".",
-		"noEmit": true,
-		"emitDeclarationOnly": false,
-		"incremental": false,
-		"types": [
-			"vite/client",
-		]
-	},
-	"include": [
-		"./**/*.ts",
-		"./**/*.js",
-	],
-	"exclude": [
-		"./**/*.test.ts",
-		"./**/*.bench.ts",
-		"./**/*.editor.d.ts"
-	]
+	"extends": "@arcmantle/tsconfig"
 }

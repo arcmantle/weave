@@ -3,12 +3,12 @@ import { type CSSResultGroup, LitElement, type PropertyDeclaration, type Propert
 
 declare class IFabricComponent extends LitElement {
 
-	public static readonly tagName: string;
-	public __connectedHooks:    (() => any)[];
-	public __disconnectedHooks: (() => any)[];
-	public __willUpdateHooks:   ((changedProps: PropertyValues) => any)[];
-	public __updateHooks:       ((changedProps: PropertyValues) => any)[];
-	public __updatedHooks:      ((changedProps: PropertyValues) => any)[];
+	static readonly tagName: string;
+	__connectedHooks:        (() => any)[];
+	__disconnectedHooks:     (() => any)[];
+	__willUpdateHooks:       ((changedProps: PropertyValues) => any)[];
+	__updateHooks:           ((changedProps: PropertyValues) => any)[];
+	__updatedHooks:          ((changedProps: PropertyValues) => any)[];
 
 }
 
@@ -22,18 +22,21 @@ interface FabricConstructor {
 export type FabricComponent = InstanceType<FabricConstructor>;
 
 
-export const getCurrentRef = () => component.ref;
+export const getCurrentRef = (): typeof component.ref => component.ref;
 
 
-export const component = <T extends Record<string, PropertyDeclaration>>(
+export const component = <_T extends Record<string, PropertyDeclaration>>(
 	tagName: string,
 	//construct: (ctor: typeof LitElement) => T,
 	create: (element: LitElement) => { render: () => unknown; styles: CSSResultGroup; },
 	options?: {
-		base?: typeof LitElement;
+		base?:   typeof LitElement;
 		mixins?: ((...args: any[]) => any)[];
 	},
-) => {
+): {
+	register(): void;
+	tagName: string;
+} => {
 	let base = (options?.base ?? LitElement) as unknown as FabricConstructor;
 	if (options?.mixins) {
 		for (const mixin of options.mixins)
@@ -42,17 +45,17 @@ export const component = <T extends Record<string, PropertyDeclaration>>(
 
 	return class extends base {
 
-		public static readonly tagName = tagName;
-		public static register()  {
+		static readonly tagName = tagName;
+		static register()  {
 			if (!globalThis.customElements.get(tagName))
 				globalThis.customElements.define(tagName, this);
 		}
 
-		public override __connectedHooks:    (() => any)[] = [];
-		public override __disconnectedHooks: (() => any)[] = [];
-		public override __willUpdateHooks:   ((changedProps: PropertyValues) => any)[] = [];
-		public override __updateHooks:       ((changedProps: PropertyValues) => any)[] = [];
-		public override __updatedHooks:      ((changedProps: PropertyValues) => any)[] = [];
+		override __connectedHooks:    (() => any)[] = [];
+		override __disconnectedHooks: (() => any)[] = [];
+		override __willUpdateHooks:   ((changedProps: PropertyValues) => any)[] = [];
+		override __updateHooks:       ((changedProps: PropertyValues) => any)[] = [];
+		override __updatedHooks:      ((changedProps: PropertyValues) => any)[] = [];
 
 		constructor() {
 			super();
@@ -67,31 +70,31 @@ export const component = <T extends Record<string, PropertyDeclaration>>(
 		}
 
 
-		public override connectedCallback(): void {
+		override connectedCallback(): void {
 			super.connectedCallback();
 			for (const hook of this.__connectedHooks)
 				hook();
 		}
 
-		public override disconnectedCallback(): void {
+		override disconnectedCallback(): void {
 			super.disconnectedCallback();
 			for (const hook of this.__disconnectedHooks)
 				hook();
 		}
 
-		public override willUpdate(changedProps: PropertyValues): void {
+		override willUpdate(changedProps: PropertyValues): void {
 			super.willUpdate(changedProps);
 			for (const hook of this.__willUpdateHooks)
 				hook(changedProps);
 		}
 
-		public override update(changedProps: PropertyValues): void {
+		override update(changedProps: PropertyValues): void {
 			super.update(changedProps);
 			for (const hook of this.__updateHooks)
 				hook(changedProps);
 		}
 
-		public override updated(changedProps: PropertyValues): void {
+		override updated(changedProps: PropertyValues): void {
 			super.updated(changedProps);
 			for (const hook of this.__updatedHooks)
 				hook(changedProps);

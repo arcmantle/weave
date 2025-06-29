@@ -1,4 +1,4 @@
-import type { RecordOf } from '@arcmantle/core/types';
+import type { RecordOf } from '@arcmantle/library/types';
 import { type CSSResult, LitElement, type PropertyValues, css, html } from 'lit';
 import { query, state } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';
