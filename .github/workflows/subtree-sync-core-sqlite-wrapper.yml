@@ -1,0 +1,16 @@
+name: Sync sqlite-wrapper to standalone repo
+
+on:
+  push:
+    branches: [main]
+    paths: ['packages/core/sqlite-wrapper/**']
+  workflow_dispatch:
+
+jobs:
+  sync-subtree:
+    uses: arcmantle/github-workflows/.github/workflows/subtree-sync.yml@main
+    with:
+      package-path: packages/core/sqlite-wrapper
+      target-repo: arcmantle/sqlite-wrapper
+    secrets:
+      sync-token: ${{ secrets.SYNC_SUBTREE }}

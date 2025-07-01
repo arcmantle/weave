@@ -1,0 +1,16 @@
+name: Sync reflect-metadata to standalone repo
+
+on:
+  push:
+    branches: [main]
+    paths: ['packages/core/reflect-metadata/**']
+  workflow_dispatch:
+
+jobs:
+  sync-subtree:
+    uses: arcmantle/github-workflows/.github/workflows/subtree-sync.yml@main
+    with:
+      package-path: packages/core/reflect-metadata
+      target-repo: arcmantle/reflect-metadata
+    secrets:
+      sync-token: ${{ secrets.SYNC_SUBTREE }}

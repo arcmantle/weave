@@ -1,0 +1,16 @@
+name: Sync injector to standalone repo
+
+on:
+  push:
+    branches: [main]
+    paths: ['packages/core/injector/**']
+  workflow_dispatch:
+
+jobs:
+  sync-subtree:
+    uses: arcmantle/github-workflows/.github/workflows/subtree-sync.yml@main
+    with:
+      package-path: packages/core/injector
+      target-repo: arcmantle/injector
+    secrets:
+      sync-token: ${{ secrets.SYNC_SUBTREE }}

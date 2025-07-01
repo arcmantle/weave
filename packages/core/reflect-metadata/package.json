@@ -1,6 +1,6 @@
 {
 	"name": "@arcmantle/reflect-metadata",
-	"version": "1.0.2",
+	"version": "1.0.0",
 	"description": "Lightweight, partial implementation of TC39 Reflect Metadata proposal with function-activated shim",
 	"author": {
 		"name": "Kristoffer Roen-Lie",

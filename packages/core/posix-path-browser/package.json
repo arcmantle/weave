@@ -1,11 +1,21 @@
 {
 	"name": "@arcmantle/posix-path-browser",
+	"version": "1.0.0",
 	"description": "Browser friendly version of nodejs path posix implementation.",
+	"license": "Apache-2.0",
 	"author": {
 		"name": "Kristoffer Roen-Lie"
 	},
-	"version": "1.0.3",
 	"type": "module",
+	"types": "./dist/index.d.ts",
+	"main": "./dist/index.js",
+	"files": [
+		"dist",
+		"src",
+		"package.json",
+		"readme.md"
+	],
+	"sideEffects": false,
 	"exports": {
 		".": "./dist/index.js"
 	},

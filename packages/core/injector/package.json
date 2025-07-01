@@ -1,21 +1,22 @@
 {
 	"name": "@arcmantle/injector",
+	"version": "1.0.0",
 	"description": "Dependency injection done simple.",
 	"license": "Apache-2.0",
 	"contributors": [
 		"Kristoffer Roen-Lie"
 	],
-	"version": "1.0.1",
 	"files": [
 		"dist",
 		"src",
-		"LICENSE"
+		"LICENSE",
+		"README.md"
 	],
 	"type": "module",
-	"types": "./src/index.ts",
-	"main": "./src/index.ts",
+	"types": "./dist/index.d.ts",
+	"main": "./dist/index.js",
 	"exports": {
-		".": "./src/index.ts"
+		".": "./dist/index.js"
 	},
 	"sideEffects": false,
 	"scripts": {

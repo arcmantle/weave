@@ -1,0 +1,16 @@
+name: Sync esplot to standalone repo
+
+on:
+  push:
+    branches: [main]
+    paths: ['packages/core/esplot/**']
+  workflow_dispatch:
+
+jobs:
+  sync-subtree:
+    uses: arcmantle/github-workflows/.github/workflows/subtree-sync.yml@main
+    with:
+      package-path: packages/core/esplot
+      target-repo: arcmantle/esplot
+    secrets:
+      sync-token: ${{ secrets.SYNC_SUBTREE }}

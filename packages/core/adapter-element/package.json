@@ -1,8 +1,10 @@
 {
 	"name": "@arcmantle/adapter-element",
-	"description": "Custom element wrapper using signals and lit-html.",
-	"authors": "Kristoffer Roen-Lie",
 	"version": "1.0.0",
+	"description": "Custom element wrapper using signals and lit-html.",
+	"author": {
+		"name": "Kristoffer Roen-Lie"
+	},
 	"type": "module",
 	"types": "./dist/adapter/index.d.ts",
 	"main": "./dist/adapter/index.js",

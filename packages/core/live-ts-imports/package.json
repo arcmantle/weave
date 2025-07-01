@@ -1,11 +1,13 @@
 {
 	"name": "@arcmantle/live-ts-imports",
-	"description": "Opinionated typescript live compiler of client side files.",
-	"authors": "Kristoffer Roen-Lie",
-	"license": "Apache-2.0",
 	"version": "1.0.0",
+	"description": "Opinionated typescript live compiler of client side files.",
+	"author": {
+		"name": "Kristoffer Roen-Lie"
+	},
+	"license": "Apache-2.0",
 	"type": "module",
-	"types": "./src/index.ts",
+	"types": "./dist/index.d.ts",
 	"main": "./dist/index.js",
 	"exports": {
 		".": "./dist/index.js"

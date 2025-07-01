@@ -1,15 +1,19 @@
 {
 	"name": "@arcmantle/esplot",
-	"description": "Experimental data visualization library with TypeScript API and native desktop viewer",
-	"authors": "Kristoffer Roen-Lie",
 	"version": "1.0.0",
+	"description": "Experimental data visualization library with TypeScript API and native desktop viewer",
+	"author": {
+		"name": "Kristoffer Roen-Lie"
+	},
 	"type": "module",
 	"types": "./dist/index.d.ts",
 	"main": "./dist/index.js",
 	"files": [
 		"bin",
 		"dist",
-		"src"
+		"src",
+		"package.json",
+		"README.md"
 	],
 	"scripts": {
 		"build": "rimraf dist && tsc --project ./src/tsconfig.json"
