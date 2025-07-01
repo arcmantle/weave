@@ -1,6 +1,6 @@
-import { Relay, sleep } from '@eyeshare/shared';
-import { maybe } from '@eyeshare/web-components';
-import { EsIconCmp } from '@eyeshare/web-components/dist/lib/components/_Core/icon/icon.cmp.js';
+import { Relay, sleep } from '@redacted/shared';
+import { maybe } from '@redacted/web-components';
+import { EsIconCmp } from '@redacted/web-components/dist/lib/components/_Core/icon/icon.cmp.js';
 import { MirageElement } from '@arcmantle/mirage-utils';
 import { html } from 'lit';
 import { customElement, query } from 'lit/decorators.js';

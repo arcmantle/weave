@@ -1,14 +1,14 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type UserConfig } from 'vite';
 
-import { transformSass } from '../src/index.ts';
+import { sassTransformer } from '../src/index.ts';
+
 
 export default defineConfig({
-	root: './demo',
-
+	root:    './demo',
 	plugins: [
-		transformSass({
+		sassTransformer({
 			rootDir:    './styles',
 			debugLevel: 'error',
 		}),
 	],
-});
+}) as UserConfig;

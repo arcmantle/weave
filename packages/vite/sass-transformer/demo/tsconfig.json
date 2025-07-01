@@ -4,10 +4,7 @@
 		"rootDir": "..",
 		"types": [
 			"../client.d.ts"
-		]
-	},
-	"exclude": [
-		"node_modules",
-		"dist"
-	]
+		],
+		"importHelpers": false
+	}
 }

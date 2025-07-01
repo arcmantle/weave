@@ -3,19 +3,26 @@ import { extname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { transform } from 'lightningcss';
-import MagicString from 'magic-string';
+import MagicString, { SourceMap } from 'magic-string';
 import { parseAndWalk } from 'oxc-walker';
 import  * as sass from 'sass';
-import type { Plugin, ResolvedConfig } from 'vite';
-
-import type { PluginAsyncFnReturn, PluginParams, PluginSyncFnReturn } from './vite-plugin.ts';
-import { VitePlugin, vitePluginClassToPlugin } from './vite-plugin.ts';
 
 
-class SassTransformer implements VitePlugin {
+export interface SASSTransformerOptions {
+	minify:     boolean;
+	rootDir:    string;
+	debugLevel: 'error' | 'silent';
+}
 
-	constructor(options?: Partial<SassTransformer['inputOptions']>) {
-		this.inputOptions = {
+
+export class SASSTransformer {
+
+	constructor(
+		projectRoot: string,
+		options?: Partial<SASSTransformerOptions>,
+	) {
+		this.projectRoot = projectRoot;
+		this.options = {
 			minify:     true,
 			rootDir:    '',
 			debugLevel: 'silent',
@@ -23,18 +30,11 @@ class SassTransformer implements VitePlugin {
 		};
 	}
 
-	readonly inputOptions: Readonly<{
-		minify:     boolean;
-		rootDir:    string;
-		debugLevel: 'error' | 'silent';
-	}>;
-
-	enforce:          Plugin['enforce'] = 'pre';
-	name:             string = '@arcmantle/vite-plugin-sass-transformer';
-	resolvedConfig:   ResolvedConfig;
+	projectRoot:      string;
+	options:          Readonly<SASSTransformerOptions>;
 	decoder:          TextDecoder = new TextDecoder();
 	identifierNames:  string[] = [ 'sass`', 'scss`' ];
-	sourcetypes:      Set<string> = new Set([ '.scss', '.sass' ]);
+	sourceTypes:      Set<string> = new Set([ '.scss', '.sass' ]);
 	filetypes:        Set<string> = new Set([ '.ts', '.mts', '.js', '.mjs' ]);
 	transformers:     ((code: string, id: string) => string)[] = [];
 	additionalCode:   string[] = [];
@@ -45,7 +45,7 @@ class SassTransformer implements VitePlugin {
 		[ '$', '\\$' ],
 	]);
 
-	protected convert(str: string): string {
+	convert(str: string): string {
 		let res = '';
 		for (const c of str)
 			res += this.charReplacements.get(c) || c;
@@ -53,19 +53,19 @@ class SassTransformer implements VitePlugin {
 		return `\`${ res }\``;
 	}
 
-	protected cssImportAssertRegex(str: string): RegExp {
+	cssImportAssertRegex(str: string): RegExp {
 		return new RegExp(str + `['"] *(?:with|assert) *{ *type: *['"](?:css|scss|sass)['"]`);
 	}
 
-	protected fromSASSToCSS(text: string): string | undefined {
+	fromSASSToCSS(text: string): string | undefined {
 		try {
 			return sass.compileString(text, {
 				importers: [
 					{
 						findFileUrl: (url) => {
 							const path = pathToFileURL(join(
-								this.resolvedConfig.root,
-								this.inputOptions.rootDir,
+								this.projectRoot,
+								this.options.rootDir,
 							));
 
 							return new URL(url, path + '/');
@@ -75,14 +75,14 @@ class SassTransformer implements VitePlugin {
 			}).css;
 		}
 		catch (err) {
-			if (this.inputOptions.debugLevel !== 'silent') {
+			if (this.options.debugLevel !== 'silent') {
 				console.error('Failed to compile sass literal');
 				console.error(err);
 			}
 		}
 	}
 
-	protected minifyCSS(text: string, id: string = 'unknown'): string | undefined {
+	minifyCSS(text: string, id: string = 'unknown'): string | undefined {
 		try {
 			const { code: output } = transform({
 				code:     Buffer.from(text),
@@ -93,61 +93,20 @@ class SassTransformer implements VitePlugin {
 			return this.decoder.decode(output);
 		}
 		catch (err) {
-			if (this.inputOptions.debugLevel !== 'silent') {
+			if (this.options.debugLevel !== 'silent') {
 				console.error('Failed to minify css literal');
 				console.error(err);
 			}
 		}
 	}
 
-	//#region Plugin Hooks
-	configResolved(
-		[ context, cfg ]: PluginParams['configResolved'],
-	): PluginSyncFnReturn<'configResolved'> {
-		this.resolvedConfig = cfg;
-	}
-
-	async resolveId(
-		[ context, source, importer, options ]: PluginParams[ 'resolveId' ],
-	): PluginAsyncFnReturn<'resolveId'> {
-		const sourceExt = extname(source);
-		if (!this.sourcetypes.has(sourceExt) || !importer)
-			return;
-
-		// Remove query string part of path.
-		// Vite sometimes adds this to .html files.
-		if (importer.includes('?'))
-			importer = importer.split('?')[0]!;
-
-		const ext = extname(importer);
-		if (!this.filetypes.has(ext))
-			return;
-
-		const resolvedId = (await context.resolve(source, importer, options))?.id;
-		if (!resolvedId)
-			return;
-
-		const importerContent = await readFile(importer, { encoding: 'utf8' });
-		const regxp = this.cssImportAssertRegex(source);
-
-		if (regxp.test(importerContent)) {
-			const modId = '\0virtual:' + source.replace(extname(source), '.stylesheet');
-			this.virtualModules.set(modId, resolvedId);
-
-			return modId;
-		}
-	}
-
-	async load(
-		[ context, id, options ]: PluginParams['load'],
-	): PluginAsyncFnReturn<'load'> {
+	async load(id: string): Promise<{ code: string; realId: string; } | undefined> {
 		if (!this.virtualModules.has(id))
 			return;
 
 		const realId = this.virtualModules.get(id)!;
 
 		let fileContent = await readFile(realId, { encoding: 'utf8' });
-		context.addWatchFile(realId);
 
 		for (const transform of this.transformers)
 			fileContent = transform(fileContent, realId);
@@ -156,7 +115,7 @@ class SassTransformer implements VitePlugin {
 		if (!compiled)
 			return;
 
-		if (this.inputOptions.minify) {
+		if (this.options.minify) {
 			compiled = this.minifyCSS(compiled, realId);
 			if (!compiled)
 				return;
@@ -169,12 +128,13 @@ class SassTransformer implements VitePlugin {
 		+ '\nsheet.replaceSync(styles);'
 		+ '\nexport default sheet;';
 
-		return createCode;
+		return {
+			code: createCode,
+			realId,
+		};
 	}
 
-	transform(
-		[ context, code, id, options ]: PluginParams['transform'],
-	): PluginSyncFnReturn<'load'> {
+	transform(id: string, code: string): { code: string; map: SourceMap; } | undefined {
 		const ext = extname(id);
 		if (!this.filetypes.has(ext))
 			return;
@@ -205,7 +165,7 @@ class SassTransformer implements VitePlugin {
 			if (!compiled)
 				return;
 
-			if (this.inputOptions.minify) {
+			if (this.options.minify) {
 				compiled = this.minifyCSS(compiled, id);
 				if (!compiled)
 					return;
@@ -232,15 +192,11 @@ class SassTransformer implements VitePlugin {
 			};
 		}
 		catch (err) {
-			if (this.inputOptions.debugLevel !== 'silent') {
+			if (this.options.debugLevel !== 'silent') {
 				console.error('\nFailed to apply sass transformation and minification: ' + id);
 				console.error(err);
 			}
 		}
 	}
-	//#endregion Plugin Hooks
 
 }
-
-
-export const transformSass = vitePluginClassToPlugin(SassTransformer);

@@ -15,7 +15,8 @@
 		"@arcmantle/tsconfig": "workspace:^",
 		"@types/node": "^24.0.3",
 		"typescript": "^5.8.3",
-		"vitest": "^3.2.4"
+		"vitest": "^3.2.4",
+		"vite": "^7.0.0"
 	},
 	"pnpm": {
 		"onlyBuiltDependencies": [
@@ -33,7 +34,9 @@
 		],
 		"overrides": {
 			"@arcmantle/library": "workspace:^",
-			"@arcmantle/injector": "workspace:^"
+			"@arcmantle/injector": "workspace:^",
+			"@arcmantle/vite-lib-config": "workspace:^",
+			"@arcmantle/vite-plugin-copy": "workspace:^"
 		}
 	}
 }

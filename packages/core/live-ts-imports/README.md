@@ -29,6 +29,7 @@ yarn add jsr:@arcmantle/live-ts-imports
 ```
 
 **Peer Dependencies:**
+
 - `express ^4.19.2`
 
 ## Quick Start
@@ -75,24 +76,28 @@ server.listen(3000, () => {
 ## How It Works
 
 ### 1. TypeScript Compilation
+
 - Intercepts `.ts` file requests and transpiles them server-side on demand
 - Uses Node.js TypeScript compiler with optimized settings for modern browsers
 - Caches compiled output for performance
 - Serves transpiled JavaScript with correct MIME types to the browser
 
 ### 2. Import Map Generation
+
 - Analyzes package.json exports of specified dependencies
 - Creates browser-compatible import maps
 - Handles complex export configurations and conditional exports
 - Maps bare imports to vendor URLs (e.g., `'lit'` → `'/vendor/lit/index.js'`)
 
 ### 3. Dependency Management
+
 - Creates symlinks in the vendor directory for each package
 - Resolves package dependencies and their exports
 - Handles scoped packages by converting `/` to `-` in paths
 - Automatically includes `tslib` for TypeScript helper functions
 
 ### 4. Hot Module Reloading
+
 - Sets up WebSocket server for real-time communication
 - Watches client directories for file changes
 - Automatically refreshes browser when files are modified
@@ -100,7 +105,7 @@ server.listen(3000, () => {
 
 ## Example Project Structure
 
-```
+```bash
 project/
 ├── server.js           # Express server with live-ts-imports
 ├── client/            # Client-side TypeScript files

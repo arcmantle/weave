@@ -35,6 +35,7 @@ yarn add jsr:@arcmantle/reflect-metadata
 Extend the global Reflect object with metadata APIs:
 
 #### TypeScript/JavaScript
+
 ```typescript
 import { useReflectMetadata } from '@arcmantle/reflect-metadata';
 
@@ -47,12 +48,13 @@ const value = Reflect.getMetadata('custom:key', target);
 ```
 
 #### HTML
+
 ```html
 <script type="module">
-	import { useReflectMetadata } from '@arcmantle/reflect-metadata';
+ import { useReflectMetadata } from '@arcmantle/reflect-metadata';
 
-	const Reflect = useReflectMetadata();
-	// Reflect metadata APIs are now available globally
+ const Reflect = useReflectMetadata();
+ // Reflect metadata APIs are now available globally
 </script>
 ```
 
@@ -61,6 +63,7 @@ const value = Reflect.getMetadata('custom:key', target);
 This library implements the following Reflect metadata APIs:
 
 ### `Reflect.defineMetadata(key, value, target[, propertyKey])`
+
 Defines metadata for a target object or property.
 
 ```typescript
@@ -69,6 +72,7 @@ Reflect.defineMetadata('custom:type', 'string', MyClass, 'propertyName');
 ```
 
 ### `Reflect.getMetadata(key, target[, propertyKey])`
+
 Retrieves metadata from a target object or property, including inherited metadata.
 
 ```typescript
@@ -77,6 +81,7 @@ const type = Reflect.getMetadata('custom:type', MyClass, 'propertyName');
 ```
 
 ### `Reflect.getOwnMetadata(key, target[, propertyKey])`
+
 Retrieves own metadata from a target object or property (no inheritance).
 
 ```typescript
@@ -85,6 +90,7 @@ const ownType = Reflect.getOwnMetadata('custom:type', MyClass, 'propertyName');
 ```
 
 ### `Reflect.hasMetadata(key, target[, propertyKey])`
+
 Checks if metadata exists for a target object or property (including inherited).
 
 ```typescript
@@ -93,6 +99,7 @@ const hasType = Reflect.hasMetadata('custom:type', MyClass, 'propertyName');
 ```
 
 ### `Reflect.hasOwnMetadata(key, target[, propertyKey])`
+
 Checks if own metadata exists for a target object or property (no inheritance).
 
 ```typescript
@@ -101,6 +108,7 @@ const hasOwnType = Reflect.hasOwnMetadata('custom:type', MyClass, 'propertyName'
 ```
 
 ### `Reflect.metadata(key, value)`
+
 Creates a metadata decorator function.
 
 ```typescript
@@ -108,12 +116,13 @@ const Reflect = useReflectMetadata();
 const Type = (type: string) => Reflect.metadata('custom:type', type);
 
 class MyClass {
-	@Type('string')
-	propertyName: string;
+ @Type('string')
+ propertyName: string;
 }
 ```
 
 ### `Reflect.decorate(decorators, target[, propertyKey, descriptor])`
+
 Applies decorators to a target.
 
 ```typescript
@@ -124,14 +133,15 @@ const decoratedClass = Reflect.decorate([MyDecorator], MyClass);
 ## 🔧 Usage Examples
 
 ### Basic Metadata Storage
+
 ```typescript
 import { useReflectMetadata } from '@arcmantle/reflect-metadata';
 
 const Reflect = useReflectMetadata();
 
 class User {
-	name: string;
-	email: string;
+ name: string;
+ email: string;
 }
 
 // Store metadata
@@ -144,6 +154,7 @@ const isEmailValidation = Reflect.getMetadata('validation:email', User, 'email')
 ```
 
 ### Custom Decorators
+
 ```typescript
 import { useReflectMetadata } from '@arcmantle/reflect-metadata';
 
@@ -151,38 +162,38 @@ const Reflect = useReflectMetadata();
 
 // Create a validation decorator
 function Required(target: any, propertyKey: string) {
-	Reflect.defineMetadata('validation:required', true, target, propertyKey);
+ Reflect.defineMetadata('validation:required', true, target, propertyKey);
 }
 
 function Email(target: any, propertyKey: string) {
-	Reflect.defineMetadata('validation:email', true, target, propertyKey);
+ Reflect.defineMetadata('validation:email', true, target, propertyKey);
 }
 
 class User {
-	@Required
-	name: string;
+ @Required
+ name: string;
 
-	@Required
-	@Email
-	email: string;
+ @Required
+ @Email
+ email: string;
 }
 
 // Validation logic
 function validate(instance: any) {
-	const constructor = instance.constructor;
+ const constructor = instance.constructor;
 
-	for (const property of Object.keys(instance)) {
-		const isRequired = Reflect.getMetadata('validation:required', constructor, property);
-		const isEmail = Reflect.getMetadata('validation:email', constructor, property);
+ for (const property of Object.keys(instance)) {
+  const isRequired = Reflect.getMetadata('validation:required', constructor, property);
+  const isEmail = Reflect.getMetadata('validation:email', constructor, property);
 
-		if (isRequired && !instance[property]) {
-			throw new Error(`${property} is required`);
-		}
+  if (isRequired && !instance[property]) {
+   throw new Error(`${property} is required`);
+  }
 
-		if (isEmail && !instance[property].includes('@')) {
-			throw new Error(`${property} must be a valid email`);
-		}
-	}
+  if (isEmail && !instance[property].includes('@')) {
+   throw new Error(`${property} must be a valid email`);
+  }
+ }
 }
 ```
 

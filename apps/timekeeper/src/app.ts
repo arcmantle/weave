@@ -1,4 +1,4 @@
-import { EsDialogPortalCmp, registerIconLibrary, setBasePath } from '@eyeshare/web-components';
+import { EsDialogPortalCmp, registerIconLibrary, setBasePath } from '@redacted/web-components';
 
 import { MiTimekeeperCmp } from './app.cmp.js';
 import { MiContentManagerCmp } from './components-pure/content/content-manager.cmp.js';

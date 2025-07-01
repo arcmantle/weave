@@ -1,4 +1,4 @@
-import { EsSpinnerCmp } from '@eyeshare/web-components';
+import { EsSpinnerCmp } from '@redacted/web-components';
 import { html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 

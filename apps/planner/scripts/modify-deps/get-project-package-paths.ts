@@ -19,7 +19,7 @@ async function* getFiles(directory: string, pattern?: RegExp): AsyncGenerator<st
 
 /**
  * Convert a `generated` async iterable to an array promise.
- * This is the same as in @eyeshare/shared
+ * This is the same as in @redacted/shared
  * duplicate put in here to avoid needing a dependency on shared.
  */
 async function genToArray<T>(generated: AsyncIterable<T>): Promise<T[]> {

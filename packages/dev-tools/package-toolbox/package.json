@@ -43,12 +43,7 @@
 		"./filesystem/*": "./dist/filesystem/*"
 	},
 	"scripts": {
-		"build": "pnpm run --sequential \"/^build::.*/\"",
-		"build::prepare": "rimraf dist",
-		"build::js1": "vite build",
-		"build::index": "node ./bin/index.js build-indexes",
-		"build::js2": "vite build",
-		"build::types": "tsc --project ./src/tsconfig.json"
+		"build": "rimraf dist && tsc --project ./src/tsconfig.json"
 	},
 	"dependencies": {
 		"deepmerge-ts": "^7.1.5",

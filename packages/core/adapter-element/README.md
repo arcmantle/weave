@@ -26,6 +26,7 @@ Traditional Web Components require significant boilerplate and manual change det
 ### AdapterElement
 
 The base class that your components extend. It provides:
+
 - Automatic change detection via signals
 - Lifecycle management (connected, disconnected, updated)
 - Template rendering with lit-html
@@ -34,6 +35,7 @@ The base class that your components extend. It provides:
 ### Signal-based Reactivity
 
 Uses the TC39 Signals proposal for reactive state management:
+
 - `@state()` - Internal component state that triggers re-renders
 - `@property()` - Properties synchronized with HTML attributes
 - Automatic dependency tracking and efficient updates
@@ -41,6 +43,7 @@ Uses the TC39 Signals proposal for reactive state management:
 ### Two-Class Architecture
 
 The framework uses a unique two-class approach:
+
 - **AdapterElement** - Your component logic and rendering
 - **AdapterBase** - Internal HTMLElement that manages the DOM integration
 

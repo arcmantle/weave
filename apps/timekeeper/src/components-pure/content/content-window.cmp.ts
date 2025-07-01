@@ -1,5 +1,5 @@
-import { type Fn, Deferred, emitEvent, invariant } from '@eyeshare/shared';
-import { componentStyles, drag, EventController } from '@eyeshare/web-components';
+import { type Fn, Deferred, emitEvent, invariant } from '@redacted/shared';
+import { componentStyles, drag, EventController } from '@redacted/web-components';
 import { computePosition } from '@floating-ui/dom';
 import { css, html, LitElement, PropertyValues } from 'lit';
 import { customElement, property } from 'lit/decorators.js';

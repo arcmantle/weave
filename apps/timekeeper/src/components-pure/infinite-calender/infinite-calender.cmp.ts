@@ -1,5 +1,5 @@
-import { arrayChunk, DOMQuery, emitEvent, sleep } from '@eyeshare/shared';
-import { throttle, watch } from '@eyeshare/web-components';
+import { arrayChunk, DOMQuery, emitEvent, sleep } from '@redacted/shared';
+import { throttle, watch } from '@redacted/web-components';
 import { html, LitElement, PropertyValues } from 'lit';
 import { customElement, eventOptions, property, query } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';

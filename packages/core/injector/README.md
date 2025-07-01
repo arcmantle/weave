@@ -38,6 +38,7 @@ const container = new PluginContainer();
 ### Binding Values
 
 #### Constants
+
 ```typescript
 // Bind a constant value
 container.bind('API_URL').constant('https://api.example.com');
@@ -45,6 +46,7 @@ container.bind('config').constant({ timeout: 5000, retries: 3 });
 ```
 
 #### Classes
+
 ```typescript
 class DatabaseService {
   constructor(private container: PluginContainer) {}
@@ -62,6 +64,7 @@ container.bind('users').class(UserService).transient();
 ```
 
 #### Factories
+
 ```typescript
 // Bind a factory function
 container.bind('logger').factory(container => {
@@ -167,12 +170,15 @@ container.unload(databaseModule);
 ## Binding Methods
 
 ### `bind(identifier)`
+
 Creates a new binding, potentially overriding existing ones.
 
 ### `bindOnce(identifier)`
+
 Only binds if the identifier doesn't already exist. Returns `undefined` if already bound.
 
 ### `rebind(identifier)`
+
 Removes existing bindings for the identifier and creates a new one.
 
 ## Resolution Methods

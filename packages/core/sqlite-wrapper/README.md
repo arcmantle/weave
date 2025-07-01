@@ -89,9 +89,11 @@ const adults = query.from<User>('users')
 The main entry point for database operations.
 
 #### Constructor
+
 - `new Query(filename?: string)` - Creates a new query instance with optional database file path
 
 #### Methods
+
 - `from<T>(table: string): SelectBuilder<T>` - Creates a SELECT query builder
 - `insert<T>(table: string): InsertBuilder<T>` - Creates an INSERT query builder
 - `update<T>(table: string): UpdateBuilder<T>` - Creates an UPDATE query builder
@@ -173,6 +175,7 @@ query.from('users')
 ```
 
 Available filter methods:
+
 - `eq(field, value)` - Equality comparison
 - `startsWith(field, value)` - String starts with
 - `endsWith(field, value)` - String ends with
@@ -222,6 +225,7 @@ const safeString = escapeString("Don't break SQL");
 ## Type System
 
 ### Branded Types
+
 The library uses branded types to provide additional type safety:
 
 ```typescript
@@ -231,6 +235,7 @@ type UserId = Branded<number, 'UserId'>;
 ```
 
 ### Optional Properties
+
 Utility type for making specific properties optional:
 
 ```typescript
@@ -293,6 +298,7 @@ query.transaction(tx => {
 ## Advanced Features
 
 ### Custom SQL
+
 For complex queries, you can access the underlying prepared statements:
 
 ```typescript
@@ -302,6 +308,7 @@ console.log(sqlString);  // Useful for debugging
 ```
 
 ### Error Handling
+
 All query methods include built-in error handling:
 
 ```typescript

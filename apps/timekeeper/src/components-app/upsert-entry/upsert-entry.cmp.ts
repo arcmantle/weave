@@ -1,5 +1,5 @@
-import { emitEvent } from '@eyeshare/shared';
-import { EsButtonCmp, EsDrawerCmp, EsFormCmp, EsFormControlCmp, EsInputCmp, EsLegendCmp, EsTextareaCmp } from '@eyeshare/web-components';
+import { emitEvent } from '@redacted/shared';
+import { EsButtonCmp, EsDrawerCmp, EsFormCmp, EsFormControlCmp, EsInputCmp, EsLegendCmp, EsTextareaCmp } from '@redacted/web-components';
 import { MirageElement } from '@arcmantle/mirage-utils';
 import { html } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';

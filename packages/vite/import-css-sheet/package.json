@@ -4,8 +4,7 @@
 	"description": "Small plugin that enables the use of tc39/proposal-import-attributes for css files in vite.",
 	"license": "Apache-2.0",
 	"author": {
-		"name": "Kristoffer Roen-Lie",
-		"url": "https://github.com/arcmantle"
+		"name": "Kristoffer Roen-Lie"
 	},
 	"files": [
 		"dist",
@@ -19,20 +18,19 @@
 	"type": "module",
 	"types": "./dist/index.d.ts",
 	"main": "./dist/index.js",
+	"exports": {
+		".": "./dist/index.js"
+	},
 	"scripts": {
 		"dev": "pnpm vite --config ./demo/vite.config.ts",
-		"build": "vite build && tsc --project ./src/tsconfig.json"
+		"build": "rimraf dist && tsc --project ./src/tsconfig.json"
 	},
 	"dependencies": {
 		"lightningcss": "^1.29.3"
 	},
-	"peerDependencies": {
-		"vite": "^6.2.4"
-	},
 	"devDependencies": {
-		"@arcmantle/vite-lib-config": "workspace:^",
 		"lit": "^3.3.0",
 		"rollup": "^4.40.0",
-		"tslib": "^2.8.1"
+		"vite": "^7.0.0"
 	}
 }

@@ -1,7 +1,7 @@
 import GUN from 'gun';
 import 'gun/sea';
 import 'gun/axe';
-import { Publisher } from '@eyeshare/shared';
+import { Publisher } from '@redacted/shared';
 
 // Database
 export const db = GUN();

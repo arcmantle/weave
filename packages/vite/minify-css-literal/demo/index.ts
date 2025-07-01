@@ -1,17 +1,17 @@
-import { css, html, LitElement } from 'lit';
+import { css, type CSSResultGroup, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 
 
 @customElement('demo-element')
 export class DemoCmp extends LitElement {
 
-	protected override render() {
+	protected override render(): unknown {
 		return html`
 		Hello
 		`;
 	}
 
-	public static override styles = [
+	static override styles: CSSResultGroup = [
 		css`
 		/* Box sizing rules */
 		*,

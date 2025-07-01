@@ -1,4 +1,4 @@
-import { AsyncFn, createMixin, Ctor, Fn, mixCls } from '@eyeshare/shared';
+import { AsyncFn, createMixin, Ctor, Fn, mixCls } from '@redacted/shared';
 import { nanoid } from 'nanoid';
 
 /* ------------------------------------------------- */

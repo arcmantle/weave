@@ -1,5 +1,5 @@
-import { Relay } from '@eyeshare/shared';
-import { bind, EsButtonCmp, EsButtonGroupCmp, EsCheckboxCmp, EsDividerCmp, EsIconCmp, EsRadioGroupCmp, EsRippleCmp } from '@eyeshare/web-components';
+import { Relay } from '@redacted/shared';
+import { bind, EsButtonCmp, EsButtonGroupCmp, EsCheckboxCmp, EsDividerCmp, EsIconCmp, EsRadioGroupCmp, EsRippleCmp } from '@redacted/web-components';
 import { html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 

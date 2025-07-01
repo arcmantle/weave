@@ -1,10 +1,11 @@
 import { html, render } from 'lit-html';
 
 import { AdapterElement } from '../src/adapter/adapter-element.ts';
-import { property, state } from '../src/adapter/decorators.ts';
+import { property, provider, state } from '../src/adapter/decorators.ts';
 import { css, type CSSStyle } from '../src/shared/css.ts';
 
 
+@provider()
 export class RootPage extends AdapterElement {
 
 	static override tagName = 'iv-root-page';

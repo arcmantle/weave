@@ -1,1 +1,1 @@
-export * from './injector.js';
+export * from './injector.ts';

@@ -1,4 +1,4 @@
 /* eslint-disable */
 /* auto generated */
-export { Phenomenon, addBeholder, removeBeholder, dispatchPhenom } from './beholder.js';
+export { Phenomenon, createAddBeholder, createDispatchPhenom, createRemoveBeholder } from './beholder.js';
 export { Hooks } from './hooks.js';

@@ -4,8 +4,7 @@
 	"description": "Library configuration for vite",
 	"license": "Apache-2.0",
 	"author": {
-		"name": "Kristoffer Roen-Lie",
-		"url": "https://github.com/arcmantle"
+		"name": "Kristoffer Roen-Lie"
 	},
 	"files": [
 		"dist",
@@ -18,6 +17,9 @@
 	"type": "module",
 	"types": "./dist/index.d.ts",
 	"main": "./dist/index.js",
+	"exports": {
+		".": "./dist/index.js"
+	},
 	"scripts": {
 		"build": "rimraf dist && tsc --project ./src/tsconfig.json"
 	},
@@ -25,7 +27,6 @@
 		"deepmerge-ts": "^7.1.5"
 	},
 	"devDependencies": {
-		"vite": "^7.0.0",
-		"typescript": "^5.8.3"
+		"vite": "^7.0.0"
 	}
 }

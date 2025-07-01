@@ -1,4 +1,4 @@
-import { cloneAt, PathArg, readPath, Rec, writePath } from '@eyeshare/shared';
+import { cloneAt, PathArg, readPath, Rec, writePath } from '@redacted/shared';
 import { AttributePart, noChange } from 'lit';
 import { AsyncDirective, directive, DirectiveParameters, PartInfo, PartType } from 'lit/async-directive.js';
 

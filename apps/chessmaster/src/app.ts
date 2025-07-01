@@ -1,4 +1,4 @@
-import { registerIconLibrary, setBasePath } from '@eyeshare/web-components';
+import { registerIconLibrary, setBasePath } from '@redacted/web-components';
 
 import { MiChessDimensionCmp } from './components-app/app/app.cmp.js';
 

@@ -1,4 +1,4 @@
-import { EsIconCmp } from '@eyeshare/web-components';
+import { EsIconCmp } from '@redacted/web-components';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 

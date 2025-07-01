@@ -1,4 +1,4 @@
-import { invariant } from '@eyeshare/shared';
+import { invariant } from '@redacted/shared';
 
 import {
 	AI_DEPTH_BY_LEVEL,

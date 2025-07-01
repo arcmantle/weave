@@ -1,4 +1,4 @@
-import { css, html, LitElement } from 'lit';
+import { css, type CSSResultGroup, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 
 import demoStyles from './index.css' with { type: 'css' };
@@ -13,7 +13,7 @@ export class DemoCmp extends LitElement {
 		`;
 	}
 
-	static override styles = [
+	static override styles: CSSResultGroup = [
 		demoStyles,
 		css`
 		/* Box sizing rules */

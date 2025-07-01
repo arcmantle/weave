@@ -12,6 +12,7 @@ ESPlot consists of two main components:
 2. **Viewer (Go)**: A native desktop application that displays the generated charts in real-time
 
 The workflow is:
+
 1. Your TypeScript/Node.js code calls chart functions like `barChart()`
 2. The library bundles the chart code using Vite
 3. The bundled code is sent to the viewer via HTTP
@@ -49,10 +50,12 @@ await barChart(
 If you want to build from source or contribute to the project:
 
 #### Prerequisites
+
 - Node.js with TypeScript support (or Bun/Deno)
 - Go (latest version recommended)
 
 ##### Building the Viewer
+
 ```bash
 # Navigate to the viewer directory
 cd viewer
@@ -65,6 +68,7 @@ go build -o ../core/bin/esplotv-arm64 .
 ```
 
 #### Running Charts
+
 ```bash
 # Build the TypeScript library
 npm run build

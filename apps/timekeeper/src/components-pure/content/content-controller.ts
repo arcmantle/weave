@@ -1,5 +1,5 @@
-import { DOMQuery, mapGetLazy } from '@eyeshare/shared';
-import { ObservableSet } from '@eyeshare/web-components';
+import { DOMQuery, mapGetLazy } from '@redacted/shared';
+import { ObservableSet } from '@redacted/web-components';
 import type { LitElement, ReactiveController, ReactiveControllerHost } from 'lit';
 
 import { MiContentCmp } from './content.cmp.js';

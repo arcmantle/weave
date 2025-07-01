@@ -25,6 +25,3 @@ jobs:
 
       - name: Install dependencies.
         run: pnpm install
-
-      - name: Publish package
-        run: npx jsr publish --allow-dirty

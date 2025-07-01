@@ -4,8 +4,7 @@
 	"description": "Copies files during vite build.",
 	"license": "Apache-2.0",
 	"author": {
-		"name": "Kristoffer Roen-Lie",
-		"url": "https://github.com/arcmantle"
+		"name": "Kristoffer Roen-Lie"
 	},
 	"files": [
 		"dist",
@@ -27,7 +26,6 @@
 		"globby": "^14.1.0"
 	},
 	"devDependencies": {
-		"@arcmantle/vite-lib-config": "workspace:^",
 		"@types/fs-extra": "^11.0.4",
 		"vite": "^7.0.0"
 	}

@@ -1,4 +1,4 @@
-import { translationFiles, translationLoader } from '@eyeshare/web-components';
+import { translationFiles, translationLoader } from '@redacted/web-components';
 
 import { translationExports } from './translations/export.js';
 

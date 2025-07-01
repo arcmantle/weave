@@ -1,4 +1,4 @@
-import { componentStyles } from '@eyeshare/web-components';
+import { componentStyles } from '@redacted/web-components';
 import { css } from 'lit';
 
 /* ------------------------------------------------- */

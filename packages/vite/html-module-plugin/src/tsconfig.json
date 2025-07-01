@@ -1,4 +1,3 @@
 {
-	"extends": "@arcmantle/tsconfig",
-	"compilerOptions": {},
+	"extends": "@arcmantle/tsconfig/build"
 }

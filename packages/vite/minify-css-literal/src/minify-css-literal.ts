@@ -4,7 +4,7 @@ import { transform } from 'lightningcss';
 import MagicString from 'magic-string';
 import type { Plugin, ResolvedConfig } from 'vite';
 
-const traverse = (_traverse as unknown as { default: typeof _traverse }).default;
+const traverse = (_traverse as unknown as { default: typeof _traverse; }).default;
 
 
 export const minifyCssLiteral = (debugLevel: 'error' | 'silent' = 'silent'): Plugin => {

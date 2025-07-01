@@ -17,20 +17,22 @@ A browser-friendly implementation of Node.js's POSIX path utilities. This packag
 ## Installation
 
 ### deno
+
 ```bash
 deno add jsr:@arcmantle/posix-path-browser
 ```
 
 ### pnpm 10.9+
+
 ```bash
 pnpm add jsr:@arcmantle/posix-path-browser
 ```
 
 ### yarn 4.9+
+
 ```bash
 yarn add jsr:@arcmantle/posix-path-browser
 ```
-
 
 ## Usage
 
@@ -106,41 +108,53 @@ const formatted = format({
 ### Methods
 
 #### `resolve(...paths: string[]): string`
+
 Resolves a sequence of paths or path segments into an absolute path.
 
 #### `normalize(path: string): string`
+
 Normalizes a path, resolving `'..'` and `'.'` segments.
 
 #### `isAbsolute(path: string): boolean`
+
 Determines whether the path is an absolute path.
 
 #### `join(...paths: string[]): string`
+
 Joins all given path segments together using the platform separator as a delimiter, then normalizes the resulting path.
 
 #### `relative(from: string, to: string): string`
+
 Returns the relative path from `from` to `to`.
 
 #### `dirname(path: string): string`
+
 Returns the directory name of a path.
 
 #### `basename(path: string, suffix?: string): string`
+
 Returns the last portion of a path, optionally removing a given suffix.
 
 #### `extname(path: string): string`
+
 Returns the extension of the path, from the last `'.'` to end of string.
 
 #### `parse(path: string): ParsedPath`
+
 Returns an object with properties representing significant elements of the path.
 
 #### `format(pathObject: FormatInputPathObject): string`
+
 Returns a path string from an object - the opposite of `parse()`.
 
 ### Constants
 
 #### `sep: string`
+
 The platform-specific file separator: `'/'`
 
 #### `delimiter: string`
+
 The platform-specific path delimiter: `':'`
 
 ### Types
@@ -166,17 +180,21 @@ interface FormatInputPathObject {
 ## Why Use This Package?
 
 ### Browser Compatibility
+
 The standard Node.js `path` module is not available in browsers. This package provides the same functionality without requiring Node.js polyfills or bundler configuration.
 
 ### Consistent POSIX Behavior
+
 Always uses POSIX path conventions (forward slashes) regardless of the platform, making it perfect for web applications that work with URLs or need consistent path handling.
 
 ### Lightweight Alternative
+
 Unlike full Node.js polyfills, this package only includes the path utilities you need, keeping your bundle size minimal.
 
 ## Browser Support
 
 This package works in all modern browsers that support ES2015+ features:
+
 - Chrome 51+
 - Firefox 54+
 - Safari 10+

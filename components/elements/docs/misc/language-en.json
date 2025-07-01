@@ -2890,7 +2890,7 @@
 		"addComment": "Add comment",
 		"addCommentTextWithTag": "Please tag and comment:",
 		"notificationSettingTitle": "Notifications for new comment",
-		"notificationEyeShareTitle": "eye-share Workflow",
+		"notificationredactedTitle": "eye-share Workflow",
 		"notificationEmailTitle": "E-mail",
 		"notificationSettingMentionedTitle": "@Mentioned",
 		"notificationSettingMentionedDescription": "You'll be notified when someone mentions you",

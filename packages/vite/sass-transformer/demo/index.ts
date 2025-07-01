@@ -1,4 +1,4 @@
-import { css as sass, html, LitElement } from 'lit';
+import { css as sass, type CSSResultGroup, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
 import styles from './index.scss' with { type: 'scss' };
@@ -15,7 +15,7 @@ export class DemoCmp extends LitElement {
 		`;
 	}
 
-	static override styles = [
+	static override styles: CSSResultGroup = [
 		styles,
 		sass`
 		@use 'base';

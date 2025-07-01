@@ -1,4 +1,4 @@
-import { EsFormCmp, EsInputCmp } from '@eyeshare/web-components';
+import { EsFormCmp, EsInputCmp } from '@redacted/web-components';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { chatPanelStyle } from './chat-panel.styles.js';

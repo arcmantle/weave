@@ -1,5 +1,5 @@
-import { emitEvent } from '@eyeshare/shared';
-import { componentStyles, EventController } from '@eyeshare/web-components';
+import { emitEvent } from '@redacted/shared';
+import { componentStyles, EventController } from '@redacted/web-components';
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';

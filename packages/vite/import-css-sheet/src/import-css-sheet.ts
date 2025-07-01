@@ -15,7 +15,7 @@ export class ImportCSSSheet {
 		public minify: boolean,
 	) {}
 
-	filetypes = new Set([ '.ts', '.mts', '.js', '.mjs' ]);
+	filetypes:        Set<string> = new Set([ '.ts', '.mts', '.js', '.mjs' ]);
 	virtualModules:   Map<string, string> = new Map();
 	charReplacements: Map<string, string> = new Map([
 		[ '\\', '\\\\' ],

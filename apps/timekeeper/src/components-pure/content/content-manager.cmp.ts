@@ -1,5 +1,5 @@
-import { Deferred, mapGetLazy } from '@eyeshare/shared';
-import { componentStyles, listen, ObservableMap, ObservableSet } from '@eyeshare/web-components';
+import { Deferred, mapGetLazy } from '@redacted/shared';
+import { componentStyles, listen, ObservableMap, ObservableSet } from '@redacted/web-components';
 import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';

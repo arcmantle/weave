@@ -1,5 +1,5 @@
-import { genToArray } from '@eyeshare/shared';
-import { getFiles } from '@eyeshare/shared-nodejs';
+import { genToArray } from '@redacted/shared';
+import { getFiles } from '@redacted/shared-nodejs';
 import { promises } from 'fs';
 import path, { resolve } from 'path';
 

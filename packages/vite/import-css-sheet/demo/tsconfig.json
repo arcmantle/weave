@@ -4,7 +4,8 @@
 		"rootDir": "..",
 		"types": [
 			"../client.d.ts"
-		]
+		],
+		"importHelpers": false
 	},
 	"exclude": [
 		"node_modules",

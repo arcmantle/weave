@@ -1,1 +1,1 @@
-export { transformSass } from './sass-transformer.js';
+export { sassTransformer } from './plugin.ts';
