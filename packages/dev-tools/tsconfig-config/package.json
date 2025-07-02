@@ -10,7 +10,7 @@
 		"./build": "./tsconfig.build.json"
 	},
 	"scripts": {
-		"build": "echo: 'No build step required.'"
+		"build": "exit 0"
 	},
 	"files": [
 		"tsconfig.dev.json",

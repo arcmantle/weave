@@ -39,7 +39,7 @@ jobs:
           version: latest
 
       - name: Install common build dependencies.
-        run: pnpm add -D rimraf typescript
+        run: pnpm add -D rimraf typescript @arcmantle/tsconfig
 
       - name: Install dependencies.
         run: pnpm install
