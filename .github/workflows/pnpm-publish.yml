@@ -4,23 +4,23 @@ on:
   workflow_call:
     inputs:
       version-increment:
-        description: 'Version increment type (patch, minor, major, prerelease)'
+        description: "Version increment type (patch, minor, major, prerelease)"
         required: false
-        default: 'patch'
+        default: "patch"
         type: string
       node-version:
-        description: 'Node.js version to use'
+        description: "Node.js version to use"
         required: false
-        default: '24'
+        default: "24"
         type: string
       access:
-        description: 'Package access level (public, restricted)'
+        description: "Package access level (public, restricted)"
         required: false
-        default: 'public'
+        default: "public"
         type: string
     secrets:
       NPM_PUBLISH:
-        description: 'NPM publish token'
+        description: "NPM publish token"
         required: true
 
 jobs:
@@ -38,10 +38,75 @@ jobs:
         with:
           version: latest
 
+      - name: Install common build dependencies.
+        run: pnpm add -D rimraf typescript
+
       - name: Install dependencies.
         run: pnpm install
 
-      - name: Publish package.
-        run: pnpm publish --${{ inputs.version-increment }} --access ${{ inputs.access }} --no-git-checks
+      - name: Build project.
+        run: pnpm build
+
+      - name: Get package name and current published version
+        id: package-info
+        run: |
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          LOCAL_VERSION=$(node -p "require('./package.json').version")
+          echo "name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
+          echo "local-version=$LOCAL_VERSION" >> $GITHUB_OUTPUT
+
+          # Get latest published version, default to 1.0.0 if package doesn't exist
+          CURRENT_VERSION=$(npm view "$PACKAGE_NAME" version 2>/dev/null || echo "1.0.0")
+          echo "current-version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+          # Check if this is first-time publishing
+          if npm view "$PACKAGE_NAME" version >/dev/null 2>&1; then
+            echo "📦 Package: $PACKAGE_NAME"
+            echo "🏷️  Current published version: $CURRENT_VERSION"
+            echo "is-first-publish=false" >> $GITHUB_OUTPUT
+          else
+            echo "📦 Package: $PACKAGE_NAME (new package)"
+            echo "🏷️  Starting from version: $CURRENT_VERSION"
+            echo "is-first-publish=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update package.json to current published version
+        if: steps.package-info.outputs.is-first-publish == 'false'
+        run: |
+          npm version ${{ steps.package-info.outputs.current-version }} --no-git-tag-version
+
+      - name: Set initial version for new package
+        if: steps.package-info.outputs.is-first-publish == 'true'
+        run: |
+          LOCAL_VERSION="${{ steps.package-info.outputs.local-version }}"
+          if [ "$LOCAL_VERSION" != "1.0.0" ]; then
+            npm version 1.0.0 --no-git-tag-version
+          fi
+
+      - name: Bump version
+        id: bump-version
+        run: |
+          if [ "${{ steps.package-info.outputs.is-first-publish }}" == "true" ]; then
+            # For first publish, just use 1.0.0
+            echo "new-version=1.0.0" >> $GITHUB_OUTPUT
+            echo "🚀 First release version: 1.0.0"
+          else
+            # For existing packages, increment normally
+            NEW_VERSION=$(npm version ${{ inputs.version-increment }} --no-git-tag-version)
+            echo "new-version=${NEW_VERSION#v}" >> $GITHUB_OUTPUT
+            echo "🚀 New version: ${NEW_VERSION#v}"
+          fi
+
+      - name: Publish to NPM
+        run: pnpm publish --access ${{ inputs.access }} --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH }}
+          NPM_TOKEN: ${{ secrets.NPM_PUBLISH }}
+
+      - name: Output published version
+        run: |
+          if [ "${{ steps.package-info.outputs.is-first-publish }}" == "true" ]; then
+            echo "🎉 Successfully published first release: ${{ steps.package-info.outputs.name }}@${{ steps.bump-version.outputs.new-version }}"
+          else
+            echo "✅ Successfully published ${{ steps.package-info.outputs.name }}@${{ steps.bump-version.outputs.new-version }}"
+          fi

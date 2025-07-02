@@ -29,6 +29,10 @@
       "targetRepo": "arcmantle/sqlite-wrapper"
     },
     {
+		"packagePath": "packages/dev-tools/tsconfig-config",
+		"targetRepo": "arcmantle/tsconfig"
+	},
+	{
       "packagePath": "packages/lit/lit-jsx",
       "targetRepo": "arcmantle/lit-jsx"
     },
