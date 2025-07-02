@@ -39,7 +39,7 @@ jobs:
           version: latest
 
       - name: Install common build dependencies.
-        run: pnpm add -D rimraf typescript @arcmantle/tsconfig
+        run: pnpm add -D rimraf typescript @arcmantle/tsconfig @types/node
 
       - name: Install dependencies.
         run: pnpm install
@@ -55,46 +55,37 @@ jobs:
           echo "name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
           echo "local-version=$LOCAL_VERSION" >> $GITHUB_OUTPUT
 
-          # Get latest published version, default to 1.0.0 if package doesn't exist
-          CURRENT_VERSION=$(npm view "$PACKAGE_NAME" version 2>/dev/null || echo "1.0.0")
-          echo "current-version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-
-          # Check if this is first-time publishing
-          if npm view "$PACKAGE_NAME" version >/dev/null 2>&1; then
+          # Check if package exists on npm
+          echo "🔍 Checking if package exists on npm..."
+          if CURRENT_VERSION=$(npm view "$PACKAGE_NAME" version 2>/dev/null); then
+            echo "current-version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
             echo "📦 Package: $PACKAGE_NAME"
             echo "🏷️  Current published version: $CURRENT_VERSION"
             echo "is-first-publish=false" >> $GITHUB_OUTPUT
+            echo "✅ Package exists, will increment version"
           else
+            echo "current-version=" >> $GITHUB_OUTPUT
             echo "📦 Package: $PACKAGE_NAME (new package)"
-            echo "🏷️  Starting from version: $CURRENT_VERSION"
+            echo "🏷️  Will start from version: 1.0.0"
             echo "is-first-publish=true" >> $GITHUB_OUTPUT
+            echo "✅ New package, will set to 1.0.0"
           fi
-
-      - name: Update package.json to current published version
-        if: steps.package-info.outputs.is-first-publish == 'false'
-        run: |
-          npm version ${{ steps.package-info.outputs.current-version }} --no-git-tag-version
-
-      - name: Set initial version for new package
-        if: steps.package-info.outputs.is-first-publish == 'true'
-        run: |
-          LOCAL_VERSION="${{ steps.package-info.outputs.local-version }}"
-          if [ "$LOCAL_VERSION" != "1.0.0" ]; then
-            npm version 1.0.0 --no-git-tag-version
-          fi
+          echo "is first publish ???? is-first-publish"
 
       - name: Bump version
         id: bump-version
         run: |
+          echo "🔧 Current is-first-publish value: ${{ steps.package-info.outputs.is-first-publish }}"
           if [ "${{ steps.package-info.outputs.is-first-publish }}" == "true" ]; then
-            # For first publish, just use 1.0.0
+            echo "🚀 First publish - setting to 1.0.0"
+            npm version 1.0.0 --no-git-tag-version
             echo "new-version=1.0.0" >> $GITHUB_OUTPUT
-            echo "🚀 First release version: 1.0.0"
+            echo "✅ First release version: 1.0.0"
           else
-            # For existing packages, increment normally
+            echo "🚀 Existing package - incrementing version with: ${{ inputs.version-increment }}"
             NEW_VERSION=$(npm version ${{ inputs.version-increment }} --no-git-tag-version)
             echo "new-version=${NEW_VERSION#v}" >> $GITHUB_OUTPUT
-            echo "🚀 New version: ${NEW_VERSION#v}"
+            echo "✅ New version: ${NEW_VERSION#v}"
           fi
 
       - name: Publish to NPM
