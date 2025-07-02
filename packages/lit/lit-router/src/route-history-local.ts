@@ -4,25 +4,25 @@ import { storageHandler } from './utilities/storageHandler.js';
 
 export class RouteHistoryLocal extends RouteHistory {
 
-	public getRoute() {
+	getRoute(): string {
 		return storageHandler.getItem('currentRoute', '');
 	}
 
-	public setRoute(route: string) {
+	setRoute(route: string): string {
 		storageHandler.setItem('currentRoute', route);
 		this.appendHistory(route);
 
 		return route;
 	}
 
-	public appendHistory(route: string) {
+	appendHistory(route: string): void {
 		const history = storageHandler.getItem<string[]>('routeHistory', []);
 		history.push(route);
 
 		storageHandler.setItem('routeHistory', history);
 	}
 
-	public clearHistory() {
+	clearHistory(): void {
 		this.history.length = 0;
 	}
 

@@ -11,23 +11,23 @@ import { RouteHistory } from './route-history-base.js';
 type ActionReturn = void | undefined | typeof HTMLElement;
 
 export interface Route {
-	path: string;
-	name?: string;
+	path:       string;
+	name?:      string;
 	component?: string;
-	action?: () => (Promise<ActionReturn> | ActionReturn);
-	animation?: { show: ElementAnimation; hide: ElementAnimation };
-	redirect?: string;
-	children?: (() => Promise<Route[]>) | Route[];
+	action?:    () => (Promise<ActionReturn> | ActionReturn);
+	animation?: { show: ElementAnimation; hide: ElementAnimation; };
+	redirect?:  string;
+	children?:  (() => Promise<Route[]>) | Route[];
 }
 
 interface InternalRoute {
-	path: Route['path'][];
-	name: Route['name'];
-	component: Route['component'][];
-	action: Route['action'][];
-	animation: Route['animation'][];
-	redirect: Route['redirect'][];
-	childImport?: (() => Promise<Route[]>);
+	path:         Route['path'][];
+	name:         Route['name'];
+	component:    Route['component'][];
+	action:       Route['action'][];
+	animation:    Route['animation'][];
+	redirect:     Route['redirect'][];
+	childImport?: () => Promise<Route[]>;
 }
 
 type RouteElement = HTMLElement & { __routeAnimation?: Route['animation']; };
@@ -37,26 +37,26 @@ type RouteElement = HTMLElement & { __routeAnimation?: Route['animation']; };
 const MAX_REDIRECTIONS = 100;
 
 /** Holds the animation for a route element. */
-const animationCache = new WeakMap<Node, Route['animation']>();
+const animationCache: WeakMap<Node, Route['animation']> = new WeakMap();
 
 
 export class Router {
 
-	public params = new Map<string, string>();
-	protected outlet: Element;
-	protected routes: InternalRoute[];
-	protected history: RouteHistory;
-	protected baseUrl = location.origin;
-	protected updateComplete = Promise.resolve(true);
+	params:                   Map<string, string> = new Map();
+	protected outlet:         Element;
+	protected routes:         InternalRoute[];
+	protected history:        RouteHistory;
+	protected baseUrl:        string = location.origin;
+	protected updateComplete: Promise<boolean> = Promise.resolve(true);
 	protected redirectionCount = 0;
 
 	constructor() { }
 
-	public setHistorian(historian: RouteHistory) {
+	setHistorian(historian: RouteHistory): void {
 		this.history = historian;
 	}
 
-	public setOutlet(element: Element) {
+	setOutlet(element: Element): void {
 		this.outlet = element;
 		if (element.shadowRoot) {
 			const slot = document.createElement('slot');
@@ -66,7 +66,7 @@ export class Router {
 		this.initialize();
 	}
 
-	public setRoutes(routes: Route[]) {
+	setRoutes(routes: Route[]): void {
 		this.routes = this.parseRoutes(routes);
 
 		this.initialize();
@@ -74,11 +74,11 @@ export class Router {
 		console.log(this.routes);
 	}
 
-	public location() {
+	location(): string {
 		return this.history.getRoute();
 	}
 
-	public async navigate(route: string) {
+	async navigate(route: string): Promise<string | void> {
 		await this.updateComplete;
 
 		const [ promise, resolver ] = createPromiseResolver<boolean>();
@@ -164,7 +164,7 @@ export class Router {
 		return route;
 	}
 
-	protected initialize() {
+	protected initialize(): void {
 		if (!this.routes || !this.outlet || !this.history)
 			return;
 
@@ -172,11 +172,11 @@ export class Router {
 		this.navigate(this.location());
 	}
 
-	protected async beforeNavigate() {
+	protected async beforeNavigate(): Promise<void> {
 		//console.log('before set route');
 	}
 
-	protected async afterNavigate() {
+	protected async afterNavigate(): Promise<void> {
 		//console.log('after set route');
 	}
 
@@ -192,7 +192,7 @@ export class Router {
 			redirect:  [],
 		},
 		index?: number,
-	) {
+	): InternalRoute[] {
 		if (!routes?.length)
 			return parsedRoutes;
 
@@ -254,7 +254,7 @@ export class Router {
 		});
 	}
 
-	protected async replaceRouteNodes(elements: RouteElement[], parent: Element, depth = 0) {
+	protected async replaceRouteNodes(elements: RouteElement[], parent: Element, depth = 0): Promise<void> {
 		const nodeToInsert = elements[depth];
 		if (!nodeToInsert)
 			return await this.reversedRouteNodeRemoval(parent as RouteElement);
@@ -282,7 +282,7 @@ export class Router {
 		}
 	}
 
-	protected async removeRouteElement(el: RouteElement) {
+	protected async removeRouteElement(el: RouteElement): Promise<void> {
 		const anim = animationCache.get(el)?.hide;
 		if (anim) {
 			await stopAnimations(el);
@@ -293,7 +293,7 @@ export class Router {
 		animationCache.delete(el);
 	}
 
-	protected async reversedRouteNodeRemoval(node: RouteElement, removeParent?: boolean) {
+	protected async reversedRouteNodeRemoval(node: RouteElement, removeParent?: boolean): Promise<void> {
 		while (node.firstChild) {
 			const child = node.firstChild as RouteElement;
 			await this.reversedRouteNodeRemoval(child);

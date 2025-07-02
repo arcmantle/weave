@@ -41,27 +41,26 @@ const parse = (val: string) => {
 
 class LocalStorageHandler {
 
-	public getItem<T>(key: string, value?: T) {
+	getItem<T>(key: string, value?: T) {
 		const existingValue = localStorage.getItem(key);
 		existingValue ?? localStorage.setItem(key, stringify(value));
 
 		return parse(localStorage.getItem(key)!) as T;
 	}
 
-	public setItem<T>(key: string, value: T): T {
+	setItem<T>(key: string, value: T): T {
 		localStorage.setItem(key, stringify(value));
 
 		return parse(localStorage.getItem(key)!) as T;
 	}
 
-	public removeItem(key: string) {
+	removeItem(key: string): void {
 		localStorage.removeItem(key);
 	}
 
-	public clear() {
+	clear(): void {
 		localStorage.clear();
 	}
 
 }
-
-export const storageHandler = new LocalStorageHandler();
+export const storageHandler: LocalStorageHandler = new LocalStorageHandler();

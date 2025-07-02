@@ -5,22 +5,22 @@ export class RouteHistoryState extends RouteHistory {
 
 	protected currentRoute = '';
 
-	public getRoute() {
+	getRoute(): string {
 		return this.currentRoute;
 	}
 
-	public setRoute(route: string) {
+	setRoute(route: string): string {
 		this.currentRoute = route;
 		this.appendHistory(route);
 
 		return route;
 	}
 
-	public appendHistory(route: string) {
+	appendHistory(route: string): void {
 		this.history.push(route);
 	}
 
-	public clearHistory() {
+	clearHistory(): void {
 		this.history.length = 0;
 	}
 
