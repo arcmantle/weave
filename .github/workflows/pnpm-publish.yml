@@ -78,6 +78,7 @@ jobs:
           echo "🔧 Current is-first-publish value: ${{ steps.package-info.outputs.is-first-publish }}"
           if [ "${{ steps.package-info.outputs.is-first-publish }}" == "true" ]; then
             echo "🚀 First publish - setting to 1.0.0"
+            npm version 9.9.9 --no-git-tag-version
             npm version 1.0.0 --no-git-tag-version
             echo "new-version=1.0.0" >> $GITHUB_OUTPUT
             echo "✅ First release version: 1.0.0"
