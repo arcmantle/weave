@@ -1,5 +1,5 @@
 {
-	"name": "@arcmantle/vite-plugin-html-modules",
+	"name": "@arcmantle/vite-plugin-html-module",
 	"version": "1.0.0",
 	"description": "Vite plugin that enables importing HTML files as modules.",
 	"license": "Apache-2.0",

@@ -1,0 +1,44 @@
+name: Sync packages to standalone repos
+
+on:
+  push:
+    branches: [main]
+    paths: ['packages/**']
+  workflow_dispatch:
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      has-changes: ${{ steps.set-matrix.outputs.has-changes }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Detect changed packages
+        id: set-matrix
+        env:
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          node .github/scripts/detect-package-changes.ts
+
+  sync-subtree:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has-changes == 'true'
+    strategy:
+      matrix:
+        include: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
+    uses: arcmantle/github-workflows/.github/workflows/subtree-sync.yml@main
+    with:
+      package-path: ${{ matrix.packagePath }}
+      target-repo: ${{ matrix.targetRepo }}
+    secrets:
+      sync-token: ${{ secrets.SYNC_SUBTREE }}
