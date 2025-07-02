@@ -9,6 +9,9 @@
 		".": "./tsconfig.dev.json",
 		"./build": "./tsconfig.build.json"
 	},
+	"scripts": {
+		"build": "echo: 'No build step required.'"
+	},
 	"files": [
 		"tsconfig.dev.json",
 		"tsconfig.build.json"
