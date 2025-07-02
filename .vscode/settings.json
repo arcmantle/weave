@@ -73,8 +73,5 @@
 				}
 			]
 		},
-	],
-	"explorer.fileNesting.patterns": {
-		"subtree-sync.yml": "subtree-sync*.yml"
-	},
+	]
 }

@@ -33,32 +33,32 @@
       "targetRepo": "arcmantle/lit-jsx"
     },
     {
-      "packagePath": "packages/vite/ce-auto-importer",
-      "targetRepo": "arcmantle/ce-auto-importer"
+		"packagePath": "packages/vite/ce-auto-importer",
+		"targetRepo": "arcmantle/vite-plugin-ce-auto-import"
     },
     {
-      "packagePath": "packages/vite/copy",
-      "targetRepo": "arcmantle/copy"
+		"packagePath": "packages/vite/copy",
+		"targetRepo": "arcmantle/vite-plugin-copy"
     },
     {
       "packagePath": "packages/vite/html-module",
-      "targetRepo": "arcmantle/html-module"
+		"targetRepo": "arcmantle/vite-plugin-html-module"
     },
     {
       "packagePath": "packages/vite/import-css-sheet",
-      "targetRepo": "arcmantle/import-css-sheet"
+		"targetRepo": "arcmantle/vite-plugin-import-css-sheet"
     },
     {
       "packagePath": "packages/vite/lib-config",
-      "targetRepo": "arcmantle/lib-config"
+		"targetRepo": "arcmantle/vite-lib-config"
     },
     {
       "packagePath": "packages/vite/minify-css-literal",
-      "targetRepo": "arcmantle/minify-css-literal"
+		"targetRepo": "arcmantle/vite-plugin-minify-css-literal"
     },
     {
       "packagePath": "packages/vite/sass-transformer",
-      "targetRepo": "arcmantle/sass-transformer"
+		"targetRepo": "arcmantle/vite-plugin-sass"
     }
   ]
 }
