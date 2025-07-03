@@ -5,11 +5,11 @@
 		"noEmit": false
 	},
 	"exclude": [
-		"*.test.ts",
-		"*.test.js",
-		"*.specc.ts",
-		"*.specc.js",
 		"${configDir}/dist",
-		"${configDir}/node_modules"
+		"${configDir}/node_modules",
+		"${configDir}/**/*.test.ts",
+		"${configDir}/**/*.test.js",
+		"${configDir}/**/*.specc.ts",
+		"${configDir}/**/*.specc.js",
 	],
 }
