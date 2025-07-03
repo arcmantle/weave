@@ -37,6 +37,7 @@ export default [
 ## Available Configurations
 
 ### `recommended`
+
 The default configuration suitable for most TypeScript/JavaScript projects.
 
 ```javascript
@@ -46,6 +47,7 @@ export default [...configs.recommended];
 ```
 
 **Includes:**
+
 - ESLint recommended rules
 - TypeScript strict and stylistic rules
 - Stylistic formatting rules
@@ -53,6 +55,7 @@ export default [...configs.recommended];
 - Modern ECMAScript features support
 
 ### `node`
+
 Extends the recommended config with Node.js specific optimizations.
 
 ```javascript
@@ -62,6 +65,7 @@ export default [...configs.node];
 ```
 
 ### `lit`
+
 Specialized configuration for Lit element development.
 
 ```javascript
@@ -71,6 +75,7 @@ export default [...configs.lit];
 ```
 
 **Includes:**
+
 - All recommended rules
 - Lit-specific linting rules
 - Custom element best practices
@@ -89,6 +94,7 @@ export default [...configs.lit];
 ### Import Organization
 
 Imports are automatically sorted using `simple-import-sort`:
+
 - External libraries first
 - Internal imports second
 - Relative imports last
@@ -105,9 +111,11 @@ Imports are automatically sorted using `simple-import-sort`:
 ## File Coverage
 
 The configuration applies to:
+
 - `**/*.{js,jsx,mjs,cjs,ts,tsx}`
 
 And ignores:
+
 - `**/dist/**`
 - `**/node_modules/**`
 
@@ -139,6 +147,7 @@ export default [
 ## Dependencies
 
 This package includes and configures:
+
 - `@eslint/js` - Core ESLint rules
 - `@stylistic/eslint-plugin` - Code formatting rules
 - `eslint-plugin-lit` - Lit element specific rules

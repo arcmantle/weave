@@ -12,6 +12,7 @@
 		"index.d.ts"
 	],
 	"scripts": {
+		"build": "exit 0",
 		"lint-windows": "set TIMING=1 && pnpm eslint"
 	},
 	"dependencies": {

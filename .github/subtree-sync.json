@@ -1,68 +1,72 @@
 {
-  "packages": [
-    {
-      "packagePath": "packages/core/adapter-element",
-      "targetRepo": "arcmantle/adapter-element"
-    },
-    {
-      "packagePath": "packages/core/esplot",
-      "targetRepo": "arcmantle/esplot"
-    },
-    {
-      "packagePath": "packages/core/injector",
-      "targetRepo": "arcmantle/injector"
-    },
-    {
-      "packagePath": "packages/core/library",
-      "targetRepo": "arcmantle/library"
-    },
-    {
-      "packagePath": "packages/core/posix-path-browser",
-      "targetRepo": "arcmantle/posix-path-browser"
-    },
-    {
-      "packagePath": "packages/core/reflect-metadata",
-      "targetRepo": "arcmantle/reflect-metadata"
-    },
-    {
-      "packagePath": "packages/core/sqlite-wrapper",
-      "targetRepo": "arcmantle/sqlite-wrapper"
-    },
-    {
-		"packagePath": "packages/dev-tools/tsconfig-config",
-		"targetRepo": "arcmantle/tsconfig"
-	},
-	{
-      "packagePath": "packages/lit/lit-jsx",
-      "targetRepo": "arcmantle/lit-jsx"
-    },
-    {
-		"packagePath": "packages/vite/ce-auto-importer",
-		"targetRepo": "arcmantle/vite-plugin-ce-auto-import"
-    },
-    {
-		"packagePath": "packages/vite/copy",
-		"targetRepo": "arcmantle/vite-plugin-copy"
-    },
-    {
-      "packagePath": "packages/vite/html-module",
-		"targetRepo": "arcmantle/vite-plugin-html-module"
-    },
-    {
-      "packagePath": "packages/vite/import-css-sheet",
-		"targetRepo": "arcmantle/vite-plugin-import-css-sheet"
-    },
-    {
-      "packagePath": "packages/vite/lib-config",
-		"targetRepo": "arcmantle/vite-lib-config"
-    },
-    {
-      "packagePath": "packages/vite/minify-css-literal",
-		"targetRepo": "arcmantle/vite-plugin-minify-css-literal"
-    },
-    {
-      "packagePath": "packages/vite/sass-transformer",
-		"targetRepo": "arcmantle/vite-plugin-sass"
-    }
-  ]
+	"packages": [
+		{
+			"packagePath": "packages/core/adapter-element",
+			"targetRepo": "arcmantle/adapter-element"
+		},
+		{
+			"packagePath": "packages/core/esplot",
+			"targetRepo": "arcmantle/esplot"
+		},
+		{
+			"packagePath": "packages/core/injector",
+			"targetRepo": "arcmantle/injector"
+		},
+		{
+			"packagePath": "packages/core/library",
+			"targetRepo": "arcmantle/library"
+		},
+		{
+			"packagePath": "packages/core/posix-path-browser",
+			"targetRepo": "arcmantle/posix-path-browser"
+		},
+		{
+			"packagePath": "packages/core/reflect-metadata",
+			"targetRepo": "arcmantle/reflect-metadata"
+		},
+		{
+			"packagePath": "packages/core/sqlite-wrapper",
+			"targetRepo": "arcmantle/sqlite-wrapper"
+		},
+		{
+			"packagePath": "packages/dev-tools/tsconfig-config",
+			"targetRepo": "arcmantle/tsconfig"
+		},
+		{
+			"packagePath": "packages/dev-tools/eslint-config",
+			"targetRepo": "arcmantle/eslint-config"
+		},
+		{
+			"packagePath": "packages/lit/lit-jsx",
+			"targetRepo": "arcmantle/lit-jsx"
+		},
+		{
+			"packagePath": "packages/vite/ce-auto-importer",
+			"targetRepo": "arcmantle/vite-plugin-ce-auto-import"
+		},
+		{
+			"packagePath": "packages/vite/copy",
+			"targetRepo": "arcmantle/vite-plugin-copy"
+		},
+		{
+			"packagePath": "packages/vite/html-module",
+			"targetRepo": "arcmantle/vite-plugin-html-module"
+		},
+		{
+			"packagePath": "packages/vite/import-css-sheet",
+			"targetRepo": "arcmantle/vite-plugin-import-css-sheet"
+		},
+		{
+			"packagePath": "packages/vite/lib-config",
+			"targetRepo": "arcmantle/vite-lib-config"
+		},
+		{
+			"packagePath": "packages/vite/minify-css-literal",
+			"targetRepo": "arcmantle/vite-plugin-minify-css-literal"
+		},
+		{
+			"packagePath": "packages/vite/sass-transformer",
+			"targetRepo": "arcmantle/vite-plugin-sass"
+		}
+	]
 }
