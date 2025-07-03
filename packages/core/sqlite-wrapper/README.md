@@ -17,13 +17,13 @@ A modern, type-safe SQLite wrapper built on top of [better-sqlite3](https://gith
 
 ```bash
 # npm
-npm install jsr:@arcmantle/sqlite-wrapper
+npm install @arcmantle/sqlite-wrapper
 
 # yarn
-yarn add jsr:@arcmantle/sqlite-wrapper
+yarn add @arcmantle/sqlite-wrapper
 
 # pnpm
-pnpm add jsr:@arcmantle/sqlite-wrapper
+pnpm add @arcmantle/sqlite-wrapper
 ```
 
 ## Quick Start

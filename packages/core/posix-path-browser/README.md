@@ -1,7 +1,6 @@
 # @arcmantle/posix-path-browser
 
 [![npm version](https://badge.fury.io/js/@arcmantle%2Fposix-path-browser.svg)](https://badge.fury.io/js/@arcmantle%2Fposix-path-browser)
-[![JSR](https://jsr.io/badges/@arcmantle/posix-path-browser)](https://jsr.io/@arcmantle/posix-path-browser)
 
 A browser-friendly implementation of Node.js's POSIX path utilities. This package provides the same API and methods as the standard Node.js `path.posix` module, but optimized for browser environments without any Node.js dependencies.
 
@@ -19,19 +18,19 @@ A browser-friendly implementation of Node.js's POSIX path utilities. This packag
 ### deno
 
 ```bash
-deno add jsr:@arcmantle/posix-path-browser
+deno add @arcmantle/posix-path-browser
 ```
 
 ### pnpm 10.9+
 
 ```bash
-pnpm add jsr:@arcmantle/posix-path-browser
+pnpm add @arcmantle/posix-path-browser
 ```
 
 ### yarn 4.9+
 
 ```bash
-yarn add jsr:@arcmantle/posix-path-browser
+yarn add @arcmantle/posix-path-browser
 ```
 
 ## Usage

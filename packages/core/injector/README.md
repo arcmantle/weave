@@ -18,11 +18,11 @@ A lightweight, type-safe dependency injection container for TypeScript/JavaScrip
 ## Installation
 
 ```bash
-npm install jsr:@arcmantle/injector
+npm install @arcmantle/injector
 # or
-pnpm add jsr:@arcmantle/injector
+pnpm add @arcmantle/injector
 # or
-yarn add jsr:@arcmantle/injector
+yarn add @arcmantle/injector
 ```
 
 ## Basic Usage

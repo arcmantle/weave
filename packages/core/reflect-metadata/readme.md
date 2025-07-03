@@ -17,15 +17,15 @@ A lightweight, partial implementation of the [TC39 Reflect Metadata proposal](ht
 ## 📦 Installation
 
 ```bash
-npm install jsr:@arcmantle/reflect-metadata
+npm install @arcmantle/reflect-metadata
 ```
 
 ```bash
-pnpm add jsr:@arcmantle/reflect-metadata
+pnpm add @arcmantle/reflect-metadata
 ```
 
 ```bash
-yarn add jsr:@arcmantle/reflect-metadata
+yarn add @arcmantle/reflect-metadata
 ```
 
 ## 🚀 Quick Start

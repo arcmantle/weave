@@ -51,13 +51,13 @@ The application consists of several key components:
 ### Windows
 
 ```bash
-go build -o ../core/bin/esplotv-win32.exe -ldflags="-H windowsgui" .
+go build -o ../bin/esplotv-win32.exe -ldflags="-H windowsgui" .
 ```
 
 ### macOS
 
 ```bash
-go build -o ../core/bin/esplotv-arm64 .
+go build -o ../bin/esplotv-arm64 .
 ```
 
 ## Usage

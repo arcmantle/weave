@@ -17,15 +17,15 @@ A powerful development tool that enables live server-side TypeScript compilation
 ## Installation
 
 ```bash
-npm install jsr:@arcmantle/live-ts-imports
+npm install @arcmantle/live-ts-imports
 ```
 
 ```bash
-pnpm add jsr:@arcmantle/live-ts-imports
+pnpm add @arcmantle/live-ts-imports
 ```
 
 ```bash
-yarn add jsr:@arcmantle/live-ts-imports
+yarn add @arcmantle/live-ts-imports
 ```
 
 **Peer Dependencies:**
