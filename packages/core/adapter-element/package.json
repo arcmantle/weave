@@ -8,11 +8,6 @@
 	"type": "module",
 	"types": "./dist/adapter/index.d.ts",
 	"main": "./dist/adapter/index.js",
-	"files": [
-		"dist",
-		"src",
-		"README.md"
-	],
 	"exports": {
 		"./adapter": "./dist/adapter/index.js",
 		"./shared": "./dist/shared/index.js",
@@ -20,6 +15,11 @@
 		"./signal": "./dist/signal/index.js"
 	},
 	"sideEffects": false,
+	"files": [
+		"dist",
+		"src",
+		"README.md"
+	],
 	"scripts": {
 		"dev": "vite --config ./demo/vite.config.ts",
 		"build": "rimraf dist && tsc --project ./src/tsconfig.json"
