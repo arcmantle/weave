@@ -254,7 +254,7 @@ export class AdapterElement implements ReactiveControllerHost {
 		(this.hasConnected as boolean) = true;
 	}
 
-	/** Called everytime this instance of the element is connected to the DOM. */
+	/** Called every time this instance of the element is connected to the DOM. */
 	connected(): void {
 		// We utilize a WeakRef to avoid a potential leak from
 		// locking a direct reference to the instance in this scope.

@@ -1,8 +1,8 @@
 import { copy } from '@arcmantle/vite-plugin-copy';
 
-import { indexBuilder as buildIndex } from '../index-builder/index-builder.js';
-import { createPackageExports, createTypePath, type ExportEntry } from '../package-exports/package-exports.js';
-import { loadConfig } from './config.js';
+import { indexBuilder as buildIndex } from '../index-builder/index-builder.ts';
+import { createPackageExports, createTypePath, type ExportEntry } from '../package-exports/package-exports.ts';
+import { loadConfig } from './config.ts';
 
 
 export interface Toolbox {

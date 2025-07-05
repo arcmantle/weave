@@ -20,6 +20,9 @@ importers:
       '@arcmantle/eslint-config':
         specifier: workspace:^
         version: link:packages/dev-tools/eslint-config
+      '@arcmantle/package-toolbox':
+        specifier: workspace:^
+        version: link:packages/dev-tools/package-toolbox
       '@arcmantle/tsconfig':
         specifier: workspace:^
         version: link:packages/dev-tools/tsconfig-config
@@ -1270,6 +1273,9 @@ importers:
       lit:
         specifier: ^3.3.0
         version: 3.3.0
+      tslib:
+        specifier: ^2.8.1
+        version: 2.8.1
     devDependencies:
       '@arcmantle/mirage-docs':
         specifier: workspace:^

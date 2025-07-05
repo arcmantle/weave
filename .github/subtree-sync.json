@@ -37,6 +37,10 @@
 			"targetRepo": "arcmantle/eslint-config"
 		},
 		{
+			"packagePath": "packages/lit/lit-context",
+			"targetRepo": "arcmantle/lit-context"
+		},
+		{
 			"packagePath": "packages/lit/lit-jsx",
 			"targetRepo": "arcmantle/lit-jsx"
 		},

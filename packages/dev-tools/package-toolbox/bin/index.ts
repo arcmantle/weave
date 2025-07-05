@@ -1,15 +1,8 @@
 #!/usr/bin/env node
-// @ts-check
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 
-import { toolbox } from '../dist/toolbox/toolbox.js';
-
-
-/**
-* @template T
-* @typedef { import('yargs').ArgumentsCamelCase<T> } Args
-*/
+import { toolbox } from '../src/toolbox/toolbox.ts';
 
 
 const cmds = await toolbox();

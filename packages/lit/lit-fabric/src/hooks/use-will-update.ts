@@ -1,5 +1,5 @@
 import { invariant } from '@arcmantle/library/validation';
-import type { LitElement, PropertyValues } from 'lit';
+import type { PropertyValues } from 'lit';
 
 import { getCurrentRef } from '../core/component.js';
 

@@ -1,28 +1,40 @@
-import { css, html, LitElement, type PropertyValues } from 'lit';
+import { css, type CSSResultGroup, html, LitElement, type PropertyValues } from 'lit';
 import { property } from 'lit/decorators.js';
 
 import { type ConsumeContextEvent, createEventName, createHydrateName } from './context.js';
 
 
-export interface Context { name: string; value: any }
+export interface Context { name: string; value: any; }
 
 
 export class ContextProvider extends LitElement {
 
-	public static tagName = 'context-provider';
-	public static register() {
+	static tagName = 'context-provider';
+	static register(): void {
 		if (!globalThis.customElements.get(this.tagName))
 			globalThis.customElements.define(this.tagName, this);
 	}
 
-	@property({ type: Object })
-	public context: Record<string, any>;
+	@property({ type: Object }) context: Record<string, any>;
 
 	#listeners: { name: string; listener: (ev: Event) => any; }[] = [];
 
-	protected setupContext() {
+	override connectedCallback(): void {
+		this.setupContext();
+
+		super.connectedCallback();
+	}
+
+	protected override willUpdate(changedProps: PropertyValues): void {
+		super.willUpdate(changedProps);
+
+		if (changedProps.has('context') && this.hasUpdated)
+			this.setupContext();
+	}
+
+	protected setupContext(): void {
 		// Remove all old listeners when a new context array has been assigned.
-		this.#listeners.forEach(({ name, listener }) => this.removeEventListener(name, listener));
+		this.#listeners.forEach(o => this.removeEventListener(o.name, o.listener));
 		this.#listeners.length = 0;
 
 		// Hook up the new context listeners.
@@ -63,27 +75,14 @@ export class ContextProvider extends LitElement {
 		}
 	}
 
-	public override connectedCallback(): void {
-		this.setupContext();
-		super.connectedCallback();
-	}
-
-	protected override willUpdate(changedProps: PropertyValues): void {
-		super.willUpdate(changedProps);
-		if (!changedProps.has('context') || !this.hasUpdated)
-			return;
-
-		this.setupContext();
-	}
-
 	protected override render(): unknown {
 		return html`<slot></slot>`;
 	}
 
-	public static override styles = css`
-	:host {
-		display: contents;
-	}
+	static override styles: CSSResultGroup = css`
+		:host {
+			display: contents;
+		}
 	`;
 
 }

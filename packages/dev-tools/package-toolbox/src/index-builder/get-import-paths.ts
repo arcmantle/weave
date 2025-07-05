@@ -1,12 +1,11 @@
 import { readFileSync } from 'node:fs';
 
-import { genToArray } from '../utils/gen-to-array.ts';
-import { getFiles } from './get-files.ts';
+import { genToArray, getFiles } from './path-helpers.ts';
 
 
 const _getImportPaths = (filepath: string) => {
 	const fileContent = readFileSync(filepath, { encoding: 'utf8' });
-	const paths = new Set<string>();
+	const paths: Set<string> = new Set();
 
 	const wildImports = fileContent.matchAll(/import ['"](.+?)['"]/gs);
 	const normalImports = fileContent.matchAll(/import (?!['"]).+? from ['"](.+?)['"];/gs);
@@ -39,7 +38,7 @@ export const getImportPaths = async (
 		}>;
 	},
 ): Promise<string[]> => {
-	const pathSet = new Set<string>();
+	const pathSet: Set<string> = new Set();
 	let files = (await genToArray(getFiles(from)));
 
 	const { exclude = {} } = options ?? {};

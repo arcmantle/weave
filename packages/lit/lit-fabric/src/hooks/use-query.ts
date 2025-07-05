@@ -1,8 +1,7 @@
 import { invariant } from '@arcmantle/library/validation';
 import type { ReactiveElement } from 'lit';
 
-import { component, getCurrentRef } from '../core/component.js';
-import { Getter } from '../utilities/getter.js';
+import { getCurrentRef } from '../core/component.js';
 
 
 type UseQuery = <T extends Element = HTMLElement>(

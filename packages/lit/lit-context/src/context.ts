@@ -3,26 +3,29 @@ import { state } from 'lit/decorators.js';
 
 
 export interface ContextProp<T = any> { value: T; }
-export type ConsumeContextEvent<T = any> = CustomEvent<{ prop: { value: T; } }>;
+export type ConsumeContextEvent<T = any> = CustomEvent<{ prop: { value: T; }; }>;
 
 type RecordOf<
 	T extends object = object,
 	TK extends keyof any = keyof any,
-	TV = any
+	TV = any,
 > = T & Record<TK, TV>;
 type PropName = string;
 
 
-export const createEventName = (prop: string | symbol) => 'consume-context:' + prop.toString();
-export const createHydrateName = (prop: string | symbol) => 'hydrate-context:' + prop.toString();
+export const createEventName = (prop: string | symbol): string =>
+	'consume-context:' + prop.toString();
+
+export const createHydrateName = (prop: string | symbol): string =>
+	'hydrate-context:' + prop.toString();
 
 
 class ProviderController implements ReactiveController {
 
-	public static providerSym = Symbol.for('providerCtrl');
-	protected static cache = new WeakMap<LitElement, `${ string }<:>${ string }`[]>();
+	static providerSym = Symbol.for('providerCtrl');
+	protected static cache: WeakMap<LitElement, `${ string }<:>${ string }`[]> = new WeakMap();
 
-	public static register(host: RecordOf<LitElement>, name: string, prop: string) {
+	static register(host: RecordOf<LitElement>, name: string, prop: string) {
 		if (!host[this.providerSym]) {
 			host[this.providerSym] = true;
 
@@ -42,16 +45,17 @@ class ProviderController implements ReactiveController {
 
 	constructor(protected host: RecordOf<LitElement>) {}
 
-	protected updatedProps = new Set<PropName>();
-	protected cache = new Map<PropName, {
+	protected updatedProps: Set<PropName> = new Set();
+	protected cache: Map<PropName, {
 		eventName:   string;
 		hydrateName: string;
 		provider:    (ev: Event) => any;
-	}>();
+	}> = new Map();
 
-	public hostConnected(): void {
+	hostConnected(): void {
 		const protoChain: any[] = [];
 		let current = this.host;
+
 		while (current) {
 			protoChain.push(current);
 			current = Object.getPrototypeOf(current);
@@ -66,18 +70,18 @@ class ProviderController implements ReactiveController {
 				return acc;
 			}, new Set<string>());
 
-		providers.forEach((value) =>
-			this.add(...value.split('<:>') as [string, string]));
+		for (const value of providers)
+			this.add(...value.split('<:>') as [string, string]);
 	}
 
-	public hostDisconnected(): void {
-		this.cache.forEach(value =>
-			this.host.removeEventListener(value.eventName, value.provider));
+	hostDisconnected(): void {
+		for (const value of this.cache.values())
+			this.host.removeEventListener(value.eventName, value.provider);
 
 		this.cache.clear();
 	}
 
-	public hostUpdate(): void {
+	hostUpdate(): void {
 		this.cache.forEach(({ hydrateName }, prop) => {
 			if (!this.updatedProps.has(prop))
 				return;
@@ -87,7 +91,7 @@ class ProviderController implements ReactiveController {
 		});
 	}
 
-	public add(name: string, prop: string) {
+	add(name: string, prop: string) {
 		const me = this as unknown as this;
 		const getHost = () => this.host;
 
@@ -124,9 +128,9 @@ class ProviderController implements ReactiveController {
 class ConsumerController implements ReactiveController {
 
 	protected static consumerSym = Symbol.for('consumerCtrl');
-	protected static cache = new WeakMap<LitElement, `${ string }<:>${ string }`[]>();
+	protected static cache: WeakMap<LitElement, `${ string }<:>${ string }`[]> = new WeakMap();
 
-	public static register(host: RecordOf<LitElement>, name: string, prop: string) {
+	static register(host: RecordOf<LitElement>, name: string, prop: string) {
 		if (!host[this.consumerSym]) {
 			host[this.consumerSym] = true;
 
@@ -146,13 +150,13 @@ class ConsumerController implements ReactiveController {
 
 	constructor(protected host: RecordOf<LitElement>) {}
 
-	protected cache = new Map<PropName, {
+	protected cache: Map<PropName, {
 		eventName:   string;
 		hydrateName: string;
 		consumer:    () => any;
-	}>();
+	}> = new Map();
 
-	public hostConnected(): void {
+	hostConnected(): void {
 		const protoChain: any[] = [];
 		let current = this.host;
 		while (current) {
@@ -173,14 +177,14 @@ class ConsumerController implements ReactiveController {
 			this.add(...value.split('<:>') as [string, string]));
 	}
 
-	public hostDisconnected(): void {
+	hostDisconnected(): void {
 		this.cache.forEach(value =>
 			globalThis.removeEventListener(value.hydrateName, value.consumer));
 
 		this.cache.clear();
 	}
 
-	public add(name: string, prop: string) {
+	add(name: string, prop: string) {
 		const hydrateName = createHydrateName(name);
 		const eventName = createEventName(name);
 
@@ -209,14 +213,14 @@ class ConsumerController implements ReactiveController {
 }
 
 
-export const provide = (name?: string) => (target: RecordOf<LitElement>, prop: string) => {
+export const provide = (name?: string) => (target: RecordOf<LitElement>, prop: string): any => {
 	ProviderController.register(target, name ?? prop, prop);
 
 	return state()(target, prop);
 };
 
 
-export const consume = (name?: string) => (target: RecordOf<LitElement>, prop: string) => {
+export const consume = (name?: string) => (target: RecordOf<LitElement>, prop: string): any => {
 	ConsumerController.register(target, name ?? prop, prop);
 
 	return state()(target, prop);

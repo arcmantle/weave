@@ -1,6 +1,4 @@
-/* eslint-disable */
-/* auto generated */
-export type { ContextProp, ConsumeContextEvent } from './context.js';
 export type { Context } from './context.cmp.js';
-export { createEventName, createHydrateName, provide, consume } from './context.js';
 export { ContextProvider } from './context.cmp.js';
+export type { ConsumeContextEvent, ContextProp } from './context.js';
+export { consume, createEventName, createHydrateName, provide } from './context.js';

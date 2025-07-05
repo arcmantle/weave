@@ -1,8 +1,7 @@
 import { invariant } from '@arcmantle/library/validation';
 import type { LitElement, ReactiveController } from 'lit';
 
-import { component, getCurrentRef } from '../core/component.js';
-import { Getter } from '../utilities/getter.js';
+import { getCurrentRef } from '../core/component.js';
 
 
 type UseController = <T extends ReactiveController = ReactiveController>(

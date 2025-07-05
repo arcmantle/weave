@@ -23,27 +23,20 @@
 		"url": "https://github.com/arcmantle/package-toolbox/issues"
 	},
 	"bin": {
-		"pkg-toolbox": "./bin/index.js"
+		"pkg-toolbox": "./bin/index.ts"
 	},
 	"engines": {
 		"node": ">=22"
 	},
 	"type": "module",
-	"types": "./dist/types/index.d.ts",
-	"main": "./dist/index.js",
+	"types": "./src/index.ts",
+	"main": "./src/index.ts",
 	"exports": {
-		"./toolbox": {
-			"types": "./dist/toolbox/define-toolbox.d.ts",
-			"default": "./dist/toolbox/define-toolbox.js"
-		},
-		"./filesystem": {
-			"types": "./dist/filesystem/index.d.ts",
-			"default": "./dist/filesystem/index.js"
-		},
-		"./filesystem/*": "./dist/filesystem/*"
+		"./toolbox": "./src/toolbox/define-toolbox.ts",
+		"./index-builder": "./src/index-builder/index.ts"
 	},
 	"scripts": {
-		"build": "rimraf dist && tsc --project ./src/tsconfig.json"
+		"build": "tsc --project ./src/tsconfig.json"
 	},
 	"dependencies": {
 		"deepmerge-ts": "^7.1.5",
@@ -54,10 +47,10 @@
 		"typescript": "^5.8.3",
 		"vite": "^6.3.0",
 		"yargs": "^17.7.2",
-		"@arcmantle/vite-plugin-copy": "workspace:^"
+		"@arcmantle/vite-plugin-copy": "^1.0.0"
 	},
 	"devDependencies": {
-		"@arcmantle/vite-lib-config": "workspace:^",
+		"@arcmantle/vite-lib-config": "^1.0.0",
 		"@types/fs-extra": "^11.0.4",
 		"@types/semver": "^7.7.0",
 		"@types/yargs": "^17.0.33"

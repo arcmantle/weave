@@ -1,6 +1,6 @@
 # @arcmantle/injector
 
-> Dependency injection done simple.
+Dependency injection done simple.
 
 A lightweight, type-safe dependency injection container for TypeScript/JavaScript applications with support for multiple binding types, lifetimes, and hierarchical containers.
 

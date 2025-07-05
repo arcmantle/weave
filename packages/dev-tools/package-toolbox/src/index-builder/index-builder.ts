@@ -3,9 +3,7 @@ import { parse, resolve } from 'node:path';
 
 import ts from 'typescript';
 
-import { getFiles } from '../filesystem/get-files.js';
-import { exists } from '../filesystem/path-exists.js';
-import { genToArray } from '../utils/gen-to-array.js';
+import { exists, genToArray, getFiles } from './path-helpers.ts';
 
 
 /**

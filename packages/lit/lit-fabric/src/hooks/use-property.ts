@@ -68,7 +68,7 @@ export const useProperty = (<T>(
 	};
 
 	type Property<T> = readonly [
-		{ readonly value: T; }, (value: T) => void
+		{ readonly value: T; }, (value: T) => void,
 	];
 
 	return [

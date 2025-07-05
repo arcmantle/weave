@@ -28,6 +28,7 @@ export const createPackageExports = async (
 	for (const entry of entries) {
 		if (entry.path.endsWith('/*')) {
 			exports[entry.path] = entry.default;
+
 			continue;
 		}
 
@@ -71,10 +72,11 @@ export const createPackageExports = async (
 			target.default = entry.default;
 
 		const sortEntry = (entry: EntryRec) => {
-			const keyvalues: { key: string; value: string | EntryRec; }[] = [];
+			const keyValues: { key: string; value: string | EntryRec; }[] = [];
 
 			for (const key in entry) {
-				keyvalues.push({ key, value: entry[key]! });
+				keyValues.push({ key, value: entry[key]! });
+
 				delete entry[key];
 			}
 
@@ -86,14 +88,15 @@ export const createPackageExports = async (
 								: kv.key === 'default' ? 50
 									: 10;
 
-			keyvalues.sort((a, b) => assignValue(a) - assignValue(b));
-			keyvalues.forEach(({ key, value }) => entry[key] = value);
+			keyValues.sort((a, b) => assignValue(a) - assignValue(b));
+			keyValues.forEach(({ key, value }) => entry[key] = value);
 		};
 
 		sortEntry(target);
 
 		for (const key in target) {
 			const value = target[key];
+
 			if (typeof value === 'object')
 				sortEntry(value);
 		}

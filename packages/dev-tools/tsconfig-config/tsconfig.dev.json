@@ -9,7 +9,7 @@
 		"baseUrl": "${configDir}",
 		// output
 		"noEmit": false,
-		"emitDeclarationOnly": true,
+		"emitDeclarationOnly": false,
 		"declaration": true,
 		"declarationMap": true,
 		"sourceMap": true,

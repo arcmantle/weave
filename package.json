@@ -10,6 +10,7 @@
 		"clean-all": "rimraf --glob **/node_modules **/dist"
 	},
 	"devDependencies": {
+		"@arcmantle/package-toolbox": "workspace:^",
 		"@arcmantle/build-package": "workspace:^",
 		"@arcmantle/eslint-config": "workspace:^",
 		"@arcmantle/tsconfig": "workspace:^",
