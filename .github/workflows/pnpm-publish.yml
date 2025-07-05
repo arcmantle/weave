@@ -47,46 +47,33 @@ jobs:
       - name: Build project.
         run: pnpm build
 
-      - name: Get package name and current published version
+      - name: increment version
         id: package-info
         run: |
           PACKAGE_NAME=$(node -p "require('./package.json').name")
-          LOCAL_VERSION=$(node -p "require('./package.json').version")
-          echo "name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
-          echo "local-version=$LOCAL_VERSION" >> $GITHUB_OUTPUT
+
+          echo "setting version to 9.9.9 to avoid conflicts"
+          npm version 9.9.9 --no-git-tag-version
 
           # Check if package exists on npm
           echo "🔍 Checking if package exists on npm..."
           if CURRENT_VERSION=$(npm view "$PACKAGE_NAME" version 2>/dev/null); then
-            echo "current-version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
             echo "📦 Package: $PACKAGE_NAME"
             echo "🏷️  Current published version: $CURRENT_VERSION"
-            echo "is-first-publish=false" >> $GITHUB_OUTPUT
             echo "✅ Package exists, will increment version"
-          else
-            echo "current-version=" >> $GITHUB_OUTPUT
-            echo "📦 Package: $PACKAGE_NAME (new package)"
-            echo "🏷️  Will start from version: 1.0.0"
-            echo "is-first-publish=true" >> $GITHUB_OUTPUT
-            echo "✅ New package, will set to 1.0.0"
-          fi
-          echo "is first publish ???? is-first-publish"
 
-      - name: Bump version
-        id: bump-version
-        run: |
-          echo "🔧 Current is-first-publish value: ${{ steps.package-info.outputs.is-first-publish }}"
-          if [ "${{ steps.package-info.outputs.is-first-publish }}" == "true" ]; then
-            echo "🚀 First publish - setting to 1.0.0"
-            npm version 9.9.9 --no-git-tag-version
-            npm version 1.0.0 --no-git-tag-version
-            echo "new-version=1.0.0" >> $GITHUB_OUTPUT
-            echo "✅ First release version: 1.0.0"
-          else
+            echo "Setting version to ${CURRENT_VERSION} prior to incrementing..."
+            npm version "${CURRENT_VERSION}" --no-git-tag-version
+
             echo "🚀 Existing package - incrementing version with: ${{ inputs.version-increment }}"
             NEW_VERSION=$(npm version ${{ inputs.version-increment }} --no-git-tag-version)
-            echo "new-version=${NEW_VERSION#v}" >> $GITHUB_OUTPUT
-            echo "✅ New version: ${NEW_VERSION#v}"
+            echo "✅ New version: ${NEW_VERSION}"
+          else
+            echo "📦 Package: $PACKAGE_NAME (new package)"
+            echo "🏷️  Will start from version: 1.0.0"
+            echo "✅ New package, will be set to 1.0.0"
+            npm version 1.0.0 --no-git-tag-version
+            echo "✅ First release version: 1.0.0"
           fi
 
       - name: Publish to NPM
@@ -94,11 +81,3 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH }}
           NPM_TOKEN: ${{ secrets.NPM_PUBLISH }}
-
-      - name: Output published version
-        run: |
-          if [ "${{ steps.package-info.outputs.is-first-publish }}" == "true" ]; then
-            echo "🎉 Successfully published first release: ${{ steps.package-info.outputs.name }}@${{ steps.bump-version.outputs.new-version }}"
-          else
-            echo "✅ Successfully published ${{ steps.package-info.outputs.name }}@${{ steps.bump-version.outputs.new-version }}"
-          fi

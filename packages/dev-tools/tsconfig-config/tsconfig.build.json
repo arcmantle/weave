@@ -11,5 +11,7 @@
 		"${configDir}/**/*.test.js",
 		"${configDir}/**/*.specc.ts",
 		"${configDir}/**/*.specc.js",
+		"${configDir}/**/*.bench.ts",
+		"${configDir}/**/*.bench.js",
 	],
 }
