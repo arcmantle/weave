@@ -18,8 +18,8 @@
 	"scripts": {
 		"build": "rimraf dist bin && pnpm run --sequential \"/^build-.*/\"",
 		"build-ts": "tsc --project ./src/tsconfig.json",
-		"build-go-deps": "cd viewer && go mod download",
-		"build-viewer-macos": "cd viewer && go build -o ../bin/esplotv-arm64 ."
+		"build-go-deps": "cd viewer-go && go mod download",
+		"build-viewer-macos": "cd viewer-go && go build -o ../bin/esplotv-arm64 ."
 	},
 	"exports": {
 		".": "./dist/index.js"

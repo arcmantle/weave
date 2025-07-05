@@ -8,5 +8,10 @@ on:
 jobs:
   publish:
     uses: arcmantle/github-workflows/.github/workflows/pnpm-publish.yml@main
+    with:
+      pre-build-script: |
+        echo "deb http://gb.archive.ubuntu.com/ubuntu jammy main" | sudo tee -a /etc/apt/sources.list
+        sudo apt-get update
+        sudo apt-get install -y pkg-config libgtk-3-dev libwebkit2gtk-4.0-dev
     secrets:
       NPM_PUBLISH: ${{ secrets.NPM_PUBLISH }}

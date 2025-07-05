@@ -3,6 +3,16 @@ name: Pnpm Publish
 on:
   workflow_call:
     inputs:
+      pre-build-script:
+        description: "Custom script to run before build"
+        required: false
+        default: ""
+        type: string
+      additional-deps:
+        description: "Additional build dependencies to install"
+        required: false
+        default: ""
+        type: string
       version-increment:
         description: "Version increment type (patch, minor, major, prerelease)"
         required: false
@@ -38,8 +48,12 @@ jobs:
         with:
           version: latest
 
+      - name: Run pre-build script
+        if: ${{ inputs.pre-build-script != '' }}
+        run: ${{ inputs.pre-build-script }}
+
       - name: Install common build dependencies.
-        run: pnpm add -D rimraf typescript @arcmantle/tsconfig @types/node
+        run: pnpm add -D rimraf typescript @arcmantle/tsconfig @types/node ${{ inputs.additional-deps }}
 
       - name: Install dependencies.
         run: pnpm install
