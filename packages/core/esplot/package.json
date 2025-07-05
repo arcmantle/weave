@@ -16,8 +16,9 @@
 		"README.md"
 	],
 	"scripts": {
-		"build": "rimraf dist bin && pnpm run \"/^build-.*/\"",
+		"build": "rimraf dist bin && pnpm run --sequential \"/^build-.*/\"",
 		"build-ts": "tsc --project ./src/tsconfig.json",
+		"build-go-deps": "go mod download",
 		"build-viewer-windows": "cd viewer && go build -o ../bin/esplotv-win32.exe -ldflags=\"-H windowsgui\" .",
 		"build-viewer-macos": "cd viewer && go build -o ../bin/esplotv-arm64 ."
 	},
