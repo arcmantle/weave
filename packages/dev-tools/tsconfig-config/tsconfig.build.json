@@ -1,17 +1,14 @@
 {
 	"extends": "./tsconfig.dev.json",
 	"compilerOptions": {
+		"noEmit": false,
 		"emitDeclarationOnly": false,
-		"noEmit": false
 	},
 	"exclude": [
 		"${configDir}/dist",
 		"${configDir}/node_modules",
-		"${configDir}/**/*.test.ts",
-		"${configDir}/**/*.test.js",
-		"${configDir}/**/*.specc.ts",
-		"${configDir}/**/*.specc.js",
-		"${configDir}/**/*.bench.ts",
-		"${configDir}/**/*.bench.js",
+		"${configDir}/**/*.test.{ts,js}",
+		"${configDir}/**/*.spec.{ts,js}",
+		"${configDir}/**/*.bench.{ts,js}",
 	],
 }
