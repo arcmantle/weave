@@ -3,7 +3,7 @@
 [![npm](https://img.shields.io/npm/dt/@arcmantle/lit-fabric)](https://npm.im/@arcmantle/lit-fabric)
 [![npm](https://img.shields.io/npm/v/@arcmantle/lit-fabric)](https://npm.im/@arcmantle/lit-fabric)
 
-Fabric offers an alternative syntax for writing web-components through the [Lit component and templating system](https://lit.dev/).<br>
+Fabric offers an alternative syntax for writing web-components through the [Lit component and templating system](https://lit.dev/).
 The syntax and method of component creation is similar to React Hooks. With some minor changes to make it useable with standard web components. While being as minimal of a wrapper as possible.
 
 ## Example
@@ -82,7 +82,7 @@ If a feature is not yet supported, it trivial to create your own hook with the n
 useProperty declares a reactive public property on the component.
 Equivalent to using the `@property()` decorator in standard Lit components.
 Returns a tuple `[getter, setter]` that can be used to interact with the property.
-<br>[Back to list of hooks.](#list-of-available-hooks)
+[Back to list of hooks.](#list-of-available-hooks)
 
 ```typescript
 type UseProperty<T> = (
@@ -108,13 +108,13 @@ functionality by forcefully setting the `state` option on the property to true.
 
 This is intended for internal state, as opposed to the useProperty which is
 intended for values that are set by the consumer of the component.
-<br>[Back to list of hooks.](#list-of-available-hooks)
+[Back to list of hooks.](#list-of-available-hooks)
 
 ## useQuery
 
-Replicates the behavior of the `@query()` decorator.<br>
+Replicates the behavior of the `@query()` decorator.
 Creates a getter that performs a querySelector call for the requested selector.
-<br>[Back to list of hooks.](#list-of-available-hooks)
+[Back to list of hooks.](#list-of-available-hooks)
 
 ```typescript
 type UseQuery = <T extends Element = HTMLElement>(
@@ -135,9 +135,9 @@ component('demo-button', () => {
 
 ## useStyles
 
-Acts as the method of applying styles to a component.<br>
+Acts as the method of applying styles to a component.
 Internally appends the supplied styles to the components static `styles` property.
-<br>[Back to list of hooks.](#list-of-available-hooks)
+[Back to list of hooks.](#list-of-available-hooks)
 
 ```typescript
 type UseStyles = (css: CSSResultGroup) => void;
@@ -161,7 +161,7 @@ component('demo-button', () => {
 ## useConnected
 
 Attaches logic to the LitElement `connectedCallback` method.
-<br>[Back to list of hooks.](#list-of-available-hooks)
+[Back to list of hooks.](#list-of-available-hooks)
 
 ```typescript
 type UseConnected = (
@@ -184,7 +184,7 @@ component('demo-button', () => {
 
 Runs the registered function once per connection cycle of the component.
 Function runs in the `updated` lifecycle method.
-<br>[Back to list of hooks.](#list-of-available-hooks)
+[Back to list of hooks.](#list-of-available-hooks)
 
 ```typescript
 type UseAfterConnected = (
@@ -207,7 +207,7 @@ component('demo-button', () => {
 ## useDisconnected
 
 Attaches logic to the LitElement `disconnectedCallback` method.
-<br>[Back to list of hooks.](#list-of-available-hooks)
+[Back to list of hooks.](#list-of-available-hooks)
 
 ```typescript
 type UseDisconnected = (
@@ -229,7 +229,7 @@ component('demo-button', () => {
 ## useWillUpdate
 
 Attaches logic to the LitElement `willUpdate` method.
-<br>[Back to list of hooks.](#list-of-available-hooks)
+[Back to list of hooks.](#list-of-available-hooks)
 
 ```typescript
 type UseWillUpdate = (
@@ -257,7 +257,7 @@ component('demo-button', () => {
 ## useUpdate
 
 Attaches logic to the LitElement `update` method.
-<br>[Back to list of hooks.](#list-of-available-hooks)
+[Back to list of hooks.](#list-of-available-hooks)
 
 ```typescript
 type UseUpdate = (
@@ -285,7 +285,7 @@ component('demo-button', () => {
 ## useUpdated
 
 Attaches logic to the LitElement `update` method.
-<br>[Back to list of hooks.](#list-of-available-hooks)
+[Back to list of hooks.](#list-of-available-hooks)
 
 ```typescript
 type UseUpdated = (
@@ -313,7 +313,7 @@ component('demo-button', () => {
 ## useController
 
 Attaches a `ReactiveController` to the component instance.
-<br>[Back to list of hooks.](#list-of-available-hooks)
+[Back to list of hooks.](#list-of-available-hooks)
 
 ```typescript
 type UseController = <T extends ReactiveController = ReactiveController>(
