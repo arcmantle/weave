@@ -19,7 +19,8 @@
 	"types": "./dist/index.d.ts",
 	"main": "./dist/index.js",
 	"exports": {
-		".": "./dist/index.js"
+		".": "./dist/index.js",
+		"./client": "./client.d.ts"
 	},
 	"scripts": {
 		"dev": "pnpm vite --config ./demo/vite.config.ts",

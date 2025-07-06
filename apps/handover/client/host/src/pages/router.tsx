@@ -1,8 +1,15 @@
-import { AdapterElement, css, type CSSStyle, customElement, PluginModule, provider } from '@arcmantle/custom-element/adapter';
-import { Router } from '@arcmantle/custom-element/router';
+import { AdapterElement, customElement, PluginModule, provider } from '@arcmantle/adapter-element/adapter';
+import { Router } from '@arcmantle/adapter-element/router';
+import { css, type CSSStyle } from '@arcmantle/adapter-element/shared';
+import { toTag } from '@arcmantle/lit-jsx';
 
 import { cssreset } from '../styles/css-reset.ts';
 import { BadgePage } from './badge-page.tsx';
+
+
+const Wrapper = toTag('a');
+
+console.log(BadgePage.tag);
 
 
 @provider()
@@ -21,14 +28,14 @@ export class RouterCmp extends AdapterElement {
 		}),
 	];
 
-	protected routes = new Router(this, [
+	protected routes: Router = new Router(this, [
 		{
 			path:   '/',
 			render: () => (<></>),
 		},
 		{
 			path:   '/badge',
-			render: () => (<BadgePage />),
+			render: () => <BadgePage.tag />,
 		},
 		{
 			path:   '/rest',

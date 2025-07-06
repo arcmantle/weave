@@ -27,8 +27,13 @@ export const importCSSSheet = (options?: Partial<{
 				minify,
 			);
 		},
-		resolveId(source, importer, options) {
-			return importSheet.resolveId(this, source, importer, options);
+		resolveId: {
+			filter: {
+				id: [ /\.css$/ ],
+			},
+			handler(source, importer, options) {
+				return importSheet.resolveId(this, source, importer, options);
+			},
 		},
 		load(id, options) {
 			return importSheet.load(this, id, options);

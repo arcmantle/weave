@@ -1,9 +1,8 @@
+import { litJsx } from '@arcmantle/lit-jsx/vite';
 import { importCSSSheet } from '@arcmantle/vite-plugin-import-css-sheet';
-import tailwindcss from '@tailwindcss/vite';
-import { litJsx } from 'jsx-lit/vite-jsx-preserve';
-import { defineConfig } from 'vite';
+import { defineConfig, type UserConfig } from 'vite';
 
 
 export default defineConfig({
-	plugins: [ litJsx(), tailwindcss(), importCSSSheet() ],
-});
+	plugins: [ litJsx(), importCSSSheet() ],
+}) as UserConfig;

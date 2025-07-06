@@ -5,8 +5,7 @@
 			"@arcmantle/vite-plugin-import-css-sheet/client"
 		],
 		"jsx": "preserve",
-		"jsxImportSource": "jsx-lit",
-		"rootDir": ".",
+		"jsxImportSource": "@arcmantle/lit-jsx",
 		"emitDecoratorMetadata": false,
 		"experimentalDecorators": false,
 	}

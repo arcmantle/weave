@@ -1,27 +1,30 @@
-import { AdapterElement, css, type CSSStyle, customElement } from '@arcmantle/custom-element/adapter';
-import { toJSX } from 'jsx-lit';
+import { AdapterElement } from '@arcmantle/adapter-element/adapter';
+import { css, type CSSStyle } from '@arcmantle/adapter-element/shared';
+import { type ToJSX, toJSX } from '@arcmantle/lit-jsx';
 
 import { Badge } from '../components/badge.cmp.tsx';
 
 
-@customElement('ho-badge-page')
-export class BadgePageCmp extends AdapterElement {
+export class BadgePage extends AdapterElement {
+
+	static override tagName = 'ho-badge-page';
+	static tag: ToJSX<BadgePage> = toJSX(this);
 
 	protected override render(): unknown {
 		return (
 			<>
-				<Badge variant="default">
+				<Badge.tag variant="default">
 					Badge
-				</Badge>
-				<Badge variant="secondary">
+				</Badge.tag>
+				<Badge.tag variant="secondary">
 					Badge
-				</Badge>
-				<Badge variant="outline">
+				</Badge.tag>
+				<Badge.tag variant="outline">
 					Badge
-				</Badge>
-				<Badge variant="destructive">
+				</Badge.tag>
+				<Badge.tag variant="destructive">
 					Badge
-				</Badge>
+				</Badge.tag>
 			</>
 		);
 	}
@@ -35,6 +38,3 @@ export class BadgePageCmp extends AdapterElement {
 	`;
 
 }
-
-
-export const BadgePage = toJSX(BadgePageCmp);

@@ -15,12 +15,22 @@ export class ImportCSSSheet {
 		public minify: boolean,
 	) {}
 
-	filetypes:        Set<string> = new Set([ '.ts', '.mts', '.js', '.mjs' ]);
 	virtualModules:   Map<string, string> = new Map();
 	charReplacements: Map<string, string> = new Map([
 		[ '\\', '\\\\' ],
 		[ '`', '\\`' ],
 		[ '$', '\\$' ],
+	]);
+
+	filetypes: Set<string> = new Set([
+		'.ts',
+		'.mts',
+		'.tsx',
+		'.mtsx',
+		'.js',
+		'.mjs',
+		'.jsx',
+		'.mjsx',
 	]);
 
 	totalBeforeMinify = 0;
