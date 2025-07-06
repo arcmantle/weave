@@ -1,15 +1,9 @@
 import { AdapterElement, customElement, PluginModule, provider } from '@arcmantle/adapter-element/adapter';
 import { Router } from '@arcmantle/adapter-element/router';
 import { css, type CSSStyle } from '@arcmantle/adapter-element/shared';
-import { toTag } from '@arcmantle/lit-jsx';
 
 import { cssreset } from '../styles/css-reset.ts';
 import { BadgePage } from './badge-page.tsx';
-
-
-const Wrapper = toTag('a');
-
-console.log(BadgePage.tag);
 
 
 @provider()
