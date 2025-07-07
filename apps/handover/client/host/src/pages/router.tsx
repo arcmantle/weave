@@ -29,7 +29,7 @@ export class RouterCmp extends AdapterElement {
 		},
 		{
 			path:   '/badge',
-			render: () => <BadgePage.tag />,
+			render: () => <BadgePage />,
 		},
 		{
 			path:   '/rest',

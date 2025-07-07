@@ -4,17 +4,19 @@
 	"authors": "author",
 	"version": "1.0.0",
 	"type": "module",
-	"main": "./src/index.ts",
+	"types": "./dist/index.d.ts",
+	"main": "./dist/index.js",
 	"exports": {
-		"./*": "./src/*"
+		"./*": "./dist/*"
 	},
 	"scripts": {
-		"build": "vite build"
+		"build": "vite build && tsc --project ./src/tsconfig.json"
 	},
 	"dependencies": {
 		"@arcmantle/library": "workspace:^",
 		"@arcmantle/adapter-element": "workspace:^",
 		"@arcmantle/lit-jsx": "workspace:^",
+		"@arcmantle/vite-plugin-import-css-sheet": "workspace:^",
 		"tslib": "^2.8.1",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",

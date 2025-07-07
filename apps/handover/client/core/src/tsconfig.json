@@ -1,5 +1,5 @@
 {
-	"extends": "@arcmantle/tsconfig",
+	"extends": "@arcmantle/tsconfig/build",
 	"compilerOptions": {
 		"types": [
 			"@arcmantle/vite-plugin-import-css-sheet/client"
@@ -8,5 +8,6 @@
 		"jsxImportSource": "@arcmantle/lit-jsx",
 		"emitDecoratorMetadata": false,
 		"experimentalDecorators": false,
+		"emitDeclarationOnly": true
 	}
 }
