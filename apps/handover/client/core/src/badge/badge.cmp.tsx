@@ -6,12 +6,12 @@ import { cssreset } from '../styles/css-reset.ts';
 import badgeStyles from './badge.css' with { type: 'css' };
 
 
-export class Badge<T> extends AdapterElement {
+class BadgeCmp<T> extends AdapterElement {
 
 	static override tagName = 'ho-badge';
 
-	variant: 'default' | 'secondary' | 'destructive' | 'outline' = 'default';
-	href:    string | undefined;
+	@property(String) accessor variant: 'default' | 'secondary' | 'destructive' | 'outline' = 'default';
+	@property(String) accessor href: string | undefined;
 
 	value: T | undefined;
 
@@ -38,17 +38,17 @@ export class Badge<T> extends AdapterElement {
 }
 
 
-export const BadgeCmp: <T>(props: JSX.JSXProps<Badge<T>>) => string =
-	toComponent(Badge<any>);
+export const Badge: <T>(props: JSX.JSXProps<BadgeCmp<T>>) => string =
+	toComponent(BadgeCmp<any>);
 
 
 declare global {
 	namespace JSX {
 		interface CustomElementTags {
 			/**
-			 * {@link Badge}
+			 * {@link BadgeCmp}
 			 */
-			'ho-badge': JSXProps<Badge<any>>;
+			'ho-badge': JSXProps<BadgeCmp<any>>;
 		}
 	}
 }

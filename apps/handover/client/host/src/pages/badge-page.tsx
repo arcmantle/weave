@@ -1,6 +1,6 @@
 import { AdapterElement } from '@arcmantle/adapter-element/adapter';
 import { css, type CSSStyle } from '@arcmantle/adapter-element/shared';
-import { BadgeCmp } from '@arcmantle/handover-core/badge/badge.cmp.js';
+import { Badge } from '@arcmantle/handover-core/badge/badge.cmp.js';
 import { type ToComponent, toComponent } from '@arcmantle/lit-jsx';
 
 
@@ -11,21 +11,21 @@ export class BadgePageCmp extends AdapterElement {
 	protected override render(): unknown {
 		return (
 			<>
-				<BadgeCmp<string> variant="default">
+				<Badge<string> variant="default">
 					Badge
-				</BadgeCmp>
+				</Badge>
 
-				{/*<BadgeCmp variant="secondary">
+				<Badge variant="secondary">
 					Badge
-				</BadgeCmp>
+				</Badge>
 
-				<BadgeCmp variant="outline">
+				<Badge variant="outline">
 					Badge
-				</BadgeCmp>
+				</Badge>
 
-				<BadgeCmp variant="destructive">
+				<Badge variant="destructive">
 					Badge
-				</BadgeCmp>*/}
+				</Badge>
 			</>
 		);
 	}
