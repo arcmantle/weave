@@ -4,10 +4,10 @@
 	"authors": "author",
 	"version": "1.0.0",
 	"type": "module",
-	"types": "./dist/index.d.ts",
-	"main": "./dist/index.js",
+	"types": "./src/index.d.ts",
+	"main": "./src/index.js",
 	"exports": {
-		"./*": "./dist/*"
+		"./*": "./src/*"
 	},
 	"scripts": {
 		"build": "vite build && tsc --project ./src/tsconfig.json"

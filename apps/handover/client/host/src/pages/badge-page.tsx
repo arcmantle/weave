@@ -1,6 +1,6 @@
 import { AdapterElement } from '@arcmantle/adapter-element/adapter';
 import { css, type CSSStyle } from '@arcmantle/adapter-element/shared';
-import { Badge } from '@arcmantle/handover-core/badge/badge.cmp.js';
+import { Badge } from '@arcmantle/handover-core/badge/badge.cmp.tsx';
 import { type ToComponent, toComponent } from '@arcmantle/lit-jsx';
 
 

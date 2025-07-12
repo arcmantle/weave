@@ -1,4 +1,4 @@
-import './styles/index.css';
+import '@arcmantle/handover-core/styles/index.css';
 
 import { RouterCmp } from './pages/router.tsx';
 

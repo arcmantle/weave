@@ -1,4 +1,4 @@
-export const loadStyles = (url: string, links: {id: string; href: string;}[]) => {
+export const loadStyles = (url: string, links: { id: string; href: string; }[]) => {
 	links.forEach(style => {
 		if (document.head.querySelector('#' + style.id))
 			return;

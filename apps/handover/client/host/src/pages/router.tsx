@@ -1,9 +1,10 @@
 import { AdapterElement, customElement, PluginModule, provider } from '@arcmantle/adapter-element/adapter';
 import { Router } from '@arcmantle/adapter-element/router';
 import { css, type CSSStyle } from '@arcmantle/adapter-element/shared';
+import { cssreset } from '@arcmantle/handover-core/styles/css-reset.ts';
 
-import { cssreset } from '../styles/css-reset.ts';
 import { BadgePage } from './badge-page.tsx';
+import { ButtonPage } from './button-page.tsx';
 
 
 @provider()
@@ -30,6 +31,10 @@ export class RouterCmp extends AdapterElement {
 		{
 			path:   '/badge',
 			render: () => <BadgePage />,
+		},
+		{
+			path:   '/button',
+			render: () => <ButtonPage />,
 		},
 		{
 			path:   '/rest',
