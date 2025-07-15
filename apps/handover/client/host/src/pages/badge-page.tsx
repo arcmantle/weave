@@ -11,7 +11,7 @@ export class BadgePageCmp extends AdapterElement {
 	protected override render(): unknown {
 		return (
 			<>
-				<Badge<string> variant="default">
+				<Badge variant="default">
 					Badge
 				</Badge>
 
