@@ -27,6 +27,7 @@
 	},
 	"devDependencies": {
 		"@arcmantle/vite-lib-config": "^1.0.0",
-		"@arcmantle/vite-plugin-import-css-sheet": "^1.0.1"
+		"@arcmantle/vite-plugin-import-css-sheet": "^1.0.1",
+		"vite": "^7.0.4"
 	}
 }
