@@ -1,18 +1,9 @@
 {
-	"extends": "@arcmantle/tsconfig",
+	"extends": "@arcmantle/tsconfig/build",
 	"compilerOptions": {
-		"outDir": "../dist/lib",
 		"types": [
-			"vite/client",
-		]
+			"@arcmantle/vite-plugin-import-css-sheet/client",
+		],
+		"emitDeclarationOnly": true
 	},
-	"include": [
-		"./**/*.ts",
-		"./**/*.d.ts",
-		"./**/*.js",
-	],
-	"exclude": [
-		"./**/*.test.ts",
-		"./**/*.bench.ts",
-	]
 }

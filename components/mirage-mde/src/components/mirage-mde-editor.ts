@@ -1,3 +1,4 @@
+import { iterate } from '@arcmantle/library/iterators';
 import {
 	autocompletion,
 	closeBrackets,
@@ -35,9 +36,8 @@ import {
 } from '@codemirror/view';
 import { styleTags, Tag, tags } from '@lezer/highlight';
 import { type MarkdownConfig } from '@lezer/markdown';
-import { iterate } from '@arcmantle/library/iterators';
 import { basicDark } from 'cm6-theme-basic-dark';
-import { css, LitElement } from 'lit';
+import { type CSSResultGroup, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
 import { insertTab, removeTab } from '../codemirror/commands/tab-list.js';
@@ -48,22 +48,21 @@ import { updateStatusbarListener } from '../codemirror/listeners/update-statusba
 import { updateToolbarStateListener } from '../codemirror/listeners/update-toolbar.js';
 import { type MirageMDE } from '../mirage-mde.js';
 import type { MMDECommand, ToolbarButton } from '../registry/action-registry.js';
+import editorStyles from './mirage-mde-editor.css' with { type: 'css' };
 
 
 @customElement('mirage-mde-editor')
 export class EditorElement extends LitElement {
 
-	@property({ type: Object }) public scope: MirageMDE;
-	protected globalShortcuts:                KeyBinding[] = [];
-	protected documentOnKeyDown = (ev: KeyboardEvent) => {
+	@property({ type: Object }) scope: MirageMDE;
+	protected globalShortcuts:         KeyBinding[] = [];
+	protected documentOnKeyDown = (ev: KeyboardEvent): void => {
 		const pressedKey = ev.key.toUpperCase();
 		const modifierMap: Record<string, string> = {
 			'c-': 'ctrlKey',
 			'a-': 'altKey',
 			's-': 'shiftKey',
 		};
-
-		console.log(this.globalShortcuts);
 
 		this.globalShortcuts.forEach(({ key, preventDefault, run }) => {
 			if (!key)
@@ -77,33 +76,31 @@ export class EditorElement extends LitElement {
 				if (preventDefault)
 					ev.preventDefault();
 
-				console.log('do the thing');
-
 				run?.(this.scope.editor);
 			}
 		});
 	};
 
-	public override connectedCallback(): void {
+	override connectedCallback(): void {
 		super.connectedCallback();
 
 		globalThis.addEventListener('keydown', this.documentOnKeyDown);
 	}
 
-	public override disconnectedCallback() {
+	override disconnectedCallback(): void {
 		super.disconnectedCallback();
 
 		globalThis.removeEventListener('keydown', this.documentOnKeyDown);
 	}
 
-	public create() {
+	create(): void {
 		const shortcuts = iterate(this.scope.registry.action)
 			.pipe(([ , v ]) => v.type === 'button' ? v : undefined)
 			.pipe(item => {
 				if (!item.shortcut || typeof item.action !== 'function')
 					return;
 
-				return item as Omit<ToolbarButton, 'action'> & { action: MMDECommand };
+				return item as Omit<ToolbarButton, 'action'> & { action: MMDECommand; };
 			})
 			.pipe(button => {
 				const keybinding: KeyBinding = {
@@ -233,105 +230,7 @@ export class EditorElement extends LitElement {
 		requestIdleCallback(() => editorToPreview(this.scope));
 	}
 
-	public static override styles = [
-		css`
-		:host, * { box-sizing: border-box; }
-		:host {
-			display: grid;
-			overflow: hidden;
-			box-sizing: border-box;
-			color: var(--_mmde-color);
-			border: var(--_mmde-border);
-			border-bottom: none;
-			background-color: var(--_mmde-background-color);
-		}
-		.cm-editor {
-			overflow: hidden;
-		}
-		.cm-scroller::-webkit-scrollbar {
-			width: var(--_mmde-scrollsize);
-			height: var(--_mmde-scrollsize);
-		}
-		.cm-scroller::-webkit-scrollbar-track {
-			background: var(--_mmde-scrollbg);
-		}
-		.cm-scroller::-webkit-scrollbar-thumb {
-			background: var(--_mmde-scrollthumb);
-			border-radius: 0px;
-			background-clip: padding-box;
-		}
-		.cm-scroller::-webkit-scrollbar-corner {
-			background: var(--_mmde-scrollbg);
-		}
-		:host .cm-scroller {
-			font-family: var(--_mmde-editor-family);
-		}
-		:host .cm-gutters {
-			background-color: rgb(25, 34, 43);
-			border-right: 1px solid rgb(30, 40, 50);
-		}
-		.cm-header-1,
-		.cm-header-2,
-		.cm-header-3,
-		.cm-header-4,
-		.cm-header-5,
-		.cm-header-6 {
-			font-weight: 600;
-			line-height: 1.25;
-		}
-		.cm-header-1 {
-			font-weight: 600;
-			font-size: 2em;
-		}
-		.cm-header-2 {
-			font-weight: 600;
-			font-size: 1.5em;
-		}
-		.cm-header-3 {
-			font-weight: 600;
-			font-size: 1.25em;
-		}
-		.cm-header-4 {
-			font-weight: 600;
-			font-size: 1em;
-		}
-		.cm-header-5 {
-			font-weight: 600;
-			font-size: .875em;
-		}
-		.cm-header-6 {
-			font-weight: 600;
-			font-size: .85em;
-			color: #8b949e;
-		}
-		.ͼo {
-			background-color: var(--_mmde-editor-bg);
-		}
-		.ͼo .cm-selectionBackground {
-			background-color: rgba(175, 175, 175, 0.3) !important;
-		}
-		.mmde-tooltip.cm-tooltip {
-			background-color: rgb(25, 34, 43);
-			border: 2px solid var(--_mmde-scrollthumb);
-			border-radius: var(--_mmde-border-radius);
-		}
-		.mmde-tooltip.cm-tooltip>ul::-webkit-scrollbar {
-			width: var(--_mmde-scrollsize);
-			height: var(--_mmde-scrollsize);
-		}
-		.mmde-tooltip.cm-tooltip>ul::-webkit-scrollbar-track {
-			background: var(--_mmde-scrollbg);
-		}
-		.mmde-tooltip.cm-tooltip>ul::-webkit-scrollbar-thumb {
-			background: var(--_mmde-scrollthumb);
-			border-radius: 0px;
-			background-clip: padding-box;
-		}
-		.mmde-tooltip.cm-tooltip>ul::-webkit-scrollbar-corner {
-			background: var(--_mmde-scrollbg);
-		}
-		`,
-	];
+	static override styles: CSSResultGroup = editorStyles;
 
 }
 

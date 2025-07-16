@@ -1,19 +1,19 @@
 import { EditorView } from '@codemirror/view';
 
 import { MirageMDE } from '../../mirage-mde.js';
-import { type MMDECommand } from '../../registry/action-registry.js';
+import type { MMDECommand } from '../../registry/action-registry.js';
 
 
-const state = new WeakMap<MirageMDE, {
+const state: WeakMap<MirageMDE, {
 	savedOverflow: string;
-	savedHeight: string;
-}>();
+	savedHeight:   string;
+}> = new WeakMap();
 
 
 /**
  * Toggle full screen of the editor.
  */
-export const toggleFullScreen: MMDECommand = (view: EditorView, scope: MirageMDE) => {
+export const toggleFullScreen: MMDECommand = (view: EditorView, scope: MirageMDE): boolean => {
 	const { host } = scope;
 
 	const saved = state.get(scope) ?? { savedHeight: '', savedOverflow: '' };

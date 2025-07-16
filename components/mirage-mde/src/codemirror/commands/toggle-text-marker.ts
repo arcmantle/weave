@@ -1,11 +1,11 @@
-import { type ChangeSpec, EditorSelection } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
 import { arrayObjSum } from '@arcmantle/library/array';
 import { isRangeInRanges } from '@arcmantle/library/validation';
+import { type ChangeSpec, EditorSelection } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
 
 import { type MMDECommand } from '../../registry/action-registry.js';
 import { getNodesInRange, type TextMarker, textMarkerValue } from '../listeners/get-state.js';
-import { cmFindBeginningOfWord, cmfindEndOfWord } from '../utils/string-helpers.js';
+import { cmFindBeginningOfWord, cmFindEndOfWord } from '../utils/string-helpers.js';
 
 
 export const toggleStrikethrough: MMDECommand = (view) => toggleTextMarker(view, 'strikethrough');
@@ -13,7 +13,7 @@ export const toggleItalic: MMDECommand = (view) => toggleTextMarker(view, 'itali
 export const toggleBold: MMDECommand = (view) => toggleTextMarker(view, 'bold');
 
 
-export const toggleTextMarker = (view: EditorView, marker: TextMarker) => {
+export const toggleTextMarker = (view: EditorView, marker: TextMarker): boolean => {
 	const state = view.state;
 	const ranges = view.state.selection.ranges;
 	const markerValue = textMarkerValue[marker];
@@ -71,7 +71,7 @@ export const toggleTextMarker = (view: EditorView, marker: TextMarker) => {
 		// of the word and use those ranges instead.
 		if (from === to) {
 			from = cmFindBeginningOfWord(from, state) ?? from;
-			to = cmfindEndOfWord(to, state) ?? from;
+			to = cmFindEndOfWord(to, state) ?? from;
 		}
 
 		const changes: ChangeSpec[] = [

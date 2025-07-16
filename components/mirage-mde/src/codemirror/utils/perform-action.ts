@@ -2,7 +2,7 @@ import { MirageMDE } from '../../mirage-mde.js';
 import type { ToolbarButton, ToolbarItem } from '../../registry/action-registry.js';
 
 
-export const performAction = (scope: MirageMDE, item?: ToolbarItem) => {
+export const performAction = (scope: MirageMDE, item?: ToolbarItem): void => {
 	assertAction(item);
 
 	if (typeof item.action === 'function')

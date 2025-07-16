@@ -1,6 +1,10 @@
 {
 	"packages": [
 		{
+			"packagePath": "packages/components/mirage-mde",
+			"targetRepo": "arcmantle/mirage-mde"
+		},
+		{
 			"packagePath": "packages/core/adapter-element",
 			"targetRepo": "arcmantle/adapter-element"
 		},

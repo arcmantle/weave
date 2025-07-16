@@ -1,7 +1,5 @@
-import './mirage-mde-icon.js';
-
 import { hasCommonElement } from '@arcmantle/library/array';
-import { html, LitElement, nothing, type TemplateResult, unsafeCSS } from 'lit';
+import { type CSSResultGroup, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { map } from 'lit/directives/map.js';
@@ -14,22 +12,26 @@ import { MirageMDE } from '../mirage-mde.js';
 import { type Options } from '../mirage-mde-types.js';
 import { type ToolbarButton } from '../registry/action-registry.js';
 import { isMobile } from '../utilities/is-mobile.js';
-import styles from './mirage-mde-toolbar.css?inline';
+import { IconElement } from './mirage-mde-icon.js';
+import toolbarStyles from './mirage-mde-toolbar.css' with { type: 'css' };
 
 
 @customElement('mirage-mde-toolbar')
 export class ToolbarElement extends LitElement {
 
-	@property({ type: Object }) public scope: MirageMDE;
-	@state() private items:                   Options['toolbar'] = [];
+	static readonly requiredElements: typeof HTMLElement[] = [ IconElement ];
 
-	public create() {
+	@property({ type: Object }) scope: MirageMDE;
+
+	@state() protected items: Options['toolbar'] = [];
+
+	create(): void {
 		this.items = this.scope.toolbar.filter(
 			action => !this.scope.options.hideIcons?.includes(action),
 		);
 	}
 
-	protected createTooltip(item: ToolbarButton) {
+	protected createTooltip(item: ToolbarButton): string {
 		let tooltip = item.title ?? '';
 		if (item.shortcut)
 			tooltip += ` ( ${ item.shortcut.toUpperCase().replace('C-', 'Ctrl ') } )`;
@@ -42,7 +44,7 @@ export class ToolbarElement extends LitElement {
 		return tooltip;
 	}
 
-	protected toolbarButtonTemplate(item: ToolbarButton) {
+	protected toolbarButtonTemplate(item: ToolbarButton): unknown {
 		const title = this.createTooltip(item);
 
 		const listener = (ev: Event) => {
@@ -68,7 +70,7 @@ export class ToolbarElement extends LitElement {
 			@click    =${ listener }
 			${ ref(elRef) }
 		>
-			${ item?.text ?? nothing }
+			${ item?.text }
 			${ when(item.iconUrl, () => html`
 			<mirage-mde-icon
 				url=${ item.iconUrl ?? '' }
@@ -78,7 +80,7 @@ export class ToolbarElement extends LitElement {
 		`;
 	}
 
-	protected override render() {
+	protected override render(): unknown {
 		return html`
 		<div class="editor-toolbar" role="toolbar">
 			${ map(this.items, item => {
@@ -89,7 +91,7 @@ export class ToolbarElement extends LitElement {
 				if (action.type === 'separator')
 					return html`<i class="separator">|</i>`;
 
-				const templates: TemplateResult[] = [];
+				const templates: unknown[] = [];
 
 				// Needs to be implemented
 				if (action.type === 'dropdown')
@@ -118,7 +120,7 @@ export class ToolbarElement extends LitElement {
 		`;
 	}
 
-	public static override styles = [ unsafeCSS(styles) ];
+	static override styles: CSSResultGroup = toolbarStyles;
 
 }
 

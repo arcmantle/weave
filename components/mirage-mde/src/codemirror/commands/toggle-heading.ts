@@ -1,7 +1,7 @@
-import { type ChangeSpec, EditorSelection } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
 import { iterate } from '@arcmantle/library/iterators';
 import { isRangeInRanges } from '@arcmantle/library/validation';
+import { type ChangeSpec, EditorSelection } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
 
 import { getNodesInRange } from '../listeners/get-state.js';
 
@@ -20,9 +20,9 @@ import { getNodesInRange } from '../listeners/get-state.js';
  * toggleHeading(editorView, { size: 3 });
  */
 export const toggleHeading = (view: EditorView, options?: {
-	direction?: 'smaller' | 'bigger',
-	size?: number
-}) => {
+	direction?: 'smaller' | 'bigger';
+	size?:      number;
+}): boolean => {
 	const { direction = 'smaller', size } = options ?? {};
 
 	const state = view.state;

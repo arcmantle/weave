@@ -4,7 +4,7 @@ import { MirageMDE } from '../../mirage-mde.js';
 import { type MMDECommand } from '../../registry/action-registry.js';
 
 
-export const editorToPreview = async (scope: MirageMDE) => {
+export const editorToPreview = async (scope: MirageMDE): Promise<void> => {
 	const { gui, options, editor } = scope;
 	if (!gui.preview && !gui.window)
 		return;
@@ -55,7 +55,7 @@ export const toggleSideBySide: MMDECommand = (
 };
 
 
-export const handleEditorScroll = (ev: Event, scope: MirageMDE) => {
+export const handleEditorScroll = (ev: Event, scope: MirageMDE): void => {
 	const target = ev.target as HTMLElement | null;
 	if (!target)
 		return;
@@ -63,7 +63,7 @@ export const handleEditorScroll = (ev: Event, scope: MirageMDE) => {
 	const preview = scope.gui.preview;
 	if (preview) {
 		if (preview.editorScroll)
-			return preview.editorScroll = false;
+			return void (preview.editorScroll = false);
 
 		preview.previewScroll = true;
 
@@ -85,11 +85,11 @@ export const handleEditorScroll = (ev: Event, scope: MirageMDE) => {
 };
 
 
-export const handlePreviewScroll = (ev: Event, scope: MirageMDE) => {
+export const handlePreviewScroll = (ev: Event, scope: MirageMDE): void => {
 	const preview = scope.gui.preview;
 
 	if (preview.previewScroll)
-		return preview.previewScroll = false;
+		return void (preview.previewScroll = false);
 
 	preview.editorScroll = true;
 

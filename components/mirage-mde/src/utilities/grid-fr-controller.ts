@@ -20,14 +20,14 @@ export class GridFrResizeController implements ReactiveController {
 		this._fractions = options.setInitialFractions();
 	}
 
-	public get fractions() { return this._fractions; }
+	get fractions(): number[] { return this._fractions; }
 
 	protected _fractions: number[] = [];
 
-	public hostConnected(): void { }
-	public hostDisconnected(): void { }
+	hostConnected(): void { }
+	hostDisconnected(): void { }
 
-	public resize = (() => {
+	resize: (ev: MouseEvent) => void = (() => {
 		let initialFrs = [] as number[];
 		let initialX   = NaN;
 		let panelIndex = NaN;
@@ -38,10 +38,10 @@ export class GridFrResizeController implements ReactiveController {
 		let growingFr    = NaN;
 		let shrinkingFr  = NaN;
 
-		let deltaXlowerLimit = NaN;
-		let deltaXupperLimit = NaN;
+		let deltaXLowerLimit = NaN;
+		let deltaXUpperLimit = NaN;
 
-		const mousedown = (ev: MouseEvent) => {
+		const mousedown = (ev: MouseEvent): void => {
 			ev.preventDefault();
 
 			initialFrs    = [ ...this._fractions ];
@@ -53,8 +53,8 @@ export class GridFrResizeController implements ReactiveController {
 			growingFr   = initialFrs[panelIndex]!;
 			shrinkingFr = initialFrs[panelIndex + 1]!;
 
-			deltaXlowerLimit = -Infinity;
-			deltaXupperLimit = Infinity;
+			deltaXLowerLimit = -Infinity;
+			deltaXUpperLimit = Infinity;
 
 			window.addEventListener('mousemove', mousemove);
 			window.addEventListener('mouseup', mouseup);
@@ -63,8 +63,8 @@ export class GridFrResizeController implements ReactiveController {
 		const mousemove = (() => {
 			let ev: MouseEvent;
 			const impl = () => {
-				const deltaX = Math.max(deltaXlowerLimit,
-					Math.min(ev.clientX - initialX, deltaXupperLimit));
+				const deltaX = Math.max(deltaXLowerLimit,
+					Math.min(ev.clientX - initialX, deltaXUpperLimit));
 
 				const deltaFr = deltaX / viewportWidth * totalFr;
 				const newFr = growingFr + deltaFr;
@@ -77,9 +77,9 @@ export class GridFrResizeController implements ReactiveController {
 				// we need to take the overflow and remove it from the opposing column.
 				// This way we can keep the total fraction count column x 1.
 				if (newFrs[panelIndex]! <= lowerLimit)
-					deltaXlowerLimit = deltaX;
+					deltaXLowerLimit = deltaX;
 				else if (newFrs[panelIndex + 1]! <= lowerLimit)
-					deltaXupperLimit = deltaX;
+					deltaXUpperLimit = deltaX;
 
 				this._fractions.length = 0;
 				for (const fr of newFrs)

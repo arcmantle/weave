@@ -1,8 +1,9 @@
-import { type ChangeSpec, EditorSelection } from '@codemirror/state';
 import { range as createRange } from '@arcmantle/library/array';
+import { type ChangeSpec, EditorSelection } from '@codemirror/state';
 
 import { type MMDECommand } from '../../registry/action-registry.js';
 import { getNodesInRange } from '../listeners/get-state.js';
+
 
 export const toggleQuote: MMDECommand = (view) => {
 	const state = view.state;

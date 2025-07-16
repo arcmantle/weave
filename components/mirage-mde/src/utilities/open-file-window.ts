@@ -10,7 +10,7 @@ export const openBrowseFileWindow = function(
 	this: MirageMDE,
 	onSuccess?: (...args: any) => any,
 	onError?: (...args: any) => any,
-) {
+): void {
 	const imageInput = this.gui.toolbar.getElementsByClassName('imageInput')[0]!as HTMLElement;
 	dispatchEvent(new MouseEvent('click'));
 

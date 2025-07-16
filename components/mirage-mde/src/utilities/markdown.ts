@@ -69,7 +69,7 @@ const getRenderer = async (scope: MirageMDE) => {
 /**
  * Default markdown render.
  */
-export const markdown = async (scope: MirageMDE, text: string) => {
+export const markdown = async (scope: MirageMDE, text: string): Promise<string> => {
 	const { renderingConfig } = scope.options;
 
 	// Custom async replacement pipeline.

@@ -3,7 +3,7 @@ import { EditorState } from '@codemirror/state';
 
 export const cmFindBeginningOfWord = (
 	position: number, state: EditorState,
-) => {
+): number => {
 	if (position < 0)
 		return 0;
 
@@ -17,9 +17,9 @@ export const cmFindBeginningOfWord = (
 };
 
 
-export const cmfindEndOfWord = (
+export const cmFindEndOfWord = (
 	position: number, state: EditorState,
-) => {
+): number => {
 	if (position < 0)
 		return 0;
 

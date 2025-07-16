@@ -2,7 +2,7 @@ import { type ChangeSpec, EditorSelection } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 
-export const replaceSelection = (view: EditorView, replacement: string) => {
+export const replaceSelection = (view: EditorView, replacement: string): boolean => {
 	const transaction = view.state.changeByRange(range => {
 		const changes: ChangeSpec[] = [];
 

@@ -1,6 +1,6 @@
+import { range as createRange } from '@arcmantle/library/array';
 import { type ChangeSpec, EditorSelection } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
-import { range as createRange } from '@arcmantle/library/array';
 
 import { type MMDECommand } from '../../registry/action-registry.js';
 import { getNodesInRange } from '../listeners/get-state.js';
@@ -16,7 +16,7 @@ export const toggleOrderedList: MMDECommand = (view) => {
 };
 
 
-export const toggledList = (view: EditorView, type: 'ordered' | 'unordered') => {
+export const toggledList = (view: EditorView, type: 'ordered' | 'unordered'): boolean => {
 	const state = view.state;
 
 	const transaction = view.state.changeByRange(range => {

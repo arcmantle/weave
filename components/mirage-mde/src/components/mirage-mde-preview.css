@@ -1,0 +1,25 @@
+:host, * {
+	box-sizing: border-box;
+}
+:host {
+	display: grid;
+	overflow: auto;
+	border: var(--_mmde-border);
+	border-left: none;
+	border-bottom: none;
+}
+:host::-webkit-scrollbar {
+	width: var(--_mmde-scrollsize);
+	height: var(--_mmde-scrollsize);
+}
+:host::-webkit-scrollbar-track {
+	background: var(--_mmde-scrollbg);
+}
+:host::-webkit-scrollbar-thumb {
+	background: var(--_mmde-scrollthumb);
+	border-radius: 0px;
+	background-clip: padding-box;
+}
+:host::-webkit-scrollbar-corner {
+	background: var(--_mmde-scrollbg);
+}

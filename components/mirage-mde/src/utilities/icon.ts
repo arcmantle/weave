@@ -15,17 +15,17 @@ interface IncludeFile {
 }
 
 
-const includeFiles = new Map<string, Promise<IncludeFile>>();
-const iconFiles = new Map<string, IconFile>();
+const includeFiles: Map<string, Promise<IncludeFile>> = new Map();
+const iconFiles: Map<string, IconFile> = new Map();
 
 // Load the session storage cached icons into the iconFiles map.
-const localCache = JSON.parse(sessionStorage.getItem('mmde_iconcache') ?? '{}');
+const localCache = JSON.parse(sessionStorage.getItem('mmde_icon_cache') ?? '{}');
 Object.entries(localCache).forEach(([ key, value ]) => {
 	iconFiles.set(key, value as any);
 });
 
 
-export const requestIcon = async (url: string) => {
+export const requestIcon = async (url: string): Promise<IconFile> => {
 	if (iconFiles.has(url))
 		return iconFiles.get(url)!;
 
@@ -43,9 +43,9 @@ export const requestIcon = async (url: string) => {
 		iconFileData.svg = svg?.tagName.toLowerCase() === 'svg' ? svg.outerHTML : '';
 	}
 
-	const localCache = JSON.parse(sessionStorage.getItem('mmde_iconcache') ?? '{}');
+	const localCache = JSON.parse(sessionStorage.getItem('mmde_icon_cache') ?? '{}');
 	localCache[url] = iconFileData;
-	sessionStorage.setItem('mmde_iconcache', JSON.stringify(localCache));
+	sessionStorage.setItem('mmde_icon_cache', JSON.stringify(localCache));
 
 	iconFiles.set(url, iconFileData);
 

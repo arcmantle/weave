@@ -1,3 +1,5 @@
+import type { Fn } from '@arcmantle/library/types';
+
 import { MirageMDE } from '../mirage-mde.js';
 
 
@@ -15,9 +17,9 @@ import { MirageMDE } from '../mirage-mde.js';
 export const uploadImages = function(
 	this: MirageMDE,
 	files: FileList,
-	onSuccess?: Function,
-	onError?: Function,
-) {
+	onSuccess?: Fn,
+	onError?: Fn,
+): void {
 //	if (files.length === 0)
 //		return;
 
@@ -47,9 +49,9 @@ export const uploadImages = function(
  */
 export const uploadImagesUsingCustomFunction = function(
 	this: MirageMDE,
-	imageUploadFunction: Function,
+	imageUploadFunction: Fn,
 	files: FileList,
-) {
+): void {
 //	if (files.length === 0)
 //		return;
 
@@ -78,9 +80,9 @@ export const uploadImagesUsingCustomFunction = function(
 export const uploadImage = function(
 	this: MirageMDE,
 	file: File,
-	onSuccess?: Function,
-	onError?: Function,
-) {
+	onSuccess?: Fn,
+	onError?: Fn,
+): void {
 //	onSuccess ??= (imageUrl: string) => {
 //		afterImageUploaded(this, imageUrl);
 //	};
@@ -201,9 +203,9 @@ export const uploadImage = function(
  */
 export const uploadImageUsingCustomFunction = function(
 	this: MirageMDE,
-	imageUploadFunction: Function,
+	imageUploadFunction: Fn,
 	file: File,
-) {
+): void {
 //	const onSuccess = (imageUrl: string) => {
 //		afterImageUploaded(this, imageUrl);
 //	};
@@ -237,7 +239,7 @@ export const uploadImageUsingCustomFunction = function(
 /**
  * Action executed after an image have been successfully imported on the server.
  */
-export const afterImageUploaded = (editor: MirageMDE, url: string) => {
+export const afterImageUploaded = (editor: MirageMDE, url: string): void => {
 	//const cm = editor.codemirror;
 	//const stat = getState(cm);
 	//const options = editor.options;

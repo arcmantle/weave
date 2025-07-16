@@ -1,6 +1,6 @@
-import { EditorView } from '@codemirror/view';
 import { deepMerge } from '@arcmantle/library/structs';
 import type { stringliteral } from '@arcmantle/library/types';
+import { EditorView } from '@codemirror/view';
 import { LitElement } from 'lit';
 import { type Ref } from 'lit/directives/ref.js';
 
@@ -34,7 +34,7 @@ import type {
 	TimeFormatOptions,
 } from './mirage-mde-types.js';
 import { type BuiltInAction, defaultToolbar, type ToolbarItem } from './registry/action-registry.js';
-import { createRegistry } from './registry/registry.js';
+import { createRegistry, type Registry } from './registry/registry.js';
 import {
 	type BuildInStatus,
 	defaultStatus,
@@ -58,19 +58,19 @@ type GUIClasses = Record<keyof GUIElements, Partial<Record<'hidden', boolean>>>;
 
 export class MirageMDE {
 
-	public options:           Options;
-	public host:              LitElement;
-	public editor:            EditorView;
-	public toolbar:           (stringliteral | BuiltInAction)[];
-	public toolbarElements:   Record<string, Ref<HTMLElement>> = {};
-	public statusbar:         (stringliteral | BuildInStatus)[];
-	public saved = false;
-	public lastSaved = '';
-	public autosaveTimeoutId: number | undefined;
-	public activeMarkers:     Marker[] = [];
-	public registry = createRegistry();
-	public gui:               GUIElements = {} as any;
-	public guiClasses: GUIClasses = {
+	options:           Options;
+	host:              LitElement;
+	editor:            EditorView;
+	toolbar:           (stringliteral | BuiltInAction)[];
+	toolbarElements:   Record<string, Ref<HTMLElement>> = {};
+	statusbar:         (stringliteral | BuildInStatus)[];
+	saved = false;
+	lastSaved = '';
+	autosaveTimeoutId: number | undefined;
+	activeMarkers:     Marker[] = [];
+	registry:          Registry = createRegistry();
+	gui:               GUIElements = {} as any;
+	guiClasses: GUIClasses = {
 		preview:   { hidden: true },
 		editor:    {},
 		toolbar:   {},
@@ -78,19 +78,19 @@ export class MirageMDE {
 		window:    {},
 	};
 
-	public get isSideBySideActive() {
+	get isSideBySideActive(): boolean {
 		return this.host.classList.contains('sidebyside');
 	}
 
-	public get isPreviewActive() {
+	get isPreviewActive(): boolean {
 		return this.host?.classList.contains('preview');
 	}
 
-	public get isFullscreenActive() {
+	get isFullscreenActive(): boolean {
 		return this.host.classList.contains('fullscreen');
 	}
 
-	public get isWindowActive() {
+	get isWindowActive(): boolean {
 		return !!this.gui.window;
 	}
 
@@ -133,7 +133,7 @@ export class MirageMDE {
 			options.renderingConfig ?? {},
 		]);
 
-		// linewrapping defaults to true.
+		// line-wrapping defaults to true.
 		options.lineWrapping ??= true;
 
 		// Default to showing line numbers.
@@ -187,19 +187,19 @@ export class MirageMDE {
 		options.imageCSRFHeader   = options.imageCSRFHeader ?? false;
 	}
 
-	public openBrowseFileWindow = openBrowseFileWindow.bind(this);
-	public autosave = autosave.bind(this);
-	public uploadImage = uploadImage.bind(this);
-	public uploadImages = uploadImages.bind(this);
-	public uploadImageUsingCustomFunction = uploadImageUsingCustomFunction.bind(this);
-	public uploadImagesUsingCustomFunction = uploadImagesUsingCustomFunction.bind(this);
+	openBrowseFileWindow:            typeof openBrowseFileWindow = openBrowseFileWindow.bind(this);
+	autosave:                        typeof autosave = autosave.bind(this);
+	uploadImage:                     typeof uploadImage = uploadImage.bind(this);
+	uploadImages:                    typeof uploadImages = uploadImages.bind(this);
+	uploadImageUsingCustomFunction:  typeof uploadImageUsingCustomFunction = uploadImageUsingCustomFunction.bind(this);
+	uploadImagesUsingCustomFunction: typeof uploadImagesUsingCustomFunction = uploadImagesUsingCustomFunction.bind(this);
 
 	// Public Actions
-	public value(val: string | undefined): MirageMDE;
-	public value(val?: undefined): string;
-	public value(val: any): any { return value(this, val); }
+	value(val: string | undefined): MirageMDE;
+	value(val?: undefined): string;
+	value(val: any): any { return value(this, val); }
 
-	public action(action: BuiltInAction) {
+	action(action: BuiltInAction): void {
 		performAction(this, this.registry.action.get(action));
 	}
 

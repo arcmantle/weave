@@ -1,19 +1,19 @@
+import { isRangeInRanges, type Range } from '@arcmantle/library/validation';
 import { syntaxTree } from '@codemirror/language';
 import { EditorState } from '@codemirror/state';
-import { isRangeInRanges, type Range } from '@arcmantle/library/validation';
 
 
 export type Marker = TextMarker | LineMarker | [
 	'link',
 	'image',
-	'fencedcode'
+	'fencedcode',
 ][number];
 
 
 export type TextMarker = [
 	'bold',
 	'italic',
-	'strikethrough'
+	'strikethrough',
 ][number];
 
 
@@ -75,12 +75,17 @@ export const lineMarkerValue: Record<LineMarker, string> = {
 };
 
 
-export const getNodesInRange = (state: EditorState, range: Range) => {
+export const getNodesInRange = (state: EditorState, range: Range): {
+	marker: Marker;
+	from:   number;
+	to:     number;
+	name:   string;
+}[] => {
 	const activeSymbols: ({
-		marker: Marker,
-		from: number;
-		to: number;
-		name: string;
+		marker: Marker;
+		from:   number;
+		to:     number;
+		name:   string;
 	})[] = [];
 
 	syntaxTree(state).iterate({
@@ -105,10 +110,14 @@ export const getNodesInRange = (state: EditorState, range: Range) => {
 };
 
 
-export const getAllNodesInRange = (state: EditorState, range: Range) => {
+export const getAllNodesInRange = (state: EditorState, range: Range): {
+	from: number;
+	to:   number;
+	name: string;
+}[] => {
 	const activeSymbols: ({
 		from: number;
-		to: number;
+		to:   number;
 		name: string;
 	})[] = [];
 

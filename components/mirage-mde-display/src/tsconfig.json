@@ -1,24 +1,9 @@
 {
-	"extends": "@arcmantle/tsconfig",
+	"extends": "@arcmantle/tsconfig/build",
 	"compilerOptions": {
-		"outDir": "../dist/lib",
-		"tsBuildInfoFile": "../dist/.tsbuildinfo",
-		"rootDir": ".",
-		"baseUrl": ".",
-		"noEmit": false,
-		"emitDeclarationOnly": true,
-		"incremental": true,
 		"types": [
-			"vite/client",
-		]
-	},
-	"include": [
-		"./**/*.ts",
-		"./**/*.d.ts",
-		"./**/*.js",
-	],
-	"exclude": [
-		"./**/*.test.ts",
-		"./**/*.bench.ts",
-	]
+			"vite/client"
+		],
+		"emitDeclarationOnly": true
+	}
 }

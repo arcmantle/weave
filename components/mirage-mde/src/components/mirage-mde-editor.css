@@ -1,0 +1,97 @@
+:host, * {
+	box-sizing: border-box;
+}
+:host {
+	display: grid;
+	overflow: hidden;
+	box-sizing: border-box;
+	color: var(--_mmde-color);
+	border: var(--_mmde-border);
+	border-bottom: none;
+	background-color: var(--_mmde-background-color);
+}
+.cm-editor {
+	overflow: hidden;
+}
+.cm-scroller::-webkit-scrollbar {
+	width: var(--_mmde-scrollsize);
+	height: var(--_mmde-scrollsize);
+}
+.cm-scroller::-webkit-scrollbar-track {
+	background: var(--_mmde-scrollbg);
+}
+.cm-scroller::-webkit-scrollbar-thumb {
+	background: var(--_mmde-scrollthumb);
+	border-radius: 0px;
+	background-clip: padding-box;
+}
+.cm-scroller::-webkit-scrollbar-corner {
+	background: var(--_mmde-scrollbg);
+}
+:host .cm-scroller {
+	font-family: var(--_mmde-editor-family);
+}
+:host .cm-gutters {
+	background-color: rgb(25, 34, 43);
+	border-right: 1px solid rgb(30, 40, 50);
+}
+.cm-header-1,
+.cm-header-2,
+.cm-header-3,
+.cm-header-4,
+.cm-header-5,
+.cm-header-6 {
+	font-weight: 600;
+	line-height: 1.25;
+}
+.cm-header-1 {
+	font-weight: 600;
+	font-size: 2em;
+}
+.cm-header-2 {
+	font-weight: 600;
+	font-size: 1.5em;
+}
+.cm-header-3 {
+	font-weight: 600;
+	font-size: 1.25em;
+}
+.cm-header-4 {
+	font-weight: 600;
+	font-size: 1em;
+}
+.cm-header-5 {
+	font-weight: 600;
+	font-size: .875em;
+}
+.cm-header-6 {
+	font-weight: 600;
+	font-size: .85em;
+	color: #8b949e;
+}
+.ͼo {
+	background-color: var(--_mmde-editor-bg);
+}
+.ͼo .cm-selectionBackground {
+	background-color: rgba(175, 175, 175, 0.3) !important;
+}
+.mmde-tooltip.cm-tooltip {
+	background-color: rgb(25, 34, 43);
+	border: 2px solid var(--_mmde-scrollthumb);
+	border-radius: var(--_mmde-border-radius);
+}
+.mmde-tooltip.cm-tooltip>ul::-webkit-scrollbar {
+	width: var(--_mmde-scrollsize);
+	height: var(--_mmde-scrollsize);
+}
+.mmde-tooltip.cm-tooltip>ul::-webkit-scrollbar-track {
+	background: var(--_mmde-scrollbg);
+}
+.mmde-tooltip.cm-tooltip>ul::-webkit-scrollbar-thumb {
+	background: var(--_mmde-scrollthumb);
+	border-radius: 0px;
+	background-clip: padding-box;
+}
+.mmde-tooltip.cm-tooltip>ul::-webkit-scrollbar-corner {
+	background: var(--_mmde-scrollbg);
+}

@@ -1,14 +1,14 @@
-import { type Extension } from '@codemirror/state';
-import { type stringliteral } from '@arcmantle/library/types';
-import { type LitElement } from 'lit';
-import { marked, type MarkedOptions } from 'marked';
+import type { stringliteral } from '@arcmantle/library/types';
+import type { Extension } from '@codemirror/state';
+import type { LitElement } from 'lit';
+import type { MarkedOptions } from 'marked';
 
 import type {
 	BuiltInAction,
 	ToolbarButton,
 	ToolbarDropdown,
 } from './registry/action-registry.js';
-import { type BuildInStatus, type StatusBarItem } from './registry/status-registry.js';
+import type { BuildInStatus,  StatusBarItem } from './registry/status-registry.js';
 
 
 export interface TimeFormatOptions {
@@ -54,9 +54,9 @@ export interface RenderingOptions {
 	sanitizerFunction?:      (html: string) => string;
 	singleLineBreaks?:       boolean;
 	preprocessor?: {
-		regexp:   RegExp,
+		regexp:   RegExp;
 		replacer: (...match: string[]) => string | Promise<string>;
-	}[]
+	}[];
 }
 
 export interface ImageTextsOptions {
@@ -77,7 +77,7 @@ export interface ImageErrorTextsOptions {
 }
 
 export interface Options {
-	extensions?:            Extension[],
+	extensions?:            Extension[];
 	host?:                  LitElement;
 	autofocus?:             boolean;
 	autocomplete?:          boolean;
@@ -101,7 +101,7 @@ export interface Options {
 	toolbar?:               (stringliteral | BuiltInAction)[];
 	toolbarActions?:        (ToolbarButton | ToolbarDropdown)[];
 	toolbarTooltips?:       boolean;
-	drawables?:             { name: string; value: string }[];
+	drawables?:             { name: string; value: string; }[];
 	unorderedListStyle?:    '*' | '-' | '+';
 	uploadImage?:           boolean;
 	imageMaxSize?:          number;

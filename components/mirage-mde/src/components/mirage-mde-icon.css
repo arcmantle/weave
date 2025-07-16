@@ -1,0 +1,20 @@
+:host {
+	display: inline-grid;
+	place-items: center;
+	height: max-content;
+	width: max-content;
+}
+div {
+	contain: strict;
+	box-sizing: content-box;
+	display: flex;
+	place-items: center;
+	flex-flow: column nowrap;
+}
+div, svg {
+	width: 1em;
+	height: 1em;
+}
+svg {
+	display: block;
+}

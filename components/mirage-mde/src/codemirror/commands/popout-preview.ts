@@ -1,7 +1,6 @@
-import '../../components/mirage-mde-window.js';
-
 import { html, render } from 'lit';
 
+import { WindowDisplay, WindowElement } from '../../components/mirage-mde-window.js';
 import { type MMDECommand } from '../../registry/action-registry.js';
 
 
@@ -9,6 +8,8 @@ import { type MMDECommand } from '../../registry/action-registry.js';
  * Action for opening an external window which holds a live preview of the rendered markdown.
  */
 export const popoutPreview: MMDECommand = (_view, scope) => {
+	[ WindowElement, WindowDisplay ];
+
 	if (scope.isWindowActive)
 		return false;
 

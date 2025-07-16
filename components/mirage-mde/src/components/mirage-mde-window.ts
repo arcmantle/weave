@@ -1,5 +1,5 @@
 import { DisplayElement } from '@arcmantle/mirage-mde-display';
-import { css, type CSSResultOrNative, html, type LitElement } from 'lit';
+import { css, type CSSResultGroup, type CSSResultOrNative, html, type LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 
 import { editorToPreview } from '../codemirror/commands/toggle-sidebyside.js';
@@ -10,26 +10,30 @@ import { adoptStyles, CrossDocElement } from './cross-doc-element.js';
 @customElement('mirage-mde-window')
 export class WindowElement extends CrossDocElement {
 
-	@property({ type: Object }) public editor: MirageMDE;
-	@state() protected htmlContent = '';
+	@property({ type: Object }) editor: MirageMDE;
 
-	public setContent(htmlString: string): void;
-	public setContent(htmlString: Promise<string>): Promise<string>;
-	public setContent(htmlString: any): any {
+	@state() protected htmlContent: string = '';
+
+	setContent(htmlString: string): void;
+	setContent(htmlString: Promise<string>): Promise<string>;
+	setContent(htmlString: any): any {
 		if (typeof htmlString === 'string')
 			this.htmlContent = htmlString;
 		else if (htmlString)
 			return htmlString.then((s: string) => this.htmlContent = s);
 	}
 
-	public override connectedCallback() {
+	override connectedCallback(): void {
 		super.connectedCallback();
+
+		console.log('Connected to window', this.editor);
+
 
 		this.editor.gui.window = this;
 		editorToPreview(this.editor);
 	}
 
-	protected override render() {
+	protected override render(): unknown {
 		return html`
 		<mirage-mde-window-display
 			.content=${ this.htmlContent }
@@ -37,8 +41,7 @@ export class WindowElement extends CrossDocElement {
 		`;
 	}
 
-	public static override styles = [
-		css`
+	static override styles: CSSResultGroup = css`
 		mirage-mde-window-display::part(markdown-body) {
 			padding: 4px;
 			word-break: break-word;
@@ -52,8 +55,7 @@ export class WindowElement extends CrossDocElement {
 			min-height: calc(100dvh - 50px);
 			margin-block: 22px;
 		}
-		`,
-	];
+	`;
 
 }
 
@@ -61,7 +63,7 @@ export class WindowElement extends CrossDocElement {
 @customElement('mirage-mde-window-display')
 export class WindowDisplay extends DisplayElement {
 
-	protected override createRenderRoot() {
+	protected override createRenderRoot(): ShadowRoot {
 		const renderRoot = this.shadowRoot ??
 			this.attachShadow((this.constructor as any).shadowRootOptions);
 
@@ -79,15 +81,16 @@ export class WindowDisplay extends DisplayElement {
 		return renderRoot;
 	}
 
-	protected adoptedCallback() {
+	protected adoptedCallback(): void {
+		if (!this.shadowRoot)
+			return;
+
 		// Adopt the old styles into the new document
-		if (this.shadowRoot) {
-			adoptStyles(
-				this.shadowRoot,
-				((this.constructor as typeof LitElement).styles ?? []) as CSSResultOrNative[],
-				this.ownerDocument.defaultView!,
-			);
-		}
+		adoptStyles(
+			this.shadowRoot,
+			((this.constructor as typeof LitElement).styles ?? []) as CSSResultOrNative[],
+			this.ownerDocument.defaultView!,
+		);
 	}
 
 }

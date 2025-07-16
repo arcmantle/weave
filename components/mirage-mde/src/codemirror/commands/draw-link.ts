@@ -1,6 +1,6 @@
 import { deIndent } from '@arcmantle/library/string';
 
-import { type MMDECommand } from '../../registry/action-registry.js';
+import type { MMDECommand } from '../../registry/action-registry.js';
 import { replaceSelection } from '../../utilities/replace-selection.js';
 
 

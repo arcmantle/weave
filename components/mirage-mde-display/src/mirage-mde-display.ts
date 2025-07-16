@@ -1,21 +1,21 @@
-import { css, html, LitElement, unsafeCSS } from 'lit';
+import { css, type CSSResultGroup, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 
-import codeDarkStyles from './styles/code-dark.css?inline';
-import markdownStyles from './styles/markdown.css?inline';
-import markdownTokens from './styles/markdown-tokens.css?inline';
+import { codeDarkStyles } from './styles/code-dark.ts';
+import { markdownStyles } from './styles/markdown.ts';
+import { markdownTokens } from './styles/markdown-tokens.ts';
 
 
 @customElement('mirage-mde-display')
 export class DisplayElement extends LitElement {
 
-	@property({ reflect: true }) public theme: 'light' | 'dark' = 'dark';
-	@property() public content = '';
-	@property() public styles = '';
+	@property({ reflect: true }) theme: 'light' | 'dark' = 'dark';
+	@property() content = '';
+	@property() styles = '';
 
-	protected override render() {
+	protected override render(): unknown {
 		return html`
 		<div
 			part="markdown-body"
@@ -24,16 +24,14 @@ export class DisplayElement extends LitElement {
 			${ unsafeHTML(this.content) }
 		</div>
 
-		<style>
-			${ this.styles }
-		</style>
+		<style>${ this.styles }</style>
 		`;
 	}
 
-	public static override styles = [
-		unsafeCSS(markdownTokens),
-		unsafeCSS(markdownStyles),
-		unsafeCSS(codeDarkStyles),
+	static override styles: CSSResultGroup = [
+		markdownTokens,
+		markdownStyles,
+		codeDarkStyles,
 		css`
 		:host, * {
 			box-sizing: border-box;

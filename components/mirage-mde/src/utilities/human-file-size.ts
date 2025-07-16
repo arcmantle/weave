@@ -9,7 +9,7 @@ export const humanFileSize = (
 	bytes: number,
 	/** An array of human-readable units, ie. [' B', ' K', ' MB'] */
 	units: (number | string)[],
-) => {
+): string => {
 	if (Math.abs(bytes) < 1024)
 		return '' + bytes + Number(units[0]);
 

@@ -1,13 +1,13 @@
-import { EditorView, ViewUpdate } from '@codemirror/view';
 import { lazyWeakmap } from '@arcmantle/library/structs';
+import { EditorView, ViewUpdate } from '@codemirror/view';
 
 import { MirageMDE } from '../../mirage-mde.js';
 
 
-const metadata = new WeakMap<EditorView, {initialized: boolean;}>();
+const metadata: WeakMap<EditorView, { initialized: boolean; }> = new WeakMap();
 
 
-export const updateStatusbarListener = (update: ViewUpdate, scope: MirageMDE) => {
+export const updateStatusbarListener = (update: ViewUpdate, scope: MirageMDE): void => {
 	const meta = lazyWeakmap(metadata, scope.editor, () => ({ initialized: false }));
 	if (!meta.initialized) {
 		meta.initialized = true;

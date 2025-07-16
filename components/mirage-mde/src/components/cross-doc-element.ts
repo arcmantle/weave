@@ -1,12 +1,12 @@
 import { CSSResult, type CSSResultGroup, type CSSResultOrNative, LitElement, supportsAdoptingStyleSheets } from 'lit';
 
 
-// This function migrates styles from a custom element's constructe stylesheet to a new document.
+// This function migrates styles from a custom element's constructors stylesheet to a new document.
 export const adoptStyles = (
 	shadowRoot: ShadowRoot,
 	styles: CSSResultGroup,
 	defaultView: Window & typeof globalThis,
-) => {
+): void => {
 	// If the browser supports adopting stylesheets
 	if (supportsAdoptingStyleSheets) {
 		// If the styles is an array of CSSResultGroup Objects
@@ -59,7 +59,7 @@ export const adoptStyles = (
 
 export class CrossDocElement extends LitElement {
 
-	protected override createRenderRoot() {
+	protected override createRenderRoot(): ShadowRoot {
 		const renderRoot = this.shadowRoot ?? this.attachShadow(
 			(this.constructor as any).shadowRootOptions,
 		);
@@ -80,15 +80,20 @@ export class CrossDocElement extends LitElement {
 		return renderRoot;
 	}
 
-	protected adoptedCallback() {
+	protected adoptedCallback(): void {
+		console.log((this.constructor as typeof LitElement).styles);
+
+
 		// Adopt the old styles into the new document
-		if (this.shadowRoot) {
-			adoptStyles(
-				this.shadowRoot,
-				((this.constructor as typeof LitElement).styles ?? []) as CSSResultOrNative[],
-				this.ownerDocument.defaultView!,
-			);
-		}
+		if (!this.shadowRoot)
+			return;
+
+
+		adoptStyles(
+			this.shadowRoot,
+			((this.constructor as typeof LitElement).styles ?? []) as CSSResultOrNative[],
+			this.ownerDocument.defaultView!,
+		);
 	}
 
 }

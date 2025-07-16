@@ -1,5 +1,5 @@
-import { type EditorView } from '@codemirror/view';
 import { type stringliteral } from '@arcmantle/library/types';
+import { type EditorView } from '@codemirror/view';
 
 import { cleanBlock } from '../codemirror/commands/clean-block.js';
 import { drawHorizontalRule } from '../codemirror/commands/draw-horizontal-rule.js';
@@ -84,7 +84,7 @@ export type BuiltInAction = [
 	'separator-3',
 	'separator-4',
 	'separator-5',
-	'separator-6'
+	'separator-6',
 ][number];
 
 

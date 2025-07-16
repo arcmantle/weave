@@ -1,6 +1,6 @@
-import { type EditorView, type ViewUpdate } from '@codemirror/view';
 import { wordCount } from '@arcmantle/library/string';
 import { type stringliteral } from '@arcmantle/library/types';
+import { type EditorView, type ViewUpdate } from '@codemirror/view';
 
 import { type MirageMDE } from '../mirage-mde.js';
 
@@ -22,7 +22,7 @@ export type BuildInStatus = [
 	'lines',
 	'cursor',
 	'autosave',
-	'upload-image'
+	'upload-image',
 ][number];
 
 
@@ -44,13 +44,13 @@ export const builtInStatuses: [stringliteral, StatusBarItem][] = [
 			`,
 			css: () => `
 			`,
-			initialize: (item, update) => {
+			initialize: (item, update): void => {
 				item.value = String(wordCount(update.state.doc.toString()));
 			},
-			onUpdate: (item, update) => {
+			onUpdate: (item, update): void => {
 				item.value = String(wordCount(update.state.doc.toString()));
 			},
-		},
+		} satisfies StatusBarItem,
 	],
 	[
 		'lines', {
@@ -70,7 +70,7 @@ export const builtInStatuses: [stringliteral, StatusBarItem][] = [
 			},
 			onActivity: () => {
 			},
-		},
+		} satisfies StatusBarItem,
 	],
 	[
 		'cursor', {
@@ -97,7 +97,7 @@ export const builtInStatuses: [stringliteral, StatusBarItem][] = [
 
 				item.value = `${ posLine.number }:${ posColumn }`;
 			},
-		},
+		} satisfies StatusBarItem,
 	],
 	[
 		'autosave', {
@@ -110,7 +110,7 @@ export const builtInStatuses: [stringliteral, StatusBarItem][] = [
 			onAnyUpdate: (item, _update, scope) => {
 				item.value = scope.lastSaved;
 			},
-		},
+		} satisfies StatusBarItem,
 	],
 	[
 		'upload-image', {
@@ -123,6 +123,6 @@ export const builtInStatuses: [stringliteral, StatusBarItem][] = [
 			initialize: (item, _update, scope) => {
 				item.value = scope.options.imageTexts?.sbInit ?? '';
 			},
-		},
+		} satisfies StatusBarItem,
 	],
 ];

@@ -1,1 +1,1 @@
-export const isMobile = () => window.matchMedia('(any-pointer:coarse)').matches;
+export const isMobile = (): boolean => window.matchMedia('(any-pointer:coarse)').matches;

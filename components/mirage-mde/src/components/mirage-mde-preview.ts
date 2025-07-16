@@ -1,32 +1,41 @@
 import { DisplayElement } from '@arcmantle/mirage-mde-display';
-import { css, html, LitElement } from 'lit';
+import { type CSSResultGroup, html, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 
 import { handlePreviewScroll } from '../codemirror/commands/toggle-sidebyside.js';
 import { MirageMDE } from '../mirage-mde.js';
+import previewStyles from './mirage-mde-preview.css' with { type: 'css' };
 
 
 @customElement('mirage-mde-preview')
 export class PreviewElement extends LitElement {
 
-	protected static requiredElements = [ DisplayElement ];
+	protected static requiredElements: typeof HTMLElement[] = [ DisplayElement ];
 
-	@property({ type: Object }) public scope: MirageMDE;
-	@state() protected htmlContent = '';
-	public editorScroll = false;
-	public previewScroll = false;
-	protected isCreated = false;
+	@property({ type: Object }) scope: MirageMDE;
+	@state() protected htmlContent:    string = '';
 
-	public setContent(htmlString: string): void;
-	public setContent(htmlString: Promise<string>): Promise<string>;
-	public setContent(htmlString: any): any {
+	editorScroll:  boolean = false;
+	previewScroll: boolean = false;
+
+	protected isCreated: boolean = false;
+
+	override disconnectedCallback(): void {
+		super.disconnectedCallback();
+
+		this.removeEventListener('scroll', this.handlePreviewScroll);
+	}
+
+	setContent(htmlString: string): void;
+	setContent(htmlString: Promise<string>): Promise<string>;
+	setContent(htmlString: any): any {
 		if (typeof htmlString === 'string')
 			this.htmlContent = htmlString;
 		else if (htmlString)
 			return htmlString.then((s: string) => this.htmlContent = s);
 	}
 
-	public create() {
+	create(): void {
 		// Only allow creating once.
 		if (this.isCreated)
 			return;
@@ -37,15 +46,9 @@ export class PreviewElement extends LitElement {
 		this.addEventListener('scroll', this.handlePreviewScroll);
 	}
 
-	public override disconnectedCallback() {
-		super.disconnectedCallback();
+	protected handlePreviewScroll = (ev: Event): void => handlePreviewScroll(ev, this.scope);
 
-		this.removeEventListener('scroll', this.handlePreviewScroll);
-	}
-
-	protected handlePreviewScroll = (ev: Event) => handlePreviewScroll(ev, this.scope);
-
-	protected override render() {
+	protected override render(): unknown {
 		return html`
 		<mirage-mde-display
 			.content=${ this.htmlContent }
@@ -53,35 +56,7 @@ export class PreviewElement extends LitElement {
 		`;
 	}
 
-	public static override styles = [
-		css`
-		:host, * {
-			box-sizing: border-box;
-		}
-		:host {
-			display: grid;
-			overflow: auto;
-			border: var(--_mmde-border);
-			border-left: none;
-			border-bottom: none;
-		}
-		:host::-webkit-scrollbar {
-			width: var(--_mmde-scrollsize);
-			height: var(--_mmde-scrollsize);
-		}
-		:host::-webkit-scrollbar-track {
-			background: var(--_mmde-scrollbg);
-		}
-		:host::-webkit-scrollbar-thumb {
-			background: var(--_mmde-scrollthumb);
-			border-radius: 0px;
-			background-clip: padding-box;
-		}
-		:host::-webkit-scrollbar-corner {
-			background: var(--_mmde-scrollbg);
-		}
-		`,
-	];
+	static override styles: CSSResultGroup = previewStyles;
 
 }
 

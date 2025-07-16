@@ -1,8 +1,9 @@
-import { type ChangeSpec, EditorSelection } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
 import { isRangeInRanges } from '@arcmantle/library/validation';
+import type { ChangeSpec } from '@codemirror/state';
+import { EditorSelection } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
 
-import { type MMDECommand } from '../../registry/action-registry.js';
+import type { MMDECommand } from '../../registry/action-registry.js';
 import { getAllNodesInRange } from '../listeners/get-state.js';
 
 

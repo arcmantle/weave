@@ -3,7 +3,7 @@ export type BuiltInDrawables = [
 	'horizontalRule',
 	'link',
 	'image',
-	'uploadedImage'
+	'uploadedImage',
 ][number];
 
 

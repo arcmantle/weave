@@ -22,7 +22,7 @@ const isLocalStorageAvailable = () => {
 };
 
 
-export const autosave = function(this: MirageMDE) {
+export const autosave = function(this: MirageMDE): void {
 	//if (!isLocalStorageAvailable())
 	//	return console.log('MirageMDE: localStorage not available, cannot autosave');
 
@@ -85,7 +85,7 @@ export const autosave = function(this: MirageMDE) {
 };
 
 
-export const clearAutosavedValue = function(this: MirageMDE) {
+export const clearAutosavedValue = function(this: MirageMDE): void {
 	if (isLocalStorageAvailable()) {
 		if (
 			this.options.autosave == undefined ||

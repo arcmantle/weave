@@ -1,8 +1,9 @@
-import { css, html, LitElement, type PropertyValues } from 'lit';
+import { type CSSResultGroup, html, LitElement, type PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 
 import { requestIcon } from '../utilities/icon.js';
+import iconStyles from './mirage-mde-icon.css' with { type: 'css' };
 
 
 let parser: DOMParser;
@@ -12,23 +13,23 @@ let parser: DOMParser;
 export class IconElement extends LitElement {
 
 	/** Can be set to change default behavior. */
-	public static mutator = (svg: SVGElement) => {
+	static mutator(svg: SVGElement): void {
 		svg.setAttribute('fill', 'currentColor');
 		svg.removeAttribute('height');
 		svg.removeAttribute('width');
 	};
 
-	@property() public url: string;
+	@property() url:        string;
 	@state() protected svg: string;
 
-	protected override update(props: PropertyValues) {
+	protected override update(props: PropertyValues): void {
 		super.update(props);
 
 		if (props.has('url'))
 			this.setSvg();
 	}
 
-	protected async getSvg() {
+	protected async getSvg(): Promise<string> {
 		parser ??= new DOMParser();
 
 		const file = await requestIcon(this.url);
@@ -45,11 +46,11 @@ export class IconElement extends LitElement {
 		return svgEl.outerHTML;
 	}
 
-	protected async setSvg() {
+	protected async setSvg(): Promise<void> {
 		this.svg = await this.getSvg();
 	}
 
-	protected override render() {
+	protected override render(): unknown {
 		return html`
 		<div role="img">
 			${ unsafeHTML(this.svg) }
@@ -57,29 +58,6 @@ export class IconElement extends LitElement {
 		`;
 	}
 
-	public static override styles = [
-		css`
-		:host {
-			display: inline-grid;
-			place-items: center;
-			height: max-content;
-			width: max-content;
-		}
-		div {
-			contain: strict;
-			box-sizing: content-box;
-			display: flex;
-			place-items: center;
-			flex-flow: column nowrap;
-		}
-		div, svg {
-			width: 1em;
-			height: 1em;
-		}
-		svg {
-			display: block;
-		}
-		`,
-	];
+	static override styles: CSSResultGroup = iconStyles;
 
 }

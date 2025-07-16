@@ -1,0 +1,17 @@
+:host {
+	position: relative;
+}
+.drag-handle {
+	position: absolute;
+	height: 100%;
+	width: 4px;
+	left: -2px;
+	background-color: var(--_mmde-scrollthumb);
+	z-index: 999;
+	cursor: ew-resize;
+	opacity: 0;
+	transition: opacity 0.2s linear;
+}
+.drag-handle:hover {
+	opacity: 1;
+}

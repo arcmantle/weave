@@ -1,9 +1,14 @@
-import { type ChangeSpec, EditorSelection, EditorState, Line } from '@codemirror/state';
+import type { ChangeSet, ChangeSpec, StateEffect } from '@codemirror/state';
+import { EditorSelection, EditorState, Line } from '@codemirror/state';
 
 
 export const changeBySelectedLine = (
 	state: EditorState, f: (line: Line, change: any[], range: any) => void,
-) => {
+): {
+	changes:   ChangeSet;
+	selection: EditorSelection;
+	effects:   readonly StateEffect<any>[];
+} => {
 	let atLine = -1;
 
 	return state.changeByRange(range => {

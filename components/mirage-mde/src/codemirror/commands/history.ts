@@ -1,7 +1,7 @@
 import { redo as cmRedo, undo as cmUndo } from '@codemirror/commands';
 import { EditorView } from '@codemirror/view';
 
-import { type MMDECommand } from '../../registry/action-registry.js';
+import type { MMDECommand } from '../../registry/action-registry.js';
 
 
 /**

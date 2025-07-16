@@ -4,7 +4,7 @@ import { MirageMDE } from '../../mirage-mde.js';
 import { getNodesInRange } from './get-state.js';
 
 
-export const updateToolbarStateListener = (update: ViewUpdate, scope: MirageMDE) => {
+export const updateToolbarStateListener = (update: ViewUpdate, scope: MirageMDE): void => {
 	const {
 		state,
 		state: { selection: { ranges } },

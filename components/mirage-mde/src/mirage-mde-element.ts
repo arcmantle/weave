@@ -4,7 +4,7 @@ import './components/mirage-mde-statusbar.js';
 import './components/mirage-mde-preview.js';
 import './components/mirage-mde-dragbar.js';
 
-import { css, html, LitElement, type PropertyValues } from 'lit';
+import { css, type CSSResultGroup, html, LitElement, type PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { customElement } from 'lit/decorators/custom-element.js';
 import { classMap } from 'lit/directives/class-map.js';
@@ -18,21 +18,19 @@ import { GridFrResizeController } from './utilities/grid-fr-controller.js';
 @customElement('mirage-mde')
 export class MirageMDEElement extends LitElement {
 
-	@property({ type: Object }) public options: Options = {};
-	@property({ type: String }) public value = '';
+	@property({ type: Object }) options: Options = {};
+	@property({ type: String }) value = '';
 
-	/** @deprecated Will be removed in the near future, Use editor prop instead. */
-	@state() public scope:  MirageMDE;
-	@state() public editor: MirageMDE;
+	@state() editor: MirageMDE;
 
-	protected resizeCtrl = new GridFrResizeController({
+	protected resizeCtrl: GridFrResizeController = new GridFrResizeController({
 		host:                this,
 		setInitialFractions: () => [ 1, 1 ],
 		getColumnIndex:      (_ev) => 0,
 		getViewportWidth:    () => this.offsetWidth ?? 0,
 	});
 
-	public override connectedCallback() {
+	override connectedCallback(): void {
 		super.connectedCallback();
 		this.initialize();
 	}
@@ -44,14 +42,13 @@ export class MirageMDEElement extends LitElement {
 			this.editor.value(this.value);
 	}
 
-	protected async initialize() {
+	protected async initialize(): Promise<void> {
 		this.editor = new MirageMDE({
 			host:        this,
 			uploadImage: false,
 			autosave:    undefined,
 			...this.options,
 		});
-		this.scope = this.editor;
 
 		await this.updateComplete;
 
@@ -114,8 +111,7 @@ export class MirageMDEElement extends LitElement {
 		`;
 	}
 
-	public static override styles = [
-		css`
+	static override styles: CSSResultGroup = css`
 		:host {
 			--_mmde-border-radius:    var(--mmde-border-radius, 0px);
 			--_mmde-border:           var(--mmde-border, 2px solid rgb(30, 40, 50));
@@ -157,8 +153,7 @@ export class MirageMDEElement extends LitElement {
 		.hidden {
 			display: none;
 		}
-		`,
-	];
+	`;
 
 }
 
