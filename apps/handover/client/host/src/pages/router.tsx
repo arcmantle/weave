@@ -2,9 +2,7 @@ import { AdapterElement, customElement, PluginModule, provider } from '@arcmantl
 import { Router } from '@arcmantle/adapter-element/router';
 import { css, type CSSStyle } from '@arcmantle/adapter-element/shared';
 import { cssreset } from '@arcmantle/handover-core/styles/css-reset.js';
-
-import { BadgePage } from './badge-page.tsx';
-import { ButtonPage } from './button-page.tsx';
+import type { ToTag } from '@arcmantle/lit-jsx';
 
 
 @provider()
@@ -29,16 +27,19 @@ export class RouterCmp extends AdapterElement {
 			render: () => (<></>),
 		},
 		{
-			path:   '/badge',
-			render: () => <BadgePage />,
+			path:  '/badge',
+			enter: async () => {
+				return (await import('./badge-page.tsx')).BadgePageCmp.tagName;
+			},
+			render: (params, Page: ToTag) => <Page />,
 		},
 		{
-			path:   '/button',
-			render: () => <ButtonPage />,
-		},
-		{
-			path:   '/rest',
-			render: () => (<div {...{ name: '1', role: 'button' }} />),
+			path:  '/button',
+			enter: async (params) => {
+				return (await import('./button-page.tsx')).ButtonPageCmp.tagName;
+			},
+			render: (params, Page: ToTag) => <Page />,
+
 		},
 	]);
 
