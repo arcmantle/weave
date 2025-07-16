@@ -1,11 +1,11 @@
 {
 	"packages": [
 		{
-			"packagePath": "packages/components/mirage-mde",
+			"packagePath": "components/mirage-mde",
 			"targetRepo": "arcmantle/mirage-mde"
 		},
 		{
-			"packagePath": "packages/components/mirage-mde-display",
+			"packagePath": "components/mirage-mde-display",
 			"targetRepo": "arcmantle/mirage-mde-display"
 		},
 		{
