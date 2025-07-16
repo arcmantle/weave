@@ -13,8 +13,8 @@ import type { ReactiveController, ReactiveControllerHost } from '../shared/react
 
 export interface BaseRouteConfig {
 	name?:   string | undefined;
-	render?: (params: Record<string, string | undefined>) => unknown;
-	enter?:  (params: Record<string, string | undefined>) => Promise<boolean> | boolean;
+	render?: (params: Record<string, string | undefined>, result?: any) => unknown;
+	enter?:  (params: Record<string, string | undefined>) => any | Promise<any>;
 }
 
 
@@ -75,9 +75,10 @@ const getPattern = (route: RouteConfig) => {
 export class Routes implements ReactiveController {
 
 	static baseUrl = '';
-	static readonly base:              string = ('/' + this.baseUrl).replaceAll(/\/+/g, '/');
+	static readonly base:                string = ('/' + this.baseUrl).replaceAll(/\/+/g, '/');
 	static async waitForRouting(): Promise<void> { await waitForPromises(this.routing); }
-	protected static readonly routing: Set<Promise<any>> = new Set();
+	protected static readonly routing:   Set<Promise<any>> = new Set();
+	protected static readonly routeMeta: WeakMap<RouteConfig, any> = new WeakMap();
 
 	constructor(
 		protected readonly host: ReactiveControllerHost & (HTMLElement | AdapterElement),
@@ -196,10 +197,13 @@ export class Routes implements ReactiveController {
 			const params = result?.pathname.groups ?? {};
 			tailGroup = getTailGroup(params);
 			if (typeof route.enter === 'function') {
-				const success = await route.enter(params);
+				const result = await route.enter(params);
+
 				// If enter() returns false, cancel this navigation
-				if (success === false)
+				if (result === false)
 					return;
+
+				Routes.routeMeta.set(route, result);
 			}
 
 			// Only update route state if the enter handler completes successfully
@@ -226,7 +230,9 @@ export class Routes implements ReactiveController {
     * The result of calling the current route's render() callback.
     */
 	outlet(): ReturnType<NonNullable<RouteConfig['render']>> | undefined {
-		return this.currentRoute?.render?.(this.currentParams);
+		const metadata = this.currentRoute && Routes.routeMeta.get(this.currentRoute);
+
+		return this.currentRoute?.render?.(this.currentParams, metadata);
 	}
 
 	/**

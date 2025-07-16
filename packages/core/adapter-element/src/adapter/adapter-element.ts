@@ -26,9 +26,6 @@ export class AdapterBase extends HTMLElement {
 
 		this.attachShadow({ mode: 'open' });
 		this.renderRoot = this.shadowRoot ?? this;
-		// Marks this as a web component.
-		// Can be used to identify a wc from a regular HTMLElement.
-		this.setAttribute('data-wc', '');
 
 		const base = this.constructor as any as typeof AdapterBase;
 		const metadata = base.adapter.metadata;
@@ -64,7 +61,14 @@ export class AdapterBase extends HTMLElement {
 	protected __attrCtrl: MutationObserver | undefined;
 	pluginContainer:      PluginContainer;
 
-	protected connectedCallback(): void { this.connectAdapter(); }
+	protected connectedCallback(): void {
+		// Marks this as a web component.
+		// Can be used to identify a wc from a regular HTMLElement.
+		this.setAttribute('data-wc', '');
+
+		this.connectAdapter();
+	}
+
 	protected disconnectedCallback(): void { this.disconnectAdapter(); }
 
 	protected resolveContainer(): PluginContainer | Promise<PluginContainer> {
