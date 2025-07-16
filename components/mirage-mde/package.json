@@ -22,8 +22,8 @@
 		"typecheck": "tsc --project ./src/tsconfig.json --noEmit --emitDeclarationOnly false"
 	},
 	"dependencies": {
-		"@arcmantle/library": "workspace:^",
-		"@arcmantle/mirage-mde-display": "workspace:^",
+		"@arcmantle/library": "^1.0.0",
+		"@arcmantle/mirage-mde-display": "^1.0.0",
 		"@codemirror/autocomplete": "^6.18.6",
 		"@codemirror/commands": "^6.8.1",
 		"@codemirror/lang-markdown": "^6.3.2",
@@ -47,6 +47,7 @@
 	},
 	"devDependencies": {
 		"@arcmantle/vite-lib-config": "^1.0.0",
-		"@arcmantle/vite-plugin-import-css-sheet": "^1.0.1"
+		"@arcmantle/vite-plugin-import-css-sheet": "^1.0.1",
+		"vite": "^7.0.4"
 	}
 }

@@ -39,7 +39,8 @@
 			"@arcmantle/library": "workspace:^",
 			"@arcmantle/injector": "workspace:^",
 			"@arcmantle/vite-lib-config": "workspace:^",
-			"@arcmantle/vite-plugin-copy": "workspace:^"
+			"@arcmantle/vite-plugin-copy": "workspace:^",
+			"@arcmantle/mirage-mde-display": "workspace:^"
 		}
 	}
 }
