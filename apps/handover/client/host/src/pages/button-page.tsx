@@ -1,6 +1,6 @@
 import { AdapterElement } from '@arcmantle/adapter-element/adapter';
 import { css, type CSSStyle } from '@arcmantle/adapter-element/shared';
-import { Button } from '@arcmantle/handover-core/button/button.cmp.tsx';
+import { Button } from '@arcmantle/handover-core/button/button.cmp.js';
 import { type ToComponent, toComponent } from '@arcmantle/lit-jsx';
 
 

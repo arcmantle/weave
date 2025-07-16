@@ -10,24 +10,26 @@
 		"clean-all": "rimraf --glob **/node_modules **/dist"
 	},
 	"devDependencies": {
-		"@arcmantle/package-toolbox": "workspace:^",
 		"@arcmantle/build-package": "workspace:^",
 		"@arcmantle/eslint-config": "workspace:^",
+		"@arcmantle/package-toolbox": "workspace:^",
 		"@arcmantle/tsconfig": "workspace:^",
 		"@types/node": "^24.0.3",
 		"typescript": "^5.8.3",
-		"vitest": "^3.2.4",
-		"vite": "^7.0.0"
+		"vite": "^7.0.0",
+		"vitest": "^3.2.4"
 	},
 	"pnpm": {
 		"onlyBuiltDependencies": [
 			"@firebase/util",
 			"@nestjs/core",
 			"@parcel/watcher",
+			"@tailwindcss/oxide",
 			"bcrypt",
 			"better-sqlite3",
 			"esbuild",
 			"msw",
+			"oxc-resolver",
 			"protobufjs",
 			"sharp",
 			"tesseract.js",
