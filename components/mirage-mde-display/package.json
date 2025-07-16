@@ -11,7 +11,7 @@
 		".": "./dist/mirage-mde-display.js"
 	},
 	"files": [
-		"dist/lib",
+		"dist",
 		"src",
 		"package.json",
 		"README.md"
