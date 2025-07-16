@@ -5,6 +5,10 @@
 			"targetRepo": "arcmantle/mirage-mde"
 		},
 		{
+			"packagePath": "packages/components/mirage-mde-display",
+			"targetRepo": "arcmantle/mirage-mde-display"
+		},
+		{
 			"packagePath": "packages/core/adapter-element",
 			"targetRepo": "arcmantle/adapter-element"
 		},
