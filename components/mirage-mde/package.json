@@ -11,7 +11,7 @@
 		".": "./dist/lib/main.js"
 	},
 	"files": [
-		"dist/lib",
+		"dist",
 		"src",
 		"package.json",
 		"README.md"
