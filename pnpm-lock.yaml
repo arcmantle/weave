@@ -1011,8 +1011,8 @@ importers:
         specifier: workspace:^
         version: link:../../packages/vite/lib-config
       '@arcmantle/vite-plugin-import-css-sheet':
-        specifier: workspace:^
-        version: link:../../packages/vite/import-css-sheet
+        specifier: ^1.0.1
+        version: 1.0.1
 
   components/mirage-mde-display:
     dependencies:
@@ -1027,8 +1027,8 @@ importers:
         specifier: workspace:^
         version: link:../../packages/vite/lib-config
       '@arcmantle/vite-plugin-import-css-sheet':
-        specifier: workspace:^
-        version: link:../../packages/vite/import-css-sheet
+        specifier: ^1.0.1
+        version: 1.0.1
 
   components/poe2-tree:
     dependencies:
@@ -1662,6 +1662,10 @@ packages:
 
   '@arcmantle/ferrite-server@file:apps/ferrite/root/server':
     resolution: {directory: apps/ferrite/root/server, type: directory}
+    engines: {node: '>=22'}
+
+  '@arcmantle/vite-plugin-import-css-sheet@1.0.1':
+    resolution: {integrity: sha512-p0snQseXlaNJ/Wyu5FW707RjVgkLFqID8FqT1uadxBiUZouABplIAaSx0YGGE6zKWO5YMxsKosV2IL1xbWnrRA==}
     engines: {node: '>=22'}
 
   '@azure-rest/core-client@2.5.0':
@@ -7799,6 +7803,10 @@ snapshots:
       - terser
       - utf-8-validate
       - yaml
+
+  '@arcmantle/vite-plugin-import-css-sheet@1.0.1':
+    dependencies:
+      lightningcss: 1.30.1
 
   '@azure-rest/core-client@2.5.0':
     dependencies:
