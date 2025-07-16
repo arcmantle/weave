@@ -3,7 +3,7 @@ name: Sync packages to standalone repos
 on:
   push:
     branches: [main]
-    paths: ['packages/**']
+    paths: ['components/**','packages/**']
   workflow_dispatch:
 
 jobs:
