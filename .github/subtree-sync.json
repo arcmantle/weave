@@ -5,6 +5,14 @@
 			"targetRepo": "arcmantle/mirage-mde"
 		},
 		{
+			"packagePath": "components/image-viewer",
+			"targetRepo": "arcmantle/image-viewer"
+		},
+		{
+			"packagePath": "components/infinite-scroller",
+			"targetRepo": "arcmantle/infinite-scroller"
+		},
+		{
 			"packagePath": "components/mirage-mde-display",
 			"targetRepo": "arcmantle/mirage-mde-display"
 		},

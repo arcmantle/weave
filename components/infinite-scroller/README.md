@@ -453,3 +453,5 @@ This component is part of the @arcmantle ecosystem:
 
 - `@arcmantle/library` - Core utilities and helper functions
 - `lit` - The underlying web component framework
+
+.

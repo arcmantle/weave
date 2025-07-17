@@ -249,3 +249,5 @@ This component is part of the @arcmantle ecosystem:
 - `@arcmantle/adapter-element` - Base web component framework
 - `@arcmantle/library` - Core utilities and canvas helpers
 - `@arcmantle/lit-jsx` - JSX support for Lit-based components
+
+.
