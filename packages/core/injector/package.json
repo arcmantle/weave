@@ -2,6 +2,10 @@
 	"name": "@arcmantle/injector",
 	"version": "1.0.0",
 	"description": "Dependency injection done simple.",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/arcmantle/injector.git"
+	},
 	"license": "Apache-2.0",
 	"author": "Kristoffer Roen-Lie",
 	"sideEffects": false,

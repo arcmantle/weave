@@ -2,6 +2,10 @@
 	"name": "@arcmantle/build-package",
 	"version": "1.0.0",
 	"description": "description",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/arcmantle/build-package.git"
+	},
 	"author": "Kristoffer Roen-Lie",
 	"type": "module",
 	"main": "pathToMain",

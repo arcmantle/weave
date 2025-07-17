@@ -2,6 +2,11 @@
 	"name": "@arcmantle/workspace-scripts",
 	"version": "1.0.0",
 	"description": "pnpm monorepo workspace scripts",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/arcmantle/workspace-scripts.git"
+	},
+	"author": "Kristoffer Roen-Lie",
 	"type": "module",
 	"scripts": {
 		"build": "pnpm build-toolbox && node ./build-package.ts",

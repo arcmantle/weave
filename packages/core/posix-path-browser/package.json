@@ -2,6 +2,10 @@
 	"name": "@arcmantle/posix-path-browser",
 	"version": "1.0.0",
 	"description": "Browser friendly version of nodejs path posix implementation.",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/arcmantle/posix-path-browser.git"
+	},
 	"license": "Apache-2.0",
 	"author": "Kristoffer Roen-Lie",
 	"sideEffects": false,

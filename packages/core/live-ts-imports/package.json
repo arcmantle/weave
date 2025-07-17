@@ -2,6 +2,10 @@
 	"name": "@arcmantle/live-ts-imports",
 	"version": "1.0.0",
 	"description": "Opinionated typescript live compiler of client side files.",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/arcmantle/live-ts-imports.git"
+	},
 	"license": "Apache-2.0",
 	"author": "Kristoffer Roen-Lie",
 	"type": "module",

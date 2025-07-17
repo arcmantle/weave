@@ -9,6 +9,10 @@
 		"config",
 		"configuration"
 	],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/arcmantle/tsconfig.git"
+	},
 	"license": "Apache-2.0",
 	"author": "Kristoffer Roen-Lie",
 	"type": "module",

@@ -2,6 +2,10 @@
 	"name": "@arcmantle/lit-localize",
 	"version": "1.0.0",
 	"description": "A lightweight and reactive localization package, with a focus on use with LIT web components.",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/arcmantle/lit-localize.git"
+	},
 	"license": "Apache-2.0",
 	"author": "Kristoffer Roen-Lie",
 	"sideEffects": false,

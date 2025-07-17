@@ -2,6 +2,10 @@
 	"name": "@arcmantle/lit-router",
 	"version": "1.0.0",
 	"description": "",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/arcmantle/lit-router.git"
+	},
 	"author": "Kristoffer Roen-Lie",
 	"type": "module",
 	"exports": {

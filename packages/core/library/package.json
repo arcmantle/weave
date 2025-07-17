@@ -2,6 +2,10 @@
 	"name": "@arcmantle/library",
 	"version": "1.0.0",
 	"description": "A versatile collection of TypeScript helper functions and utilities",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/arcmantle/library.git"
+	},
 	"license": "Apache-2.0",
 	"author": "Kristoffer Roen-Lie",
 	"sideEffects": false,

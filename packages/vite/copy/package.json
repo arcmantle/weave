@@ -2,6 +2,10 @@
 	"name": "@arcmantle/vite-plugin-copy",
 	"version": "1.0.0",
 	"description": "Copies files during vite build.",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/arcmantle/vite-plugin-copy.git"
+	},
 	"license": "Apache-2.0",
 	"author": "Kristoffer Roen-Lie",
 	"type": "module",

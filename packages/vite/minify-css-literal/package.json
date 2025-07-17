@@ -4,6 +4,10 @@
 	"description": "Minifies css literals.",
 	"license": "Apache-2.0",
 	"author": "Kristoffer Roen-Lie",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/arcmantle/vite-plugin-minify-css-literal.git"
+	},
 	"type": "module",
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",

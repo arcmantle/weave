@@ -2,6 +2,10 @@
 	"name": "@arcmantle/vite-plugin-as-class",
 	"version": "1.0.0",
 	"description": "Exposes an interface and types for creating vite plugins as classes.",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/arcmantle/vite-plugin-as-class.git"
+	},
 	"license": "Apache-2.0",
 	"author": "Kristoffer Roen-Lie",
 	"main": "./dist/index.js",

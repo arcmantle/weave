@@ -3,6 +3,10 @@
 	"version": "1.0.0",
 	"description": "React hooks syntax for LIT",
 	"keywords": [],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/arcmantle/lit-fabric.git"
+	},
 	"license": "Apache-2.0",
 	"author": "Kristoffer Roen-Lie",
 	"sideEffects": false,

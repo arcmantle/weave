@@ -2,6 +2,10 @@
 	"name": "@arcmantle/lit-context",
 	"version": "1.0.0",
 	"description": "Context provider and consumer for Lit Elements",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/arcmantle/lit-context.git"
+	},
 	"license": "Apache-2.0",
 	"author": "Kristoffer Roen-Lie",
 	"sideEffects": false,
