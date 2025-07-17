@@ -1,24 +1,24 @@
 {
 	"name": "@arcmantle/handover",
-	"description": "description",
-	"authors": "author",
 	"version": "1.0.0",
+	"description": "description",
+	"author": "author",
 	"type": "module",
 	"main": "pathToMain",
 	"scripts": {
 		"dev": "vite"
 	},
 	"dependencies": {
-		"@arcmantle/library": "workspace:^",
 		"@arcmantle/adapter-element": "workspace:^",
 		"@arcmantle/handover-core": "workspace:^",
-		"@arcmantle/vite-plugin-import-css-sheet": "workspace:^",
+		"@arcmantle/library": "workspace:^",
 		"@arcmantle/lit-jsx": "workspace:^",
+		"@arcmantle/vite-plugin-import-css-sheet": "workspace:^",
 		"@tailwindcss/vite": "^4.1.7",
-		"tailwindcss": "^4.1.7",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
 		"tailwind-merge": "^3.3.0",
+		"tailwindcss": "^4.1.7",
 		"tw-animate-css": "^1.3.0"
 	}
 }

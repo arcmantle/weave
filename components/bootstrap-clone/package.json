@@ -1,8 +1,8 @@
 {
 	"name": "@arcmantle/bootstrap-clone",
-	"description": "a clone of bootstrap but written with web components",
-	"authors": "Kristoffer Roen-Lie",
 	"version": "1.0.0",
+	"description": "a clone of bootstrap but written with web components",
+	"author": "Kristoffer Roen-Lie",
 	"main": "pathToMain",
 	"scripts": {
 		"dev": "vite --config ./docs/vite.config.ts",

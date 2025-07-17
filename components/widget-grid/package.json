@@ -1,18 +1,18 @@
 {
 	"name": "@arcmantle/grid-layout",
-	"description": "A grid layout component for dashboard creation",
-	"authors": "Kristoffer Roen-Lie",
 	"version": "1.0.0",
-	"main": "./dist/index.js",
+	"description": "A grid layout component for dashboard creation",
+	"author": "Kristoffer Roen-Lie",
 	"type": "module",
+	"main": "./dist/index.js",
 	"scripts": {
-		"dev": "vite serve demo",
-		"build-lib": "vite build",
 		"build-demo": "vite build demo",
-		"preview": "vite preview demo",
-		"lint-lib": "pnpm eslint src",
+		"build-lib": "vite build",
+		"dev": "vite serve demo",
 		"lint-demo": "pnpm eslint demo/src",
-		"lint-windows": "set TIMING=1 && pnpm lint-lib && pnpm lint-demo"
+		"lint-lib": "pnpm eslint src",
+		"lint-windows": "set TIMING=1 && pnpm lint-lib && pnpm lint-demo",
+		"preview": "vite preview demo"
 	},
 	"dependencies": {
 		"lit": "^3.3.0",

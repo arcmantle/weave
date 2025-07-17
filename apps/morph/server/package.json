@@ -3,28 +3,26 @@
 	"version": "1.0.0",
 	"description": "",
 	"keywords": [],
-	"author": {
-		"name": "Kristoffer Roen-Lie"
-	},
 	"license": "Apache-2.0",
-	"main": "index.js",
+	"author": "Kristoffer Roen-Lie",
 	"type": "module",
-	"scripts": {
-		"dev": "nodemon --watch api --watch src --exec tsx --experimental-vm-modules ./src/index.ts"
-	},
 	"exports": {
 		"./api/*": "./api/*",
 		"./server/*": "./src/*",
 		"./models/*": "./models/*",
 		"./client/*": "./client/*"
 	},
+	"main": "index.js",
+	"scripts": {
+		"dev": "nodemon --watch api --watch src --exec tsx --experimental-vm-modules ./src/index.ts"
+	},
 	"dependencies": {
-		"@faker-js/faker": "^9.7.0",
-		"@lit-labs/preact-signals": "^1.0.3",
 		"@arcmantle/library": "workspace:^",
 		"@arcmantle/live-ts-imports": "workspace:^",
 		"@arcmantle/monaco-editor-wc": "workspace:^",
 		"@arcmantle/morph": "workspace:^",
+		"@faker-js/faker": "^9.7.0",
+		"@lit-labs/preact-signals": "^1.0.3",
 		"@types/cors": "^2.8.17",
 		"@types/express": "^5.0.1",
 		"bcrypt": "^5.1.1",

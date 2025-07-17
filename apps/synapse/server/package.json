@@ -1,17 +1,17 @@
 {
 	"name": "@arcmantle/synapse-server",
-	"description": "description",
-	"authors": "author",
 	"version": "1.0.0",
-	"main": "pathToMain",
+	"description": "description",
+	"author": "author",
 	"type": "module",
-	"scripts": {
-		"dev": "tsx watch ./src/index.ts",
-		"start": "tsx ./src/index.ts"
-	},
 	"exports": {
 		"./*": "./src/*",
 		"./api/*": "./api/*"
+	},
+	"main": "pathToMain",
+	"scripts": {
+		"dev": "tsx watch ./src/index.ts",
+		"start": "tsx ./src/index.ts"
 	},
 	"dependencies": {
 		"@arcmantle/library": "workspace:^",

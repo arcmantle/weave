@@ -1,8 +1,8 @@
 {
 	"name": "name",
-	"description": "description",
-	"authors": "author",
 	"version": "1.0.0",
+	"description": "description",
+	"author": "author",
 	"main": "pathToMain",
 	"dependencies": {
 		"lit": "^3.3.0",

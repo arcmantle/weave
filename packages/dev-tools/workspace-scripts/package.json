@@ -1,15 +1,15 @@
 {
 	"name": "@arcmantle/workspace-scripts",
-	"description": "pnpm monorepo workspace scripts",
-	"authors": "Kristoffer Roen-Lie",
 	"version": "1.0.0",
+	"description": "pnpm monorepo workspace scripts",
 	"type": "module",
 	"scripts": {
-		"build-toolbox": "node ./build-package.ts @arcmantle/package-toolbox",
 		"build": "pnpm build-toolbox && node ./build-package.ts",
+		"build-toolbox": "node ./build-package.ts @arcmantle/package-toolbox",
 		"release": "pnpm build-toolbox && node ./build-package.ts --publish"
 	},
 	"devDependencies": {
 		"@types/node": "^22.14.1"
-	}
+	},
+	"authors": "Kristoffer Roen-Lie"
 }

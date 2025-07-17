@@ -3,22 +3,20 @@
 	"version": "1.0.0",
 	"description": "Browser friendly version of nodejs path posix implementation.",
 	"license": "Apache-2.0",
-	"author": {
-		"name": "Kristoffer Roen-Lie"
-	},
+	"author": "Kristoffer Roen-Lie",
+	"sideEffects": false,
 	"type": "module",
-	"types": "./dist/index.d.ts",
+	"exports": {
+		".": "./dist/index.js"
+	},
 	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
 	"files": [
 		"dist",
 		"src",
 		"package.json",
 		"readme.md"
 	],
-	"sideEffects": false,
-	"exports": {
-		".": "./dist/index.js"
-	},
 	"scripts": {
 		"build": "rimraf dist && tsc --project ./src/tsconfig.json"
 	}

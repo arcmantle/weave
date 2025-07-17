@@ -1,33 +1,31 @@
 {
 	"name": "@arcmantle/monaco-editor-wc",
-	"description": "Web component wrapping the monaco editor.",
-	"author": {
-		"name": "Kristoffer Roen-Lie"
-	},
-	"files": [
-		"dist"
-	],
-	"license": "Apache-2.0",
 	"version": "1.0.0",
+	"description": "Web component wrapping the monaco editor.",
+	"license": "Apache-2.0",
+	"author": "Kristoffer Roen-Lie",
 	"type": "module",
-	"types": "./dist/monaco-editor-wc.d.ts",
-	"main": "./dist/index.js",
 	"exports": {
 		".": {
 			"types": "./dist/monaco-editor-wc.d.ts",
 			"default": "./dist/index.js"
 		}
 	},
+	"main": "./dist/index.js",
+	"types": "./dist/monaco-editor-wc.d.ts",
+	"files": [
+		"dist"
+	],
 	"scripts": {
-		"dev": "vite --config ./demo/vite.config.ts",
 		"build": "pnpm run --sequential \"/^build::.+/\"",
 		"build::js": "vite build",
 		"build::ts": "tsc --project ./src/tsconfig.build.json",
-		"build::ts-bundle": "api-extractor run --local"
+		"build::ts-bundle": "api-extractor run --local",
+		"dev": "vite --config ./demo/vite.config.ts"
 	},
 	"devDependencies": {
-		"@microsoft/api-extractor": "^7.52.3",
 		"@arcmantle/vite-lib-config": "workspace:^",
+		"@microsoft/api-extractor": "^7.52.3",
 		"lit": "^3.3.0",
 		"monaco-editor": "^0.52.2",
 		"rimraf": "^6.0.1",

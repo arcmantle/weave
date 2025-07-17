@@ -1,8 +1,7 @@
 {
-	"name": "@arcmantle/mirage-chessmaster",
-	"description": "Mirage project",
+	"name": "@arcmantle/mirage-chess-master",
 	"version": "1.0.0",
-	"author": "Kristoffer Roen-Lie",
+	"description": "Mirage project",
 	"keywords": [
 		"web",
 		"components",
@@ -10,26 +9,24 @@
 		"typescript",
 		"lib"
 	],
+	"author": "Kristoffer Roen-Lie",
+	"type": "module",
+	"main": "./dist/lib/index.js",
+	"typings": "./dist/lib/index.d.ts",
 	"files": [
 		"LICENSE",
 		"dist"
 	],
-	"type": "module",
-	"main": "./dist/lib/index.js",
-	"typings": "./dist/lib/index.d.ts",
-	"engines": {
-		"node": ">=22"
-	},
 	"scripts": {
-		"dev": "vite",
 		"build": "vite build",
-		"preview": "vite preview --mode preview",
-		"package": "npm run build && npm run package:move",
-		"package:move": "node --no-warnings --experimental-modules --loader tsm ./scripts/move-output.ts --color",
 		"clean": "rimraf node_modules dist *.tsbuildinfo",
 		"clean:dist": "rimraf dist *.tsbuildinfo",
 		"clean:node": "rimraf node_modules",
 		"clean:vite": "rimraf node_modules/.vite",
+		"dev": "vite",
+		"package": "npm run build && npm run package:move",
+		"package:move": "node --no-warnings --experimental-modules --loader tsm ./scripts/move-output.ts --color",
+		"preview": "vite preview --mode preview",
 		"test": "vitest"
 	},
 	"dependencies": {
@@ -47,5 +44,8 @@
 		"rimraf": "^6.0.1",
 		"ts-toolbelt": "^9.6.0",
 		"type-fest": "^4.40.0"
+	},
+	"engines": {
+		"node": ">=22"
 	}
 }

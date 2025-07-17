@@ -3,21 +3,19 @@
 	"version": "1.0.0",
 	"description": "Exposes an interface and types for creating vite plugins as classes.",
 	"license": "Apache-2.0",
-	"author": {
-		"name": "Kristoffer Roen-Lie"
-	},
+	"author": "Kristoffer Roen-Lie",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
 	"files": [
 		"dist",
 		"src",
 		"README.md"
 	],
-	"engines": {
-		"node": ">=22"
-	},
-	"types": "./dist/index.d.ts",
-	"main": "./dist/index.js",
 	"dependencies": {},
 	"devDependencies": {
 		"vite": "^7.0.0"
+	},
+	"engines": {
+		"node": ">=22"
 	}
 }

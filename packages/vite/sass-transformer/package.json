@@ -3,27 +3,22 @@
 	"version": "1.0.0",
 	"description": "Applies SASS transformer to sass literals and allows importing sass files.",
 	"license": "Apache-2.0",
-	"author": {
-		"name": "Kristoffer Roen-Lie"
+	"author": "Kristoffer Roen-Lie",
+	"type": "module",
+	"exports": {
+		".": "./dist/index.js"
 	},
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
 	"files": [
 		"dist",
 		"src",
 		"client.d.ts",
 		"README.md"
 	],
-	"engines": {
-		"node": ">=22"
-	},
-	"type": "module",
-	"types": "./dist/index.d.ts",
-	"main": "./dist/index.js",
-	"exports": {
-		".": "./dist/index.js"
-	},
 	"scripts": {
-		"dev": "vite --config ./demo/vite.config.ts",
-		"build": "rimraf dist && tsc --project ./src/tsconfig.json"
+		"build": "rimraf dist && tsc --project ./src/tsconfig.json",
+		"dev": "vite --config ./demo/vite.config.ts"
 	},
 	"dependencies": {
 		"lightningcss": "^1.29.3",
@@ -34,5 +29,8 @@
 	"devDependencies": {
 		"lit": "^3.3.0",
 		"vite": "^7.0.0"
+	},
+	"engines": {
+		"node": ">=22"
 	}
 }

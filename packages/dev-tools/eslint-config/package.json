@@ -1,9 +1,9 @@
 {
 	"name": "@arcmantle/eslint-config",
 	"version": "1.0.0",
-	"author": "Kristoffer Roen-Lie",
-	"license": "Apache-2.0",
 	"description": "eslint config preferences.",
+	"license": "Apache-2.0",
+	"author": "Kristoffer Roen-Lie",
 	"type": "module",
 	"main": "index.js",
 	"types": "index.d.ts",

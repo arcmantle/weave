@@ -1,35 +1,36 @@
 {
 	"name": "@arcmantle/image-viewer",
-	"description": "Image viewer web component based on web-worker canvas image manipulation.",
-	"authors": "Kristoffer Roen-Lie",
 	"version": "1.0.0",
-	"type": "module",
-	"types": "./dist/image-viewer.d.ts",
-	"main": "./dist/image-viewer.js",
+	"description": "Image viewer web component based on web-worker canvas image manipulation.",
+	"license": "Apache-2.0",
+	"author": "Kristoffer Roen-Lie",
 	"sideEffects": false,
+	"type": "module",
+	"exports": {
+		".": "./dist/image-viewer.js"
+	},
+	"main": "./dist/image-viewer.js",
+	"types": "./dist/image-viewer.d.ts",
 	"files": [
 		"dist",
 		"src"
 	],
-	"exports": {
-		".": "./dist/image-viewer.js"
-	},
 	"scripts": {
-		"dev": "vite --config ./demo/vite.config.ts",
 		"build": "pnpm run --sequential \"/^build::.*/\"",
-		"build::ts": "tsc --project ./src/tsconfig.json",
-		"build::js": "vite build",
 		"build-demo": "vite build --config ./demo/vite.config.ts",
+		"build::js": "vite build",
+		"build::ts": "tsc --project ./src/tsconfig.json",
+		"dev": "vite --config ./demo/vite.config.ts",
 		"preview-demo": "vite preview --config ./demo/vite.config.ts"
 	},
 	"dependencies": {
-		"@arcmantle/library": "^1.0.0",
 		"@arcmantle/adapter-element": "^1.0.0",
+		"@arcmantle/library": "^1.0.0",
 		"lit-html": "^3.3.0",
 		"tslib": "^2.8.1"
 	},
 	"devDependencies": {
-		"@arcmantle/vite-lib-config": "^1.0.0",
-		"@arcmantle/lit-jsx": "^1.0.0"
+		"@arcmantle/lit-jsx": "^1.0.0",
+		"@arcmantle/vite-lib-config": "^1.0.0"
 	}
 }

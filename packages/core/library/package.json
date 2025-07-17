@@ -3,12 +3,9 @@
 	"version": "1.0.0",
 	"description": "A versatile collection of TypeScript helper functions and utilities",
 	"license": "Apache-2.0",
-	"author": {
-		"name": "Kristoffer Roen-Lie"
-	},
+	"author": "Kristoffer Roen-Lie",
+	"sideEffects": false,
 	"type": "module",
-	"types": "./dist/index.d.ts",
-	"main": "./dist/index.js",
 	"exports": {
 		"./animation": "./dist/animation/index.js",
 		"./array": "./dist/array/index.js",
@@ -28,7 +25,8 @@
 		"./indexdb": "./dist/indexdb/index.js",
 		"./canvas": "./dist/canvas/index.js"
 	},
-	"sideEffects": false,
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
 	"files": [
 		"dist",
 		"src",

@@ -1,20 +1,19 @@
 {
 	"name": "@arcmantle/poe2builder",
-	"description": "description",
-	"authors": "author",
 	"version": "1.0.0",
+	"description": "description",
 	"type": "module",
 	"main": "pathToMain",
 	"scripts": {
-		"dev": "vite",
 		"build": "vite build",
+		"dev": "vite",
 		"firebase-deploy": "firebase deploy --only hosting"
 	},
 	"dependencies": {
+		"@arcmantle/adapter-element": "workspace:^",
+		"@arcmantle/library": "workspace:^",
 		"@codemirror/lang-json": "^6.0.1",
 		"@codemirror/view": "^6.36.5",
-		"@arcmantle/library": "workspace:^",
-		"@arcmantle/adapter-element": "workspace:^",
 		"@supabase/supabase-js": "^2.49.4",
 		"cm6-theme-basic-dark": "^0.2.0",
 		"codemirror": "^6.0.1",
@@ -25,5 +24,6 @@
 	"devDependencies": {
 		"@types/body-parser": "^1.19.5",
 		"body-parser": "^2.2.0"
-	}
+	},
+	"authors": "author"
 }

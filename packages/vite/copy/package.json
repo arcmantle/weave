@@ -3,21 +3,16 @@
 	"version": "1.0.0",
 	"description": "Copies files during vite build.",
 	"license": "Apache-2.0",
-	"author": {
-		"name": "Kristoffer Roen-Lie"
-	},
+	"author": "Kristoffer Roen-Lie",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
 	"files": [
 		"dist",
 		"src",
 		"client.d.ts",
 		"README.md"
 	],
-	"engines": {
-		"node": ">=22"
-	},
-	"type": "module",
-	"types": "./dist/index.d.ts",
-	"main": "./dist/index.js",
 	"scripts": {
 		"build": "rimraf dist && tsc --project ./src/tsconfig.json"
 	},
@@ -28,5 +23,8 @@
 	"devDependencies": {
 		"@types/fs-extra": "^11.0.4",
 		"vite": "^7.0.0"
+	},
+	"engines": {
+		"node": ">=22"
 	}
 }

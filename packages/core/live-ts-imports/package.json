@@ -2,16 +2,14 @@
 	"name": "@arcmantle/live-ts-imports",
 	"version": "1.0.0",
 	"description": "Opinionated typescript live compiler of client side files.",
-	"author": {
-		"name": "Kristoffer Roen-Lie"
-	},
 	"license": "Apache-2.0",
+	"author": "Kristoffer Roen-Lie",
 	"type": "module",
-	"types": "./dist/index.d.ts",
-	"main": "./dist/index.js",
 	"exports": {
 		".": "./dist/index.js"
 	},
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
 	"scripts": {
 		"build": "rimraf dist && tsc --project ./src/tsconfig.json"
 	},
@@ -23,12 +21,12 @@
 		"typescript": "^5.8.3",
 		"ws": "^8.18.1"
 	},
-	"peerDependencies": {
-		"express": "^4.19.2"
-	},
 	"devDependencies": {
 		"@types/express": "^5.0.1",
 		"@types/parseurl": "^1.3.3",
 		"@types/ws": "^8.18.1"
+	},
+	"peerDependencies": {
+		"express": "^4.19.2"
 	}
 }

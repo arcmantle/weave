@@ -2,28 +2,25 @@
 	"name": "@arcmantle/lit-router",
 	"version": "1.0.0",
 	"description": "",
-	"author": {
-		"name": "Kristoffer Roen-Lie",
-		"url": "https://github.com/arcmantle"
-	},
+	"author": "Kristoffer Roen-Lie",
 	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.js",
+			"default": "./dist/index.js"
+		}
+	},
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
 	"files": [
 		"dist"
 	],
 	"scripts": {
-		"dev": "vite",
 		"build": "pnpm build:prepare && pnpm build:index && pnpm build:types && vite build",
-		"build:prepare": "rimraf dist",
 		"build:index": "pkg-toolbox build-indexes",
-		"build:types": "tsc --project ./src/tsconfig.json"
-	},
-	"exports": {
-		".": {
-			"types": "./dist/index.d.js",
-			"default": "./dist/index.js"
-		}
+		"build:prepare": "rimraf dist",
+		"build:types": "tsc --project ./src/tsconfig.json",
+		"dev": "vite"
 	},
 	"dependencies": {
 		"@arcmantle/library": "workspace:^",

@@ -1,35 +1,27 @@
 {
 	"name": "@arcmantle/planner-client",
 	"version": "1.0.0",
-	"description": "Spiritual successor to Absence.",
 	"private": true,
+	"description": "Spiritual successor to Absence.",
+	"license": "Apache-2.0",
+	"author": "Kristoffer Roen-Lie",
+	"type": "module",
 	"main": "./dist/lib/index.js",
 	"typings": "./dist/lib/index.d.ts",
-	"type": "module",
 	"scripts": {
-		"dev": "vite",
 		"build": "vite build",
+		"dev": "vite",
 		"typecheck": "tsc --project ./src/tsconfig.json"
 	},
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/Rotul-Solutions/planner-client.git"
-	},
-	"author": "Rotul Solutions",
-	"license": "ISC",
-	"bugs": {
-		"url": "https://github.com/Rotul-Solutions/planner-client/issues"
-	},
-	"homepage": "https://github.com/Rotul-Solutions/planner-client#readme",
 	"dependencies": {
-		"@floating-ui/dom": "^1.6.13",
-		"@lit-labs/context": "^0.5.1",
-		"@lukeed/uuid": "^2.0.1",
 		"@arcmantle/library": "workspace:^",
 		"@arcmantle/lit-router": "workspace:^",
 		"@arcmantle/lit-utilities": "workspace:^",
 		"@arcmantle/planner-entities": "workspace:^",
 		"@arcmantle/reflect-metadata": "workspace:^",
+		"@floating-ui/dom": "^1.6.13",
+		"@lit-labs/context": "^0.5.1",
+		"@lukeed/uuid": "^2.0.1",
 		"deepmerge-ts": "^7.1.5",
 		"fast-equals": "^5.2.2",
 		"inversify": "^7.5.0",

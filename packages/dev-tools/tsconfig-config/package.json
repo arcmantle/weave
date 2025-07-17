@@ -1,26 +1,26 @@
 {
 	"name": "@arcmantle/tsconfig",
 	"version": "1.0.0",
-	"author": "Kristoffer Roen-Lie",
-	"license": "Apache-2.0",
 	"description": "tsconfig with convenient defaults.",
-	"type": "module",
-	"exports": {
-		".": "./tsconfig.dev.json",
-		"./build": "./tsconfig.build.json"
-	},
-	"scripts": {
-		"build": "exit 0"
-	},
-	"files": [
-		"tsconfig.dev.json",
-		"tsconfig.build.json"
-	],
 	"keywords": [
 		"tsconfig",
 		"typescript",
 		"ts",
 		"config",
 		"configuration"
-	]
+	],
+	"license": "Apache-2.0",
+	"author": "Kristoffer Roen-Lie",
+	"type": "module",
+	"exports": {
+		".": "./tsconfig.dev.json",
+		"./build": "./tsconfig.build.json"
+	},
+	"files": [
+		"tsconfig.dev.json",
+		"tsconfig.build.json"
+	],
+	"scripts": {
+		"build": "exit 0"
+	}
 }

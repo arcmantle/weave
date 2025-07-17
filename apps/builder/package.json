@@ -1,8 +1,8 @@
 {
 	"name": "name",
-	"description": "description",
-	"authors": "author",
 	"version": "1.0.0",
+	"description": "description",
+	"author": "Kristoffer Roen-Lie",
 	"type": "module",
 	"main": "pathToMain",
 	"dependencies": {

@@ -2,50 +2,43 @@
 	"name": "@arcmantle/elements",
 	"version": "1.0.0",
 	"description": "Standalone custom elements created with LIT",
-	"license": "Apache-2.0",
-	"author": {
-		"name": "Kristoffer Roen-Lie",
-		"url": "https://github.com/arcmantle"
-	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/arcmantle/mimic.git"
+		"url": "git+https://github.com/arcmantle/elements.git"
 	},
-	"bugs": {
-		"url": "https://github.com/arcmantle/mimic/issues"
+	"license": "Apache-2.0",
+	"author": "Kristoffer Roen-Lie",
+	"type": "module",
+	"exports": {
+		"./*": "./dist/*"
 	},
-	"homepage": "https://github.com/arcmantle/mimic#readme",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
 	"files": [
 		"dist",
 		"src"
 	],
-	"type": "module",
-	"types": "./dist/index.d.ts",
-	"main": "./dist/index.js",
-	"exports": {
-		"./*": "./dist/*"
-	},
 	"scripts": {
-		"dev": "vite --config ./docs/vite.config.ts",
 		"build": "pnpm build:prepare && pnpm build:index && pnpm build:types && vite build",
-		"build:prepare": "rimraf dist",
 		"build:index": "pkg-toolbox build-indexes",
+		"build:prepare": "rimraf dist",
 		"build:types": "tsc --project ./src/tsconfig.json",
+		"dev": "vite --config ./docs/vite.config.ts",
 		"typecheck": "tsc --project ./tsconfig.json"
 	},
 	"dependencies": {
-		"@floating-ui/dom": "^1.6.13",
 		"@arcmantle/library": "workspace:^",
 		"@arcmantle/lit-localize": "workspace:^",
 		"@arcmantle/lit-utilities": "workspace:^",
+		"@floating-ui/dom": "^1.6.13",
 		"lit": "^3.3.0",
 		"tslib": "^2.8.1"
 	},
 	"devDependencies": {
-		"@faker-js/faker": "^9.7.0",
 		"@arcmantle/elements": "workspace:^",
 		"@arcmantle/mirage-docs": "workspace:^",
 		"@arcmantle/vite-lib-config": "workspace:^",
-		"@arcmantle/vite-plugin-import-css-sheet": "workspace:^"
+		"@arcmantle/vite-plugin-import-css-sheet": "workspace:^",
+		"@faker-js/faker": "^9.7.0"
 	}
 }

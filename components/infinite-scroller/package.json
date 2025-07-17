@@ -1,24 +1,24 @@
 {
 	"name": "@arcmantle/infinite-scroller",
-	"description": "Infinite scroller base component.",
-	"authors": "Kristoffer Roen-Lie",
 	"version": "1.0.0",
-	"type": "module",
-	"types": "./dist/infinite-scroller.d.ts",
-	"main": "./dist/infinite-scroller.js",
+	"description": "Infinite scroller base component.",
+	"author": "Kristoffer Roen-Lie",
 	"sideEffects": false,
+	"type": "module",
+	"exports": {
+		".": "./dist/infinite-scroller.js"
+	},
+	"main": "./dist/infinite-scroller.js",
+	"types": "./dist/infinite-scroller.d.ts",
 	"files": [
 		"dist",
 		"src"
 	],
-	"exports": {
-		".": "./dist/infinite-scroller.js"
-	},
 	"scripts": {
-		"dev": "vite --config ./demo/vite.config.ts",
 		"build": "pnpm run --sequential \"/^build::.*/\"",
+		"build::js": "vite build",
 		"build::ts": "tsc --project ./src/tsconfig.json",
-		"build::js": "vite build"
+		"dev": "vite --config ./demo/vite.config.ts"
 	},
 	"dependencies": {
 		"@arcmantle/library": "^1.0.0",

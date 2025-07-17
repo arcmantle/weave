@@ -2,12 +2,13 @@
 	"name": "@arcmantle/esplot",
 	"version": "1.0.0",
 	"description": "Experimental data visualization library with TypeScript API and native desktop viewer",
-	"author": {
-		"name": "Kristoffer Roen-Lie"
-	},
+	"author": "Kristoffer Roen-Lie",
 	"type": "module",
-	"types": "./dist/index.d.ts",
+	"exports": {
+		".": "./dist/index.js"
+	},
 	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
 	"files": [
 		"bin",
 		"dist",
@@ -17,12 +18,9 @@
 	],
 	"scripts": {
 		"build": "rimraf dist bin && pnpm run --sequential \"/^build-.*/\"",
-		"build-ts": "tsc --project ./src/tsconfig.json",
 		"build-go-deps": "cd viewer-go && go mod download",
+		"build-ts": "tsc --project ./src/tsconfig.json",
 		"build-viewer-macos": "cd viewer-go && go build -o ../bin/esplotv-arm64 ."
-	},
-	"exports": {
-		".": "./dist/index.js"
 	},
 	"dependencies": {
 		"chart.js": "^4.4.9",

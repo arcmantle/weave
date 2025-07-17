@@ -1,13 +1,13 @@
 {
-	"private": true,
 	"name": "weave-workspace",
+	"private": true,
 	"type": "module",
 	"scripts": {
 		"build": "pnpm build-package",
-		"release": "pnpm build-package --release",
+		"clean-all": "rimraf --glob **/node_modules **/dist",
 		"clean-dist": "rimraf --glob **/dist",
 		"clean-node": "rimraf --glob **/node_modules",
-		"clean-all": "rimraf --glob **/node_modules **/dist"
+		"release": "pnpm build-package --release"
 	},
 	"devDependencies": {
 		"@arcmantle/build-package": "workspace:^",
@@ -42,7 +42,11 @@
 			"@arcmantle/vite-lib-config": "workspace:^",
 			"@arcmantle/vite-plugin-copy": "workspace:^",
 			"@arcmantle/mirage-mde-display": "workspace:^",
-			"@arcmantle/adapter-element": "workspace:^"
+			"@arcmantle/adapter-element": "workspace:^",
+			"@arcmantle/elements": "workspace:^",
+			"@arcmantle/lit-utilities": "workspace:^",
+			"@arcmantle/posix-path-browser": "workspace:^",
+			"@arcmantle/vite-plugin-import-css-sheet": "workspace:^"
 		}
 	}
 }

@@ -2,36 +2,26 @@
 	"name": "@arcmantle/lit-state-store",
 	"version": "1.0.0",
 	"description": "State store primarily for use with LIT web components.",
-	"author": {
-		"name": "Kristoffer Roen-Lie",
-		"url": "https://github.com/arcmantle"
-	},
 	"license": "Apache-2.0",
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/arcmantle/mimic.git"
-	},
-	"bugs": {
-		"url": "https://github.com/arcmantle/mimic/issues"
-	},
-	"homepage": "https://github.com/arcmantle/mimic#readme",
+	"author": "Kristoffer Roen-Lie",
+	"sideEffects": false,
 	"type": "module",
-	"types": "./dist/index.d.ts",
-	"main": "./dist/index.js",
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",
 			"default": "./dist/index.js"
 		}
 	},
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
 	"scripts": {
+		"build": "pnpm build:prepare && pnpm build:index && pnpm build:types && vite build",
+		"build:index": "pkg-toolbox build-indexes",
+		"build:prepare": "rimraf dist",
+		"build:types": "tsc --project ./src/tsconfig.json",
 		"dev": "vite --config ./demo/vite.config.ts",
 		"test": "vitest",
-		"test:dom": "vitest --dom",
-		"build": "pnpm build:prepare && pnpm build:index && pnpm build:types && vite build",
-		"build:prepare": "rimraf dist",
-		"build:index": "pkg-toolbox build-indexes",
-		"build:types": "tsc --project ./src/tsconfig.json"
+		"test:dom": "vitest --dom"
 	},
 	"dependencies": {
 		"@arcmantle/library": "workspace:^",
@@ -39,6 +29,5 @@
 	},
 	"devDependencies": {
 		"@arcmantle/vite-lib-config": "workspace:^"
-	},
-	"sideEffects": false
+	}
 }

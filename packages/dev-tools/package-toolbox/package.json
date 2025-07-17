@@ -3,7 +3,17 @@
 	"version": "1.0.0",
 	"description": "Utilities for typescript/javascript packages",
 	"license": "Apache-2.0",
-	"homepage": "https://github.com/arcmantle/package-toolbox#readme",
+	"author": "Kristoffer Roen-Lie",
+	"type": "module",
+	"exports": {
+		"./toolbox": "./src/toolbox/define-toolbox.ts",
+		"./index-builder": "./src/index-builder/index.ts"
+	},
+	"main": "./src/index.ts",
+	"types": "./src/index.ts",
+	"bin": {
+		"pkg-toolbox": "./bin/index.ts"
+	},
 	"files": [
 		"bin",
 		"dist",
@@ -11,34 +21,11 @@
 		"package.json",
 		"README.md"
 	],
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/arcmantle/package-toolbox.git"
-	},
-	"author": {
-		"name": "Kristoffer Roen-Lie",
-		"email": "KristofferRoenLie@gmail.com"
-	},
-	"bugs": {
-		"url": "https://github.com/arcmantle/package-toolbox/issues"
-	},
-	"bin": {
-		"pkg-toolbox": "./bin/index.ts"
-	},
-	"engines": {
-		"node": ">=22"
-	},
-	"type": "module",
-	"types": "./src/index.ts",
-	"main": "./src/index.ts",
-	"exports": {
-		"./toolbox": "./src/toolbox/define-toolbox.ts",
-		"./index-builder": "./src/index-builder/index.ts"
-	},
 	"scripts": {
 		"build": "tsc --project ./src/tsconfig.json"
 	},
 	"dependencies": {
+		"@arcmantle/vite-plugin-copy": "^1.0.0",
 		"deepmerge-ts": "^7.1.5",
 		"fs-extra": "^11.3.0",
 		"globby": "^14.1.0",
@@ -46,13 +33,15 @@
 		"tslib": "^2.8.1",
 		"typescript": "^5.8.3",
 		"vite": "^6.3.0",
-		"yargs": "^17.7.2",
-		"@arcmantle/vite-plugin-copy": "^1.0.0"
+		"yargs": "^17.7.2"
 	},
 	"devDependencies": {
 		"@arcmantle/vite-lib-config": "^1.0.0",
 		"@types/fs-extra": "^11.0.4",
 		"@types/semver": "^7.7.0",
 		"@types/yargs": "^17.0.33"
+	},
+	"engines": {
+		"node": ">=22"
 	}
 }

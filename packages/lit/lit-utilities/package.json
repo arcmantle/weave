@@ -2,22 +2,9 @@
 	"name": "@arcmantle/lit-utilities",
 	"version": "1.0.0",
 	"description": "Extensions and utilities for the LIT framework.",
-	"author": {
-		"name": "Kristoffer Roen-Lie",
-		"url": "https://github.com/arcmantle"
-	},
 	"license": "Apache-2.0",
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/arcmantle/mimic.git"
-	},
-	"bugs": {
-		"url": "https://github.com/arcmantle/mimic/issues"
-	},
-	"homepage": "https://github.com/arcmantle/mimic#readme",
+	"author": "Kristoffer Roen-Lie",
 	"type": "module",
-	"types": "./dist/index-fallback.d.ts",
-	"main": "./dist/index-fallback.js",
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",
@@ -48,17 +35,19 @@
 			"default": "./dist/element/index.js"
 		}
 	},
+	"main": "./dist/index-fallback.js",
+	"types": "./dist/index-fallback.d.ts",
 	"scripts": {
-		"test": "vitest",
-		"test:dom": "vitest --dom",
 		"build": "pnpm build:prepare && pnpm build:index && pnpm build:types && vite build",
-		"build:prepare": "rimraf dist",
 		"build:index": "pkg-toolbox build-indexes",
-		"build:types": "tsc --project ./src/tsconfig.json"
+		"build:prepare": "rimraf dist",
+		"build:types": "tsc --project ./src/tsconfig.json",
+		"test": "vitest",
+		"test:dom": "vitest --dom"
 	},
 	"dependencies": {
-		"@floating-ui/dom": "^1.6.13",
 		"@arcmantle/library": "workspace:^",
+		"@floating-ui/dom": "^1.6.13",
 		"fast-equals": "^5.2.2",
 		"lit": "^3.3.0",
 		"nanoid": "^5.1.5",

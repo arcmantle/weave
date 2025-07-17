@@ -1,10 +1,10 @@
 {
 	"name": "@arcmantle/webgpu-convay",
-	"description": "description",
-	"authors": "author",
 	"version": "1.0.0",
-	"main": "pathToMain",
+	"description": "description",
+	"author": "author",
 	"type": "module",
+	"main": "pathToMain",
 	"dependencies": {
 		"@webgpu/types": "^0.1.60"
 	}

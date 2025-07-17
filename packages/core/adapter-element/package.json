@@ -2,31 +2,30 @@
 	"name": "@arcmantle/adapter-element",
 	"version": "1.0.0",
 	"description": "Custom element wrapper using signals and lit-html.",
-	"author": {
-		"name": "Kristoffer Roen-Lie"
-	},
+	"license": "Apache-2.0",
+	"author": "Kristoffer Roen-Lie",
+	"sideEffects": false,
 	"type": "module",
-	"types": "./dist/adapter/index.d.ts",
-	"main": "./dist/adapter/index.js",
 	"exports": {
 		"./adapter": "./dist/adapter/index.js",
 		"./shared": "./dist/shared/index.js",
 		"./router": "./dist/router/index.js",
 		"./signal": "./dist/signal/index.js"
 	},
-	"sideEffects": false,
+	"main": "./dist/adapter/index.js",
+	"types": "./dist/adapter/index.d.ts",
 	"files": [
 		"dist",
 		"src",
 		"README.md"
 	],
 	"scripts": {
-		"dev": "vite --config ./demo/vite.config.ts",
-		"build": "rimraf dist && tsc --project ./src/tsconfig.json"
+		"build": "rimraf dist && tsc --project ./src/tsconfig.json",
+		"dev": "vite --config ./demo/vite.config.ts"
 	},
 	"dependencies": {
-		"@arcmantle/library": "^1.0.0",
 		"@arcmantle/injector": "^1.0.0",
+		"@arcmantle/library": "^1.0.0",
 		"lit-html": "^3.3.0",
 		"signal-polyfill": "^0.2.2",
 		"tslib": "^2.8.1",

@@ -2,31 +2,28 @@
 	"name": "@arcmantle/morph-client",
 	"version": "1.0.0",
 	"description": "Morph Client",
-	"author": {
-		"name": "Kristoffer Roen-Lie",
-		"url": "https://github.com/arcmantle"
-	},
 	"license": "Apache-2.0",
+	"author": "Kristoffer Roen-Lie",
 	"type": "module",
-	"types": "./dist/index.d.ts",
-	"main": "./dist/index.js",
 	"exports": {
 		".": "./dist/index.js",
 		"./*": "./dist/*"
 	},
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
 	"scripts": {
-		"dev": "vite",
-		"build": "rimraf dist && vite build"
+		"build": "rimraf dist && vite build",
+		"dev": "vite"
 	},
 	"dependencies": {
-		"@faker-js/faker": "^9.7.0",
-		"@floating-ui/dom": "^1.6.13",
-		"@lit-labs/preact-signals": "^1.0.3",
-		"@arcmantle/library": "workspace:^",
 		"@arcmantle/elements": "workspace:^",
+		"@arcmantle/library": "workspace:^",
 		"@arcmantle/lit-context": "workspace:^",
 		"@arcmantle/lit-state-store": "workspace:^",
 		"@arcmantle/lit-utilities": "workspace:^",
+		"@faker-js/faker": "^9.7.0",
+		"@floating-ui/dom": "^1.6.13",
+		"@lit-labs/preact-signals": "^1.0.3",
 		"lit": "^3.3.0",
 		"monaco-editor": "^0.52.2",
 		"socket.io-client": "^4.8.1",

@@ -1,20 +1,20 @@
 {
 	"name": "@arcmantle/ferrite-server",
-	"description": "description",
-	"authors": "author",
 	"version": "1.0.0",
+	"description": "description",
+	"author": "author",
 	"type": "module",
-	"main": "./src/server.ts",
 	"exports": {
 		".": "./src/server.ts",
 		"./*": "./src/*"
 	},
+	"main": "./src/server.ts",
 	"scripts": {
 		"dev": "tsx watch src/server.ts"
 	},
 	"dependencies": {
-		"@arcmantle/library": "workspace:^",
 		"@arcmantle/ferrite-server": "file:",
+		"@arcmantle/library": "workspace:^",
 		"better-sqlite3": "^11.9.1",
 		"cors": "^2.8.5",
 		"dotenv": "^16.5.0",

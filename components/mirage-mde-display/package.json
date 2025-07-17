@@ -1,15 +1,15 @@
 {
-	"version": "1.0.0",
 	"name": "@arcmantle/mirage-mde-display",
+	"version": "1.0.0",
 	"description": "",
-	"author": "Kristoffer Roen-Lie",
 	"license": "Apache-2.0",
+	"author": "Kristoffer Roen-Lie",
 	"type": "module",
-	"types": "./dist/mirage-mde-display.d.ts",
-	"main": "./dist/mirage-mde-display.js",
 	"exports": {
 		".": "./dist/mirage-mde-display.js"
 	},
+	"main": "./dist/mirage-mde-display.js",
+	"types": "./dist/mirage-mde-display.d.ts",
 	"files": [
 		"dist",
 		"src",
@@ -17,8 +17,8 @@
 		"README.md"
 	],
 	"scripts": {
-		"dev": "vite build --watch",
 		"build": "vite build && tsc --project ./src/tsconfig.json",
+		"dev": "vite build --watch",
 		"typecheck": "tsc --project ./src/tsconfig.json --noEmit --emitDeclarationOnly false"
 	},
 	"dependencies": {

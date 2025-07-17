@@ -2,24 +2,21 @@
 	"name": "@arcmantle/reflect-metadata",
 	"version": "1.0.0",
 	"description": "Lightweight, partial implementation of TC39 Reflect Metadata proposal with function-activated shim",
-	"author": {
-		"name": "Kristoffer Roen-Lie",
-		"url": "https://github.com/arcmantle"
-	},
 	"license": "Apache-2.0",
+	"author": "Kristoffer Roen-Lie",
+	"sideEffects": false,
+	"type": "module",
+	"exports": {
+		".": "./dist/index.js"
+	},
 	"files": [
 		"dist",
 		"src",
 		"package.json",
 		"readme.md"
 	],
-	"type": "module",
-	"exports": {
-		".": "./dist/index.js"
-	},
 	"scripts": {
-		"test": "vitest --run",
-		"build": "rimraf dist && tsc --project ./src/tsconfig.json"
-	},
-	"sideEffects": false
+		"build": "rimraf dist && tsc --project ./src/tsconfig.json",
+		"test": "vitest --run"
+	}
 }

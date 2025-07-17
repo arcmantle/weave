@@ -2,12 +2,10 @@
 	"name": "@arcmantle/lit-fabric",
 	"version": "1.0.0",
 	"description": "React hooks syntax for LIT",
-	"author": {
-		"name": "Kristoffer Roen-Lie",
-		"url": "https://github.com/arcmantle"
-	},
-	"license": "Apache-2.0",
 	"keywords": [],
+	"license": "Apache-2.0",
+	"author": "Kristoffer Roen-Lie",
+	"sideEffects": false,
 	"type": "module",
 	"exports": {
 		"./hooks": "./dist/hooks/index.js",
@@ -26,6 +24,5 @@
 	"devDependencies": {
 		"@arcmantle/mirage-docs": "workspace:^",
 		"@arcmantle/vite-lib-config": "workspace:^"
-	},
-	"sideEffects": false
+	}
 }

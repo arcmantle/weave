@@ -2,14 +2,10 @@
 	"name": "@arcmantle/lit-localize",
 	"version": "1.0.0",
 	"description": "A lightweight and reactive localization package, with a focus on use with LIT web components.",
-	"author": {
-		"name": "Kristoffer Roen-Lie",
-		"url": "https://github.com/arcmantle"
-	},
 	"license": "Apache-2.0",
+	"author": "Kristoffer Roen-Lie",
+	"sideEffects": false,
 	"type": "module",
-	"types": "./dist/index.d.ts",
-	"main": "./dist/index.ts",
 	"exports": {
 		"./core": {
 			"types": "./dist/core/index.d.ts",
@@ -32,26 +28,27 @@
 			"default": "./dist/index.js"
 		}
 	},
+	"main": "./dist/index.ts",
+	"types": "./dist/index.d.ts",
 	"scripts": {
-		"test": "vitest",
-		"test:dom": "vitest --dom",
 		"build": "pnpm build:prepare && pnpm build:index && pnpm build:types && vite build",
-		"build:prepare": "rimraf dist",
 		"build:index": "pkg-toolbox build-indexes",
-		"build:types": "tsc --project ./src/tsconfig.json"
-	},
-	"peerDependencies": {
-		"@lit-labs/preact-signals": "^1.0.2",
-		"lit": "^3.2.1"
+		"build:prepare": "rimraf dist",
+		"build:types": "tsc --project ./src/tsconfig.json",
+		"test": "vitest",
+		"test:dom": "vitest --dom"
 	},
 	"dependencies": {
 		"@arcmantle/library": "workspace:^"
 	},
 	"devDependencies": {
-		"@lit-labs/preact-signals": "^1.0.3",
 		"@arcmantle/vite-lib-config": "workspace:^",
+		"@lit-labs/preact-signals": "^1.0.3",
 		"happy-dom": "^17.4.4",
 		"lit": "^3.3.0"
 	},
-	"sideEffects": false
+	"peerDependencies": {
+		"@lit-labs/preact-signals": "^1.0.2",
+		"lit": "^3.2.1"
+	}
 }
