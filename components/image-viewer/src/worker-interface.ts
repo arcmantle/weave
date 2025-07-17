@@ -1,6 +1,6 @@
-type WorkerComs = Record<string, {
-	args:       Record<string, any>;
-	serialize?: any[];
+export type WorkerComs = Record<string, {
+	readonly args:       Record<string, any>;
+	readonly serialize?: readonly any[];
 }>;
 
 export type WorkerApi<T extends WorkerComs> = {
@@ -58,7 +58,7 @@ export const createWorkerProxy = <T extends WorkerComs>(
 export const createWorkerOnMessage = (
 	cls: Record<keyof any, any>,
 ) => {
-	return (ev: MessageEvent) => {
+	return (ev: MessageEvent): void => {
 		const fn = cls[ev.data.type];
 		if (typeof fn !== 'function')
 			return console.error(`Unknown message type: ${ ev.data.type }`);

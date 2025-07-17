@@ -1,70 +1,71 @@
 import { WorkerView } from '@arcmantle/library/canvas';
-import { type ImageWorkerApiInImp, type ImageWorkerApiIn, type ImageWorkerApiOut } from './worker-api.ts';
+
+import type { ImageWorkerApiIn, ImageWorkerApiInImp, ImageWorkerApiOut } from './worker-api.ts';
 import { createPostMessage, createWorkerOnMessage } from './worker-interface.ts';
 
 
 class ImageWorker implements ImageWorkerApiInImp {
 
-	public onmessage = createWorkerOnMessage(this);
+	onmessage = createWorkerOnMessage(this);
 	protected post = createPostMessage<ImageWorkerApiOut>();
 	protected view:   WorkerView;
 	protected bitmap: ImageBitmap | undefined;
 
 
 	//#region API
-	public initialize(data: ImageWorkerApiIn['initialize']['args']) {
+	initialize(data: ImageWorkerApiIn['initialize']['args']) {
 		this.view = new WorkerView(data.canvas);
 	}
 
-	public setSize(data: ImageWorkerApiIn['setSize']['args']) {
+	setSize(data: ImageWorkerApiIn['setSize']['args']) {
 		this.view.setCanvasSize(data.width, data.height);
 		this.draw();
 	}
 
-	public scaleAt(data: ImageWorkerApiIn['scaleAt']['args']) {
+	scaleAt(data: ImageWorkerApiIn['scaleAt']['args']) {
 		this.view.scaleAt(data.vec, data.factor);
 		this.draw();
 	}
 
-	public moveTo(data: ImageWorkerApiIn['moveTo']['args']) {
+	moveTo(data: ImageWorkerApiIn['moveTo']['args']) {
 		this.view.moveTo(data.x, data.y);
 		this.draw();
 	}
 
-	public setImage(data: ImageWorkerApiIn['setImage']['args']) {
+	setImage(data: ImageWorkerApiIn['setImage']['args']) {
 		this.bitmap = data.image;
 		this.view.setImage(data.image);
 		this.view.centerImage();
 		this.draw();
 	}
 
-	public clearImage(_data: ImageWorkerApiIn['clearImage']['args']) {
+	clearImage(_data: ImageWorkerApiIn['clearImage']['args']) {
 		this.bitmap = undefined;
 		this.view.setImage(undefined);
 		this.draw();
 	}
 
-	public reset(_data: ImageWorkerApiIn['reset']['args']) {
+	reset(_data: ImageWorkerApiIn['reset']['args']) {
 		this.view.reset();
 		this.draw();
 	}
 
-	public fitToView(_data: ImageWorkerApiIn['fitToView']['args']) {
+	fitToView(_data: ImageWorkerApiIn['fitToView']['args']) {
 		this.view.fitToView();
 		this.draw();
 	}
 
-	public rotate(data: ImageWorkerApiIn['rotate']['args']) {
+	rotate(data: ImageWorkerApiIn['rotate']['args']) {
 		this.view.rotate(data.degrees);
 		this.draw();
 	}
 
-	public zoom(data: ImageWorkerApiIn['zoom']['args']) {
+	zoom(data: ImageWorkerApiIn['zoom']['args']) {
 		this.view.scale(data.factor);
 		this.draw();
 	}
 
-	public mousedown(data: ImageWorkerApiIn['mousedown']['args']) {
+	mousedown(data: ImageWorkerApiIn['mousedown']['args']) {
 		const event = data.event;
 
 		// Get the offset from the corner of the current view to the mouse position
@@ -80,7 +81,7 @@ class ImageWorker implements ImageWorkerApiInImp {
 		});
 	}
 
-	public touchstart(data: ImageWorkerApiIn['touchstart']['args']) {
+	touchstart(data: ImageWorkerApiIn['touchstart']['args']) {
 		const offsetX = data.touches[0]!.pageX - data.rect.left;
 		const offsetY = data.touches[0]!.pageY - data.rect.top;
 
@@ -97,7 +98,7 @@ class ImageWorker implements ImageWorkerApiInImp {
 			scale:         this.view.scaleFactor,
 		});
 	}
-	//#endregion API
+	//#endregion
 
 
 	protected draw() {

@@ -1,5 +1,5 @@
 import type { RecordOf } from '@arcmantle/library/types';
-import { type CSSResult, LitElement, type PropertyValues, css, html } from 'lit';
+import { css, type CSSResult, html, LitElement, type PropertyValues } from 'lit';
 import { query, state } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';
 
@@ -22,7 +22,7 @@ export abstract class InfiniteScroller extends LitElement {
 	@query('#fullHeight') protected fullHeightQry: HTMLElement;
 
 	#maxIndex = 1;
-	public get maxIndex(): number {
+	get maxIndex(): number {
 		return this.#maxIndex;
 	}
 
@@ -41,11 +41,11 @@ export abstract class InfiniteScroller extends LitElement {
 	protected buffers: [BufferElement, BufferElement];
 
 	#bufferSize = 0;
-	public get bufferSize(): number {
+	get bufferSize(): number {
 		return this.#bufferSize;
 	};
 
-	public set bufferSize(v: number) {
+	set bufferSize(v: number) {
 		this.#bufferSize = v;
 
 		if (this.hasUpdated)
@@ -59,7 +59,7 @@ export abstract class InfiniteScroller extends LitElement {
 	}
 
 	#itemHeight = 0;
-	public set itemHeight(v: number) {
+	set itemHeight(v: number) {
 		this.#itemHeight = v;
 
 		if (this.hasUpdated) {
@@ -69,7 +69,7 @@ export abstract class InfiniteScroller extends LitElement {
 		}
 	}
 
-	public get itemHeight(): number {
+	get itemHeight(): number {
 		if (!this.#itemHeight && this.hasUpdated) {
 			const itemHeight = getComputedStyle(this)
 				.getPropertyValue('--item-height');
@@ -101,12 +101,12 @@ export abstract class InfiniteScroller extends LitElement {
 	}
 
 	/** Current scroller position as index. Can be a fractional number. */
-	public get position(): number {
+	get position(): number {
 		return (this.scrollerQry.scrollTop - this.buffers[0]._translateY)
 			/ this.itemHeight + this.firstIndex;
 	}
 
-	public set position(index: number) {
+	set position(index: number) {
 		// Ensure the index is within bounds.
 		index = Math.max(0, Math.min(index, this.maxIndex));
 
@@ -116,7 +116,7 @@ export abstract class InfiniteScroller extends LitElement {
 	}
 
 	#availableSize = 0;
-	protected readonly resizeObserver = new ResizeObserver(this.onResize.bind(this));
+	protected readonly resizeObserver: ResizeObserver = new ResizeObserver(this.onResize.bind(this));
 	protected onResize(entries?: ResizeObserverEntry[]): boolean {
 		const entry = entries?.[0];
 		if (entry)
@@ -154,13 +154,13 @@ export abstract class InfiniteScroller extends LitElement {
 		return super.createRenderRoot();
 	}
 
-	public override connectedCallback(): void {
+	override connectedCallback(): void {
 		super.connectedCallback();
 		this.updateComplete.then(() => this.afterConnectedCallback());
 	}
 
 	#scrollRef?: () => any;
-	public afterConnectedCallback(): void {
+	afterConnectedCallback(): void {
 		this.resizeObserver.observe(this);
 		this.scrollerQry.addEventListener('scroll',
 			this.#scrollRef = this.onScroll.bind(this), { passive: true });
@@ -173,7 +173,7 @@ export abstract class InfiniteScroller extends LitElement {
 		this.buffers = [ ...bufferEls ] as typeof this.buffers;
 	}
 
-	public override disconnectedCallback(): void {
+	override disconnectedCallback(): void {
 		if (this.#scrollRef)
 			this.scrollerQry.removeEventListener('scroll', this.#scrollRef);
 
@@ -312,7 +312,7 @@ export abstract class InfiniteScroller extends LitElement {
 			this.updateElements();
 	}
 
-	public syncBufferTranslate(): boolean {
+	syncBufferTranslate(): boolean {
 		const scrollTop = this.scrollerQry.scrollTop;
 
 		let upperThresholdReached = false;
@@ -350,7 +350,7 @@ export abstract class InfiniteScroller extends LitElement {
 		return updateElements;
 	}
 
-	public forceUpdateElements(): void {
+	forceUpdateElements(): void {
 		this.buffers[0]._updated = false;
 		this.buffers[1]._updated = false;
 

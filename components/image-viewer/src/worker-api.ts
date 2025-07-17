@@ -1,37 +1,38 @@
 import type { Vec2 } from '@arcmantle/library/types';
-import { createWorkerApi, type, type TransferableMouseEvent, type TransferableTouches, type TransferableTouchEvent } from './worker-interface.ts';
+
+import type { TransferableMouseEvent, TransferableTouches, TransferableTouchEvent, WorkerComs } from './worker-interface.ts';
 
 
-export const workerApiIn = createWorkerApi({
+const _workerApiIn = {
 	initialize: {
 		args: {
-			canvas: type<OffscreenCanvas>(),
+			canvas: undefined as any as OffscreenCanvas,
 		},
-		serialize: [ type<OffscreenCanvas>() ],
+		serialize: [ undefined as any as OffscreenCanvas ],
 	},
 	setSize: {
 		args: {
-			width:  type<number>(),
-			height: type<number>(),
+			width:  undefined as any as number,
+			height: undefined as any as number,
 		},
 	},
 	scaleAt: {
 		args: {
-			vec:    type<Vec2>(),
-			factor: type<number>(),
+			vec:    undefined as any as Vec2,
+			factor: undefined as any as number,
 		},
 	},
 	moveTo: {
 		args: {
-			x: type<number>(),
-			y: type<number>(),
+			x: undefined as any as number,
+			y: undefined as any as number,
 		},
 	},
 	setImage: {
 		args: {
-			image: type<ImageBitmap>(),
+			image: undefined as any as ImageBitmap,
 		},
-		serialize: [ type<ImageBitmap>() ],
+		serialize: [ undefined as any as ImageBitmap ],
 	},
 	clearImage: {
 		args: {},
@@ -44,54 +45,55 @@ export const workerApiIn = createWorkerApi({
 	},
 	rotate: {
 		args: {
-			degrees: type<number>(),
+			degrees: undefined as any as number,
 		},
 	},
 	zoom: {
 		args: {
-			factor: type<number>(),
+			factor: undefined as any as number,
 		},
 	},
 	mousedown: {
 		args: {
-			event: type<TransferableMouseEvent>(),
+			event: undefined as any as TransferableMouseEvent,
 		},
 	},
 	touchstart: {
 		args: {
-			event:   type<TransferableTouchEvent>(),
-			touches: type<TransferableTouches[]>(),
-			rect:	   type<DOMRect>(),
+			event:   undefined as any as TransferableTouchEvent,
+			touches: undefined as any as TransferableTouches[],
+			rect:	   undefined as any as DOMRect,
 		},
 	},
-});
+} as const;
 
+export const workerApiIn: typeof _workerApiIn = _workerApiIn satisfies WorkerComs;
 export type ImageWorkerApiIn = typeof workerApiIn;
 export type ImageWorkerApiInImp = {
 	[key in keyof ImageWorkerApiIn]: (data: ImageWorkerApiIn[key]['args']) => void;
 };
 
 
-export const workerApiOut = createWorkerApi({
+const _workerApiOut = {
 	startViewMove: {
 		args: {
-			initialMouseX: type<number>(),
-			initialMouseY: type<number>(),
-			offsetX:       type<number>(),
-			offsetY:       type<number>(),
+			initialMouseX: undefined as any as number,
+			initialMouseY: undefined as any as number,
+			offsetX:       undefined as any as number,
+			offsetY:       undefined as any as number,
 		},
 	},
 	startViewTouchMove: {
 		args: {
-			initialMouseX: type<number>(),
-			initialMouseY: type<number>(),
-			offsetX:       type<number>(),
-			offsetY:       type<number>(),
-			scale:         type<number>(),
+			initialMouseX: undefined as any as number,
+			initialMouseY: undefined as any as number,
+			offsetX:       undefined as any as number,
+			offsetY:       undefined as any as number,
+			scale:         undefined as any as number,
 		},
 	},
-});
-
+} as const;
+export const workerApiOut: typeof _workerApiOut = _workerApiOut satisfies WorkerComs;
 export type ImageWorkerApiOut = typeof workerApiOut;
 export type ImageWorkerApiOutImp = {
 	[key in keyof ImageWorkerApiOut]: (data: ImageWorkerApiOut[key]['args']) => void;

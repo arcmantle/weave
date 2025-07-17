@@ -12,10 +12,7 @@
 		"src"
 	],
 	"exports": {
-		".": {
-			"types": "./dist/lib/image-viewer.d.ts",
-			"default": "./dist/lib/image-viewer.js"
-		}
+		".": "./dist/image-viewer.js"
 	},
 	"scripts": {
 		"dev": "vite --config ./demo/vite.config.ts",
@@ -26,12 +23,13 @@
 		"preview-demo": "vite preview --config ./demo/vite.config.ts"
 	},
 	"dependencies": {
-		"@arcmantle/library": "workspace:^",
-		"@arcmantle/adapter-element": "workspace:^",
+		"@arcmantle/library": "^1.0.0",
+		"@arcmantle/adapter-element": "^1.0.0",
 		"lit-html": "^3.3.0",
 		"tslib": "^2.8.1"
 	},
 	"devDependencies": {
-		"@arcmantle/vite-lib-config": "workspace:^"
+		"@arcmantle/vite-lib-config": "^1.0.0",
+		"@arcmantle/lit-jsx": "^1.0.0"
 	}
 }

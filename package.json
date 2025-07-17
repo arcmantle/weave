@@ -36,11 +36,13 @@
 			"workerd"
 		],
 		"overrides": {
+			"@arcmantle/lit-jsx": "workspace:^",
 			"@arcmantle/library": "workspace:^",
 			"@arcmantle/injector": "workspace:^",
 			"@arcmantle/vite-lib-config": "workspace:^",
 			"@arcmantle/vite-plugin-copy": "workspace:^",
-			"@arcmantle/mirage-mde-display": "workspace:^"
+			"@arcmantle/mirage-mde-display": "workspace:^",
+			"@arcmantle/adapter-element": "workspace:^"
 		}
 	}
 }

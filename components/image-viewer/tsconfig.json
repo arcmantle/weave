@@ -1,11 +1,9 @@
 {
 	"extends": "@arcmantle/tsconfig",
 	"compilerOptions": {
+		"jsx": "preserve",
+		"jsxImportSource": "@arcmantle/lit-jsx",
 		"emitDecoratorMetadata": false,
-		"experimentalDecorators": false,
-		"outDir": "./dist/lib",
-		"types": [
-			"vite/client",
-		],
+		"experimentalDecorators": false
 	},
 }

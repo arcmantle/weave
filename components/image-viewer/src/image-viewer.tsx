@@ -1,74 +1,81 @@
-import { css, CustomElement, property, type CSSStyle } from '@arcmantle/custom-element';
-import { html } from 'lit-html';
-import { createWorkerProxy, makeObjectTransferable, type TransferableWheelEvent, type WorkerApi } from './worker-interface.ts';
-import { workerApiIn, type ImageWorkerApiIn, type ImageWorkerApiOut, type ImageWorkerApiOutImp } from './worker-api.ts';
+/// <reference types="vite/client" />
+
+import { AdapterElement, property } from '@arcmantle/adapter-element/adapter';
+import { css, type CSSStyle } from '@arcmantle/adapter-element/shared';
+import { type ResolvablePromise, resolvablePromise } from '@arcmantle/library/async';
+import { type ToComponent, toComponent } from '@arcmantle/lit-jsx';
+
 import imageWorker from './image-worker.ts?worker';
-import { resolvablePromise, type ResolvablePromise } from '@arcmantle/library/async';
+import { type ImageWorkerApiIn, type ImageWorkerApiOut, type ImageWorkerApiOutImp, workerApiIn } from './worker-api.ts';
+import { createWorkerProxy, makeObjectTransferable, type TransferableWheelEvent, type WorkerApi } from './worker-interface.ts';
 
 
-export class ImageViewer extends CustomElement implements ImageWorkerApiOutImp {
+export class ImageViewerCmp extends AdapterElement implements ImageWorkerApiOutImp {
 
-	static { this.register('iv-image-viewer'); }
-
-	public static fps = 100;
-
+	static override tagName = 'iv-image-viewer';
+	static fps = 100;
 
 	//#region properties
-	protected worker:      Worker & WorkerApi<ImageWorkerApiIn>;
-	protected workerReady: ResolvablePromise<boolean> = resolvablePromise();
-	protected resizeObserver = new ResizeObserver(([ entry ]) => {
+	protected worker:         Worker & WorkerApi<ImageWorkerApiIn>;
+	protected workerReady:    ResolvablePromise<boolean> = resolvablePromise();
+	protected resizeObserver: ResizeObserver = new ResizeObserver(([ entry ]) => {
 		if (!entry)
 			return;
 
 		const { width, height } = entry.contentRect;
 		this.worker.setSize({ width, height });
 	});
-	//#endregion properties
+	//#endregion
 
 
 	//#region public-api
-	@property(String)  public accessor imageSrc: string = '';
-	@property(Boolean) public accessor resetOnNewImage: boolean = false;
-	@property(Boolean) public accessor fitOnNewImage: boolean = false;
+	@property(String)  accessor imageSrc: string = '';
+	@property(Boolean) accessor resetOnNewImage: boolean = false;
+	@property(Boolean) accessor fitOnNewImage: boolean = false;
 
-	public api = {
+	api: {
+		reset:     () => void;
+		fitToView: () => void;
+		zoom:      (factor: number) => void;
+		rotate:    (degrees: number) => void;
+	} = {
 		reset:     this.reset    .bind(this),
 		fitToView: this.fitToView.bind(this),
 		zoom:      this.zoom     .bind(this),
 		rotate:    this.rotate   .bind(this),
 	};
-	//#endregion public-api
+	//#endregion
 
 
 	//#region component-lifecycle
-	protected override connectedCallback(): void {
-		super.connectedCallback();
+	override connected(): void {
+		super.connected();
 
-		this.tabIndex = 0;
+		this.element.tabIndex = 0;
 	}
 
-	protected override afterConnected(): void {
+	override afterConnected(): void {
 		this.initializeWorker();
 	}
 
-	protected override disconnectedCallback(): void {
-		super.disconnectedCallback();
+	override disconnected(): void {
+		super.disconnected();
 
 		this.worker.terminate();
 	}
 
-	protected override async beforeUpdate(changedProps: Set<string>): Promise<void> {
+	override beforeUpdate(changedProps: Map<keyof any, any>): void {
 		super.beforeUpdate(changedProps);
 
 		if (changedProps.has('imageSrc'))
 			this.imageSrcUpdated();
 	}
-	//#endregion component-lifecycle
+	//#endregion
 
 
 	//#region logic
 	protected async initializeWorker(): Promise<void> {
-		const canvas = this.shadowRoot!
+		const canvas = this.element.shadowRoot!
 			.getElementById('image-viewer') as HTMLCanvasElement | null;
 
 		if (!canvas)
@@ -96,10 +103,10 @@ export class ImageViewer extends CustomElement implements ImageWorkerApiOutImp {
 
 		// We observe the canvas for size changes\
 		// this is done last to ensure we don't send messages before the worker is ready
-		this.resizeObserver.observe(this);
+		this.resizeObserver.observe(this.element);
 	}
 
-	protected async imageSrcUpdated() {
+	protected async imageSrcUpdated(): Promise<void> {
 		await this.workerReady;
 
 		if (!this.imageSrc)
@@ -112,54 +119,54 @@ export class ImageViewer extends CustomElement implements ImageWorkerApiOutImp {
 		this.worker.setImage({ image: imageBitmap }, [ imageBitmap ]);
 	}
 
-	protected reset() {
+	protected reset(): void {
 		this.worker.reset({});
 	}
 
-	protected fitToView() {
+	protected fitToView(): void {
 		this.worker.fitToView({});
 	}
 
-	protected zoom(factor: number) {
+	protected zoom(factor: number): void {
 		this.worker.zoom({ factor });
 	}
 
-	protected rotate(degrees: number) {
+	protected rotate(degrees: number): void {
 		this.worker.rotate({ degrees });
 	}
-	//#endregion logic
+	//#endregion
 
 
 	//#region event-handlers
-	protected onMousedown(downEv: MouseEvent) {
+	protected onMousedown(downEv: MouseEvent): void {
 		if (downEv.buttons !== 1)
 			return;
 
 		downEv.preventDefault();
-		this.focus();
+		this.element.focus();
 
 		const event = makeObjectTransferable(downEv);
 		this.worker.mousedown({ event });
 	}
 
-	protected onTouchstart(downEv: TouchEvent) {
+	protected onTouchstart(downEv: TouchEvent): void {
 		downEv.preventDefault();
-		this.focus();
+		this.element.focus();
 
 		const event = makeObjectTransferable(downEv);
 		const touches = [ ...downEv.touches ].map(touch => makeObjectTransferable(touch));
-		const rect = this.getBoundingClientRect();
+		const rect = this.element.getBoundingClientRect();
 
 		this.worker.touchstart({ event, touches, rect });
 	}
 
-	protected onMousewheel = (() => {
+	protected onMousewheel: (ev: WheelEvent) => void = (() => {
 		let lastFrameTime: number = performance.now();
 		let event: TransferableWheelEvent = undefined as any;
 
 		const fn = (currentTime: number) => {
 			const deltaTime = currentTime - lastFrameTime;
-			if (deltaTime < 1000 / ImageViewer.fps)
+			if (deltaTime < 1000 / ImageViewerCmp.fps)
 				return;
 
 			lastFrameTime = currentTime;
@@ -169,14 +176,14 @@ export class ImageViewer extends CustomElement implements ImageWorkerApiOutImp {
 			this.worker.scaleAt({ vec, factor });
 		};
 
-		return (ev: WheelEvent) => {
+		return (ev: WheelEvent): void => {
 			event = makeObjectTransferable(ev);
 			requestAnimationFrame(fn);
 		};
 	})();
 
-	public startViewMove(data: ImageWorkerApiOut['startViewMove']['args']) {
-		const rect = this.getBoundingClientRect();
+	startViewMove(data: ImageWorkerApiOut['startViewMove']['args']): void {
+		const rect = this.element.getBoundingClientRect();
 
 		// We setup the mousemove and mouseup events for panning the view
 		const mousemove = (() => {
@@ -185,7 +192,7 @@ export class ImageViewer extends CustomElement implements ImageWorkerApiOutImp {
 
 			const fn = (currentTime: number) => {
 				const deltaTime = currentTime - lastFrameTime;
-				if (deltaTime < 1000 / ImageViewer.fps)
+				if (deltaTime < 1000 / ImageViewerCmp.fps)
 					return;
 
 				lastFrameTime = currentTime;
@@ -199,6 +206,7 @@ export class ImageViewer extends CustomElement implements ImageWorkerApiOutImp {
 				ev = event; requestAnimationFrame(fn);
 			};
 		})();
+
 		const mouseup = () => {
 			removeEventListener('mousemove', mousemove);
 			removeEventListener('mouseup', mouseup);
@@ -207,8 +215,8 @@ export class ImageViewer extends CustomElement implements ImageWorkerApiOutImp {
 		addEventListener('mouseup', mouseup);
 	};
 
-	public startViewTouchMove(data: ImageWorkerApiOut['startViewTouchMove']['args']) {
-		const rect = this.getBoundingClientRect();
+	startViewTouchMove(data: ImageWorkerApiOut['startViewTouchMove']['args']): void {
+		const rect = this.element.getBoundingClientRect();
 
 		const getDistance = (touch1: Touch, touch2: Touch) => {
 			const dx = touch2.clientX - touch1.clientX;
@@ -226,7 +234,7 @@ export class ImageViewer extends CustomElement implements ImageWorkerApiOutImp {
 
 			const fn = (currentTime: number) => {
 				const deltaTime = currentTime - lastFrameTime;
-				if (deltaTime < 1000 / ImageViewer.fps)
+				if (deltaTime < 1000 / ImageViewerCmp.fps)
 					return;
 
 				lastFrameTime = currentTime;
@@ -269,6 +277,7 @@ export class ImageViewer extends CustomElement implements ImageWorkerApiOutImp {
 				ev = event; requestAnimationFrame(fn);
 			};
 		})();
+
 		const touchend = (_event: TouchEvent) => {
 			removeEventListener('touchmove', touchmove);
 			removeEventListener('touchstart', touchend);
@@ -279,26 +288,26 @@ export class ImageViewer extends CustomElement implements ImageWorkerApiOutImp {
 		addEventListener('touchstart', touchend);
 		addEventListener('touchend', touchend);
 	}
-	//#endregion event-handlers
+	//#endregion
 
 
 	//#region template
 	protected override render(): unknown {
-		return html`
-		<canvas
+		return <canvas
 			id="image-viewer"
-			@mousewheel=${ this.onMousewheel }
-			@mousedown =${ this.onMousedown }
-			@touchstart=${ this.onTouchstart }
-		></canvas>
-		`;
+			on-mousewheel={ this.onMousewheel }
+			on-mousedown ={ this.onMousedown }
+			on-touchstart={ this.onTouchstart }
+		></canvas>;
 	}
 
-	public static override styles: CSSStyle = css`
+	static override styles: CSSStyle = css`
 		:host {
 			outline: none;
 		}
 	`;
-	//#endregion template
+	//#endregion
 
 }
+
+export const ImageViewer: ToComponent<ImageViewerCmp> = toComponent(ImageViewerCmp);

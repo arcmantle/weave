@@ -1,5 +1,7 @@
 import type { PluginContainer } from '@arcmantle/injector';
 
+import type { AdapterElement } from './adapter-element.ts';
+
 
 export type PropertyType =
 	| StringConstructor
@@ -20,3 +22,6 @@ export interface AdapterMetadata {
 		reflect:  boolean;
 	}>;
 }
+
+
+export type HTMLAdapterElement<T extends AdapterElement> = HTMLElement & { adapter: T; };

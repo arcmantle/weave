@@ -1,3 +1,10 @@
 {
-	"extends": "../tsconfig.json",
+	"extends": "@arcmantle/tsconfig/build",
+	"compilerOptions": {
+		"jsx": "preserve",
+		"jsxImportSource": "@arcmantle/lit-jsx",
+		"emitDecoratorMetadata": false,
+		"experimentalDecorators": false,
+		"emitDeclarationOnly": true
+	},
 }

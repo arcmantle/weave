@@ -5,11 +5,13 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
+  '@arcmantle/lit-jsx': workspace:^
   '@arcmantle/library': workspace:^
   '@arcmantle/injector': workspace:^
   '@arcmantle/vite-lib-config': workspace:^
   '@arcmantle/vite-plugin-copy': workspace:^
   '@arcmantle/mirage-mde-display': workspace:^
+  '@arcmantle/adapter-element': workspace:^
 
 importers:
 
@@ -919,6 +921,9 @@ importers:
         specifier: ^2.8.1
         version: 2.8.1
     devDependencies:
+      '@arcmantle/lit-jsx':
+        specifier: workspace:^
+        version: link:../../packages/lit/lit-jsx
       '@arcmantle/vite-lib-config':
         specifier: workspace:^
         version: link:../../packages/vite/lib-config
