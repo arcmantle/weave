@@ -7,8 +7,11 @@
 	"exclude": [
 		"${configDir}/dist",
 		"${configDir}/node_modules",
-		"${configDir}/**/*.test.{ts,js}",
-		"${configDir}/**/*.spec.{ts,js}",
-		"${configDir}/**/*.bench.{ts,js}",
+		"${configDir}/**/*.test.ts",
+		"${configDir}/**/*.test.js",
+		"${configDir}/**/*.spec.ts",
+		"${configDir}/**/*.spec.js",
+		"${configDir}/**/*.bench.ts",
+		"${configDir}/**/*.bench.js",
 	],
 }
