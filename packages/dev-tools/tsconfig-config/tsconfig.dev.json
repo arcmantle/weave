@@ -53,7 +53,7 @@
 	],
 	"include": [
 		"${configDir}/**/*.ts",
-		"${configDir}/**/*.dts",
+		"${configDir}/**/*.d.ts",
 		"${configDir}/**/*.tsx",
 		"${configDir}/**/*.js",
 	]
