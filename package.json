@@ -15,6 +15,8 @@
 		"@arcmantle/package-toolbox": "workspace:^",
 		"@arcmantle/tsconfig": "workspace:^",
 		"@types/node": "^24.0.3",
+		"typedoc": "^0.28.7",
+		"typedoc-github-theme": "^0.3.0",
 		"typescript": "^5.8.3",
 		"vite": "^7.0.0",
 		"vitest": "^3.2.4"
