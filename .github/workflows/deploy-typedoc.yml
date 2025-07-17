@@ -1,0 +1,107 @@
+name: Deploy TypeDoc Documentation to GitHub Pages
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: 'Node.js version to use'
+        required: false
+        default: '18'
+        type: string
+      working-directory:
+        description: 'Working directory for the TypeDoc generation'
+        required: false
+        default: '.'
+        type: string
+      src-path:
+        description: 'Source path for TypeDoc (relative to working directory)'
+        required: false
+        default: 'src'
+        type: string
+      tsconfig-path:
+        description: 'Path to tsconfig.json (relative to working directory)'
+        required: false
+        default: './src/tsconfig.json'
+        type: string
+      output-path:
+        description: 'Output directory for generated docs'
+        required: false
+        default: 'docs'
+        type: string
+      extra-typedoc-options:
+        description: 'Extra TypeDoc CLI options'
+        required: false
+        default: '--entryPointStrategy expand'
+        type: string
+      install-dependencies:
+        description: 'Whether to run pnpm install'
+        required: false
+        default: true
+        type: boolean
+      build-dependencies:
+        description: 'Additional build dependencies to install'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages-${{ github.ref }}"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Install build dependencies
+        if: ${{ inputs.build-dependencies != '' }}
+        run: pnpm add -D ${{ inputs.build-dependencies }}
+
+      - name: Install TypeDoc globally
+        run: pnpm add -g typedoc typedoc-github-theme
+
+      - name: Install project dependencies
+        if: ${{ inputs.install-dependencies }}
+        run: pnpm install
+
+      - name: Generate documentation
+        run: pnpm typedoc ${{ inputs.src-path }} --tsconfig ${{ inputs.tsconfig-path }} ${{ inputs.extra-typedoc-options }} --plugin typedoc-github-theme --out ${{ inputs.output-path }}
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ inputs.working-directory }}/${{ inputs.output-path }}
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
