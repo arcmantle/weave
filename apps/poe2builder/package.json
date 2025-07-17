@@ -2,6 +2,7 @@
 	"name": "@arcmantle/poe2builder",
 	"version": "1.0.0",
 	"description": "description",
+	"author": "author",
 	"type": "module",
 	"main": "pathToMain",
 	"scripts": {
@@ -24,6 +25,5 @@
 	"devDependencies": {
 		"@types/body-parser": "^1.19.5",
 		"body-parser": "^2.2.0"
-	},
-	"authors": "author"
+	}
 }

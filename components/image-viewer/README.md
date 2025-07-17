@@ -240,7 +240,7 @@ pnpm preview-demo
 
 ## License
 
-[License information would go here]
+This project is licensed under the Apache 2.0 License - see the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0) for details.
 
 ## Related Packages
 
