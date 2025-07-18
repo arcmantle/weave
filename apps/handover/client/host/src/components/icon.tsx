@@ -1,13 +1,13 @@
-import { customElement, MimicElement } from '@arcmantle/lit-utilities/element';
-import { css, html, type PropertyValues } from 'lit';
-import { property, state } from 'lit/decorators.js';
-import { unsafeHTML } from 'lit/directives/unsafe-html.js';
+import { AdapterElement, property, state } from '@arcmantle/adapter-element/adapter';
+import { css, type CSSStyle, unsafeHTML } from '@arcmantle/adapter-element/shared';
+import { type ToComponent, toComponent } from '@arcmantle/lit-jsx';
 
-import { requestIcon } from './helpers.js';
+import { requestIcon } from './icon-helpers.ts';
 
 
-@customElement('mm-icon')
-export class MMIcon extends MimicElement {
+export class IconCmp extends AdapterElement {
+
+	static override tagName: string = 'ho-icon';
 
 	static parser: DOMParser;
 
@@ -18,19 +18,23 @@ export class MMIcon extends MimicElement {
 		svg.removeAttribute('width');
 	};
 
-	@property() url:        string;
-	@property() template:   string;
-	@state() protected svg: string;
+	@property(String) accessor url: string = '';
+	@property(String) accessor template: string = '';
+	@state() protected accessor svg: string = '';
 
-	protected override update(props: PropertyValues): void {
-		super.update(props);
+	override connected(): void {
+		super.connected();
+	}
 
-		if (props.has('url') || props.has('template'))
+	protected override beforeUpdate(changedProps: Map<keyof any, any>): void {
+		super.beforeUpdate(changedProps);
+
+		if (changedProps.has('url') || changedProps.has('template'))
 			this.setSvg();
 	}
 
 	protected async getSvg(): Promise<string> {
-		MMIcon.parser ??= new DOMParser();
+		IconCmp.parser ??= new DOMParser();
 
 		let svg = '';
 		if (this.url) {
@@ -47,12 +51,12 @@ export class MMIcon extends MimicElement {
 			return '';
 		}
 
-		const doc = MMIcon.parser.parseFromString(svg, 'text/html');
+		const doc = IconCmp.parser.parseFromString(svg, 'text/html');
 		const svgEl = doc.body.querySelector('svg');
 		if (!svgEl)
 			return '';
 
-		MMIcon.mutator(svgEl);
+		IconCmp.mutator(svgEl);
 
 		return svgEl.outerHTML;
 	}
@@ -62,15 +66,12 @@ export class MMIcon extends MimicElement {
 	}
 
 	protected override render(): unknown {
-		return html`
-		<div role="img">
-			${ unsafeHTML(this.svg) }
-		</div>
-		`;
+		return <div role="img">
+			{ unsafeHTML(this.svg) }
+		</div>;
 	}
 
-	static override styles = [
-		css`
+	static override styles: CSSStyle = css`
 		:host {
 			display: inline-grid;
 			place-items: center;
@@ -92,14 +93,10 @@ export class MMIcon extends MimicElement {
 		svg {
 			display: block;
 		}
-		`,
-	];
+	`;
 
 }
 
 
-declare global {
-	interface HTMLElementTagNameMap {
-		'mm-icon': MMIcon;
-	}
-}
+export const Icon: ToComponent<IconCmp> =
+	toComponent(IconCmp);

@@ -180,8 +180,7 @@ export class Routes implements ReactiveController {
 
 		if (this.routes.length === 0 && this.fallback === undefined) {
 			// If a routes controller has none of its own routes it acts like it has
-			// one route of `/*` so that it passes the whole pathname as a tail
-			// match.
+			// one route of `/*` so that it passes the whole pathname as a tail match.
 			tailGroup = pathname;
 			this.currentPathname = '';
 			// Simulate a tail group with the whole pathname

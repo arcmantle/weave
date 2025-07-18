@@ -17,9 +17,10 @@ export interface AdapterMetadata {
 	changedProps:       Map<keyof any, any>;
 	previousProps:      Map<keyof any, any>;
 	propertyMetadata:   Record<string, {
-		propName: string;
-		type:     PropertyType;
-		reflect:  boolean;
+		propName:      string;
+		type:          PropertyType;
+		reflect:       boolean;
+		initialValue?: any;
 	}>;
 }
 

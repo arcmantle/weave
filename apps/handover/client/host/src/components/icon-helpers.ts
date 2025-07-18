@@ -17,7 +17,7 @@ interface IncludeFile {
 
 const includeFiles: Map<string, Promise<IncludeFile>> = new Map();
 const iconFiles: Map<string, IconFile> = new Map();
-const cacheKey = 'mimic_iconcache';
+const cacheKey = 'iconCache';
 
 // Load the session storage cached icons into the iconFiles map.
 const localCache = JSON.parse(sessionStorage.getItem(cacheKey) ?? '{}');
@@ -26,11 +26,12 @@ Object.entries(localCache).forEach(([ key, value ]) => {
 });
 
 
-export const requestIcon = async (url: string) => {
+export const requestIcon = async (url: string): Promise<IconFile> => {
 	if (iconFiles.has(url))
 		return iconFiles.get(url)!;
 
 	const fileData = await requestInclude(url);
+
 	const iconFileData = {
 		ok:     fileData.ok,
 		status: fileData.status,
@@ -61,13 +62,12 @@ export const requestInclude = async (
 	if (includeFiles.has(src))
 		return includeFiles.get(src)!;
 
-	const fileDataPromise = fetch(src, { mode }).then(async response => {
-		return {
-			ok:     response.ok,
-			status: response.status,
-			html:   await response.text(),
-		};
-	});
+	const fileDataPromise = fetch(src, { mode }).then(async response => ({
+		ok:     response.ok,
+		status: response.status,
+		html:   await response.text(),
+	}));
+
 	includeFiles.set(src, fileDataPromise);
 
 	return fileDataPromise;

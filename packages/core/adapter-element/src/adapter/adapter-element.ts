@@ -3,10 +3,9 @@ import { traverseDomUp } from '@arcmantle/library/dom';
 import type { Writeable } from '@arcmantle/library/types';
 import { render, type RenderOptions } from 'lit-html';
 
-import { type CSSStyle, getFlatStyles } from '../shared/css.ts';
+import { type CSSStyle, getInheritanceFlatStyles } from '../shared/css.ts';
 import { effect } from '../shared/effect.ts';
 import type { ReactiveController, ReactiveControllerHost } from '../shared/reactive-controller.ts';
-import { getPrototypeChain } from './helpers.ts';
 import type { AdapterMetadata } from './types.ts';
 
 
@@ -24,42 +23,46 @@ export class AdapterBase extends HTMLElement {
 	constructor() {
 		super();
 
-		this.attachShadow({ mode: 'open' });
-		this.renderRoot = this.shadowRoot ?? this;
-
-		const base = this.constructor as any as typeof AdapterBase;
-		const metadata = base.adapter.metadata;
-
-		// We need to set up the adapter and the properties.
-		for (const { propName } of Object.values(metadata.propertyMetadata)) {
-			Object.defineProperty(this, propName, {
-				get(this: AdapterBase) {
-					return this.adapter?.[propName as keyof AdapterElement];
-				},
-				set(this: AdapterBase, value) {
-					(this.adapter as Record<keyof any, any>)[propName] = value;
-				},
-			});
-		}
-
-		const protoChain = getPrototypeChain(base.adapter);
-		metadata.styles = getFlatStyles('styles', protoChain);
-
-		if (this.shadowRoot)
-			this.shadowRoot.adoptedStyleSheets = metadata.styles;
-
-		if (metadata.observedAttributes)
-			this.__attrCtrl = new MutationObserver(this.observeAttributes.bind(this));
-
-		this.adapter = new base.adapter();
-		(this.adapter as any).__element = new WeakRef(this);
+		this.createRenderRoot();
 	}
 
 	readonly renderRoot: ShadowRoot | HTMLElement;
 	readonly adapter:    AdapterElement;
 
 	protected __attrCtrl: MutationObserver | undefined;
+	adapterInitialized:   boolean = false;
 	pluginContainer:      PluginContainer;
+
+	protected createRenderRoot(): void {
+		this.attachShadow({ mode: 'open' });
+		(this as Writeable<this>).renderRoot = this.shadowRoot!;
+
+		const base = this.constructor as any as typeof AdapterBase;
+		const metadata = base.adapter.metadata;
+
+		metadata.styles = getInheritanceFlatStyles('styles', base.adapter);
+		this.shadowRoot!.adoptedStyleSheets = metadata.styles;
+
+		// We need to store whatever is being assigned while the adapter is being initialized.
+
+		// We need to set up the adapter and the properties.
+		for (const prop of Object.values(metadata.propertyMetadata)) {
+			Object.defineProperty(this, prop.propName, {
+				get(this: AdapterBase) {
+					return this.adapter?.[prop.propName as keyof AdapterElement];
+				},
+				set(this: AdapterBase, value) {
+					if (!this.adapterInitialized)
+						prop.initialValue = value;
+					else
+						(this.adapter as Record<keyof any, any>)[prop.propName] = value;
+				},
+			});
+		}
+
+		if (metadata.observedAttributes)
+			this.__attrCtrl = new MutationObserver(this.observeAttributes.bind(this));
+	}
 
 	protected connectedCallback(): void {
 		// Marks this as a web component.
@@ -72,7 +75,7 @@ export class AdapterBase extends HTMLElement {
 	protected disconnectedCallback(): void { this.disconnectAdapter(); }
 
 	protected resolveContainer(): PluginContainer | Promise<PluginContainer> {
-		const container = traverseDomUp<PluginContainer>(this, (node, stop) => {
+		let container = traverseDomUp<PluginContainer>(this, (node, stop) => {
 			if (!(node instanceof AdapterBase))
 				return;
 
@@ -84,8 +87,17 @@ export class AdapterBase extends HTMLElement {
 				stop(container);
 		});
 
-		if (!container)
-			throw new Error('No plugin container found in the DOM.');
+		if (!container) {
+			const base = this.constructor as any as typeof AdapterBase;
+			const metadata = base.adapter.metadata;
+			metadata.pluginContainer = container = new PluginContainer();
+
+			console.warn(
+				'No plugin container found in the DOM, '
+				+ 'creating a new one for element:',
+				this.tagName,
+			);
+		}
 
 		return container;
 	}
@@ -94,9 +106,23 @@ export class AdapterBase extends HTMLElement {
 		const base = this.constructor as any as typeof AdapterBase;
 		const metadata = base.adapter.metadata;
 
-		// Resolve the plugin container.
-		this.pluginContainer = await this.resolveContainer();
-		base.adapter.modules.forEach(module => this.pluginContainer.load(module));
+		// One time setup of the adapter.
+		if (!this.adapterInitialized) {
+			// Resolve the plugin container.
+			this.pluginContainer = await this.resolveContainer();
+			base.adapter.modules.forEach(module => this.pluginContainer.load(module));
+
+			(this as Writeable<this>).adapter = new base.adapter();
+			(this.adapter as any).__element = new WeakRef(this);
+
+			this.adapterInitialized = true;
+
+			// Set the props that were assigned before the adapter was initialized.
+			// This is done after the initialized flag as the setter has a check to only
+			// set the value if the adapter is initialized.
+			for (const prop of Object.values(metadata.propertyMetadata))
+				(this as Record<keyof any, any>)[prop.propName] = prop.initialValue;
+		}
 
 		// Set the initial values of the attribute properties.
 		metadata.observedAttributes?.forEach(attr => {
@@ -188,26 +214,34 @@ export class AdapterElement implements ReactiveControllerHost {
 	declare ['constructor']: typeof AdapterElement;
 
 	static readonly tagName: string;
+
 	static register(): void {
 		if (globalThis.customElements.get(this.tagName))
 			return;
 
-		const adapter = this;
-
 		// We create a new class that extends the base element class.
-		// We then set the adapter property to the adapter class.
-		// During initialization of the element class, it will use this adapter.
+		// The newly created class sets the this class as the adapter.
+		const cls = this.createElementClass(this);
+
+		if (!this.tagName)
+			throw new Error('AdapterElement must have a static tagName property.');
+
+		if (!globalThis.customElements.get(this.tagName))
+			globalThis.customElements.define(this.tagName, cls);
+	}
+
+	static createElementClass(adapterClass: typeof AdapterElement): typeof AdapterBase {
 		const cls = class extends adapterBase.value {
 
-			protected static override adapter = adapter;
+			protected static override adapter = adapterClass;
 
 		};
 
 		Object.defineProperty(cls, 'name', {
-			value: this.tagName.replaceAll('-', '_'),
+			value: adapterClass.tagName.replaceAll('-', '_'),
 		});
 
-		globalThis.customElements.define(this.tagName, cls);
+		return cls;
 	}
 
 	declare static [Symbol.metadata]: AdapterMetadata;
@@ -264,11 +298,9 @@ export class AdapterElement implements ReactiveControllerHost {
 		// locking a direct reference to the instance in this scope.
 		const ref = new WeakRef(this);
 
-		// eslint-disable-next-line prefer-arrow-callback
-		this.__unsubEffect = effect(function() {
-			// We use a function to prevent `this` from the class from being captured.
-			ref.deref()?.requestUpdate();
-		});
+		// Using an external function avoids mistakenly binding the current scope
+		// into the effect, which would cause it to have issues being garbage collected.
+		this.__unsubEffect = effect(effectReaction.bind(undefined, ref));
 
 		for (const controller of this.__controllers)
 			controller.hostConnected?.();
@@ -498,3 +530,7 @@ export class AdapterElement implements ReactiveControllerHost {
 	//#endregion HTMLElement-interfaces
 
 }
+
+
+const effectReaction = (ref: WeakRef<AdapterElement>) =>
+	void ref.deref()?.requestUpdate();
