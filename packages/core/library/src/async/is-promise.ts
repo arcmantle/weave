@@ -12,8 +12,7 @@ export const resolvePromiseOrFunc = <T>(promiseOrFunc: PromiseOrFunc<T>): Promis
 	if (typeof promiseOrFunc === 'function') {
 		const returnVal = (promiseOrFunc as Promiser<T>)();
 
-		return returnVal instanceof Promise
-			? returnVal : returnVal;
+		return returnVal;
 	}
 
 	return promiseOrFunc instanceof Promise
