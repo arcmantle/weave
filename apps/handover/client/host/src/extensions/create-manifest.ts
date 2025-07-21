@@ -1,5 +1,6 @@
 import type { PluginContainer } from '@arcmantle/adapter-element/adapter';
 
+
 export const createManifest = (options: Manifest): Manifest => {
 	return options;
 };
@@ -21,45 +22,53 @@ export const resolveManifests = (container: PluginContainer): void => {
 
 	const manifestLog = container.get<Map<string, Manifest>>('manifest-log');
 	for (const manifest of manifests) {
-		if (!manifestLog.has(manifest.name)) {
-			console.log(`Registered manifest: ${ manifest.name }`);
+		if (manifestLog.has(manifest.name))
+			continue;
 
-			manifestLog.set(manifest.name, manifest);
+		console.log(`Registered manifest: ${ manifest.name }`);
 
-			manifest.activitybar.forEach((activity: ActivitybarManifest) => {
-				container.bind('activitybar').constant(activity);
-			});
+		manifestLog.set(manifest.name, manifest);
 
-			manifest.primaryPanels.forEach(panel => {
-				container.bind('primary-panel').class(panel);
-			});
-		}
+		manifest.contents.forEach((content: ContentCtor) => {
+			container.bind('content').constant(content);
+		});
 	}
 };
 
 
 export interface Manifest {
-	name:              string;
-	primaryPanels:     PrimaryPanelCtor[];
-	primarySidebars:   any[];
-	secondaryPanels:   any[];
-	secondarySidebars: any[];
-	activitybar:       any[];
-	statusbar:         any[];
+	name:      string;
+	contents:  ContentCtor[];
+	statusbar: any[];
 }
 
 
-export interface ActivitybarManifest {
-	id:    string;
-	title: string;
-	icon:  string;
+export type ContentCtor = (new () => Content) & {
+	manifest: ContentManifest;
+};
+
+
+export interface ContentManifest {
+	id:                 string;
+	defaultLocation:    ContentLocation;
+	availableLocations: ContentLocation[];
+	tab: {
+		id:      string;
+		title:   string;
+		icon:    string;
+		onClick: () => void;
+	};
 }
 
 
-export type PrimaryPanelCtor = (new () => PrimaryPanelManifest) & { id: string; };
-
-
-export interface PrimaryPanelManifest {
+export interface Content {
 	initialize: () => Promise<void> | void;
 	render:     () => unknown;
 }
+
+
+export type ContentLocation =
+	| 'editor'
+	| 'primary-sidebar'
+	| 'secondary-sidebar'
+	| 'panel';

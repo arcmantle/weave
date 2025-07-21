@@ -3,19 +3,19 @@ import { pushSearchState } from '@arcmantle/library/dom';
 import { type Content, type ContentManifest, createManifest, type Manifest } from '../create-manifest.ts';
 
 
-class ShopSheetPrimarySidebar implements Content {
+class AbsenceNavigation implements Content {
 
 	static manifest: ContentManifest = {
-		id:                 'shop-sheet-navigation',
+		id:                 'absence-navigation',
 		defaultLocation:    'primary-sidebar',
 		availableLocations: [ 'primary-sidebar', 'secondary-sidebar' ],
 		tab:                {
-			id:      'shop-sheet-navigation-tab',
-			title:   'Shop Sheet',
-			icon:    '/icons/shop-solid.svg',
+			id:      'absence-navigation-tab',
+			title:   'Absence',
+			icon:    '/icons/person-hiking-solid.svg',
 			onClick: () => {
 				const search = new URLSearchParams(location.search);
-				search.set('ps', 'shop-sheet-navigation');
+				search.set('ps', 'absence-navigation');
 
 				pushSearchState(search);
 			},
@@ -23,12 +23,11 @@ class ShopSheetPrimarySidebar implements Content {
 	};
 
 	async initialize(): Promise<void> {
-		// Initialization logic for the ShopSheet primary panel
 	}
 
 	render(): unknown {
 		return <div>
-			<h1>Shop Sheet navigation</h1>
+			<h1>Absence navigation</h1>
 			<p>This is the primary panel for the Shop Sheet extension.</p>
 		</div>;
 	}
@@ -36,8 +35,10 @@ class ShopSheetPrimarySidebar implements Content {
 }
 
 
-export const shopSheetManifest: Manifest = createManifest({
-	name:      'shop-sheet',
-	contents:  [ ShopSheetPrimarySidebar ],
+// TODO Update the manifest so that a Manifest content can be effectively in any of the sidebars or secondary panel positions.
+// We instead just need to give a default location in the class declaration of that manifest item.
+export const absenceManifest: Manifest = createManifest({
+	name:      'absence',
+	contents:  [ AbsenceNavigation ],
 	statusbar: [],
 });

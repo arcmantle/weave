@@ -3,13 +3,13 @@ import { Router } from '@arcmantle/adapter-element/router';
 import { css, type CSSStyle } from '@arcmantle/adapter-element/shared';
 import { cssreset } from '@arcmantle/handover-core/styles/css-reset.js';
 
+import { absenceManifest } from '../extensions/absence/manifest.tsx';
 import { registerManifest, resolveManifests } from '../extensions/create-manifest.ts';
 import { shopSheetManifest } from '../extensions/shop-sheet/manifest.tsx';
-import { Activitybar } from '../layout/activitybar.tsx';
-import { PrimaryPanel } from '../layout/primary-panel.tsx';
-import { PrimarySidebar } from '../layout/primary-sidebar.tsx';
-import { SecondaryPanel } from '../layout/secondary-panel.tsx';
-import { SecondarySidebar } from '../layout/secondary-sidebar.tsx';
+import { EditorArea, EditorAreaService } from '../layout/editor-area.tsx';
+import { PanelArea, PanelAreaService } from '../layout/panel-area.tsx';
+import { PrimarySidebar, PrimarySidebarService } from '../layout/primary-sidebar.tsx';
+import { SecondarySidebar, SecondarySidebarService } from '../layout/secondary-sidebar.tsx';
 import { Statusbar } from '../layout/statusbar.tsx';
 
 
@@ -19,13 +19,10 @@ export class RouterCmp extends AdapterElement {
 
 	static override modules: readonly PluginModule[] = [
 		new PluginModule(({ bind }) => {
-			bind('test')
-				.constant('Hello world')
-				.onActivation(instance => {
-					console.log('test', instance);
-
-					return instance;
-				});
+			bind('primary-sidebar').class(PrimarySidebarService);
+			bind('secondary-sidebar').class(SecondarySidebarService);
+			bind('editor-area').class(EditorAreaService);
+			bind('panel-area').class(PanelAreaService);
 		}),
 	];
 
@@ -37,10 +34,13 @@ export class RouterCmp extends AdapterElement {
 		statusbar?:        string;
 	} = {};
 
+	protected router: Router = new Router(this);
+
 	override firstConnected(): void {
 		super.firstConnected();
 
 		registerManifest(this.inject, shopSheetManifest);
+		registerManifest(this.inject, absenceManifest);
 		resolveManifests(this.inject);
 
 		Router.addNavListener(() => this.parseLayoutFromURL());
@@ -50,10 +50,6 @@ export class RouterCmp extends AdapterElement {
 		super.connected();
 
 		this.parseLayoutFromURL();
-
-		this.inject.bind('defaultSidebar').constant(<>
-			Hello I am a sidebar
-		</>);
 	}
 
 	protected parseLayoutFromURL(): void {
@@ -68,27 +64,25 @@ export class RouterCmp extends AdapterElement {
 
 	protected override render(): unknown {
 		return <>
-			<Activitybar class="activitybar"></Activitybar>
-
 			<PrimarySidebar
 				activeTemplateId={this.layoutState.primarySidebar}
 				class="primary-sidebar"
 			></PrimarySidebar>
 
-			<PrimaryPanel
+			<EditorArea
 				activeTemplateId={this.layoutState.primaryPanel}
 				class="primary-panel"
-			></PrimaryPanel>
+			></EditorArea>
 
 			<SecondarySidebar
 				activeTemplateId={this.layoutState.secondarySidebar}
 				class="secondary-sidebar"
 			></SecondarySidebar>
 
-			<SecondaryPanel
+			<PanelArea
 				activeTemplateId={this.layoutState.secondaryPanel}
 				class="secondary-panel"
-			></SecondaryPanel>
+			></PanelArea>
 
 			<Statusbar class="statusbar"></Statusbar>
 		</>;
@@ -101,27 +95,23 @@ export class RouterCmp extends AdapterElement {
 			display: grid;
 			height: 100dvh;
 
-			grid-template-columns: auto auto 1fr auto;
+			grid-template-columns: auto 1fr auto;
 			grid-template-rows: auto 1fr auto auto;
 		}
-		.activitybar {
-			grid-column: 1 / span 1;
-			grid-row: 1 / span 3;
-		}
 		.primary-panel {
-			grid-column: 3 / span 1;
+			grid-column: 2 / span 1;
 			grid-row: 2 / span 1;
 		}
 		.secondary-panel {
-			grid-column: 3 / span 2;
+			grid-column: 2 / span 2;
 			grid-row: 3 / span 1;
 		}
 		.primary-sidebar {
-			grid-column: 2 / span 1;
+			grid-column: 1 / span 1;
 			grid-row: 1 / span 3;
 		}
 		.secondary-sidebar {
-			grid-column: 4 / span 1;
+			grid-column: 3 / span 1;
 			grid-row: 2 / span 1;
 		}
 		.statusbar {
@@ -130,14 +120,6 @@ export class RouterCmp extends AdapterElement {
 		}
 
 		/* TEMP */
-		.activitybar {
-			background-color: lightblue;
-			border: 1px solid black;
-			border-left: none;
-			border-top: none;
-			border-bottom: none;
-			width: 50px;
-		}
 		.primary-panel {
 			background-color: honeydew;
 			border: 1px solid black;
@@ -151,15 +133,7 @@ export class RouterCmp extends AdapterElement {
 			border-bottom: none;
 			border-right: none;
 		}
-		.primary-sidebar {
-			background-color: lightcyan;
-			width: 200px;
-			border: 1px solid black;
-			border-left: none;
-			border-right: none;
-			border-top: none;
-			border-bottom: none;
-		}
+
 		.secondary-sidebar {
 			background-color: lightgoldenrodyellow;
 			width: 150px;

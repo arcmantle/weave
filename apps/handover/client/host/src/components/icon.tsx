@@ -100,3 +100,12 @@ export class IconCmp extends AdapterElement {
 
 export const Icon: ToComponent<IconCmp> =
 	toComponent(IconCmp);
+
+
+declare global {
+	namespace JSX {
+		interface CustomElementTags {
+			'ho-icon': JSXProps<IconCmp>;
+		}
+	}
+}

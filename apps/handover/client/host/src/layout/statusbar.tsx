@@ -7,12 +7,7 @@ export class StatusbarCmp extends AdapterElement {
 	static override tagName: string = 'ho-statusbar';
 
 	protected override render(): unknown {
-		const query = new URLSearchParams(location.search);
-		const ids = query.getAll('statusbar');
-		const templates = ids.map(id => this.inject.get(id));
-
 		return <div>
-			{templates}
 		</div>;
 	}
 
