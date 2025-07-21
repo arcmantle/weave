@@ -1,4 +1,4 @@
-import { type Signal, signal } from '@arcmantle/adapter-element/shared';
+import { css, type CSSStyle, type Signal, signal } from '@arcmantle/adapter-element/shared';
 import { type ToComponent, toComponent } from '@arcmantle/lit-jsx';
 
 import type { ContentLocation } from '../extensions/create-manifest.ts';
@@ -20,6 +20,14 @@ export class EditorAreaCmp extends ContentArea {
 			</div>
 		</>;
 	}
+
+	static override styles: CSSStyle = css`
+		:host {
+			background-color: honeydew;
+			border: 1px solid black;
+			border-top: none;
+		}
+	`;
 
 }
 

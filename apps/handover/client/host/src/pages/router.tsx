@@ -118,29 +118,6 @@ export class RouterCmp extends AdapterElement {
 			grid-column: 1 / span 4;
 			grid-row: 4 / span 1;
 		}
-
-		/* TEMP */
-		.primary-panel {
-			background-color: honeydew;
-			border: 1px solid black;
-			border-top: none;
-		}
-		/*.secondary-panel {
-			height: 100px;
-			border: 1px solid black;
-			border-top: none;
-			border-bottom: none;
-			border-right: none;
-		}*/
-		.statusbar {
-			background-color: lightgray;
-			height: 30px;
-
-			/*border: 1px solid black;*/
-			border-left: none;
-			border-right: none;
-			border-bottom: none;
-		}
 		`,
 	];
 
