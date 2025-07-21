@@ -323,6 +323,8 @@ export class AdapterElement implements ReactiveControllerHost {
 	afterConnected(): void {}
 
 	disconnected(): void {
+		this.childPart?.setConnected(false);
+
 		this.__unsubEffect?.();
 		this.__unsubEffect = undefined;
 
