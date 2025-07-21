@@ -396,7 +396,7 @@ export class AdapterElement implements ReactiveControllerHost {
 			Promise.reject(e);
 		}
 		const result = this.scheduleUpdate();
-		if (result !== undefined)
+		if (result?.then)
 			await result;
 
 		return !this.isUpdatePending;
