@@ -125,29 +125,18 @@ export class RouterCmp extends AdapterElement {
 			border: 1px solid black;
 			border-top: none;
 		}
-		.secondary-panel {
-			background-color: lavenderblush;
+		/*.secondary-panel {
 			height: 100px;
 			border: 1px solid black;
 			border-top: none;
 			border-bottom: none;
 			border-right: none;
-		}
-
-		.secondary-sidebar {
-			background-color: lightgoldenrodyellow;
-			width: 150px;
-
-			border: 1px solid black;
-			border-top: none;
-			border-right: none;
-			border-left: none;
-		}
+		}*/
 		.statusbar {
 			background-color: lightgray;
 			height: 30px;
 
-			border: 1px solid black;
+			/*border: 1px solid black;*/
 			border-left: none;
 			border-right: none;
 			border-bottom: none;

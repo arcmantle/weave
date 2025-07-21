@@ -12,6 +12,11 @@
 		padding: 0;
 	}
 
+	*:not([data-wc]) {
+		border-color: var(--border);
+		outline-color: color-mix(in oklab, var(--ring) 50%, transparent)
+	}
+
 	::file-selector-button {
 		box-sizing: border-box;
 		border: 0 solid;
@@ -211,10 +216,7 @@
 		display:none!important
 	}
 
-	* {
-		border-color: var(--border);
-		outline-color: color-mix(in oklab, var(--ring) 50%, transparent)
-	}
+
 
 	::selection {
 		background-color: var(--selection);
