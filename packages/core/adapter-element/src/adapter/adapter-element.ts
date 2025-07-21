@@ -49,9 +49,19 @@ export class AdapterBase extends HTMLElement {
 	readonly renderRoot: DocumentFragment | HTMLElement;
 	readonly adapter:    AdapterElement;
 
-	protected __attrCtrl: MutationObserver | undefined;
-	adapterInitialized:   boolean = false;
-	pluginContainer:      PluginContainer;
+	adapterInitialized:     boolean = false;
+	pluginContainer:        PluginContainer;
+	dynamicStylesheet?:     CSSStyleSheet;
+	dynamicCssResultCache?: string;
+	protected __attrCtrl:   MutationObserver | undefined;
+
+	protected connectedCallback(): void {
+		// Can be used to identify a wc from a regular HTMLElement.
+		this.setAttribute('data-wc', '');
+		(this as Writeable<typeof this>).renderRoot ??= this.createRenderRoot();
+
+		this.connectAdapter();
+	}
 
 	createRenderRoot(): HTMLElement | DocumentFragment {
 		const renderRoot = this.shadowRoot
@@ -63,17 +73,20 @@ export class AdapterBase extends HTMLElement {
 		const metadata = base.adapter.metadata;
 
 		metadata.styles = getInheritanceFlatStyles('styles', base.adapter);
-		renderRoot.adoptedStyleSheets = metadata.styles;
+
+		const styles = [ ...metadata.styles ];
+
+		if ('renderStyles' in base.adapter.prototype) {
+			this.dynamicStylesheet ??= new CSSStyleSheet();
+			this.dynamicCssResultCache = '';
+
+			if (!styles.includes(this.dynamicStylesheet))
+				styles.push(this.dynamicStylesheet);
+		}
+
+		renderRoot.adoptedStyleSheets = styles;
 
 		return renderRoot;
-	}
-
-	protected connectedCallback(): void {
-		// Can be used to identify a wc from a regular HTMLElement.
-		this.setAttribute('data-wc', '');
-		(this as Writeable<typeof this>).renderRoot ??= this.createRenderRoot();
-
-		this.connectAdapter();
 	}
 
 	protected disconnectedCallback(): void { this.disconnectAdapter(); }
@@ -149,6 +162,9 @@ export class AdapterBase extends HTMLElement {
 
 		// Call the connected method on the adapter.
 		this.adapter.connected();
+		this.adapter.updateComplete.then(() => {
+			setTimeout(() => this.adapter.afterConnected());
+		});
 	}
 
 	protected disconnectAdapter(): void {
@@ -209,9 +225,6 @@ export class AdapterBase extends HTMLElement {
 }
 
 
-export const adapterBase: { value: typeof AdapterBase; } = { value: AdapterBase };
-
-
 export class AdapterElement implements ReactiveControllerHost {
 
 	declare ['constructor']: typeof AdapterElement;
@@ -219,9 +232,9 @@ export class AdapterElement implements ReactiveControllerHost {
 		this.__element = element;
 	}
 
-	static readonly tagName: string;
-	static readonly styles:  CSSStyle;
-
+	static readonly tagName:     string;
+	static readonly styles:      CSSStyle;
+	static readonly adapterBase: typeof AdapterBase = AdapterBase;
 
 	static register(): void {
 		if (globalThis.customElements.get(this.tagName))
@@ -239,7 +252,7 @@ export class AdapterElement implements ReactiveControllerHost {
 	}
 
 	static createElementClass(adapterClass: typeof AdapterElement): typeof AdapterBase {
-		const cls = class extends adapterBase.value {
+		const cls = class extends this.adapterBase {
 
 			protected static override adapter = adapterClass;
 
@@ -313,10 +326,6 @@ export class AdapterElement implements ReactiveControllerHost {
 			controller.hostConnected?.();
 
 		this.childPart?.setConnected(true);
-
-		this.updateComplete.then(() => {
-			setTimeout(() => this.afterConnected());
-		});
 	}
 
 	/** Called after a setTimeout of 0 after the render method. */
@@ -350,11 +359,28 @@ export class AdapterElement implements ReactiveControllerHost {
 		this.__markUpdated();
 
 		this.childPart = render(value, this.element.renderRoot, this.renderOptions);
+
+		if (this.renderStyles)
+			this.updateRenderStyles();
 	}
 
 	protected render(): unknown {
 		return;
 	};
+
+	protected updateRenderStyles(): void {
+		const styles = this.renderStyles?.('', dynamicCss);
+		if (styles === undefined)
+			return;
+
+		const element = this.element;
+		if (styles !== element.dynamicCssResultCache) {
+			element.dynamicCssResultCache = styles;
+			element.dynamicStylesheet!.replaceSync(styles);
+		}
+	}
+
+	protected renderStyles?(styles: string, css: DynamicCSS,): string | void;
 
 	protected afterUpdate(changedProps: Map<PropertyKey, unknown>): void {}
 
@@ -450,7 +476,9 @@ export class AdapterElement implements ReactiveControllerHost {
 	// does not hold a reference to the element.
 	// Instead, use a WeakRef to the element.
 	// This allows the effect to be garbage collected when the element is removed.
-	protected __createUpdateEffect(ref: WeakRef<AdapterElement>, nativeUpdate: boolean = true) {
+	protected __createUpdateEffect(ref: WeakRef<AdapterElement>) {
+		let nativeUpdate: boolean = true;
+
 		return (): void => {
 			const self = ref.deref();
 			if (!self)
@@ -544,7 +572,8 @@ export class AdapterElement implements ReactiveControllerHost {
 	get querySelector(): HTMLElement['querySelector'] {
 		const element = this.element;
 
-		return element.querySelector.bind(element);
+		return (...args: Parameters<HTMLElement['querySelector']>) =>
+			element.renderRoot.querySelector(...args);
 	}
 
 	get dispatchEvent(): HTMLElement['dispatchEvent'] {
@@ -597,3 +626,20 @@ export class AdapterElement implements ReactiveControllerHost {
 	//#endregion HTMLElement-interfaces
 
 }
+
+
+export type DynamicCSS = (strings: TemplateStringsArray, ...values: any[]) => string;
+const dynamicCss: DynamicCSS = (strings, ...values): string => {
+	let result = '';
+	for (let i = 0; i < strings.length; i++) {
+		result += strings[i]!;
+
+		const value = values[i];
+		if (value !== undefined)
+			result += value;
+	}
+
+	result = result.replaceAll(/\n+/g, '');
+
+	return result;
+};
