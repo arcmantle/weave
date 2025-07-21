@@ -30,6 +30,7 @@
 	"dependencies": {
 		"@arcmantle/injector": "^1.0.0",
 		"@arcmantle/library": "^1.0.0",
+		"@preact/signals-core": "^1.11.0",
 		"lit-html": "^3.3.0",
 		"signal-polyfill": "^0.2.2",
 		"tslib": "^2.8.1",

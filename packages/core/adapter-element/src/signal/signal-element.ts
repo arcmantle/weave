@@ -4,7 +4,7 @@ import { render } from 'lit-html';
 import { Signal } from 'signal-polyfill';
 
 import type { CSSStyle } from '../shared/css.ts';
-import { effect } from '../shared/effect.ts';
+import { effectNative } from '../shared/effect.ts';
 import { DisposingEventHost } from './auto-disposing-event-host.ts';
 
 
@@ -127,7 +127,7 @@ export class SignalElement extends DisposingEventHost {
 		const ref = new WeakRef(this);
 
 		// eslint-disable-next-line prefer-arrow-callback
-		this.__unsubEffect = effect(function() {
+		this.__unsubEffect = effectNative(function() {
 			// We utilize a WeakRef to avoid a potential leak from
 			// locking a direct reference to the instance in this scope.
 			const self = ref.deref();

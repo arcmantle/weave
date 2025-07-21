@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/unified-signatures */
 import { PluginContainer } from '@arcmantle/injector';
 import type { Interface, Writeable } from '@arcmantle/library/types';
-import { Signal } from 'signal-polyfill';
+import { type Signal, signal } from '@preact/signals-core';
 
 import type { AdapterBase, AdapterElement } from './adapter-element.ts';
 import type { AdapterMetadata, PropertyType } from './types.ts';
@@ -81,15 +81,15 @@ const legacyState = (
 
 	const descriptor: PropertyDescriptor = {
 		get() {
-			const me = this as any;
-			const signal = me['__' + propName] ??= new Signal.State(me['__' + propName]);
+			const me = this as Record<string, Signal>;
+			const sig = me['__' + propName] ??= signal(me['__' + propName]);
 
-			return signal.get();
+			return sig.value;
 		},
 		set(v: any) {
-			const me = this as any;
-			const signal = me['__' + propName] ??= new Signal.State(me['__' + propName]);
-			signal.set(v);
+			const me = this as Record<string, Signal>;
+			const sig = me['__' + propName] ??= signal(me['__' + propName]);
+			sig.value = v;
 		},
 	};
 
@@ -113,16 +113,16 @@ const standardState = (
 
 	return {
 		get() {
-			const signal = (get.call(this) as Signal.State<V>);
+			const sig = (get.call(this) as Signal<V>);
 
-			return signal.get();
+			return sig.value;
 		},
 		set(value: V) {
-			const signal = (get.call(this) as Signal.State<V>);
-			signal.set(value);
+			const sig = (get.call(this) as Signal<V>);
+			sig.value = value;
 		},
 		init(value: any): any {
-			return new Signal.State(value);
+			return signal(value);
 		},
 	};
 };
@@ -160,7 +160,7 @@ const createPropertyMetadata = (
 
 	metadata.observedAttributes ??= [];
 	const attrName = propName
-		.replace(/([A-Z])/g, '-$1')
+		//.replace(/([A-Z])/g, '-$1')
 		.toLowerCase();
 
 	if (!metadata.observedAttributes.includes(attrName)) {
@@ -190,19 +190,20 @@ const legacyProperty = (
 
 	const descriptor: PropertyDescriptor = {
 		get() {
-			const me = this as any;
-			const signal = me['__' + propName] ??= new Signal.State(me['__' + propName]);
+			const me = this as Record<string, Signal>;
+			const sig = me['__' + propName] ??= signal(me['__' + propName]);
 
-			return signal.get();
+			return sig.value;
 		},
 		set(v: any) {
-			const me = this as any;
-			const signal = me['__' + propName] ??= new Signal.State(me['__' + propName]);
-			signal.set(v);
+			const me = this as Record<string, Signal>;
+			const sig = me['__' + propName] ??= signal(me['__' + propName]);
+			sig.value = v;
 
 			if (metadata.propertyMetadata[attrName]?.reflect) {
 				(this as any as { __element?: WeakRef<AdapterBase>; })
-					.__element?.deref()
+					.__element
+					?.deref()
 					?.setAttribute(propName, String(v));
 			}
 		},
@@ -230,13 +231,13 @@ const standardProperty = (
 
 	return {
 		get() {
-			const signal = (get.call(this) as Signal.State<V>);
+			const sig = (get.call(this) as Signal<V>);
 
-			return signal.get();
+			return sig.value;
 		},
 		set(value: V) {
-			const signal = (get.call(this) as Signal.State<V>);
-			signal.set(value);
+			const sig = (get.call(this) as Signal<V>);
+			sig.value = value;
 
 			if (metadata.propertyMetadata[attrName]?.reflect) {
 				(this as any as { __element: WeakRef<AdapterBase>; })
@@ -245,7 +246,7 @@ const standardProperty = (
 			}
 		},
 		init(value: any): any {
-			return new Signal.State(value);
+			return signal(value);
 		},
 	};
 };

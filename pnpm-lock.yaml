@@ -1127,6 +1127,9 @@ importers:
       '@arcmantle/library':
         specifier: workspace:^
         version: link:../library
+      '@preact/signals-core':
+        specifier: ^1.11.0
+        version: 1.11.0
       lit-html:
         specifier: ^3.3.0
         version: 3.3.1
@@ -1480,6 +1483,10 @@ importers:
       parse5:
         specifier: ^7.2.1
         version: 7.3.0
+    devDependencies:
+      vite:
+        specifier: ^7.0.0
+        version: 7.0.5(@types/node@24.0.14)(jiti@2.4.2)(lightningcss@1.30.1)(sass@1.89.2)(terser@5.43.1)(tsx@4.20.3)(yaml@2.8.0)
 
   packages/vite/import-css-sheet:
     dependencies:

@@ -1,10 +1,10 @@
-import { Signal } from 'signal-polyfill';
+import { Signal as SignalPolyfill } from 'signal-polyfill';
 
 
 let needsEnqueue = true;
 
 
-const watcher = new Signal.subtle.Watcher(() => {
+const watcher = new SignalPolyfill.subtle.Watcher(() => {
 	if (needsEnqueue) {
 		needsEnqueue = false;
 		queueMicrotask(processPending);
@@ -22,10 +22,10 @@ function processPending() {
 }
 
 
-export function effect(callback: () => any): () => void {
+export function effectNative(callback: () => any): () => void {
 	let cleanup: ((...args: any) => any) | undefined = undefined;
 
-	const computed = new Signal.Computed(() => {
+	const computed = new SignalPolyfill.Computed(() => {
 		cleanup?.();
 		cleanup = callback();
 	});

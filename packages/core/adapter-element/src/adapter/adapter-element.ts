@@ -1,10 +1,10 @@
 import { PluginContainer, PluginModule } from '@arcmantle/injector';
 import { traverseDomUp } from '@arcmantle/library/dom';
 import type { Writeable } from '@arcmantle/library/types';
-import { render, type RenderOptions } from 'lit-html';
+import { effect } from '@preact/signals-core';
+import { render, type RenderOptions, type RootPart } from 'lit-html';
 
 import { type CSSStyle, getInheritanceFlatStyles } from '../shared/css.ts';
-import { effect } from '../shared/effect.ts';
 import type { ReactiveController, ReactiveControllerHost } from '../shared/reactive-controller.ts';
 import type { AdapterMetadata } from './types.ts';
 
@@ -19,31 +19,13 @@ export class AdapterBase extends HTMLElement {
 	declare ['constructor']: typeof AdapterBase;
 
 	protected static adapter: typeof AdapterElement;
+	static shadowRootOptions: ShadowRootInit = { mode: 'open' };
 
 	constructor() {
 		super();
 
-		this.createRenderRoot();
-	}
-
-	readonly renderRoot: ShadowRoot | HTMLElement;
-	readonly adapter:    AdapterElement;
-
-	protected __attrCtrl: MutationObserver | undefined;
-	adapterInitialized:   boolean = false;
-	pluginContainer:      PluginContainer;
-
-	protected createRenderRoot(): void {
-		this.attachShadow({ mode: 'open' });
-		(this as Writeable<this>).renderRoot = this.shadowRoot!;
-
 		const base = this.constructor as any as typeof AdapterBase;
 		const metadata = base.adapter.metadata;
-
-		metadata.styles = getInheritanceFlatStyles('styles', base.adapter);
-		this.shadowRoot!.adoptedStyleSheets = metadata.styles;
-
-		// We need to store whatever is being assigned while the adapter is being initialized.
 
 		// We need to set up the adapter and the properties.
 		for (const prop of Object.values(metadata.propertyMetadata)) {
@@ -64,10 +46,32 @@ export class AdapterBase extends HTMLElement {
 			this.__attrCtrl = new MutationObserver(this.observeAttributes.bind(this));
 	}
 
+	readonly renderRoot: DocumentFragment | HTMLElement;
+	readonly adapter:    AdapterElement;
+
+	protected __attrCtrl: MutationObserver | undefined;
+	adapterInitialized:   boolean = false;
+	pluginContainer:      PluginContainer;
+
+	createRenderRoot(): HTMLElement | DocumentFragment {
+		const renderRoot = this.shadowRoot
+			?? this.attachShadow(this.constructor.shadowRootOptions);
+
+		(this as Writeable<this>).renderRoot = this.shadowRoot!;
+
+		const base = this.constructor as any as typeof AdapterBase;
+		const metadata = base.adapter.metadata;
+
+		metadata.styles = getInheritanceFlatStyles('styles', base.adapter);
+		renderRoot.adoptedStyleSheets = metadata.styles;
+
+		return renderRoot;
+	}
+
 	protected connectedCallback(): void {
-		// Marks this as a web component.
 		// Can be used to identify a wc from a regular HTMLElement.
 		this.setAttribute('data-wc', '');
+		(this as Writeable<typeof this>).renderRoot ??= this.createRenderRoot();
 
 		this.connectAdapter();
 	}
@@ -112,8 +116,7 @@ export class AdapterBase extends HTMLElement {
 			this.pluginContainer = await this.resolveContainer();
 			base.adapter.modules.forEach(module => this.pluginContainer.load(module));
 
-			(this as Writeable<this>).adapter = new base.adapter();
-			(this.adapter as any).__element = new WeakRef(this);
+			(this as Writeable<this>).adapter = new base.adapter(new WeakRef(this));
 
 			this.adapterInitialized = true;
 
@@ -122,16 +125,16 @@ export class AdapterBase extends HTMLElement {
 			// set the value if the adapter is initialized.
 			for (const prop of Object.values(metadata.propertyMetadata))
 				(this as Record<keyof any, any>)[prop.propName] = prop.initialValue;
+
+			// Set the initial values of the attribute properties.
+			metadata.observedAttributes?.forEach(attr => {
+				if (!this.hasAttribute(attr))
+					return;
+
+				const value = this.getAttribute(attr) ?? '';
+				this.attributeChanged(attr, value);
+			});
 		}
-
-		// Set the initial values of the attribute properties.
-		metadata.observedAttributes?.forEach(attr => {
-			if (!this.hasAttribute(attr))
-				return;
-
-			const value = this.getAttribute(attr) ?? '';
-			this.attributeChanged(attr, value);
-		});
 
 		// Observe the attributes for changes.
 		this.__attrCtrl?.observe(this, {
@@ -212,8 +215,13 @@ export const adapterBase: { value: typeof AdapterBase; } = { value: AdapterBase 
 export class AdapterElement implements ReactiveControllerHost {
 
 	declare ['constructor']: typeof AdapterElement;
+	constructor(element: WeakRef<AdapterBase>) {
+		this.__element = element;
+	}
 
 	static readonly tagName: string;
+	static readonly styles:  CSSStyle;
+
 
 	static register(): void {
 		if (globalThis.customElements.get(this.tagName))
@@ -258,24 +266,31 @@ export class AdapterElement implements ReactiveControllerHost {
 
 	static readonly modules: readonly PluginModule[] = [];
 
-	/**
-	 * A weak reference to the AdapterProxy element that is managing this adapter.\
-	 * This is used to avoid potential memory leaks from locking a direct reference.\
-	 * For internal use only.
-	 */
 	private __element:         WeakRef<AdapterBase>;
 	private __unsubEffect?:    () => void;
-	private __resolveUpdate?:  ((bool: true) => void) & { stamp: number; };
 	private __controllers:     Set<ReactiveController> = new Set();
+	private __updatePromise:   Promise<boolean> = Promise.resolve(true);
 	private __eventListeners?: Map<string, Set<{
 		type:     string;
 		listener: EventListenerOrEventListenerObject;
 		options?: boolean | AddEventListenerOptions;
 	}>>;
 
-	readonly hasConnected:   boolean = false;
-	readonly hasUpdated:     boolean = false;
-	readonly updateComplete: Promise<boolean> = Promise.resolve(true);
+	protected readonly renderOptions: RenderOptions = { host: this };
+
+	hasConnected = false;
+	hasUpdated = false;
+	isUpdatePending = false;
+	childPart: RootPart | undefined = undefined;
+
+	get updateComplete(): Promise<boolean> {
+		return this.getUpdateComplete();
+	}
+
+	protected getUpdateComplete(): Promise<boolean> {
+		return this.__updatePromise;
+	}
+
 	get element(): AdapterBase {
 		const element = this.__element.deref();
 		if (!element)
@@ -284,31 +299,28 @@ export class AdapterElement implements ReactiveControllerHost {
 		return element;
 	}
 
-	protected readonly renderOptions?: RenderOptions;
-
 	//#region component-lifecycle
 	/** Called first time this instance of the element is connected to the DOM. */
 	firstConnected(): void {
-		(this.hasConnected as boolean) = true;
+		this.hasConnected = true;
 	}
 
 	/** Called every time this instance of the element is connected to the DOM. */
 	connected(): void {
-		// We utilize a WeakRef to avoid a potential leak from
-		// locking a direct reference to the instance in this scope.
-		const ref = new WeakRef(this);
-
-		// Using an external function avoids mistakenly binding the current scope
-		// into the effect, which would cause it to have issues being garbage collected.
-		this.__unsubEffect = effect(effectReaction.bind(undefined, ref));
+		this.requestUpdate();
 
 		for (const controller of this.__controllers)
 			controller.hostConnected?.();
+
+		this.childPart?.setConnected(true);
+
+		this.updateComplete.then(() => {
+			setTimeout(() => this.afterConnected());
+		});
 	}
 
 	/** Called after a setTimeout of 0 after the render method. */
-	afterConnected(): void {
-	}
+	afterConnected(): void {}
 
 	disconnected(): void {
 		this.__unsubEffect?.();
@@ -325,91 +337,33 @@ export class AdapterElement implements ReactiveControllerHost {
 			controller.hostDisconnected?.();
 	}
 
-	protected beforeUpdate(changedProps: Map<keyof any, any>): void {
-		for (const controller of this.__controllers)
-			controller.hostUpdate?.();
+	protected beforeUpdate(changedProps: Map<PropertyKey, unknown>): void {}
+
+	protected update(changedProps: Map<PropertyKey, unknown>): void {
+		const value = this.render();
+
+		if (!this.hasUpdated)
+			this.renderOptions.isConnected = this.element.isConnected;
+
+		this.__markUpdated();
+
+		this.childPart = render(value, this.element.renderRoot, this.renderOptions);
 	}
 
 	protected render(): unknown {
 		return;
 	};
 
-	protected afterUpdate(changedProps: Map<keyof any, any>): void {
-		for (const controller of this.__controllers)
-			controller.hostUpdated?.();
-	}
+	protected afterUpdate(changedProps: Map<PropertyKey, unknown>): void {}
+
+	protected afterFirstUpdate(changedProps: Map<PropertyKey, unknown>): void {}
 	//#endregion component-lifecycle
 
-	private __populateChangedProps(): void {
-		const base = this.constructor as any as typeof AdapterElement;
-		const metadata = base.metadata;
-
-		for (const prop of metadata.signalProps ?? []) {
-			const value = this[prop as keyof typeof this];
-			const previous = metadata.previousProps.get(prop);
-
-			if (previous !== value) {
-				metadata.changedProps.set(prop, previous);
-				metadata.previousProps.set(prop, value);
-			}
-		}
-	}
-
-	private __setPendingUpdate(stamp: number): void {
-		const { promise, resolve } = Promise.withResolvers<boolean>();
-		(this as Writeable<this>).updateComplete = promise;
-
-		this.__resolveUpdate = Object.assign(resolve, { stamp });
-	}
-
-	private __performUpdate(stamp: number): void {
-		if (this.__resolveUpdate?.stamp !== stamp)
-			return;
-
-		const base = this.constructor as any as typeof AdapterElement;
-		const metadata = base.metadata;
-
-		this.beforeUpdate(metadata.changedProps);
-
-		const element = this.__element.deref();
-		if (!element)
-			return console.warn('Element reference has been lost.');
-
-		render(
-			this.render(),
-			element.renderRoot,
-			this.renderOptions ?? { host: this },
-		);
-
-		// We need to wait for the next frame to ensure the DOM has been updated.
-		queueMicrotask(() => {
-			this.afterUpdate(metadata.changedProps);
-			metadata.changedProps.clear();
-
-			if (!this.hasUpdated) {
-				(this.hasUpdated as boolean) = true;
-				this.afterConnected();
-			}
-		});
-
-		// Resolve the promise and clear the resolve function.
-		this.__resolveUpdate = void this.__resolveUpdate?.(true);
-	}
-
-	static styles: CSSStyle;
-
-	//#region consumer-api
-	/** Retrieves a bound value from the dependency injection container. */
-	get inject(): PluginContainer {
-		const element = this.element;
-
-		return element.pluginContainer;
-	}
 
 	addController(controller: ReactiveController): void {
 		this.__controllers.add(controller);
 
-		if (this.hasConnected)
+		if (this.element.renderRoot !== undefined && this.element.isConnected)
 			controller.hostConnected?.();
 	}
 
@@ -417,40 +371,151 @@ export class AdapterElement implements ReactiveControllerHost {
 		this.__controllers.delete(controller);
 	}
 
-	/** Queues up a render to be performed on the next microtask. */
-	requestUpdate(): Promise<boolean> {
-		this.__populateChangedProps();
+	requestUpdate(): void {
+		if (this.isUpdatePending)
+			return;
 
-		if (this.__resolveUpdate)
-			return this.updateComplete;
-
-
-		const stamp = performance.now();
-		this.__setPendingUpdate(stamp);
-
-		queueMicrotask(() => this.__performUpdate(stamp));
-
-		return this.updateComplete;
+		this.__updatePromise = this.enqueueUpdate();
 	}
 
-	/**
-	 * Immediately resolves the queued render if there is one,
-	 * or queues a new render and immediately resolves it.
-	 */
-	performUpdate(): Promise<boolean> {
-		this.__populateChangedProps();
+	protected async enqueueUpdate(): Promise<boolean> {
+		this.isUpdatePending = true;
 
-		if (this.__resolveUpdate) {
-			this.__resolveUpdate.stamp = performance.now();
-			this.__performUpdate(this.__resolveUpdate.stamp);
+		try {
+			// Ensure any previous update has resolved before updating.
+			// This `await` also ensures that property changes are batched.
+			await this.__updatePromise;
 		}
-		else {
-			const stamp = performance.now();
-			this.__setPendingUpdate(stamp);
-			this.__performUpdate(stamp);
+		catch (e) {
+			// Refire any previous errors async so they do not disrupt the update
+			// cycle. Errors are refired so developers have a chance to observe
+			// them, and this can be done by implementing
+			// `window.onunhandledrejection`.
+			Promise.reject(e);
+		}
+		const result = this.scheduleUpdate();
+		if (result !== undefined)
+			await result;
+
+		return !this.isUpdatePending;
+	}
+
+	protected scheduleUpdate(): void | Promise<unknown> {
+		const result = this.performUpdate();
+
+		return result;
+	}
+
+	performUpdate(): void {
+		// Abort any update if one is not pending when this is called.
+		// This can happen if `performUpdate` is called early to "flush" the update.
+		if (!this.isUpdatePending)
+			return;
+
+		this.__unsubEffect?.();
+		const selfRef = new WeakRef(this);
+
+		this.__unsubEffect = effect(this.__createUpdateEffect(selfRef));
+	}
+
+	protected shouldUpdate(changedProperties: Map<PropertyKey, unknown>): boolean {
+		return true;
+	}
+
+	protected __didUpdate(changedProperties: Map<PropertyKey, unknown>): void {
+		this.__controllers?.forEach((c) => c.hostUpdated?.());
+
+		if (!this.hasUpdated) {
+			this.hasUpdated = true;
+
+			this.afterFirstUpdate(changedProperties);
 		}
 
-		return this.updateComplete;
+		this.afterUpdate(changedProperties);
+	}
+
+	protected __markUpdated(): void {
+		const base = this.constructor;
+		const metadata = base.metadata;
+
+		metadata.changedProps = new Map();
+
+		this.isUpdatePending = false;
+	}
+
+	// *Important* do not use "this" in the effect function.
+	// This is avoid potential memory leaks by ensuring that the effect
+	// does not hold a reference to the element.
+	// Instead, use a WeakRef to the element.
+	// This allows the effect to be garbage collected when the element is removed.
+	protected __createUpdateEffect(ref: WeakRef<AdapterElement>, nativeUpdate: boolean = true) {
+		return (): void => {
+			const self = ref.deref();
+			if (!self)
+				return console.warn('Element reference lost during update.');
+
+			if (!nativeUpdate)
+				return self.requestUpdate();
+
+			nativeUpdate = false;
+
+			const base = self.constructor;
+			const metadata = base.metadata;
+
+			if (!self.hasUpdated) {
+				// Create renderRoot before first update. This occurs in `connectedCallback`
+				// but is done here to support out of tree calls to `enableUpdating`/`performUpdate`.
+				const element = self.element as Writeable<typeof self.element>;
+				element.renderRoot ??= element.createRenderRoot();
+			}
+
+			for (const prop of metadata.signalProps) {
+				const value = self[prop as keyof typeof self];
+				const previous = !self.hasUpdated
+					? undefined
+					: metadata.previousProps.get(prop);
+
+				if (!metadata.changedProps.has(prop) && previous !== value) {
+					metadata.changedProps.set(prop, previous);
+					metadata.previousProps.set(prop, value);
+				}
+			}
+
+			let shouldUpdate = false;
+			try {
+				shouldUpdate = self.shouldUpdate(metadata.changedProps);
+				if (shouldUpdate) {
+					self.beforeUpdate(metadata.changedProps);
+					self.__controllers?.forEach((c) => c.hostUpdate?.());
+					self.update(metadata.changedProps);
+				}
+				else {
+					this.__markUpdated();
+				}
+			}
+			catch (e) {
+				// Prevent `firstUpdated` and `updated` from running when there's an update exception.
+				shouldUpdate = false;
+
+				// Ensure element can accept additional updates after an exception.
+				self.__markUpdated();
+
+				throw e;
+			}
+
+			// The update is no longer considered pending and further updates are now allowed.
+			if (shouldUpdate)
+				self.__didUpdate(metadata.changedProps);
+		};
+	};
+
+
+	//#region consumer-api
+	/** Retrieves a bound value from the dependency injection container. */
+	get inject(): PluginContainer {
+		const element = this.element;
+
+		return element.pluginContainer;
 	}
 
 	query<T extends HTMLElement>(selector: string): T | undefined {
@@ -530,7 +595,3 @@ export class AdapterElement implements ReactiveControllerHost {
 	//#endregion HTMLElement-interfaces
 
 }
-
-
-const effectReaction = (ref: WeakRef<AdapterElement>) =>
-	void ref.deref()?.requestUpdate();
