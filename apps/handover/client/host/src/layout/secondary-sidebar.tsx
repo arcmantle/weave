@@ -1,6 +1,5 @@
 import { type DynamicCSS, state } from '@arcmantle/adapter-element/adapter';
 import { css, type CSSStyle, type Signal } from '@arcmantle/adapter-element/shared';
-import { clamp } from '@arcmantle/library/math';
 import { type ToComponent, toComponent } from '@arcmantle/lit-jsx';
 
 import type { ContentLocation } from '../extensions/create-manifest.ts';
@@ -29,7 +28,7 @@ export class SecondarySidebarCmp extends ContentArea {
 			if (width > 80 && !this.secondarySidebar.visible.value)
 				this.secondarySidebar.visible.value = true;
 
-			this.width = clamp(60, width, 600);
+			this.width = width;
 		};
 		const mouseup = (ev: MouseEvent): void => {
 			document.removeEventListener('mousemove', mousemove);
@@ -68,12 +67,16 @@ export class SecondarySidebarCmp extends ContentArea {
 			display: grid;
 
 			background-color: lightgoldenrodyellow;
-			border-bottom: 1px solid black;
+
 			--width: var(--_width);
 		}
 		s-wrapper {
 			display: block;
 			width: var(--width, var(--_width));
+			max-width: 40vw;
+			min-width: 60px;
+			border-left: 1px solid black;
+			border-bottom: 1px solid black;
 		}
 		s-drag-handle {
 			position: absolute;

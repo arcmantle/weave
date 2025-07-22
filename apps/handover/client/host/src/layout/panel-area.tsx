@@ -1,6 +1,5 @@
 import { type DynamicCSS, state } from '@arcmantle/adapter-element/adapter';
 import { css, type CSSStyle, type Signal } from '@arcmantle/adapter-element/shared';
-import { clamp } from '@arcmantle/library/math';
 import { Show, type ToComponent, toComponent } from '@arcmantle/lit-jsx';
 
 import type { ContentLocation } from '../extensions/create-manifest.ts';
@@ -29,7 +28,7 @@ export class PanelAreaCmp extends ContentArea {
 			if (height > 80 && !this.panelArea.visible.value)
 				this.panelArea.visible.value = true;
 
-			this.height = clamp(60, height, 600);
+			this.height = height;
 		};
 		const mouseup = (ev: MouseEvent): void => {
 			document.removeEventListener('mousemove', mousemove);
@@ -69,11 +68,14 @@ export class PanelAreaCmp extends ContentArea {
 
 			background-color: lavenderblush;
 			border-left: 1px solid black;
+
 			--height: var(--_height);
 		}
 		s-wrapper {
 			display: block;
 			height: var(--height, var(--_height));
+			max-height: 80vh;
+			min-height: 60px;
 			border-bottom: 1px solid black;
 		}
 		s-drag-handle {
