@@ -109,7 +109,7 @@ export class EditorAreaCmp extends ContentArea {
 
 		this.splitView = new SplitView(container, {
 			orientation:        Orientation.HORIZONTAL,
-			proportionalLayout: true,
+			proportionalResize: false,  // Test sequential neighbor resize behavior
 		});
 
 		// Create initial editors
@@ -117,6 +117,7 @@ export class EditorAreaCmp extends ContentArea {
 		this.createEditor('welcome', 'Welcome', Sizing.Distribute);
 		this.createEditor('editor-1', 'Editor 1', Sizing.Distribute);
 		this.createEditor('editor-2', 'Editor 2', Sizing.Distribute);
+		this.createEditor('editor-3', 'Editor 3', Sizing.Distribute);
 
 		// Force initial layout with container dimensions
 		this.splitView.layout(container.offsetWidth);

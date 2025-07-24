@@ -188,7 +188,7 @@ implements ISashLayoutProvider {
 	private sashItems:          ISashItem[] = [];
 	private sashDragState:      DragState | undefined;
 	private state:              State = State.Idle;
-	private proportionalLayout: boolean;
+	private proportionalResize: boolean;
 	private inverseAltBehavior: boolean;
 
 	private readonly onDidSashChangeCallbacks: ((index: number) => void)[] = [];
@@ -213,7 +213,7 @@ implements ISashLayoutProvider {
 
 	constructor(container: HTMLElement, options: ISplitViewOptions<TLayoutContext> = {}) {
 		this.orientation = options.orientation ?? Orientation.VERTICAL;
-		this.proportionalLayout = options.proportionalLayout ?? true;
+		this.proportionalResize = options.proportionalResize ?? true;
 		this.inverseAltBehavior = options.inverseAltBehavior ?? false;
 
 		this.el = document.createElement('div');
@@ -509,34 +509,11 @@ implements ISashLayoutProvider {
 		// relative to the container edge, but ensure all views respect their constraints
 		const sashIndex = this.sashDragState.index;
 
-		// Calculate minimum space needed for all views after the sash
-		let minSpaceForRemainingViews = 0;
-		for (let i = sashIndex + 1; i < this.viewItems.length; i++)
-			minSpaceForRemainingViews += this.viewItems[i]!.minimumSize;
-
-		// Calculate maximum space available for views before and including the sash
-		const maxSpaceForViewsBeforeSash = this.size - minSpaceForRemainingViews;
-
-		// Calculate actual space taken by views before the sash
-		let actualSpaceForViewsBeforeSash = 0;
-		for (let i = 0; i < sashIndex; i++)
-			actualSpaceForViewsBeforeSash += this.viewItems[i]!.size;
-
-		// The requested size for the view at sashIndex
-		// Mouse position minus the actual space taken by all views before this sash
-		let requestedSizeForSashView = current - actualSpaceForViewsBeforeSash;
-
-		// Clamp the requested size to respect constraints
-		const sashView = this.viewItems[sashIndex]!;
-		const maxAllowedForSashView = maxSpaceForViewsBeforeSash - actualSpaceForViewsBeforeSash;
-		requestedSizeForSashView = Math.max(
-			sashView.minimumSize,
-			Math.min(sashView.maximumSize, Math.min(requestedSizeForSashView, maxAllowedForSashView)),
-		);		// Calculate new sizes for all views
+		// Calculate new sizes for all views
 		const viewStates: ViewState[] = [];
 
-		if (this.proportionalLayout) {
-			// For proportional layout:
+		if (this.proportionalResize) {
+			// Proportional resize behavior: distribute changes proportionally across view groups
 			// - A sash divides views into "left side" (views 0 to sashIndex) and "right side" (views sashIndex+1 to end)
 			// - Dragging left: left side shrinks proportionally, right side grows proportionally
 			// - Dragging right: left side grows proportionally, right side shrinks proportionally
@@ -657,44 +634,119 @@ implements ISashLayoutProvider {
 			}
 		}
 		else {
-			// Non-proportional layout: only adjust adjacent view
-			let currentPosition = 0;
-
-			// Handle views before the sash (keep their current sizes)
-			for (let i = 0; i < sashIndex; i++) {
-				const viewItem = this.viewItems[i]!;
+			// Sequential neighbor resize behavior: take space from nearest neighbors first
+			// Initialize all view states with current sizes
+			for (const viewItem of this.viewItems) {
 				viewStates.push({
 					size:              viewItem.size,
 					visible:           viewItem.visible,
 					cachedVisibleSize: viewItem.cachedVisibleSize,
 				});
-				currentPosition += viewItem.size;
 			}
 
-			// Handle the view at the sash index (the one being resized)
-			viewStates.push({
-				size:              requestedSizeForSashView,
-				visible:           sashView.visible,
-				cachedVisibleSize: sashView.cachedVisibleSize,
-			});
-			currentPosition += requestedSizeForSashView;
+			// Calculate the total movement and constrain it to available space
+			const currentSashPosition = this.viewItems.slice(0, sashIndex + 1).reduce((sum, item) => sum + item.size, 0);
+			let requestedSashPosition = current;
 
-			// Handle views after the sash (distribute remaining space)
-			const remainingSpace = this.size - currentPosition;
-			const remainingViews = this.viewItems.length - sashIndex - 1;
+			// Calculate maximum available space in each direction
+			let maxRightMovement = 0;  // How much we can move right (take from right neighbors)
+			let maxLeftMovement = 0;   // How much we can move left (take from left neighbors)
 
-			if (remainingViews > 0) {
-				const spacePerView = remainingSpace / remainingViews;
+			// Calculate available space from right neighbors
+			for (let i = sashIndex + 1; i < this.viewItems.length; i++) {
+				const viewItem = this.viewItems[i]!;
+				maxRightMovement += viewItem.size - viewItem.minimumSize;
+			}
 
-				for (let i = sashIndex + 1; i < this.viewItems.length; i++) {
-					const viewItem = this.viewItems[i]!;
-					const newSize = Math.max(viewItem.minimumSize, spacePerView);
+			// Calculate available space from left neighbors
+			for (let i = 0; i <= sashIndex; i++) {
+				const viewItem = this.viewItems[i]!;
+				maxLeftMovement += viewItem.size - viewItem.minimumSize;
+			}
 
-					viewStates.push({
-						size:              newSize,
-						visible:           viewItem.visible,
-						cachedVisibleSize: viewItem.cachedVisibleSize,
-					});
+			// Constrain the requested position to available space
+			const minSashPosition = currentSashPosition - maxLeftMovement;
+			const maxSashPosition = currentSashPosition + maxRightMovement;
+			requestedSashPosition = Math.max(minSashPosition, Math.min(maxSashPosition, requestedSashPosition));
+
+			const totalMovement = requestedSashPosition - currentSashPosition;
+
+			if (Math.abs(totalMovement) > 0.1) {
+				if (totalMovement > 0) {
+					// Moving right: grow the immediate left neighbor, shrink right neighbors sequentially
+					let remainingMovement = totalMovement;
+
+					// First, calculate how much space we actually need and can get from right neighbors
+					let availableSpace = 0;
+					for (let i = sashIndex + 1; i < this.viewItems.length; i++) {
+						const viewItem = this.viewItems[i]!;
+						availableSpace += viewItem.size - viewItem.minimumSize;
+					}
+
+					// Limit movement to available space
+					const actualMovement = Math.min(totalMovement, availableSpace);
+					remainingMovement = actualMovement;
+
+					// Grow only the immediate left neighbor (the view at sashIndex)
+					const leftNeighbor = this.viewItems[sashIndex]!;
+					const newLeftNeighborSize = leftNeighbor.size + actualMovement;
+					const clampedLeftNeighborSize = Math.max(
+						leftNeighbor.minimumSize,
+						Math.min(leftNeighbor.maximumSize, newLeftNeighborSize),
+					);
+					viewStates[sashIndex]!.size = clampedLeftNeighborSize;
+
+					// Take space from right neighbors sequentially (nearest first)
+					for (let i = sashIndex + 1; i < this.viewItems.length && remainingMovement > 0.1; i++) {
+						const viewItem = this.viewItems[i]!;
+						const currentSize = viewStates[i]!.size;
+						const availableSpace = currentSize - viewItem.minimumSize;
+						const spaceToTake = Math.min(availableSpace, remainingMovement);
+
+						if (spaceToTake > 0) {
+							viewStates[i]!.size = currentSize - spaceToTake;
+							remainingMovement -= spaceToTake;
+						}
+					}
+				}
+				else {
+					// Moving left: grow the immediate right neighbor, shrink left neighbors sequentially
+					const movementMagnitude = -totalMovement;
+
+					// First, calculate how much space we actually need and can get from left neighbors
+					let availableSpace = 0;
+					for (let i = 0; i <= sashIndex; i++) {
+						const viewItem = this.viewItems[i]!;
+						availableSpace += viewItem.size - viewItem.minimumSize;
+					}
+
+					// Limit movement to available space
+					const actualMovement = Math.min(movementMagnitude, availableSpace);
+					let remainingMovement = actualMovement;
+
+					// Grow only the immediate right neighbor (the view at sashIndex + 1)
+					if (sashIndex + 1 < this.viewItems.length) {
+						const rightNeighbor = this.viewItems[sashIndex + 1]!;
+						const newRightNeighborSize = rightNeighbor.size + actualMovement;
+						const clampedRightNeighborSize = Math.max(
+							rightNeighbor.minimumSize,
+							Math.min(rightNeighbor.maximumSize, newRightNeighborSize),
+						);
+						viewStates[sashIndex + 1]!.size = clampedRightNeighborSize;
+					}
+
+					// Take space from left neighbors sequentially (nearest first)
+					for (let i = sashIndex; i >= 0 && remainingMovement > 0.1; i--) {
+						const viewItem = this.viewItems[i]!;
+						const currentSize = viewStates[i]!.size;
+						const availableSpace = currentSize - viewItem.minimumSize;
+						const spaceToTake = Math.min(availableSpace, remainingMovement);
+
+						if (spaceToTake > 0) {
+							viewStates[i]!.size = currentSize - spaceToTake;
+							remainingMovement -= spaceToTake;
+						}
+					}
 				}
 			}
 		}
@@ -985,7 +1037,7 @@ implements ISashLayoutProvider {
 	}
 
 	private saveProportions(): void {
-		if (this.proportionalLayout && this._contentSize > 0) {
+		if (this.proportionalResize && this._contentSize > 0) {
 			this.proportions = this.viewItems.map(v =>
 				v.proportionalLayout && v.visible ? v.size / this._contentSize : undefined);
 		}

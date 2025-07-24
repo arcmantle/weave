@@ -71,8 +71,8 @@ export interface ISplitViewOptions<_TLayoutContext = undefined> {
 	/** Which axis the views align on */
 	readonly orientation?: Orientation;
 
-	/** Resize views proportionally when resizing the SplitView */
-	readonly proportionalLayout?: boolean;
+	/** Use proportional resize behavior (true) vs sequential neighbor resize (false) */
+	readonly proportionalResize?: boolean;
 
 	/** Make Alt-drag the default drag operation */
 	readonly inverseAltBehavior?: boolean;
