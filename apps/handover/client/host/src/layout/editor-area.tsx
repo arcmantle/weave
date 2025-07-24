@@ -1,253 +1,296 @@
+import { state } from '@arcmantle/adapter-element/adapter';
 import { css, type CSSStyle, type Signal } from '@arcmantle/adapter-element/shared';
-import { For, type ToComponent, toComponent } from '@arcmantle/lit-jsx';
+import { type ToComponent, toComponent } from '@arcmantle/lit-jsx';
 
 import type { ContentLocation } from '../extensions/create-manifest.ts';
 import { ContentArea } from './content-area.tsx';
 import { layoutPreferences } from './layout-preferences.ts';
+import { SplitView } from './splitview/split-view.ts';
+import splitViewStyles from './splitview/splitview.css' with { type: 'css'};
+import { type IView, LayoutPriority, Orientation, Sizing } from './splitview/types.ts';
 
 
-interface GridArea {
-	id:       string;
-	row:      number;
-	col:      number;
-	content?: unknown;
+interface EditorView extends IView {
+	readonly id:                  string;
+	readonly title:               string;
+	readonly element:             HTMLElement;
+	readonly minimumSize:         number;
+	readonly maximumSize:         number;
+	readonly priority?:           LayoutPriority;
+	readonly proportionalLayout?: boolean;
+	dispose(): void;
 }
 
-interface GridLayout {
-	columns: string[];
-	rows:    string[];
-	areas:   GridArea[];
-}
+class EditorViewImpl implements EditorView {
 
+	readonly element: HTMLElement;
+	readonly minimumSize = 200;
+	readonly maximumSize = Number.POSITIVE_INFINITY;
+	readonly priority = LayoutPriority.Normal;
+	readonly proportionalLayout = true;
+
+	constructor(
+		readonly id: string,
+		readonly title: string,
+		private contentArea: ContentArea,
+	) {
+		this.element = document.createElement('div');
+		this.element.className = 'editor-view';
+		this.element.innerHTML = `
+			<div class="editor-tab">
+				<span class="editor-title">${ title }</span>
+				<button class="editor-close" data-editor-id="${ id }">×</button>
+			</div>
+			<div class="editor-content"></div>
+		`;
+	}
+
+	onDidChange = (callback: (size?: number) => void): void => {
+		// In a real implementation, you would set up event listeners
+		// for when the view's constraints might change
+		// For now, this is a no-op since our editors have fixed constraints
+	};
+
+	layout(size: number, offset: number, context: undefined): void {
+		// The parent .split-view-view container is already being positioned and sized
+		// by the SplitView, so we don't need to apply additional styles here.
+		// The .editor-view will inherit the full size from its parent container.
+	}
+
+	dispose(): void {
+		this.element.remove();
+	}
+
+}
 
 export class EditorAreaCmp extends ContentArea {
 
 	static override tagName:  string = 'ho-editor-area';
 	override contentLocation: ContentLocation = 'editor';
 
-	protected editorArea:    EditorAreaService = this.inject.get('editor-area');
-	private resizeObserver?: ResizeObserver;
-	private gridLayout: GridLayout = {
-		columns: [ '1fr', '1fr' ],
-		rows:    [ '1fr' ],
-		areas:   [
-			{ id: 'main1', row: 0, col: 0 },
-			{ id: 'main2', row: 0, col: 1 },
-		],
+	protected editorArea: EditorAreaService = this.inject.get('editor-area');
+
+	@state() private accessor splitView: SplitView<undefined, EditorView> | null = null;
+	@state() private accessor editors: EditorView[] = [];
+	private resizeObserver: ResizeObserver | null = null;
+
+	override connected(): void {
+		super.connected();
+
+		// Ensure the DOM is fully rendered and has dimensions
+		this.updateComplete.then(() => {
+			this.initializeSplitView();
+			this.setupEventListeners();
+		});
+	}
+
+	override disconnected(): void {
+		super.disconnected();
+		this.resizeObserver?.disconnect();
+		this.splitView?.dispose();
+		this.editors.forEach(editor => editor.dispose());
+	}
+
+	private initializeSplitView(): void {
+		const container = this.querySelector('.editor-container') as HTMLElement;
+		if (!container) {
+			console.warn('EditorArea: Could not find .editor-container element');
+
+			return;
+		}
+
+		// Ensure container has dimensions before creating SplitView
+		if (container.offsetWidth === 0 || container.offsetHeight === 0) {
+			console.warn('EditorArea: Container has no dimensions, retrying...');
+			setTimeout(() => this.initializeSplitView(), 50);
+
+			return;
+		}
+
+		this.splitView = new SplitView(container, {
+			orientation:        Orientation.HORIZONTAL,
+			proportionalLayout: true,
+		});
+
+		// Create initial editors
+		// Add both editors with Sizing.Distribute to ensure equal space distribution
+		this.createEditor('welcome', 'Welcome', Sizing.Distribute);
+		this.createEditor('editor-1', 'Editor 1', Sizing.Distribute);
+		this.createEditor('editor-2', 'Editor 2', Sizing.Distribute);
+
+		// Force initial layout with container dimensions
+		this.splitView.layout(container.offsetWidth);
+
+		// Set up ResizeObserver to handle container size changes
+		this.setupResizeObserver(container);
+	}
+
+	private setupResizeObserver(container: HTMLElement): void {
+		this.resizeObserver = new ResizeObserver((entries) => {
+			for (const entry of entries) {
+				if (entry.target === container && this.splitView) {
+					// Get the new dimensions
+					const newSize = this.splitView.orientation === Orientation.HORIZONTAL
+						? entry.contentRect.width
+						: entry.contentRect.height;
+
+					// Update the SplitView layout with the new container size
+					this.splitView.layout(newSize);
+				}
+			}
+		});
+
+		// Start observing the container for size changes
+		this.resizeObserver.observe(container);
+	}
+
+	private setupEventListeners(): void {
+		this.addEventListener('click', this.handleClick);
+	}
+
+	private handleClick = (event: Event): void => {
+		const target = event.target as HTMLElement;
+
+		if (target.classList.contains('editor-close')) {
+			const editorId = target.dataset['editorId'];
+			if (editorId)
+				this.closeEditor(editorId);
+		}
 	};
 
-	private startResize(e: MouseEvent, direction: 'vertical' | 'horizontal', index: number) {
-		e.preventDefault();
+	private createEditor(id: string, title: string, sizing: number | Sizing = Sizing.Distribute): void {
+		const editorView = new EditorViewImpl(id, title, this);
+		this.editors = [ ...this.editors, editorView ];
 
-		const startX = e.clientX;
-		const startY = e.clientY;
-		const container = this.element.shadowRoot?.querySelector('.editor-grid-container') as HTMLElement;
-		const containerRect = container.getBoundingClientRect();
-
-		const handleMouseMove = (e: MouseEvent) => {
-			if (direction === 'vertical') {
-				const deltaX = e.clientX - startX;
-				const containerWidth = containerRect.width;
-				const percentChange = (deltaX / containerWidth) * 100;
-				this.adjustColumnSize(index, percentChange);
-			}
-			else {
-				const deltaY = e.clientY - startY;
-				const containerHeight = containerRect.height;
-				const percentChange = (deltaY / containerHeight) * 100;
-				this.adjustRowSize(index, percentChange);
-			}
-		};
-
-		const handleMouseUp = () => {
-			document.removeEventListener('mousemove', handleMouseMove);
-			document.removeEventListener('mouseup', handleMouseUp);
-		};
-
-		document.addEventListener('mousemove', handleMouseMove);
-		document.addEventListener('mouseup', handleMouseUp);
-	}
-
-	private adjustColumnSize(index: number, percentChange: number) {
-		// Convert current grid template to workable values
-		const newColumns = [ ...this.gridLayout.columns ];
-
-		// Simple implementation - adjust adjacent columns
-		const currentCol = this.parseGridValue(newColumns[index]!);
-		const nextCol = this.parseGridValue(newColumns[index + 1]!);
-
-		const adjustment = Math.max(-currentCol + 10, Math.min(percentChange, nextCol - 10));
-
-		newColumns[index] = `${ currentCol + adjustment }%`;
-		newColumns[index + 1] = `${ nextCol - adjustment }%`;
-
-		this.gridLayout.columns = newColumns;
-		this.updateGridTemplate();
-	}
-
-	private adjustRowSize(index: number, percentChange: number) {
-		const newRows = [ ...this.gridLayout.rows ];
-
-		const currentRow = this.parseGridValue(newRows[index]!);
-		const nextRow = this.parseGridValue(newRows[index + 1]!);
-
-		const adjustment = Math.max(-currentRow + 10, Math.min(percentChange, nextRow - 10));
-
-		newRows[index] = `${ currentRow + adjustment }%`;
-		newRows[index + 1] = `${ nextRow - adjustment }%`;
-
-		this.gridLayout.rows = newRows;
-		this.updateGridTemplate();
-	}
-
-	private parseGridValue(value: string): number {
-		// Simple parser for percentage values, could be extended for fr units
-		if (value.includes('%'))
-			return parseFloat(value);
-
-		return 100 / this.gridLayout.columns.length; // Default equal distribution
-	}
-
-	private updateGridTemplate() {
-		const container = this.element.shadowRoot?.querySelector('.editor-grid-container') as HTMLElement;
-		if (container) {
-			container.style.gridTemplateColumns = this.gridLayout.columns.join(' ');
-			container.style.gridTemplateRows = this.gridLayout.rows.join(' ');
+		if (this.splitView) {
+			// Use the provided sizing strategy to control how space is allocated
+			this.splitView.addView(editorView, sizing);
 		}
 	}
 
-	// Public methods for splitting areas
-	splitVertical(areaId: string): void {
-		// Implementation for splitting an area vertically
+	private closeEditor(id: string): void {
+		const editorIndex = this.editors.findIndex(editor => editor.id === id);
+		if (editorIndex === -1)
+			return;
+
+		const editor = this.editors[editorIndex];
+		if (!editor)
+			return;
+
+		if (this.splitView)
+			this.splitView.removeView(editorIndex);
+
+		editor.dispose();
+		this.editors = this.editors.filter(e => e.id !== id);
+
+		// If no editors remain, create a welcome editor
+		if (this.editors.length === 0)
+			this.createEditor('welcome', 'Welcome');
 	}
 
-	splitHorizontal(areaId: string): void {
-		// Implementation for splitting an area horizontally
-	}
-
-	private renderGridAreas() {
-		return <For each={this.gridLayout.areas}>
-			{(area) => <div
-				data-key={area.id}
-				class="grid-area"
-				styleList={{
-					gridColumn: area.col + 1,
-					gridRow:    area.row + 1,
-				}}
-			>
-				<div class="tab-container">
-					{/* Tabs would go here */}
-					<div class="tab-content">
-						Primary content for {area.id}
-					</div>
-				</div>
-			</div>}
-		</For>;
-	}
-
-	private renderResizeHandles() {
-		const handles = [];
-
-		// Vertical resize handles (between columns)
-		for (let col = 0; col < this.gridLayout.columns.length - 1; col++) {
-			handles.push(
-				<div
-					data-key={`v-handle-${ col }`}
-					class="resize-handle vertical"
-					styleList={{
-						gridColumn: col + 2,
-						gridRow:    '1 / -1',
-					}}
-					on-mousedown={(e) => this.startResize(e, 'vertical', col)}
-				></div>,
-			);
-		}
-
-		// Horizontal resize handles (between rows)
-		for (let row = 0; row < this.gridLayout.rows.length - 1; row++) {
-			handles.push(
-				<div
-					data-key={`h-handle-${ row }`}
-					class="resize-handle horizontal"
-					styleList={{
-						gridRow:    row + 2,
-						gridColumn: '1 / -1',
-					}}
-					on-mousedown={(e) => this.startResize(e, 'horizontal', row)}
-				></div>,
-			);
-		}
-
-		return handles;
+	splitEditor(direction: 'horizontal' | 'vertical' = 'horizontal'): void {
+		const newId = `editor-${ Date.now() }`;
+		const newTitle = `Editor ${ this.editors.length + 1 }`;
+		this.createEditor(newId, newTitle);
 	}
 
 	protected override render(): unknown {
 		return <>
-			<div class="editor-grid-container">
-				{this.renderGridAreas()}
-				{this.renderResizeHandles()}
+			<div class="editor-toolbar">
+				<button on-click={() => this.splitEditor('horizontal')}>Split Right</button>
+				<button on-click={() => this.splitEditor('vertical')}>Split Down</button>
 			</div>
+			<div class="editor-container"></div>
 		</>;
 	}
 
-	static override styles: CSSStyle = css`
+	static override styles: CSSStyle = [
+		splitViewStyles,
+		css`
 		:host {
-			display: grid;
-			border: 1px solid black;
-			border-top: none;
-			border-right: none;
+			contain: strict;
+			display: flex;
+			flex-direction: column;
+			height: 100%;
+			background: var(--vscode-editor-background);
+			--sash-active-color: var(--vscode-focusBorder);
+			--sash-hover-color: green;
+			--vscode-tab-activeBackground: blue;
+		}
 
-			background-color: honeydew;
-		}
-		:host {
-			/*display: block;
-			height: 100%;
-			width: 100%;*/
-			/*background-color: honeydew;*/
-		}
-		.editor-grid-container {
-			display: grid;
-		}
-		.grid-area {
+		.editor-toolbar {
 			display: flex;
-			flex-direction: column;
-			min-width: 100px;
-			min-height: 100px;
-			border: 1px solid #ddd;
-		}
-		.tab-container {
-			display: flex;
-			flex-direction: column;
-			height: 100%;
-		}
-		.tab-content {
-			flex: 1;
+			gap: 8px;
 			padding: 8px;
+			background: var(--vscode-editorGroupHeader-tabsBackground);
+			border-bottom: 1px solid var(--vscode-editorGroupHeader-tabsBorder);
+		}
+
+		.editor-toolbar button {
+			padding: 4px 8px;
+			background: var(--vscode-button-background);
+			color: var(--vscode-button-foreground);
+			border: none;
+			border-radius: 2px;
+			cursor: pointer;
+			font-size: 12px;
+		}
+
+		.editor-toolbar button:hover {
+			background: var(--vscode-button-hoverBackground);
+		}
+
+		.editor-container {
+			flex: 1;
+			position: relative;
+		}
+
+		.editor-view {
+			display: flex;
+			flex-direction: column;
+			height: 100%;
+			background: var(--vscode-editor-background);
+		}
+
+		.editor-tab {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 8px 12px;
+			background: var(--vscode-tab-activeBackground);
+			border-bottom: 1px solid var(--vscode-tab-border);
+			font-size: 13px;
+		}
+
+		.editor-title {
+			color: var(--vscode-tab-activeForeground);
+			font-weight: 500;
+		}
+
+		.editor-close {
+			background: none;
+			border: none;
+			color: var(--vscode-tab-activeForeground);
+			cursor: pointer;
+			padding: 2px 4px;
+			border-radius: 2px;
+			font-size: 16px;
+			opacity: 0.7;
+		}
+
+		.editor-close:hover {
+			background: var(--vscode-toolbar-hoverBackground);
+			opacity: 1;
+		}
+
+		.editor-content {
+			flex: 1;
+			padding: 16px;
+			color: var(--vscode-editor-foreground);
 			overflow: auto;
 		}
-		.resize-handle {
-			background-color: transparent;
-			position: relative;
-			z-index: 10;
-		}
-		.resize-handle:hover {
-			background-color: #007acc;
-		}
-		.resize-handle.vertical {
-			width: 4px;
-			cursor: col-resize;
-			margin-left: -2px;
-		}
-		.resize-handle.horizontal {
-			height: 4px;
-			cursor: row-resize;
-			margin-top: -2px;
-		}
-		.resize-handle.vertical:hover,
-		.resize-handle.horizontal:hover {
-			background-color: #007acc;
-		}
-	`;
+		`,
+	];
 
 }
 
