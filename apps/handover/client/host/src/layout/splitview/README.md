@@ -8,7 +8,6 @@ A VSCode-inspired splitview implementation that provides flexible, resizable lay
 - **Constraint-Based Resizing**: Min/max size constraints with priority-based distribution
 - **Proportional Layout**: Maintains proportional sizing when container resizes
 - **Snap Support**: Views can snap to minimum sizes for collapsing panels
-- **Alt-Key Behavior**: macOS-style Alt+drag for alternative resize behavior
 - **Touch Support**: Ready for touch/gesture events (extensible)
 - **Accessible**: Proper ARIA attributes and keyboard navigation support
 
@@ -161,16 +160,6 @@ class CollapsibleView implements IView {
   readonly minimumSize = 0;       // Can collapse completely
   // ... other implementation
 }
-```
-
-### Alt-Key Behavior
-
-Hold Alt while dragging for alternative resize behavior:
-
-```typescript
-const splitView = new SplitView(container, {
-  inverseAltBehavior: false  // Use macOS-style Alt behavior
-});
 ```
 
 ### Manual Distribution

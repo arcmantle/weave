@@ -190,7 +190,6 @@ implements ISashLayoutProvider {
 	private sashPointerStatesBeforeDrag: boolean[] = []; // Store original pointer event states during drag
 	private state:                       State = State.Idle;
 	private proportionalResize:          boolean;
-	private inverseAltBehavior:          boolean;
 
 	private readonly onDidSashChangeCallbacks: ((index: number) => void)[] = [];
 	private readonly onDidSashResetCallbacks:  ((index: number) => void)[] = [];
@@ -215,7 +214,6 @@ implements ISashLayoutProvider {
 	constructor(container: HTMLElement, options: ISplitViewOptions<TLayoutContext> = {}) {
 		this.orientation = options.orientation ?? Orientation.VERTICAL;
 		this.proportionalResize = options.proportionalResize ?? true;
-		this.inverseAltBehavior = options.inverseAltBehavior ?? false;
 
 		this.el = document.createElement('div');
 		this.el.classList.add('split-view');
@@ -478,7 +476,7 @@ implements ISashLayoutProvider {
 		}
 	}
 
-	private onSashStart(sash: Sash, { currentX, currentY, altKey }: ISashEvent): void {
+	private onSashStart(sash: Sash, { currentX, currentY }: ISashEvent): void {
 		// Disable all views during drag
 		for (const item of this.viewItems)
 			item.enabled = false;
@@ -501,10 +499,9 @@ implements ISashLayoutProvider {
 			startSizes:      this.viewItems.map(i => i.size),
 			minDelta:        0,
 			maxDelta:        0,
-			altKeyPressed:   altKey,
 		};
 
-		this.resetSashDragState(start, altKey);
+		this.resetSashDragState(start);
 	}
 
 	private onSashChange({ currentX, currentY }: ISashEvent): void {
@@ -809,93 +806,73 @@ implements ISashLayoutProvider {
 		this.sashDragState = undefined;
 	}
 
-	private resetSashDragState(start: number, alt: boolean): void {
+	private resetSashDragState(start: number): void {
 		if (!this.sashDragState)
 			return;
 
 		const { index } = this.sashDragState;
-
-		if (this.inverseAltBehavior)
-			alt = !alt;
 
 		let minDelta = Number.NEGATIVE_INFINITY;
 		let maxDelta = Number.POSITIVE_INFINITY;
 		let snapBefore: SnapState | undefined;
 		let snapAfter: SnapState | undefined;
 
-		if (alt) {
-			// Alt behavior - resize only adjacent views
-			const isLastSash = index === this.sashItems.length - 1;
+		// Normal behavior - calculate constraints from all views
+		const upIndexes: number[] = [];
+		for (let i = index; i >= 0; i--)
+			upIndexes.push(i);
 
-			if (isLastSash) {
-				const viewItem = this.viewItems[index]!;
-				minDelta = (viewItem.minimumSize - viewItem.size) / 2;
-				maxDelta = (viewItem.maximumSize - viewItem.size) / 2;
-			}
-			else {
-				const viewItem = this.viewItems[index + 1]!;
-				minDelta = (viewItem.size - viewItem.maximumSize) / 2;
-				maxDelta = (viewItem.size - viewItem.minimumSize) / 2;
-			}
+		const downIndexes: number[] = [];
+		for (let i = index + 1; i < this.viewItems.length; i++)
+			downIndexes.push(i);
+
+		const viewStates: ViewState[] = this.viewItems.map(item => ({
+			size:              item.size,
+			visible:           item.visible,
+			cachedVisibleSize: item.cachedVisibleSize,
+		}));
+
+		const constraints: ViewConstraints[] = this.viewItems.map(item => ({
+			minimumSize:        item.minimumSize,
+			maximumSize:        item.maximumSize,
+			priority:           item.priority ?? LayoutPriority.Normal,
+			snap:               item.snap,
+			proportionalLayout: item.proportionalLayout,
+		}));
+
+		const { minDelta: calcMinDelta, maxDelta: calcMaxDelta } = calculateDeltaConstraints(
+			index,
+			viewStates,
+			constraints,
+		);
+
+		minDelta = calcMinDelta;
+		maxDelta = calcMaxDelta;
+
+		// Calculate snap states
+		const snapBeforeIndex = findFirstSnapIndex(upIndexes, viewStates, constraints);
+		const snapAfterIndex = findFirstSnapIndex(downIndexes, viewStates, constraints);
+
+		if (typeof snapBeforeIndex === 'number') {
+			const viewItem = this.viewItems[snapBeforeIndex]!;
+			const halfSize = Math.floor(viewItem.viewMinimumSize / 2);
+
+			snapBefore = {
+				index:      snapBeforeIndex,
+				limitDelta: viewItem.visible ? minDelta - halfSize : minDelta + halfSize,
+				size:       viewItem.size,
+			};
 		}
-		else {
-			// Normal behavior - calculate constraints from all views
-			const upIndexes: number[] = [];
-			for (let i = index; i >= 0; i--)
-				upIndexes.push(i);
 
-			const downIndexes: number[] = [];
-			for (let i = index + 1; i < this.viewItems.length; i++)
-				downIndexes.push(i);
+		if (typeof snapAfterIndex === 'number') {
+			const viewItem = this.viewItems[snapAfterIndex]!;
+			const halfSize = Math.floor(viewItem.viewMinimumSize / 2);
 
-			const viewStates: ViewState[] = this.viewItems.map(item => ({
-				size:              item.size,
-				visible:           item.visible,
-				cachedVisibleSize: item.cachedVisibleSize,
-			}));
-
-			const constraints: ViewConstraints[] = this.viewItems.map(item => ({
-				minimumSize:        item.minimumSize,
-				maximumSize:        item.maximumSize,
-				priority:           item.priority ?? LayoutPriority.Normal,
-				snap:               item.snap,
-				proportionalLayout: item.proportionalLayout,
-			}));
-
-			const { minDelta: calcMinDelta, maxDelta: calcMaxDelta } = calculateDeltaConstraints(
-				index,
-				viewStates,
-				constraints,
-			);
-
-			minDelta = calcMinDelta;
-			maxDelta = calcMaxDelta;
-
-			// Calculate snap states
-			const snapBeforeIndex = findFirstSnapIndex(upIndexes, viewStates, constraints);
-			const snapAfterIndex = findFirstSnapIndex(downIndexes, viewStates, constraints);
-
-			if (typeof snapBeforeIndex === 'number') {
-				const viewItem = this.viewItems[snapBeforeIndex]!;
-				const halfSize = Math.floor(viewItem.viewMinimumSize / 2);
-
-				snapBefore = {
-					index:      snapBeforeIndex,
-					limitDelta: viewItem.visible ? minDelta - halfSize : minDelta + halfSize,
-					size:       viewItem.size,
-				};
-			}
-
-			if (typeof snapAfterIndex === 'number') {
-				const viewItem = this.viewItems[snapAfterIndex]!;
-				const halfSize = Math.floor(viewItem.viewMinimumSize / 2);
-
-				snapAfter = {
-					index:      snapAfterIndex,
-					limitDelta: viewItem.visible ? maxDelta + halfSize : maxDelta - halfSize,
-					size:       viewItem.size,
-				};
-			}
+			snapAfter = {
+				index:      snapAfterIndex,
+				limitDelta: viewItem.visible ? maxDelta + halfSize : maxDelta - halfSize,
+				size:       viewItem.size,
+			};
 		}
 
 		this.sashDragState.minDelta = minDelta;

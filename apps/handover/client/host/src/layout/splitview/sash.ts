@@ -106,13 +106,11 @@ export class Sash {
 
 		const startX = event.pageX - containerOffsetX;
 		const startY = event.pageY - containerOffsetY;
-		const { altKey } = event;
 		const startEvent: ISashEvent = {
 			startX,
 			currentX: startX,
 			startY,
 			currentY: startY,
-			altKey,
 		};
 
 		this.el.classList.add('active');
@@ -125,7 +123,6 @@ export class Sash {
 				currentX: e.pageX - containerOffsetX,
 				startY,
 				currentY: e.pageY - containerOffsetY,
-				altKey:   e.altKey,
 			};
 			this.fireOnDidChange(moveEvent);
 		};

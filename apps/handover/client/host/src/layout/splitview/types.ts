@@ -1,11 +1,5 @@
 /**
- * Core types for the splitview system, inspired bexport interface DragState {
-	readonly startX : number;
-	readonly currentX : number;
-	readonly startY : number;
-	readonly currentY : number;
-	readonly altKey : boolean;
-}e's implementation
+ * Core types for the splitview system, inspired by VSCode's implementation
  */
 
 export enum Orientation {
@@ -64,7 +58,6 @@ export interface ISashEvent {
 	readonly currentX: number;
 	readonly startY:   number;
 	readonly currentY: number;
-	readonly altKey:   boolean;
 }
 
 export interface ISplitViewOptions<_TLayoutContext = undefined> {
@@ -73,9 +66,6 @@ export interface ISplitViewOptions<_TLayoutContext = undefined> {
 
 	/** Use proportional resize behavior (true) vs sequential neighbor resize (false) */
 	readonly proportionalResize?: boolean;
-
-	/** Make Alt-drag the default drag operation */
-	readonly inverseAltBehavior?: boolean;
 }
 
 export interface ViewConstraints {
@@ -99,7 +89,6 @@ export interface DragState {
 	startSizes:      number[];
 	minDelta:        number;
 	maxDelta:        number;
-	altKeyPressed:   boolean;
 	snapBefore?:     SnapState;
 	snapAfter?:      SnapState;
 }
