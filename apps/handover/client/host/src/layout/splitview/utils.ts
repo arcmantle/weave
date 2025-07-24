@@ -179,38 +179,11 @@ export function distributeEmptySpace(
 	emptySpace: number,
 	viewStates: ViewState[],
 	constraints: ViewConstraints[],
-	lowPriorityIndex?: number,
 ): void {
 	let remainingSpace = emptySpace;
 
-	// Create priority-ordered indexes
-	const indexes: number[] = [];
-	const highPriorityIndexes: number[] = [];
-	const lowPriorityIndexes: number[] = [];
-
+	// Distribute space evenly among all views
 	for (let i = 0; i < viewStates.length; i++) {
-		if (constraints[i]!.priority === 2 /* LayoutPriority.High */)
-			highPriorityIndexes.push(i);
-		else if (constraints[i]!.priority === 1 /* LayoutPriority.Low */)
-			lowPriorityIndexes.push(i);
-		else
-			indexes.push(i);
-	}
-
-	// Order: high priority first, then normal, then low priority
-	const orderedIndexes = [ ...highPriorityIndexes, ...indexes, ...lowPriorityIndexes ];
-
-	// Move lowPriorityIndex to the end if specified
-	if (typeof lowPriorityIndex === 'number') {
-		const index = orderedIndexes.indexOf(lowPriorityIndex);
-		if (index !== -1) {
-			orderedIndexes.splice(index, 1);
-			orderedIndexes.push(lowPriorityIndex);
-		}
-	}
-
-	// Distribute space
-	for (const i of orderedIndexes) {
 		if (remainingSpace === 0)
 			break;
 

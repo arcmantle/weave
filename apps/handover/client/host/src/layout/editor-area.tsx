@@ -7,7 +7,7 @@ import { ContentArea } from './content-area.tsx';
 import { layoutPreferences } from './layout-preferences.ts';
 import { SplitView } from './splitview/split-view.ts';
 import splitViewStyles from './splitview/splitview.css' with { type: 'css'};
-import { type IView, LayoutPriority, Orientation, Sizing } from './splitview/types.ts';
+import { type IView, Orientation, Sizing } from './splitview/types.ts';
 
 
 interface EditorView extends IView {
@@ -16,7 +16,6 @@ interface EditorView extends IView {
 	readonly element:             HTMLElement;
 	readonly minimumSize:         number;
 	readonly maximumSize:         number;
-	readonly priority?:           LayoutPriority;
 	readonly proportionalLayout?: boolean;
 	dispose(): void;
 }
@@ -26,7 +25,6 @@ class EditorViewImpl implements EditorView {
 	readonly element: HTMLElement;
 	readonly minimumSize = 200;
 	readonly maximumSize = Number.POSITIVE_INFINITY;
-	readonly priority = LayoutPriority.Normal;
 	readonly proportionalLayout = true;
 
 	constructor(
@@ -109,7 +107,7 @@ export class EditorAreaCmp extends ContentArea {
 
 		this.splitView = new SplitView(container, {
 			orientation:        Orientation.HORIZONTAL,
-			proportionalResize: false,  // Test sequential neighbor resize behavior
+			proportionalResize: true,  // Test sequential neighbor resize behavior
 		});
 
 		// Create initial editors

@@ -4,7 +4,6 @@ import {
 	type ISashEvent,
 	type ISplitViewOptions,
 	type IView,
-	LayoutPriority,
 	Orientation,
 	SashState,
 	type Sizing,
@@ -83,10 +82,6 @@ abstract class ViewItem<TLayoutContext, TView extends IView<TLayoutContext>> {
 
 	get viewMaximumSize(): number {
 		return this.view.maximumSize;
-	}
-
-	get priority(): LayoutPriority | undefined {
-		return this.view.priority;
 	}
 
 	get proportionalLayout(): boolean {
@@ -329,16 +324,7 @@ implements ISashLayoutProvider {
 		this.layoutContext = layoutContext;
 
 		if (!this.proportions) {
-			const indexes: number[] = [];
-			for (let i = this.viewItems.length - 1; i >= 0; i--)
-				indexes.push(i);
-
-			const lowPriorityIndexes = indexes.filter(i =>
-				this.viewItems[i]!.priority === LayoutPriority.Low);
-			const highPriorityIndexes = indexes.filter(i =>
-				this.viewItems[i]!.priority === LayoutPriority.High);
-
-			this.resize(this.viewItems.length - 1, size - previousSize, lowPriorityIndexes, highPriorityIndexes);
+			this.resize(this.viewItems.length - 1, size - previousSize);
 		}
 		else {
 			let total = 0;
@@ -876,7 +862,6 @@ implements ISashLayoutProvider {
 		const constraints: ViewConstraints[] = this.viewItems.map(item => ({
 			minimumSize:        item.minimumSize,
 			maximumSize:        item.maximumSize,
-			priority:           item.priority ?? LayoutPriority.Normal,
 			snap:               item.snap,
 			proportionalLayout: item.proportionalLayout,
 		}));
@@ -933,8 +918,6 @@ implements ISashLayoutProvider {
 	private resize(
 		index: number,
 		delta: number,
-		lowPriorityIndexes?: number[],
-		highPriorityIndexes?: number[],
 	): number {
 		const viewStates: ViewState[] = this.viewItems.map(item => ({
 			size:              item.size,
@@ -945,23 +928,9 @@ implements ISashLayoutProvider {
 		const constraints: ViewConstraints[] = this.viewItems.map(item => ({
 			minimumSize:        item.minimumSize,
 			maximumSize:        item.maximumSize,
-			priority:           item.priority ?? LayoutPriority.Normal,
 			snap:               item.snap,
 			proportionalLayout: item.proportionalLayout,
 		}));
-
-		// Apply priority ordering
-		if (highPriorityIndexes) {
-			// Move high priority indexes to the front
-			for (const priorityIndex of highPriorityIndexes)
-				constraints[priorityIndex]!.priority = LayoutPriority.High;
-		}
-
-		if (lowPriorityIndexes) {
-			// Move low priority indexes to the back
-			for (const priorityIndex of lowPriorityIndexes)
-				constraints[priorityIndex]!.priority = LayoutPriority.Low;
-		}
 
 		const actualDelta = resize(index, delta, viewStates, constraints);
 
@@ -975,7 +944,7 @@ implements ISashLayoutProvider {
 		return actualDelta;
 	}
 
-	private distributeEmptySpace(lowPriorityIndex?: number): void {
+	private distributeEmptySpace(): void {
 		const contentSize = this.viewItems.reduce((r, i) => r + i.size, 0);
 		const emptyDelta = this.size - contentSize;
 
@@ -988,12 +957,11 @@ implements ISashLayoutProvider {
 		const constraints: ViewConstraints[] = this.viewItems.map(item => ({
 			minimumSize:        item.minimumSize,
 			maximumSize:        item.maximumSize,
-			priority:           item.priority ?? LayoutPriority.Normal,
 			snap:               item.snap,
 			proportionalLayout: item.proportionalLayout,
 		}));
 
-		distributeEmptySpace(emptyDelta, viewStates, constraints, lowPriorityIndex);
+		distributeEmptySpace(emptyDelta, viewStates, constraints);
 
 		// Apply the changes back to view items
 		for (let i = 0; i < this.viewItems.length; i++) {
@@ -1105,22 +1073,12 @@ implements ISashLayoutProvider {
 		for (const item of flexibleViewItems)
 			item.size = clamp(size, item.minimumSize, item.maximumSize);
 
-		// Calculate priority indexes for proper distribution
-		const indexes: number[] = [];
-		for (let i = 0; i < this.viewItems.length; i++)
-			indexes.push(i);
-
-		const lowPriorityIndexes = indexes.filter(i =>
-			this.viewItems[i]!.priority === LayoutPriority.Low);
-		const highPriorityIndexes = indexes.filter(i =>
-			this.viewItems[i]!.priority === LayoutPriority.High);
-
-		// Apply any remaining size adjustments with priority consideration
+		// Apply any remaining size adjustments
 		const contentSize = this.viewItems.reduce((r, i) => r + i.size, 0);
 		const delta = this.size - contentSize;
 
 		if (delta !== 0)
-			this.resize(this.viewItems.length - 1, delta, lowPriorityIndexes, highPriorityIndexes);
+			this.resize(this.viewItems.length - 1, delta);
 
 		this.distributeEmptySpace();
 		this.layoutViews();

@@ -14,7 +14,6 @@ export type {
 	ViewState,
 } from './types.ts';
 export {
-	LayoutPriority,
 	Orientation,
 	SashState,
 } from './types.ts';

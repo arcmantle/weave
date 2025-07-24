@@ -1,4 +1,4 @@
-import { type IView, LayoutPriority, Orientation, SplitView } from './index.ts';
+import { type IView, Orientation, SplitView } from './index.ts';
 
 /**
  * Simple example view implementation
@@ -8,7 +8,6 @@ class SimpleView implements IView {
 	readonly element:            HTMLElement;
 	readonly minimumSize:        number;
 	readonly maximumSize:        number;
-	readonly priority:           LayoutPriority;
 	readonly proportionalLayout: boolean;
 	readonly snap:               boolean;
 
@@ -19,7 +18,6 @@ class SimpleView implements IView {
 		options: {
 			minimumSize?:        number;
 			maximumSize?:        number;
-			priority?:           LayoutPriority;
 			proportionalLayout?: boolean;
 			snap?:               boolean;
 		} = {},
@@ -40,7 +38,6 @@ class SimpleView implements IView {
 
 		this.minimumSize = options.minimumSize ?? 100;
 		this.maximumSize = options.maximumSize ?? Number.POSITIVE_INFINITY;
-		this.priority = options.priority ?? LayoutPriority.Normal;
 		this.proportionalLayout = options.proportionalLayout ?? true;
 		this.snap = options.snap ?? false;
 	}
@@ -75,26 +72,22 @@ export function createSplitViewDemo(container: HTMLElement): void {
 
 	// Create splitview
 	const splitView = new SplitView(container, {
-		orientation:        Orientation.HORIZONTAL,
-		proportionalLayout: true,
+		orientation: Orientation.HORIZONTAL,
 	});
 
 	// Create views
 	const view1 = new SimpleView('Sidebar', {
 		minimumSize: 150,
 		maximumSize: 400,
-		priority:    LayoutPriority.Low,
 	});
 
 	const view2 = new SimpleView('Main Content', {
 		minimumSize: 200,
-		priority:    LayoutPriority.High,
 	});
 
 	const view3 = new SimpleView('Inspector', {
 		minimumSize: 100,
 		maximumSize: 300,
-		priority:    LayoutPriority.Normal,
 	});
 
 	// Add views to splitview

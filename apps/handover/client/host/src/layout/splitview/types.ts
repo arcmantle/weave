@@ -7,12 +7,6 @@ export enum Orientation {
 	HORIZONTAL = 1,
 }
 
-export enum LayoutPriority {
-	Normal = 0,
-	Low = 1,
-	High = 2,
-}
-
 export enum SashState {
 	/** Disable any UI interaction */
 	Disabled = 0,
@@ -33,9 +27,6 @@ export interface IView<TLayoutContext = undefined> {
 
 	/** Maximum size for this view */
 	readonly maximumSize: number;
-
-	/** Priority when the layout algorithm runs */
-	readonly priority?: LayoutPriority;
 
 	/** Whether the view participates in proportional layout */
 	readonly proportionalLayout?: boolean;
@@ -71,7 +62,6 @@ export interface ISplitViewOptions<_TLayoutContext = undefined> {
 export interface ViewConstraints {
 	minimumSize:        number;
 	maximumSize:        number;
-	priority:           LayoutPriority;
 	snap:               boolean;
 	proportionalLayout: boolean;
 }
