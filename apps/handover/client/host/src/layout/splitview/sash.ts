@@ -26,6 +26,7 @@ export class Sash {
 	private orientation:    Orientation;
 	private size:           number;
 	private _state:         SashState = SashState.Enabled;
+	private _pointerEventsEnabled = true;
 
 	private readonly onDidStartCallbacks:  ((event: ISashEvent) => void)[] = [];
 	private readonly onDidChangeCallbacks: ((event: ISashEvent) => void)[] = [];
@@ -45,6 +46,18 @@ export class Sash {
 		this.el.classList.toggle('maximum', state === SashState.AtMaximum);
 
 		this._state = state;
+	}
+
+	get pointerEventsEnabled(): boolean {
+		return this._pointerEventsEnabled;
+	}
+
+	set pointerEventsEnabled(enabled: boolean) {
+		if (this._pointerEventsEnabled === enabled)
+			return;
+
+		this.el.style.pointerEvents = enabled ? '' : 'none';
+		this._pointerEventsEnabled = enabled;
 	}
 
 	constructor(
@@ -180,8 +193,6 @@ export class Sash {
 
 			if (this.layoutProvider.getVerticalSashTop)
 				this.el.style.top = `${ this.layoutProvider.getVerticalSashTop(this) }px`;
-
-			// Let CSS handle height: 100% for vertical sashes
 		}
 		else {
 			if (this.layoutProvider.getHorizontalSashTop)
@@ -189,8 +200,6 @@ export class Sash {
 
 			if (this.layoutProvider.getHorizontalSashLeft)
 				this.el.style.left = `${ this.layoutProvider.getHorizontalSashLeft(this) }px`;
-
-			// Let CSS handle width: 100% for horizontal sashes
 		}
 	}
 

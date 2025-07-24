@@ -86,12 +86,12 @@
 	cursor: w-resize;
 }
 
-.sash.active {
-	background-color: var(--sash-active-color, #007acc);
-}
-
 .sash:hover {
 	background-color: var(--sash-hover-color, rgba(0, 122, 204, 0.2));
+}
+
+.sash.active {
+	background-color: var(--sash-active-color, #007acc);
 }
 
 /* macOS specific cursors */

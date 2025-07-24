@@ -178,18 +178,19 @@ implements ISashLayoutProvider {
 	readonly orientation: Orientation;
 	readonly el:          HTMLElement;
 
-	private sashContainer:      HTMLElement;
-	private viewContainer:      HTMLElement;
+	private sashContainer:               HTMLElement;
+	private viewContainer:               HTMLElement;
 	private size = 0;
-	private layoutContext:      TLayoutContext | undefined;
+	private layoutContext:               TLayoutContext | undefined;
 	private _contentSize = 0;
-	private proportions:        (number | undefined)[] | undefined = undefined;
-	private viewItems:          ViewItem<TLayoutContext, TView>[] = [];
-	private sashItems:          ISashItem[] = [];
-	private sashDragState:      DragState | undefined;
-	private state:              State = State.Idle;
-	private proportionalResize: boolean;
-	private inverseAltBehavior: boolean;
+	private proportions:                 (number | undefined)[] | undefined = undefined;
+	private viewItems:                   ViewItem<TLayoutContext, TView>[] = [];
+	private sashItems:                   ISashItem[] = [];
+	private sashDragState:               DragState | undefined;
+	private sashPointerStatesBeforeDrag: boolean[] = []; // Store original pointer event states during drag
+	private state:                       State = State.Idle;
+	private proportionalResize:          boolean;
+	private inverseAltBehavior:          boolean;
 
 	private readonly onDidSashChangeCallbacks: ((index: number) => void)[] = [];
 	private readonly onDidSashResetCallbacks:  ((index: number) => void)[] = [];
@@ -481,6 +482,14 @@ implements ISashLayoutProvider {
 		// Disable all views during drag
 		for (const item of this.viewItems)
 			item.enabled = false;
+
+		// Store original pointer event states and disable pointer events on all other sashes during drag
+		this.sashPointerStatesBeforeDrag = [];
+		for (const sashItem of this.sashItems) {
+			this.sashPointerStatesBeforeDrag.push(sashItem.sash.pointerEventsEnabled);
+			if (sashItem.sash !== sash)
+				sashItem.sash.pointerEventsEnabled = false;
+		}
 
 		const index = this.sashItems.findIndex(item => item.sash === sash);
 		const start = this.orientation === Orientation.VERTICAL ? currentY : currentX;
@@ -787,6 +796,12 @@ implements ISashLayoutProvider {
 		// Re-enable all views
 		for (const item of this.viewItems)
 			item.enabled = true;
+
+		// Restore original pointer event states
+		for (let i = 0; i < this.sashItems.length && i < this.sashPointerStatesBeforeDrag.length; i++)
+			this.sashItems[i]!.sash.pointerEventsEnabled = this.sashPointerStatesBeforeDrag[i]!;
+
+		this.sashPointerStatesBeforeDrag = [];
 
 		this.fireOnDidSashChange(this.sashDragState.index);
 		this.saveProportions();
