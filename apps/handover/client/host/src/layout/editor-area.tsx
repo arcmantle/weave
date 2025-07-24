@@ -107,7 +107,7 @@ export class EditorAreaCmp extends ContentArea {
 
 		this.splitView = new SplitView(container, {
 			orientation:        Orientation.HORIZONTAL,
-			proportionalResize: true,  // Test sequential neighbor resize behavior
+			proportionalResize: false,  // Test sequential neighbor resize behavior
 		});
 
 		// Create initial editors
@@ -207,16 +207,16 @@ export class EditorAreaCmp extends ContentArea {
 		splitViewStyles,
 		css`
 		:host {
+			--sash-active-color: var(--vscode-focusBorder);
+			--sash-hover-color: green;
+			--vscode-tab-activeBackground: blue;
+
 			contain: strict;
 			display: flex;
 			flex-direction: column;
 			height: 100%;
 			background: var(--vscode-editor-background);
-			--sash-active-color: var(--vscode-focusBorder);
-			--sash-hover-color: green;
-			--vscode-tab-activeBackground: blue;
 		}
-
 		.editor-toolbar {
 			display: flex;
 			gap: 8px;
@@ -224,7 +224,6 @@ export class EditorAreaCmp extends ContentArea {
 			background: var(--vscode-editorGroupHeader-tabsBackground);
 			border-bottom: 1px solid var(--vscode-editorGroupHeader-tabsBorder);
 		}
-
 		.editor-toolbar button {
 			padding: 4px 8px;
 			background: var(--vscode-button-background);
@@ -234,23 +233,19 @@ export class EditorAreaCmp extends ContentArea {
 			cursor: pointer;
 			font-size: 12px;
 		}
-
 		.editor-toolbar button:hover {
 			background: var(--vscode-button-hoverBackground);
 		}
-
 		.editor-container {
 			flex: 1;
 			position: relative;
 		}
-
 		.editor-view {
 			display: flex;
 			flex-direction: column;
 			height: 100%;
 			background: var(--vscode-editor-background);
 		}
-
 		.editor-tab {
 			display: flex;
 			align-items: center;
@@ -260,12 +255,10 @@ export class EditorAreaCmp extends ContentArea {
 			border-bottom: 1px solid var(--vscode-tab-border);
 			font-size: 13px;
 		}
-
 		.editor-title {
 			color: var(--vscode-tab-activeForeground);
 			font-weight: 500;
 		}
-
 		.editor-close {
 			background: none;
 			border: none;
@@ -276,12 +269,10 @@ export class EditorAreaCmp extends ContentArea {
 			font-size: 16px;
 			opacity: 0.7;
 		}
-
 		.editor-close:hover {
 			background: var(--vscode-toolbar-hoverBackground);
 			opacity: 1;
 		}
-
 		.editor-content {
 			flex: 1;
 			padding: 16px;

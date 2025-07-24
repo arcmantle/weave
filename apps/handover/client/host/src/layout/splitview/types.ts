@@ -28,9 +28,6 @@ export interface IView<TLayoutContext = undefined> {
 	/** Maximum size for this view */
 	readonly maximumSize: number;
 
-	/** Whether the view participates in proportional layout */
-	readonly proportionalLayout?: boolean;
-
 	/** Whether the view will snap at minimum size */
 	readonly snap?: boolean;
 
@@ -60,10 +57,9 @@ export interface ISplitViewOptions<_TLayoutContext = undefined> {
 }
 
 export interface ViewConstraints {
-	minimumSize:        number;
-	maximumSize:        number;
-	snap:               boolean;
-	proportionalLayout: boolean;
+	minimumSize: number;
+	maximumSize: number;
+	snap:        boolean;
 }
 
 export interface ViewState {

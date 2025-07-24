@@ -20,19 +20,13 @@ import {
 	resize,
 } from './utils.ts';
 
+
 interface ISashItem {
 	sash:       Sash;
 	disposable: () => void;
 }
 
 abstract class ViewItem<TLayoutContext, TView extends IView<TLayoutContext>> {
-
-	private _size:              number;
-	private _cachedVisibleSize: number | undefined = undefined;
-
-	set enabled(enabled: boolean) {
-		this.container.style.pointerEvents = enabled ? '' : 'none';
-	}
 
 	constructor(
 		protected container: HTMLElement,
@@ -50,6 +44,13 @@ abstract class ViewItem<TLayoutContext, TView extends IView<TLayoutContext>> {
 		}
 
 		container.appendChild(view.element);
+	}
+
+	private _size:              number;
+	private _cachedVisibleSize: number | undefined = undefined;
+
+	set enabled(enabled: boolean) {
+		this.container.style.pointerEvents = enabled ? '' : 'none';
 	}
 
 	get size(): number {
@@ -82,10 +83,6 @@ abstract class ViewItem<TLayoutContext, TView extends IView<TLayoutContext>> {
 
 	get viewMaximumSize(): number {
 		return this.view.maximumSize;
-	}
-
-	get proportionalLayout(): boolean {
-		return this.view.proportionalLayout ?? true;
 	}
 
 	get snap(): boolean {
@@ -182,7 +179,7 @@ implements ISashLayoutProvider {
 	private viewItems:                   ViewItem<TLayoutContext, TView>[] = [];
 	private sashItems:                   ISashItem[] = [];
 	private sashDragState:               DragState | undefined;
-	private sashPointerStatesBeforeDrag: boolean[] = []; // Store original pointer event states during drag
+	private sashPointerStatesBeforeDrag: boolean[] = [];
 	private state:                       State = State.Idle;
 	private proportionalResize:          boolean;
 
@@ -296,7 +293,7 @@ implements ISashLayoutProvider {
 				sashItem.disposable();
 			}
 
-			this.relayout();
+			this.reLayout();
 
 			if (sizing?.type === 'distribute')
 				this.distributeViewSizes();
@@ -493,7 +490,7 @@ implements ISashLayoutProvider {
 			}
 
 			if (!skipLayout)
-				this.relayout();
+				this.reLayout();
 
 			if (!skipLayout && typeof size !== 'number' && size.type === 'distribute')
 				this.distributeViewSizes();
@@ -860,10 +857,9 @@ implements ISashLayoutProvider {
 		}));
 
 		const constraints: ViewConstraints[] = this.viewItems.map(item => ({
-			minimumSize:        item.minimumSize,
-			maximumSize:        item.maximumSize,
-			snap:               item.snap,
-			proportionalLayout: item.proportionalLayout,
+			minimumSize: item.minimumSize,
+			maximumSize: item.maximumSize,
+			snap:        item.snap,
 		}));
 
 		const { minDelta: calcMinDelta, maxDelta: calcMaxDelta } = calculateDeltaConstraints(
@@ -907,7 +903,7 @@ implements ISashLayoutProvider {
 		this.sashDragState.snapAfter = snapAfter;
 	}
 
-	private relayout(): void {
+	private reLayout(): void {
 		const contentSize = this.viewItems.reduce((r, i) => r + i.size, 0);
 		this.resize(this.viewItems.length - 1, this.size - contentSize);
 		this.distributeEmptySpace();
@@ -926,10 +922,9 @@ implements ISashLayoutProvider {
 		}));
 
 		const constraints: ViewConstraints[] = this.viewItems.map(item => ({
-			minimumSize:        item.minimumSize,
-			maximumSize:        item.maximumSize,
-			snap:               item.snap,
-			proportionalLayout: item.proportionalLayout,
+			minimumSize: item.minimumSize,
+			maximumSize: item.maximumSize,
+			snap:        item.snap,
 		}));
 
 		const actualDelta = resize(index, delta, viewStates, constraints);
@@ -955,10 +950,9 @@ implements ISashLayoutProvider {
 		}));
 
 		const constraints: ViewConstraints[] = this.viewItems.map(item => ({
-			minimumSize:        item.minimumSize,
-			maximumSize:        item.maximumSize,
-			snap:               item.snap,
-			proportionalLayout: item.proportionalLayout,
+			minimumSize: item.minimumSize,
+			maximumSize: item.maximumSize,
+			snap:        item.snap,
 		}));
 
 		distributeEmptySpace(emptyDelta, viewStates, constraints);
@@ -1040,10 +1034,8 @@ implements ISashLayoutProvider {
 	private saveProportions(): void {
 		// Always save proportions for container resize, regardless of proportionalResize setting
 		// The proportionalResize setting only affects sash dragging behavior
-		if (this._contentSize > 0) {
-			this.proportions = this.viewItems.map(v =>
-				v.proportionalLayout && v.visible ? v.size / this._contentSize : undefined);
-		}
+		if (this._contentSize > 0)
+			this.proportions = this.viewItems.map(v => v.visible ? v.size / this._contentSize : undefined);
 	}
 
 	private areViewsDistributed(): boolean {
