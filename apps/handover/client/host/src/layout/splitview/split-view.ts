@@ -1037,7 +1037,9 @@ implements ISashLayoutProvider {
 	}
 
 	private saveProportions(): void {
-		if (this.proportionalResize && this._contentSize > 0) {
+		// Always save proportions for container resize, regardless of proportionalResize setting
+		// The proportionalResize setting only affects sash dragging behavior
+		if (this._contentSize > 0) {
 			this.proportions = this.viewItems.map(v =>
 				v.proportionalLayout && v.visible ? v.size / this._contentSize : undefined);
 		}
