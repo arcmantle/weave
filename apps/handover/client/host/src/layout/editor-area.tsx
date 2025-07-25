@@ -178,10 +178,8 @@ export class EditorAreaCmp extends ContentArea {
 		// Create test scenario: Two rows, first row has 4 columns
 		this.createTestScenario();
 
-		// Force initial layout with container dimensions
-		this.splitView.layout(container.offsetHeight); // Use height for vertical orientation
-
 		// Set up ResizeObserver to handle container size changes
+		// Starting the resize observer forces initial layout with container dimensions
 		this.setupResizeObserver(container);
 	}
 
@@ -287,16 +285,20 @@ export class EditorAreaCmp extends ContentArea {
 		const newEditor = new EditorViewImpl(newId, newTitle);
 
 		if (direction === 'horizontal') {
-			// Add a new editor to the first row (if it exists and is a NestedSplitView)
-			const firstView = this.splitView.length > 0 ? this.splitView.getViewSize(0) : null;
-			if (firstView !== null) {
-				// For simplicity, just add to the main split view for now
-				this.editors.push(newEditor);
-				this.splitView.addView(newEditor, Sizing.Distribute);
+			// Add a new column to the first row (NestedSplitView)
+			if (this.nestedSplitViews.length > 0) {
+				const firstRow = this.nestedSplitViews[0];
+				if (firstRow) {
+					firstRow.addEditor(newEditor);
+					this.editors.push(newEditor);
+
+					// Force layout update after adding to nested view
+					firstRow.finalizeLayout();
+				}
 			}
 		}
 		else {
-			// Add a new row
+			// Add a new row to the main vertical split view
 			this.editors.push(newEditor);
 			this.splitView.addView(newEditor, Sizing.Distribute);
 		}

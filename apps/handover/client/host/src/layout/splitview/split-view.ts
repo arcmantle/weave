@@ -302,6 +302,7 @@ implements ISashLayoutProvider {
 
 	layout(size: number, layoutContext?: TLayoutContext): void {
 		const previousSize = Math.max(this.size, this._contentSize);
+
 		this.size = size;
 		this.layoutContext = layoutContext;
 
