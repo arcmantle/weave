@@ -50,7 +50,6 @@ class EditorView implements IEditorView {
 	}
 
 	private handleClose = (): void => {
-		console.log(`Editor ${ this.id } requesting removal`);
 		this.onRemove?.(this.id);
 	};
 
@@ -117,10 +116,44 @@ class NestedView implements IEditorView {
 	private splitView: SplitView<undefined, IEditorView>;
 	private editors:   IEditorView[] = [];
 
+	/**
+	 * Add a new editor with proportional sizing that preserves existing layout proportions
+	 * @param editor The editor to add
+	 * @param targetShare The fraction of total space the new editor should get (e.g., 0.25 for 1/4)
+	 */
+	private addEditorWithProportionalSizing(editor: IEditorView, targetShare: number): void {
+		const totalSize = this.splitView.orientation === Orientation.HORIZONTAL
+			? this.element.offsetWidth
+			: this.element.offsetHeight;
+
+		const targetSize = totalSize * targetShare;
+
+		// Capture current sizes and calculate reduction factor
+		const currentSizes = Array.from({ length: this.editors.length - 1 }, (_, i) =>
+			this.splitView.getViewSize(i));
+		const currentTotal = currentSizes.reduce((sum, size) => sum + size, 0);
+		const reductionFactor = Math.max(0, (currentTotal - targetSize) / currentTotal);
+
+		// Add new editor and resize existing ones
+		this.splitView.addView(editor, targetSize);
+
+		currentSizes.forEach((currentSize, i) => {
+			const newSize = Math.max(100, currentSize * reductionFactor);
+			this.splitView.setViewSize(i, newSize);
+		});
+	}
 
 	addEditor(editor: IEditorView): void {
 		this.editors.push(editor);
-		this.splitView.addView(editor, Sizing.Distribute);
+
+		if (this.editors.length === 1) {
+			// First editor gets all available space
+			this.splitView.addView(editor, Sizing.Distribute);
+		}
+		else {
+			// New editor gets equal share (1/n of total space)
+			this.addEditorWithProportionalSizing(editor, 1 / this.editors.length);
+		}
 	}
 
 	removeEditor(id: string): boolean {
@@ -175,28 +208,27 @@ class NestedView implements IEditorView {
 	}
 
 	finalizeLayout(): void {
-		// Force proper distribution after all editors are added
 		// Use a small delay to ensure the element has been properly inserted into the DOM
 		const doLayout = () => {
-			if (this.element.offsetWidth > 0 || this.element.offsetHeight > 0) {
-				const size = this.splitView.orientation === Orientation.HORIZONTAL
-					? this.element.offsetWidth
-					: this.element.offsetHeight;
-
-				this.splitView.layout(size);
-
-				// Only force equal distribution if proportions haven't been saved yet
-				// This preserves user adjustments made by dragging sashes
-				if (!this.splitView.hasProportions)
-					this.splitView.distributeViewSizes();
-			}
-			else {
+			if (this.element.offsetWidth === 0 && this.element.offsetHeight === 0) {
 				// If dimensions are still not available, retry after a short delay
 				setTimeout(doLayout, 10);
+
+				return;
 			}
+
+			const size = this.splitView.orientation === Orientation.HORIZONTAL
+				? this.element.offsetWidth
+				: this.element.offsetHeight;
+
+			this.splitView.layout(size);
+
+			// Only force equal distribution for initial setup with no user adjustments
+			const shouldDistribute = !this.splitView.hasProportions && this.editors.length <= 1;
+			if (shouldDistribute)
+				this.splitView.distributeViewSizes();
 		};
 
-		// Try immediate layout first, fallback to delayed if needed
 		doLayout();
 	}
 
@@ -458,15 +490,15 @@ export class EditorAreaCmp extends ContentArea {
 
 		this.view.layout(size);
 
-		// Restore the exact sizes for all views to maintain proportions
-		for (let i = 0; i < Math.min(this.view.length, allSizes.length); i++) {
-			const targetSize = allSizes[i];
-			if (targetSize !== undefined) {
-				const currentSize = this.view.getViewSize(i);
-				if (Math.abs(currentSize - targetSize) > 1)
-					this.view.setViewSize(i, targetSize);
+		// Restore sizes for views that have changed significantly (> 1px difference)
+		const tolerance = 1;
+		allSizes.forEach((targetSize, i) => {
+			if (i < this.view!.length && targetSize !== undefined) {
+				const currentSize = this.view!.getViewSize(i);
+				if (Math.abs(currentSize - targetSize) > tolerance)
+					this.view!.setViewSize(i, targetSize);
 			}
-		}
+		});
 	}
 
 	/**
@@ -507,6 +539,40 @@ export class EditorAreaCmp extends ContentArea {
 		return editorView;
 	}
 
+	/**
+	 * Add a new view with proportional sizing that preserves existing layout proportions
+	 * @param view The view to add
+	 * @param targetShare The fraction of total space the new view should get (e.g., 0.25 for 1/4)
+	 */
+	private addViewWithProportionalSizing(view: IEditorView, targetShare: number): void {
+		if (!this.view)
+			return;
+
+		const container = this.querySelector('.editor-container') as HTMLElement;
+		if (!container)
+			return;
+
+		const totalSize = this.view.orientation === Orientation.HORIZONTAL
+			? container.offsetWidth
+			: container.offsetHeight;
+
+		const targetSize = totalSize * targetShare;
+
+		// Capture current sizes and calculate reduction factor
+		const currentSizes = Array.from({ length: this.view.length }, (_, i) =>
+			this.view!.getViewSize(i));
+		const currentTotal = currentSizes.reduce((sum, size) => sum + size, 0);
+		const reductionFactor = Math.max(0, (currentTotal - targetSize) / currentTotal);
+
+		// Add new view and resize existing ones
+		this.view.addView(view, targetSize);
+
+		currentSizes.forEach((currentSize, i) => {
+			const newSize = Math.max(100, currentSize * reductionFactor);
+			this.view!.setViewSize(i, newSize);
+		});
+	}
+
 	splitEditor(direction: 'horizontal' | 'vertical' = 'horizontal'): void {
 		if (!this.view)
 			return;
@@ -522,16 +588,21 @@ export class EditorAreaCmp extends ContentArea {
 				if (firstRow) {
 					firstRow.addEditor(newEditor);
 					this.editors.push(newEditor);
-
-					// Force layout update after adding to nested view
-					firstRow.finalizeLayout();
 				}
 			}
 		}
 		else {
 			// Add a new row to the main vertical split view
 			this.editors.push(newEditor);
-			this.view.addView(newEditor, Sizing.Distribute);
+
+			if (this.view.length === 0) {
+				// First view gets all space
+				this.view.addView(newEditor, Sizing.Distribute);
+			}
+			else {
+				// New view gets equal share (1/(n+1) of total space)
+				this.addViewWithProportionalSizing(newEditor, 1 / (this.view.length + 1));
+			}
 		}
 	}
 

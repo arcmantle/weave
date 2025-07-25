@@ -343,11 +343,8 @@ export class SplitView<
 		if (!sizing) {
 			// Give space to the view immediately to the right, or to the left if it's the rightmost
 			const adjacentIndex = index < this.viewItems.length - 1 ? index + 1 : index - 1;
-			if (adjacentIndex >= 0 && adjacentIndex < this.viewItems.length) {
+			if (adjacentIndex >= 0 && adjacentIndex < this.viewItems.length)
 				sizing = { type: 'split', index: adjacentIndex };
-				const direction = adjacentIndex > index ? 'right' : 'left';
-				console.log(`SplitView: Giving space from index ${ index } to adjacent index ${ adjacentIndex } (${ direction })`);
-			}
 		}
 
 		return this.removeView(index, sizing);
@@ -375,11 +372,8 @@ export class SplitView<
 		}
 
 		let sizing: Sizing | undefined;
-		if (adjacentIndex >= 0 && adjacentIndex < this.viewItems.length) {
+		if (adjacentIndex >= 0 && adjacentIndex < this.viewItems.length)
 			sizing = { type: 'split', index: adjacentIndex };
-			const direction = adjacentIndex > index ? 'right' : 'left';
-			console.log(`SplitView: Giving space from index ${ index } to ${ direction } neighbor at index ${ adjacentIndex }`);
-		}
 
 		return this.removeView(index, sizing);
 	}
