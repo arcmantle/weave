@@ -30,24 +30,17 @@ class EditorViewImpl implements EditorView {
 	constructor(
 		readonly id: string,
 		readonly title: string,
-		private contentArea: ContentArea,
 	) {
 		this.element = document.createElement('div');
 		this.element.className = 'editor-view';
 		this.element.innerHTML = `
 			<div class="editor-tab">
 				<span class="editor-title">${ title }</span>
-				<button class="editor-close" data-editor-id="${ id }">×</button>
+				<button class="editor-close" data-editor-id="${ id }">x</button>
 			</div>
 			<div class="editor-content"></div>
 		`;
 	}
-
-	onDidChange = (callback: (size?: number) => void): void => {
-		// In a real implementation, you would set up event listeners
-		// for when the view's constraints might change
-		// For now, this is a no-op since our editors have fixed constraints
-	};
 
 	layout(size: number, offset: number, context: undefined): void {
 		// The parent .split-view-view container is already being positioned and sized
@@ -56,6 +49,75 @@ class EditorViewImpl implements EditorView {
 	}
 
 	dispose(): void {
+		this.element.remove();
+	}
+
+}
+
+// Wrapper to make a SplitView behave like an EditorView for nesting
+class NestedSplitView implements EditorView {
+
+	readonly element: HTMLElement;
+	readonly minimumSize = 200;
+	readonly maximumSize = Number.POSITIVE_INFINITY;
+	readonly proportionalLayout = true;
+
+	private splitView: SplitView<undefined, EditorView>;
+	private editors:   EditorView[] = [];
+
+	constructor(
+		readonly id: string,
+		readonly title: string,
+		orientation: Orientation,
+	) {
+		this.element = document.createElement('div');
+		this.element.className = 'nested-split-view';
+		this.element.style.cssText = `
+			width: 100%;
+			height: 100%;
+			position: relative;
+		`;
+
+		this.splitView = new SplitView(this.element, {
+			orientation,
+			proportionalResize: false,
+		});
+	}
+
+	addEditor(editor: EditorView): void {
+		this.editors.push(editor);
+		this.splitView.addView(editor, Sizing.Distribute);
+	}
+
+	finalizeLayout(): void {
+		// Force proper distribution after all editors are added
+		if (this.element.offsetWidth > 0 || this.element.offsetHeight > 0) {
+			const size = this.splitView.orientation === Orientation.HORIZONTAL
+				? this.element.offsetWidth
+				: this.element.offsetHeight;
+
+			this.splitView.layout(size);
+
+			// Only force equal distribution if proportions haven't been saved yet
+			// This preserves user adjustments made by dragging sashes
+			if (!this.splitView.hasProportions)
+				this.splitView.distributeViewSizes();
+		}
+	}
+
+	layout(size: number, offset: number, context: undefined): void {
+		// Layout the nested split view with the correct dimension
+		// For horizontal orientation, we use the full size (width)
+		// For vertical orientation, we use the full size (height)
+		this.splitView.layout(size);
+
+		if (this.editors.length > 1)
+			this.finalizeLayout();
+	}
+
+	dispose(): void {
+		this.splitView.dispose();
+		this.editors.forEach(editor => editor.dispose());
 		this.element.remove();
 	}
 
@@ -70,7 +132,8 @@ export class EditorAreaCmp extends ContentArea {
 
 	@state() private accessor splitView: SplitView<undefined, EditorView> | null = null;
 	@state() private accessor editors: EditorView[] = [];
-	private resizeObserver: ResizeObserver | null = null;
+	private resizeObserver:   ResizeObserver | null = null;
+	private nestedSplitViews: NestedSplitView[] = [];  // Track nested views for resize handling
 
 	override connected(): void {
 		super.connected();
@@ -87,6 +150,8 @@ export class EditorAreaCmp extends ContentArea {
 		this.resizeObserver?.disconnect();
 		this.splitView?.dispose();
 		this.editors.forEach(editor => editor.dispose());
+		this.nestedSplitViews.forEach(nestedView => nestedView.dispose());
+		this.nestedSplitViews = [];
 	}
 
 	private initializeSplitView(): void {
@@ -106,19 +171,15 @@ export class EditorAreaCmp extends ContentArea {
 		}
 
 		this.splitView = new SplitView(container, {
-			orientation:        Orientation.HORIZONTAL,
-			proportionalResize: false,  // Test sequential neighbor resize behavior
+			orientation:        Orientation.VERTICAL, // Start with vertical for rows
+			proportionalResize: false,  // Test proportional resize behavior
 		});
 
-		// Create initial editors
-		// Add both editors with Sizing.Distribute to ensure equal space distribution
-		this.createEditor('welcome', 'Welcome', Sizing.Distribute);
-		this.createEditor('editor-1', 'Editor 1', Sizing.Distribute);
-		this.createEditor('editor-2', 'Editor 2', Sizing.Distribute);
-		this.createEditor('editor-3', 'Editor 3', Sizing.Distribute);
+		// Create test scenario: Two rows, first row has 4 columns
+		this.createTestScenario();
 
 		// Force initial layout with container dimensions
-		this.splitView.layout(container.offsetWidth);
+		this.splitView.layout(container.offsetHeight); // Use height for vertical orientation
 
 		// Set up ResizeObserver to handle container size changes
 		this.setupResizeObserver(container);
@@ -135,12 +196,41 @@ export class EditorAreaCmp extends ContentArea {
 
 					// Update the SplitView layout with the new container size
 					this.splitView.layout(newSize);
+
+					// Force all nested split views to redistribute their spaces
+					// This ensures proportional behavior is maintained during resize
+					for (const nestedView of this.nestedSplitViews)
+						nestedView.finalizeLayout();
 				}
 			}
 		});
 
 		// Start observing the container for size changes
 		this.resizeObserver.observe(container);
+	}
+
+	private createTestScenario(): void {
+		if (!this.splitView)
+			return;
+
+		// Create first row with 4 columns
+		const firstRow = new NestedSplitView('row-1', 'Row 1', Orientation.HORIZONTAL);
+		this.nestedSplitViews.push(firstRow);  // Track for resize handling
+
+		// Add 4 editors to the first row
+		for (let i = 1; i <= 4; i++) {
+			const editor = new EditorViewImpl(`row1-col${ i }`, `R1 C${ i }`);
+			firstRow.addEditor(editor);
+			this.editors.push(editor);
+		}
+
+		// Create second row with 1 editor
+		const secondRowEditor = new EditorViewImpl('row2-col1', 'Row 2');
+		this.editors.push(secondRowEditor);
+
+		// Add both rows to the main vertical split view
+		this.splitView.addView(firstRow, Sizing.Distribute);
+		this.splitView.addView(secondRowEditor, Sizing.Distribute);
 	}
 
 	private setupEventListeners(): void {
@@ -158,7 +248,7 @@ export class EditorAreaCmp extends ContentArea {
 	};
 
 	private createEditor(id: string, title: string, sizing: number | Sizing = Sizing.Distribute): void {
-		const editorView = new EditorViewImpl(id, title, this);
+		const editorView = new EditorViewImpl(id, title);
 		this.editors = [ ...this.editors, editorView ];
 
 		if (this.splitView) {
@@ -188,16 +278,35 @@ export class EditorAreaCmp extends ContentArea {
 	}
 
 	splitEditor(direction: 'horizontal' | 'vertical' = 'horizontal'): void {
+		if (!this.splitView)
+			return;
+
 		const newId = `editor-${ Date.now() }`;
 		const newTitle = `Editor ${ this.editors.length + 1 }`;
-		this.createEditor(newId, newTitle);
+
+		const newEditor = new EditorViewImpl(newId, newTitle);
+
+		if (direction === 'horizontal') {
+			// Add a new editor to the first row (if it exists and is a NestedSplitView)
+			const firstView = this.splitView.length > 0 ? this.splitView.getViewSize(0) : null;
+			if (firstView !== null) {
+				// For simplicity, just add to the main split view for now
+				this.editors.push(newEditor);
+				this.splitView.addView(newEditor, Sizing.Distribute);
+			}
+		}
+		else {
+			// Add a new row
+			this.editors.push(newEditor);
+			this.splitView.addView(newEditor, Sizing.Distribute);
+		}
 	}
 
 	protected override render(): unknown {
 		return <>
 			<div class="editor-toolbar">
-				<button on-click={() => this.splitEditor('horizontal')}>Split Right</button>
-				<button on-click={() => this.splitEditor('vertical')}>Split Down</button>
+				<button on-click={() => this.splitEditor('horizontal')}>Add Column to Row 1</button>
+				<button on-click={() => this.splitEditor('vertical')}>Add New Row</button>
 			</div>
 			<div class="editor-container"></div>
 		</>;
@@ -223,6 +332,7 @@ export class EditorAreaCmp extends ContentArea {
 			padding: 8px;
 			background: var(--vscode-editorGroupHeader-tabsBackground);
 			border-bottom: 1px solid var(--vscode-editorGroupHeader-tabsBorder);
+			align-items: center;
 		}
 		.editor-toolbar button {
 			padding: 4px 8px;
@@ -236,8 +346,19 @@ export class EditorAreaCmp extends ContentArea {
 		.editor-toolbar button:hover {
 			background: var(--vscode-button-hoverBackground);
 		}
+		.toolbar-info {
+			margin-left: auto;
+			font-size: 11px;
+			color: var(--vscode-descriptionForeground);
+			font-style: italic;
+		}
 		.editor-container {
 			flex: 1;
+			position: relative;
+		}
+		.nested-split-view {
+			width: 100%;
+			height: 100%;
 			position: relative;
 		}
 		.editor-view {

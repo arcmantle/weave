@@ -20,12 +20,10 @@ export {
 
 // Utilities
 export {
-	applyProportionalLayout,
 	areViewsDistributed,
 	calculateDeltaConstraints,
 	clamp,
 	distributeEmptySpace,
-	findFirstSnapIndex,
 	resize,
 	saveProportions,
 } from './utils.ts';

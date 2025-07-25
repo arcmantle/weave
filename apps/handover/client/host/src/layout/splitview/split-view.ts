@@ -7,7 +7,6 @@ import {
 	Orientation,
 	SashState,
 	type Sizing,
-	type SnapState,
 	type ViewConstraints,
 	type ViewState,
 } from './types.ts';
@@ -16,7 +15,6 @@ import {
 	calculateDeltaConstraints,
 	clamp,
 	distributeEmptySpace,
-	findFirstSnapIndex,
 	resize,
 } from './utils.ts';
 
@@ -83,10 +81,6 @@ abstract class ViewItem<TLayoutContext, TView extends IView<TLayoutContext>> {
 
 	get viewMaximumSize(): number {
 		return this.view.maximumSize;
-	}
-
-	get snap(): boolean {
-		return Boolean(this.view.snap);
 	}
 
 	setVisible(visible: boolean, size?: number): void {
@@ -186,21 +180,12 @@ implements ISashLayoutProvider {
 	private readonly onDidSashChangeCallbacks: ((index: number) => void)[] = [];
 	private readonly onDidSashResetCallbacks:  ((index: number) => void)[] = [];
 
-	get contentSize(): number {
-		return this._contentSize;
-	}
-
 	get length(): number {
 		return this.viewItems.length;
 	}
 
-	get minimumSize(): number {
-		return this.viewItems.reduce((r, item) => r + item.minimumSize, 0);
-	}
-
-	get maximumSize(): number {
-		return this.length === 0 ? Number.POSITIVE_INFINITY :
-			this.viewItems.reduce((r, item) => r + item.maximumSize, 0);
+	get hasProportions(): boolean {
+		return this.proportions !== undefined;
 	}
 
 	constructor(container: HTMLElement, options: ISplitViewOptions<TLayoutContext> = {}) {
@@ -525,7 +510,7 @@ implements ISashLayoutProvider {
 			maxDelta:        0,
 		};
 
-		this.resetSashDragState(start);
+		this.resetSashDragState();
 	}
 
 	private onSashChange({ currentX, currentY }: ISashEvent): void {
@@ -830,7 +815,7 @@ implements ISashLayoutProvider {
 		this.sashDragState = undefined;
 	}
 
-	private resetSashDragState(start: number): void {
+	private resetSashDragState(): void {
 		if (!this.sashDragState)
 			return;
 
@@ -838,8 +823,6 @@ implements ISashLayoutProvider {
 
 		let minDelta = Number.NEGATIVE_INFINITY;
 		let maxDelta = Number.POSITIVE_INFINITY;
-		let snapBefore: SnapState | undefined;
-		let snapAfter: SnapState | undefined;
 
 		// Normal behavior - calculate constraints from all views
 		const upIndexes: number[] = [];
@@ -859,7 +842,6 @@ implements ISashLayoutProvider {
 		const constraints: ViewConstraints[] = this.viewItems.map(item => ({
 			minimumSize: item.minimumSize,
 			maximumSize: item.maximumSize,
-			snap:        item.snap,
 		}));
 
 		const { minDelta: calcMinDelta, maxDelta: calcMaxDelta } = calculateDeltaConstraints(
@@ -871,36 +853,8 @@ implements ISashLayoutProvider {
 		minDelta = calcMinDelta;
 		maxDelta = calcMaxDelta;
 
-		// Calculate snap states
-		const snapBeforeIndex = findFirstSnapIndex(upIndexes, viewStates, constraints);
-		const snapAfterIndex = findFirstSnapIndex(downIndexes, viewStates, constraints);
-
-		if (typeof snapBeforeIndex === 'number') {
-			const viewItem = this.viewItems[snapBeforeIndex]!;
-			const halfSize = Math.floor(viewItem.viewMinimumSize / 2);
-
-			snapBefore = {
-				index:      snapBeforeIndex,
-				limitDelta: viewItem.visible ? minDelta - halfSize : minDelta + halfSize,
-				size:       viewItem.size,
-			};
-		}
-
-		if (typeof snapAfterIndex === 'number') {
-			const viewItem = this.viewItems[snapAfterIndex]!;
-			const halfSize = Math.floor(viewItem.viewMinimumSize / 2);
-
-			snapAfter = {
-				index:      snapAfterIndex,
-				limitDelta: viewItem.visible ? maxDelta + halfSize : maxDelta - halfSize,
-				size:       viewItem.size,
-			};
-		}
-
 		this.sashDragState.minDelta = minDelta;
 		this.sashDragState.maxDelta = maxDelta;
-		this.sashDragState.snapBefore = snapBefore;
-		this.sashDragState.snapAfter = snapAfter;
 	}
 
 	private reLayout(): void {
@@ -924,7 +878,6 @@ implements ISashLayoutProvider {
 		const constraints: ViewConstraints[] = this.viewItems.map(item => ({
 			minimumSize: item.minimumSize,
 			maximumSize: item.maximumSize,
-			snap:        item.snap,
 		}));
 
 		const actualDelta = resize(index, delta, viewStates, constraints);
@@ -952,7 +905,6 @@ implements ISashLayoutProvider {
 		const constraints: ViewConstraints[] = this.viewItems.map(item => ({
 			minimumSize: item.minimumSize,
 			maximumSize: item.maximumSize,
-			snap:        item.snap,
 		}));
 
 		distributeEmptySpace(emptyDelta, viewStates, constraints);

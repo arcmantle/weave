@@ -28,12 +28,6 @@ export interface IView<TLayoutContext = undefined> {
 	/** Maximum size for this view */
 	readonly maximumSize: number;
 
-	/** Whether the view will snap at minimum size */
-	readonly snap?: boolean;
-
-	/** Event fired when view constraints change */
-	readonly onDidChange: (callback: (size?: number) => void) => void;
-
 	/** Layout the view with given size and offset */
 	layout(size: number, offset: number, context: TLayoutContext | undefined): void;
 
@@ -59,7 +53,6 @@ export interface ISplitViewOptions<_TLayoutContext = undefined> {
 export interface ViewConstraints {
 	minimumSize: number;
 	maximumSize: number;
-	snap:        boolean;
 }
 
 export interface ViewState {
