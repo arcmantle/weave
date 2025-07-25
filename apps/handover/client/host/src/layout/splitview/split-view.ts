@@ -24,6 +24,7 @@ interface ISashItem {
 	disposable: () => void;
 }
 
+
 abstract class ViewItem<TLayoutContext, TView extends IView<TLayoutContext>> {
 
 	constructor(
@@ -158,8 +159,10 @@ enum State {
  * The SplitView is the UI component which implements a one dimensional
  * flex-like layout algorithm for a collection of IView instances.
  */
-export class SplitView<TLayoutContext = undefined, TView extends IView<TLayoutContext> = IView<TLayoutContext>>
-implements ISashLayoutProvider {
+export class SplitView<
+	TLayoutContext = undefined,
+	TView extends IView<TLayoutContext> = IView<TLayoutContext>,
+> implements ISashLayoutProvider {
 
 	readonly orientation: Orientation;
 	readonly el:          HTMLElement;
@@ -179,6 +182,7 @@ implements ISashLayoutProvider {
 
 	private readonly onDidSashChangeCallbacks: ((index: number) => void)[] = [];
 	private readonly onDidSashResetCallbacks:  ((index: number) => void)[] = [];
+	private resizeObserver:                    ResizeObserver | null = null;
 
 	get length(): number {
 		return this.viewItems.length;
@@ -298,6 +302,119 @@ implements ISashLayoutProvider {
 			return -1;
 
 		return this.viewItems[index]!.size;
+	}
+
+	getView(index: number): TView | undefined {
+		if (index < 0 || index >= this.viewItems.length)
+			return undefined;
+
+		return this.viewItems[index]!.view;
+	}
+
+	indexOf(view: TView): number {
+		for (let i = 0; i < this.viewItems.length; i++) {
+			if (this.viewItems[i]!.view === view)
+				return i;
+		}
+
+		return -1;
+	}
+
+	removeViewByReference(view: TView, sizing?: Sizing): TView | undefined {
+		const index = this.indexOf(view);
+		if (index === -1)
+			return undefined;
+
+		// If no sizing specified, default to giving space to adjacent view
+		if (!sizing) {
+			// Give space to the view immediately to the right, or to the left if it's the rightmost
+			const adjacentIndex = index < this.viewItems.length - 1 ? index + 1 : index - 1;
+			if (adjacentIndex >= 0 && adjacentIndex < this.viewItems.length) {
+				sizing = { type: 'split', index: adjacentIndex };
+				const direction = adjacentIndex > index ? 'right' : 'left';
+				console.log(`SplitView: Giving space from index ${ index } to adjacent index ${ adjacentIndex } (${ direction })`);
+			}
+		}
+
+		return this.removeView(index, sizing);
+	}
+
+	/**
+	 * Remove a view by reference with explicit control over which adjacent view gets the space
+	 * @param view The view to remove
+	 * @param preferRight If true, prefer giving space to the right neighbor; if false, prefer left
+	 * @returns The removed view, or undefined if not found
+	 */
+	removeViewByReferenceWithDirection(view: TView, preferRight: boolean = true): TView | undefined {
+		const index = this.indexOf(view);
+		if (index === -1)
+			return undefined;
+
+		let adjacentIndex: number;
+		if (preferRight) {
+			// Try right first, then left
+			adjacentIndex = index < this.viewItems.length - 1 ? index + 1 : index - 1;
+		}
+		else {
+			// Try left first, then right
+			adjacentIndex = index > 0 ? index - 1 : index + 1;
+		}
+
+		let sizing: Sizing | undefined;
+		if (adjacentIndex >= 0 && adjacentIndex < this.viewItems.length) {
+			sizing = { type: 'split', index: adjacentIndex };
+			const direction = adjacentIndex > index ? 'right' : 'left';
+			console.log(`SplitView: Giving space from index ${ index } to ${ direction } neighbor at index ${ adjacentIndex }`);
+		}
+
+		return this.removeView(index, sizing);
+	}
+
+	/**
+	 * Enable automatic resize handling for this split view
+	 * This will observe the container element and automatically call layout() when it changes size
+	 */
+	enableAutoResize(): void {
+		if (this.resizeObserver)
+			return; // Already enabled
+
+		this.resizeObserver = new ResizeObserver((entries) => {
+			for (const entry of entries) {
+				if (entry.target === this.el) {
+					const newSize = this.orientation === Orientation.HORIZONTAL
+						? entry.contentRect.width
+						: entry.contentRect.height;
+
+					this.layout(newSize);
+				}
+			}
+		});
+
+		this.resizeObserver.observe(this.el);
+	}
+
+	/**
+	 * Disable automatic resize handling
+	 */
+	disableAutoResize(): void {
+		if (this.resizeObserver) {
+			this.resizeObserver.disconnect();
+			this.resizeObserver = null;
+		}
+	}
+
+	/**
+	 * Get all views in this split view
+	 */
+	getViews(): TView[] {
+		return this.viewItems.map(item => item.view);
+	}
+
+	/**
+	 * Execute a function for each view in this split view
+	 */
+	forEachView(callback: (view: TView, index: number) => void): void {
+		this.viewItems.forEach((item, index) => callback(item.view, index));
 	}
 
 	layout(size: number, layoutContext?: TLayoutContext): void {
@@ -1031,6 +1148,9 @@ implements ISashLayoutProvider {
 	}
 
 	dispose(): void {
+		// Dispose resize observer
+		this.disableAutoResize();
+
 		// Dispose all sashes
 		for (const sashItem of this.sashItems) {
 			sashItem.sash.dispose();
