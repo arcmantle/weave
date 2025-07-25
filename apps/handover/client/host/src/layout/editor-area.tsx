@@ -43,7 +43,7 @@ class EditorView implements IEditorView {
 		render(html`
 		<div class="editor-tab">
 			<span class="editor-title">${ title }</span>
-			<button class="editor-close" on-click=${ this.handleClose }>x</button>
+			<button class="editor-close" @click=${ this.handleClose }>x</button>
 		</div>
 		<div class="editor-content"></div>
 		`, this.element);
@@ -405,55 +405,68 @@ export class EditorAreaCmp extends ContentArea {
 		if (!this.view)
 			return null;
 
-		// Find the view in the main split view
 		const viewIndex = this.view.indexOf(editorView);
-		if (viewIndex !== -1) {
-			// Capture the current size before removing the view
-			const currentSize = this.view.getViewSize(viewIndex);
-
-			// Convert and replace in main view
-			const nestedView = editorView.toNestedView(orientation);
-
-			// Replace the view in the split view, preserving the current size
-			// Skip layout to prevent size redistribution
-			this.view.removeView(viewIndex);
-			this.view.addView(nestedView, currentSize, viewIndex, true); // skipLayout = true
-
-			// Track the new nested view
-			this.nestedViews.push(nestedView);
-
-			// Manually trigger layout to position elements correctly without redistributing sizes
-			if (this.view) {
-				const container = this.querySelector('.editor-container') as HTMLElement;
-				if (container) {
-					const size = this.view.orientation === Orientation.HORIZONTAL
-						? container.offsetWidth
-						: container.offsetHeight;
-					this.view.layout(size);
-				}
-			}
-
-			// Layout the nested view's internal split view
-			nestedView.layoutInternal();
-
-			return nestedView;
-		}
-
-		// Check if it's in a nested view
-		for (const nestedView of this.nestedViews) {
-			const editorIndex = nestedView.allEditors.findIndex(e => e === editorView);
-			if (editorIndex !== -1) {
-				// Can't convert an editor that's already inside a nested view
-				// This would require more complex logic
+		if (viewIndex === -1) {
+			// Check if it's in a nested view (unsupported for now)
+			if (this.nestedViews.some(nv => nv.allEditors.includes(editorView))) {
 				console.warn('Cannot convert editor that is already inside a nested view');
 
 				return null;
 			}
+
+			console.warn('EditorView not found in any split view');
+
+			return null;
 		}
 
-		console.warn('EditorView not found in any split view');
+		// Capture sizes, convert, and replace
+		const allSizes = this.captureViewSizes();
+		const nestedView = editorView.toNestedView(orientation);
 
-		return null;
+		this.view.removeView(viewIndex);
+		this.view.addView(nestedView, allSizes[viewIndex]!, viewIndex, true);
+		this.nestedViews.push(nestedView);
+
+		// Restore layout and sizes
+		this.restoreViewSizes(allSizes);
+		nestedView.layoutInternal();
+
+		return nestedView;
+	}
+
+	/**
+	 * Capture all current view sizes for restoration after layout changes
+	 */
+	private captureViewSizes(): number[] {
+		return this.view ? Array.from({ length: this.view.length }, (_, i) => this.view!.getViewSize(i)) : [];
+	}
+
+	/**
+	 * Restore view sizes and trigger layout to preserve proportions after view changes
+	 */
+	private restoreViewSizes(allSizes: number[]): void {
+		if (!this.view)
+			return;
+
+		const container = this.querySelector('.editor-container') as HTMLElement;
+		if (!container)
+			return;
+
+		const size = this.view.orientation === Orientation.HORIZONTAL
+			? container.offsetWidth
+			: container.offsetHeight;
+
+		this.view.layout(size);
+
+		// Restore the exact sizes for all views to maintain proportions
+		for (let i = 0; i < Math.min(this.view.length, allSizes.length); i++) {
+			const targetSize = allSizes[i];
+			if (targetSize !== undefined) {
+				const currentSize = this.view.getViewSize(i);
+				if (Math.abs(currentSize - targetSize) > 1)
+					this.view.setViewSize(i, targetSize);
+			}
+		}
 	}
 
 	/**
@@ -465,7 +478,6 @@ export class EditorAreaCmp extends ContentArea {
 		if (!this.view)
 			return null;
 
-		// Find the nested view in the main split view
 		const viewIndex = this.view.indexOf(nestedView);
 		if (viewIndex === -1) {
 			console.warn('NestedView not found in main split view');
@@ -473,36 +485,24 @@ export class EditorAreaCmp extends ContentArea {
 			return null;
 		}
 
-		// Capture the current size before removing the view
-		const currentSize = this.view.getViewSize(viewIndex);
-
-		// Try to convert to EditorView
+		// Capture sizes and try conversion
+		const allSizes = this.captureViewSizes();
 		const editorView = nestedView.toEditorView();
 		if (!editorView)
 			return null; // Conversion failed (logged in toEditorView)
 
-		// Replace the nested view with the editor view, preserving the current size
-		// Skip layout to prevent size redistribution
+		// Replace view and clean up tracking
 		this.view.removeView(viewIndex);
-		this.view.addView(editorView, currentSize, viewIndex, true); // skipLayout = true
+		this.view.addView(editorView, allSizes[viewIndex] ?? 100, viewIndex, true);
 
-		// Remove from nested views tracking and dispose the empty nested view
 		const nestedIndex = this.nestedViews.indexOf(nestedView);
 		if (nestedIndex !== -1)
 			this.nestedViews.splice(nestedIndex, 1);
 
 		nestedView.dispose();
 
-		// Manually trigger layout to position elements correctly without redistributing sizes
-		if (this.view) {
-			const container = this.querySelector('.editor-container') as HTMLElement;
-			if (container) {
-				const size = this.view.orientation === Orientation.HORIZONTAL
-					? container.offsetWidth
-					: container.offsetHeight;
-				this.view.layout(size);
-			}
-		}
+		// Restore layout and sizes
+		this.restoreViewSizes(allSizes);
 
 		return editorView;
 	}

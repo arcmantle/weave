@@ -304,6 +304,20 @@ export class SplitView<
 		return this.viewItems[index]!.size;
 	}
 
+	setViewSize(index: number, size: number): void {
+		if (index < 0 || index >= this.viewItems.length)
+			return;
+
+		const item = this.viewItems[index]!;
+		const currentSize = item.size;
+		const delta = size - currentSize;
+
+		if (Math.abs(delta) > 0) {
+			this.resize(index, delta);
+			this.layoutViews();
+		}
+	}
+
 	getView(index: number): TView | undefined {
 		if (index < 0 || index >= this.viewItems.length)
 			return undefined;
@@ -983,7 +997,7 @@ export class SplitView<
 		this.saveProportions();
 	}
 
-	private resize(
+	resize(
 		index: number,
 		delta: number,
 	): number {
