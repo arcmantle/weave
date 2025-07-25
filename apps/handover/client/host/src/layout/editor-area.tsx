@@ -10,7 +10,7 @@ import splitViewStyles from './splitview/splitview.css' with { type: 'css'};
 import { type IView, Orientation, Sizing } from './splitview/types.ts';
 
 
-interface EditorView extends IView {
+interface IEditorView extends IView {
 	readonly id:          string;
 	readonly title:       string;
 	readonly element:     HTMLElement;
@@ -20,8 +20,15 @@ interface EditorView extends IView {
 }
 
 
-class EditorViewImpl implements EditorView {
+class EditorView implements IEditorView {
 
+	readonly id:          string;
+	readonly title:       string;
+	readonly element:     HTMLElement;
+	readonly minimumSize = 100;
+	readonly maximumSize: number = Number.POSITIVE_INFINITY;
+
+	private onRemove?: (id: string) => void;
 
 	constructor(
 		id: string,
@@ -42,14 +49,6 @@ class EditorViewImpl implements EditorView {
 		`, this.element);
 	}
 
-	readonly id:      string;
-	readonly title:   string;
-	readonly element: HTMLElement;
-	readonly minimumSize = 100;
-	readonly maximumSize = Number.POSITIVE_INFINITY;
-
-	private onRemove?: (id: string) => void;
-
 	private handleClose = (): void => {
 		console.log(`Editor ${ this.id } requesting removal`);
 		this.onRemove?.(this.id);
@@ -65,11 +64,32 @@ class EditorViewImpl implements EditorView {
 		this.element.remove();
 	}
 
+	/**
+	 * Convert this EditorView into a NestedView containing this editor
+	 * @param orientation The orientation for the new nested view
+	 * @returns A new NestedView containing this editor
+	 */
+	toNestedView(orientation: Orientation): NestedView {
+		const nestedView = new NestedView(
+			`nested-${ this.id }`,
+			`Nested ${ this.title }`,
+			orientation,
+		);
+
+		// Add this editor to the nested view
+		nestedView.addEditor(this);
+
+		// Don't call finalizeLayout here - let the parent handle it
+		// This prevents premature size distribution that could interfere with size preservation
+
+		return nestedView;
+	}
+
 }
 
 
 // Wrapper to make a SplitView behave like an EditorView for nesting
-class NestedSplitView implements EditorView {
+class NestedView implements IEditorView {
 
 	constructor(id: string, title: string, orientation: Orientation) {
 		this.id      = id;
@@ -88,17 +108,17 @@ class NestedSplitView implements EditorView {
 		});
 	}
 
-	readonly id:      string;
-	readonly title:   string;
-	readonly element: HTMLElement;
+	readonly id:          string;
+	readonly title:       string;
+	readonly element:     HTMLElement;
 	readonly minimumSize = 100;
-	readonly maximumSize = Number.POSITIVE_INFINITY;
+	readonly maximumSize: number = Number.POSITIVE_INFINITY;
 
-	private splitView: SplitView<undefined, EditorView>;
-	private editors:   EditorView[] = [];
+	private splitView: SplitView<undefined, IEditorView>;
+	private editors:   IEditorView[] = [];
 
 
-	addEditor(editor: EditorView): void {
+	addEditor(editor: IEditorView): void {
 		this.editors.push(editor);
 		this.splitView.addView(editor, Sizing.Distribute);
 	}
@@ -126,7 +146,7 @@ class NestedSplitView implements EditorView {
 		return true;
 	}
 
-	findEditor(id: string): EditorView | undefined {
+	findEditor(id: string): IEditorView | undefined {
 		return this.editors.find(e => e.id === id);
 	}
 
@@ -134,20 +154,50 @@ class NestedSplitView implements EditorView {
 		return this.editors.length;
 	}
 
-	finalizeLayout(): void {
-		// Force proper distribution after all editors are added
-		if (this.element.offsetWidth > 0 || this.element.offsetHeight > 0) {
+	/**
+	 * Get all editors (for conversion logic)
+	 */
+	get allEditors(): readonly IEditorView[] {
+		return this.editors;
+	}
+
+	/**
+	 * Manually layout the internal split view without calling finalizeLayout
+	 * This allows us to size the nested view without triggering size redistribution
+	 */
+	layoutInternal(): void {
+		if (this.element.offsetWidth > 0 && this.element.offsetHeight > 0) {
 			const size = this.splitView.orientation === Orientation.HORIZONTAL
 				? this.element.offsetWidth
 				: this.element.offsetHeight;
-
 			this.splitView.layout(size);
-
-			// Only force equal distribution if proportions haven't been saved yet
-			// This preserves user adjustments made by dragging sashes
-			if (!this.splitView.hasProportions)
-				this.splitView.distributeViewSizes();
 		}
+	}
+
+	finalizeLayout(): void {
+		// Force proper distribution after all editors are added
+		// Use a small delay to ensure the element has been properly inserted into the DOM
+		const doLayout = () => {
+			if (this.element.offsetWidth > 0 || this.element.offsetHeight > 0) {
+				const size = this.splitView.orientation === Orientation.HORIZONTAL
+					? this.element.offsetWidth
+					: this.element.offsetHeight;
+
+				this.splitView.layout(size);
+
+				// Only force equal distribution if proportions haven't been saved yet
+				// This preserves user adjustments made by dragging sashes
+				if (!this.splitView.hasProportions)
+					this.splitView.distributeViewSizes();
+			}
+			else {
+				// If dimensions are still not available, retry after a short delay
+				setTimeout(doLayout, 10);
+			}
+		};
+
+		// Try immediate layout first, fallback to delayed if needed
+		doLayout();
 	}
 
 	layout(size: number, offset: number, context: undefined): void {
@@ -156,14 +206,43 @@ class NestedSplitView implements EditorView {
 		// For vertical orientation, we use the full size (height)
 		this.splitView.layout(size);
 
-		if (this.editors.length > 1)
-			this.finalizeLayout();
+		// Always finalize layout to ensure proper sizing, especially for newly converted views
+		this.finalizeLayout();
 	}
 
 	dispose(): void {
 		this.splitView.dispose();
 		this.editors.forEach(editor => editor.dispose());
 		this.element.remove();
+	}
+
+	/**
+	 * Convert this NestedView to an EditorView if it contains exactly one editor
+	 * @returns The single EditorView if successful, null if conversion is not possible
+	 */
+	toEditorView(): EditorView | null {
+		// Can only convert if there's exactly one editor
+		if (this.editors.length !== 1) {
+			console.warn(`Cannot convert NestedView to EditorView: contains ${ this.editors.length } editors, expected 1`);
+
+			return null;
+		}
+
+		const editor = this.editors[0];
+
+		// Ensure it's actually an EditorView (not another NestedView)
+		if (!(editor instanceof EditorView)) {
+			console.warn('Cannot convert NestedView to EditorView: child is not an EditorView');
+
+			return null;
+		}
+
+		// Remove the editor from this nested view without disposing it
+		this.splitView.removeView(0);
+		this.editors.splice(0, 1);
+
+		// The editor is now standalone and can be used elsewhere
+		return editor;
 	}
 
 }
@@ -176,9 +255,9 @@ export class EditorAreaCmp extends ContentArea {
 
 	protected editorArea: EditorAreaService = this.inject.get('editor-area');
 
-	@state() private accessor view: SplitView<undefined, EditorView> | null = null;
-	@state() private accessor editors: EditorView[] = [];
-	@state() private accessor nestedViews: NestedSplitView[] = [];
+	@state() private accessor view: SplitView<undefined, IEditorView> | null = null;
+	@state() private accessor editors: IEditorView[] = [];
+	@state() private accessor nestedViews: NestedView[] = [];
 
 	override connected(): void {
 		super.connected();
@@ -234,27 +313,29 @@ export class EditorAreaCmp extends ContentArea {
 			return;
 
 		// Create first row with 4 columns
-		const firstRow = new NestedSplitView('row-1', 'Row 1', Orientation.HORIZONTAL);
+		const firstRow = new NestedView('row-1', 'Row 1', Orientation.HORIZONTAL);
 		this.nestedViews.push(firstRow);  // Track for resize handling
 
 		// Add 4 editors to the first row
 		for (let i = 1; i <= 4; i++) {
-			const editor = new EditorViewImpl(`row1-col${ i }`, `R1 C${ i }`, (id) => this.closeEditor(id));
+			const editor = new EditorView(`row1-col${ i }`, `R1 C${ i }`, (id) => this.closeEditor(id));
 			firstRow.addEditor(editor);
 			this.editors.push(editor);
 		}
 
-		// Create second row with 1 editor
-		const secondRowEditor = new EditorViewImpl('row2-col1', 'Row 2', (id) => this.closeEditor(id));
-		this.editors.push(secondRowEditor);
-
-		// Add both rows to the main vertical split view
 		this.view.addView(firstRow, Sizing.Distribute);
+
+		const secondRowEditor = new EditorView('row2-col1', 'Row 2', (id) => this.closeEditor(id));
+		this.editors.push(secondRowEditor);
 		this.view.addView(secondRowEditor, Sizing.Distribute);
+
+		const thirdRowEditor = new EditorView('row3-col1', 'Row 3', (id) => this.closeEditor(id));
+		this.editors.push(thirdRowEditor);
+		this.view.addView(thirdRowEditor, Sizing.Distribute);
 	}
 
 	private createEditor(id: string, title: string, sizing: number | Sizing = Sizing.Distribute): void {
-		const editorView = new EditorViewImpl(id, title, (id) => this.closeEditor(id));
+		const editorView = new EditorView(id, title, (id) => this.closeEditor(id));
 		this.editors = [ ...this.editors, editorView ];
 
 		if (this.view) {
@@ -314,13 +395,125 @@ export class EditorAreaCmp extends ContentArea {
 		}
 	}
 
+	/**
+	 * Convert an EditorView to a NestedView in place
+	 * @param editorView The EditorView to convert
+	 * @param orientation The orientation for the new NestedView
+	 * @returns The new NestedView, or null if conversion failed
+	 */
+	convertEditorToNested(editorView: EditorView, orientation: Orientation): NestedView | null {
+		if (!this.view)
+			return null;
+
+		// Find the view in the main split view
+		const viewIndex = this.view.indexOf(editorView);
+		if (viewIndex !== -1) {
+			// Capture the current size before removing the view
+			const currentSize = this.view.getViewSize(viewIndex);
+
+			// Convert and replace in main view
+			const nestedView = editorView.toNestedView(orientation);
+
+			// Replace the view in the split view, preserving the current size
+			// Skip layout to prevent size redistribution
+			this.view.removeView(viewIndex);
+			this.view.addView(nestedView, currentSize, viewIndex, true); // skipLayout = true
+
+			// Track the new nested view
+			this.nestedViews.push(nestedView);
+
+			// Manually trigger layout to position elements correctly without redistributing sizes
+			if (this.view) {
+				const container = this.querySelector('.editor-container') as HTMLElement;
+				if (container) {
+					const size = this.view.orientation === Orientation.HORIZONTAL
+						? container.offsetWidth
+						: container.offsetHeight;
+					this.view.layout(size);
+				}
+			}
+
+			// Layout the nested view's internal split view
+			nestedView.layoutInternal();
+
+			return nestedView;
+		}
+
+		// Check if it's in a nested view
+		for (const nestedView of this.nestedViews) {
+			const editorIndex = nestedView.allEditors.findIndex(e => e === editorView);
+			if (editorIndex !== -1) {
+				// Can't convert an editor that's already inside a nested view
+				// This would require more complex logic
+				console.warn('Cannot convert editor that is already inside a nested view');
+
+				return null;
+			}
+		}
+
+		console.warn('EditorView not found in any split view');
+
+		return null;
+	}
+
+	/**
+	 * Convert a NestedView to an EditorView in place (if it contains exactly one editor)
+	 * @param nestedView The NestedView to convert
+	 * @returns The EditorView, or null if conversion failed
+	 */
+	convertNestedToEditor(nestedView: NestedView): EditorView | null {
+		if (!this.view)
+			return null;
+
+		// Find the nested view in the main split view
+		const viewIndex = this.view.indexOf(nestedView);
+		if (viewIndex === -1) {
+			console.warn('NestedView not found in main split view');
+
+			return null;
+		}
+
+		// Capture the current size before removing the view
+		const currentSize = this.view.getViewSize(viewIndex);
+
+		// Try to convert to EditorView
+		const editorView = nestedView.toEditorView();
+		if (!editorView)
+			return null; // Conversion failed (logged in toEditorView)
+
+		// Replace the nested view with the editor view, preserving the current size
+		// Skip layout to prevent size redistribution
+		this.view.removeView(viewIndex);
+		this.view.addView(editorView, currentSize, viewIndex, true); // skipLayout = true
+
+		// Remove from nested views tracking and dispose the empty nested view
+		const nestedIndex = this.nestedViews.indexOf(nestedView);
+		if (nestedIndex !== -1)
+			this.nestedViews.splice(nestedIndex, 1);
+
+		nestedView.dispose();
+
+		// Manually trigger layout to position elements correctly without redistributing sizes
+		if (this.view) {
+			const container = this.querySelector('.editor-container') as HTMLElement;
+			if (container) {
+				const size = this.view.orientation === Orientation.HORIZONTAL
+					? container.offsetWidth
+					: container.offsetHeight;
+				this.view.layout(size);
+			}
+		}
+
+		return editorView;
+	}
+
 	splitEditor(direction: 'horizontal' | 'vertical' = 'horizontal'): void {
 		if (!this.view)
 			return;
 
 		const newId     = `editor-${ Date.now() }`;
 		const newTitle  = `Editor ${ this.editors.length + 1 }`;
-		const newEditor = new EditorViewImpl(newId, newTitle, (id) => this.closeEditor(id));
+		const newEditor = new EditorView(newId, newTitle, (id) => this.closeEditor(id));
 
 		if (direction === 'horizontal') {
 			// Add a new column to the first row (NestedSplitView)
@@ -347,9 +540,25 @@ export class EditorAreaCmp extends ContentArea {
 			<div class="editor-toolbar">
 				<button on-click={() => this.splitEditor('horizontal')}>Add Column to Row 1</button>
 				<button on-click={() => this.splitEditor('vertical')}>Add New Row</button>
+				<button on-click={() => this.testConvertToNested()}>Test: Convert Editor to Nested</button>
+				<button on-click={() => this.testConvertToEditor()}>Test: Convert Nested to Editor</button>
 			</div>
 			<div class="editor-container"></div>
 		</>;
+	}
+
+	private testConvertToNested(): void {
+		// Find the first standalone editor in the main view
+		const standaloneEditor = this.editors.find(e => e instanceof EditorView && this.view?.indexOf(e) !== -1);
+		if (standaloneEditor instanceof EditorView)
+			this.convertEditorToNested(standaloneEditor, Orientation.HORIZONTAL);
+	}
+
+	private testConvertToEditor(): void {
+		// Find the first nested view with exactly one editor
+		const convertibleNested = this.nestedViews.find(nv => nv.editorCount === 1);
+		if (convertibleNested)
+			this.convertNestedToEditor(convertibleNested);
 	}
 
 	static override styles: CSSStyle = [
