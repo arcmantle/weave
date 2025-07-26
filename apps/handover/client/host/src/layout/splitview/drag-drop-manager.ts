@@ -1,3 +1,4 @@
+import { TabView } from './tab-view.ts';
 import { Orientation, Sizing } from './types.ts';
 import { EditorView, type NestedView, type ViewManager } from './view-manager.ts';
 
@@ -24,13 +25,13 @@ export interface DragOperation {
  */
 export interface DropTarget {
 	/** The target view where the editor can be dropped */
-	targetView: EditorView | NestedView;
+	targetView: EditorView | NestedView | TabView;
 	/** The type of drop operation */
-	dropType:   'split-horizontal' | 'split-vertical' | 'add-to-nested';
+	dropType:   'split-horizontal' | 'split-vertical' | 'add-to-nested' | 'add-to-tabview';
 	/** The drop zone element for visual feedback */
 	dropZone:   HTMLElement;
 	/** The position where the drop would occur */
-	position:   'before' | 'after' | 'top' | 'bottom' | 'left' | 'right';
+	position:   'before' | 'after' | 'top' | 'bottom' | 'left' | 'right' | 'center';
 }
 
 /**

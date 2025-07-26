@@ -2,6 +2,7 @@ import { render, type Signal, signal } from '@arcmantle/adapter-element/shared';
 
 import { type DragDropConfig, DragDropManager } from './drag-drop-manager.ts';
 import { SplitView } from './split-view.ts';
+import { TabView } from './tab-view.ts';
 import { type IView, Orientation, Sizing } from './types.ts';
 
 export interface IEditorView extends IView {
@@ -10,6 +11,7 @@ export interface IEditorView extends IView {
 	readonly element:     HTMLElement;
 	readonly minimumSize: number;
 	readonly maximumSize: number;
+	readonly type:        'editor' | 'nested' | 'tab';
 	dispose(): void;
 }
 
@@ -28,6 +30,7 @@ export class EditorView implements IEditorView {
 	readonly element:     HTMLElement;
 	readonly minimumSize = 100;
 	readonly maximumSize: number = Number.POSITIVE_INFINITY;
+	readonly type = 'editor' as const;
 
 	private onRemove?:        (id: string) => void;
 	private templateFunction: EditorTemplateFunction;
@@ -104,6 +107,7 @@ export class NestedView implements IEditorView {
 	readonly element:     HTMLElement;
 	readonly minimumSize = 100;
 	readonly maximumSize: number = Number.POSITIVE_INFINITY;
+	readonly type = 'nested' as const;
 
 	private splitView: SplitView<undefined, IEditorView>;
 	private editors:   IEditorView[] = [];
@@ -113,11 +117,6 @@ export class NestedView implements IEditorView {
 		this.title   = title;
 		this.element = document.createElement('div');
 		this.element.className = 'nested-split-view';
-		this.element.style.cssText = `
-			width: 100%;
-			height: 100%;
-			position: relative;
-		`;
 
 		this.splitView = new SplitView(this.element, {
 			orientation,
@@ -238,6 +237,7 @@ export class NestedView implements IEditorView {
 			const size = this.splitView.orientation === Orientation.HORIZONTAL
 				? this.element.offsetWidth
 				: this.element.offsetHeight;
+
 			this.splitView.layout(size);
 		}
 	}
@@ -309,9 +309,11 @@ export class ViewManager {
 	// Signals for reactive state
 	private _editors = signal<IEditorView[]>([]);
 	private _nestedViews = signal<NestedView[]>([]);
+	private _views = signal<IEditorView[]>([]); // Track all views (including TabView, etc.)
 
 	readonly editors:     Signal<IEditorView[]> = this._editors;
 	readonly nestedViews: Signal<NestedView[]> = this._nestedViews;
+	readonly views:       Signal<IEditorView[]> = this._views;
 
 	private view:            SplitView<undefined, IEditorView> | null = null;
 	private dragDropManager: DragDropManager | null = null;
@@ -380,7 +382,37 @@ export class ViewManager {
 	 * Close an editor by ID
 	 */
 	closeEditor(id: string): void {
-		// First, try to find the editor in nested split views
+		// First, try to find the editor in TabViews
+		for (const view of this._views.value) {
+			if (isTabView(view)) {
+				const editor = view.findEditor(id);
+				if (editor) {
+					const removed = view.removeEditor(id);
+					if (!removed)
+						return console.warn('Failed to remove editor from TabView');
+
+					// Remove from main editors array
+					this._editors.value = this._editors.value.filter(e => e.id !== id);
+
+					// If the TabView is now empty, optionally remove it
+					if (view.editorCount === 0) {
+						const removedView = this.view!.removeViewByReference(view);
+						if (removedView) {
+							view.dispose();
+							this.removeViewFromTracking(view);
+						}
+					}
+
+					// If no editors remain, create a welcome editor
+					if (this._editors.value.length === 0)
+						this.createEditor('welcome', 'Welcome');
+
+					return;
+				}
+			}
+		}
+
+		// Next, try to find the editor in nested split views
 		for (const nestedView of this._nestedViews.value) {
 			const editor = nestedView.findEditor(id);
 			if (editor) {
@@ -398,7 +430,7 @@ export class ViewManager {
 
 					if (removedView) {
 						nestedView.dispose();
-						this._nestedViews.value = this._nestedViews.value.filter(nv => nv !== nestedView);
+						this.removeViewFromTracking(nestedView);
 					}
 				}
 
@@ -410,6 +442,7 @@ export class ViewManager {
 			}
 		}
 
+		// Finally, check for standalone editors
 		const editor = this._editors.value.find(e => e.id === id);
 		if (!editor)
 			return console.warn('Editor not found:', id);
@@ -417,7 +450,7 @@ export class ViewManager {
 		const removedView = this.view!.removeViewByReference(editor);
 		if (removedView) {
 			editor.dispose();
-			this._editors.value = this._editors.value.filter(e => e.id !== id);
+			this.removeViewFromTracking(editor);
 
 			// If no editors remain, create a welcome editor
 			if (this._editors.value.length === 0)
@@ -649,11 +682,32 @@ export class ViewManager {
 	 */
 	removeEditorFromTracking(editorId: string): EditorView | null {
 		const editor = this._editors.value.find(e => e.id === editorId);
-		if (!editor || !(editor instanceof EditorView))
+		if (!editor || !isEditorView(editor))
 			return null;
 
 		// Remove from editors array
 		this._editors.value = this._editors.value.filter(e => e.id !== editorId);
+
+		// Check TabViews first
+		for (const view of this._views.value) {
+			if (isTabView(view)) {
+				const foundEditor = view.findEditor(editorId);
+				if (foundEditor) {
+					view.removeEditor(editorId);
+
+					// If the view is now empty, remove it
+					if (view.editorCount === 0) {
+						const removedView = this.view?.removeViewByReference(view);
+						if (removedView) {
+							view.dispose();
+							this.removeViewFromTracking(view);
+						}
+					}
+
+					return editor;
+				}
+			}
+		}
 
 		// Remove from nested views if present
 		for (const nestedView of this._nestedViews.value) {
@@ -663,7 +717,7 @@ export class ViewManager {
 					const removedView = this.view?.removeViewByReference(nestedView);
 					if (removedView) {
 						nestedView.dispose();
-						this._nestedViews.value = this._nestedViews.value.filter(nv => nv !== nestedView);
+						this.removeViewFromTracking(nestedView);
 					}
 				}
 
@@ -673,8 +727,11 @@ export class ViewManager {
 
 		// Remove from main view
 		const removedView = this.view?.removeViewByReference(editor);
-		if (removedView)
+		if (removedView) {
+			this.removeViewFromTracking(editor);
+
 			return editor;
+		}
 
 		return null;
 	}
@@ -715,15 +772,72 @@ export class ViewManager {
 	}
 
 	/**
+	 * Remove a view from all tracking signals
+	 */
+	private removeViewFromTracking(view: IEditorView): void {
+		// Remove from all views
+		this._views.value = this._views.value.filter(v => v !== view);
+
+		// Remove from specific type tracking
+		if (isEditorView(view))
+			this._editors.value = this._editors.value.filter(e => e !== view);
+
+		if (isNestedView(view))
+			this._nestedViews.value = this._nestedViews.value.filter(nv => nv !== view);
+	}
+
+	/**
+	 * Add a view (like TabView) to the main split view
+	 */
+	addView(view: IEditorView, sizing: number | Sizing = Sizing.Distribute): void {
+		if (!this.view)
+			return;
+
+		this.view.addView(view, sizing);
+
+		// Track all views in the views signal
+		this._views.value = [ ...this._views.value, view ];
+
+		// If it's an EditorView, also track it in the editors signal and initialize drag functionality
+		if (isEditorView(view)) {
+			this._editors.value = [ ...this._editors.value, view ];
+
+			if (this.dragDropManager)
+				this.dragDropManager.initializeEditorDrag(view);
+		}
+
+		// If it's a NestedView, track it in the nestedViews signal
+		if (isNestedView(view))
+			this._nestedViews.value = [ ...this._nestedViews.value, view ];
+	}
+
+	/**
 	 * Dispose all resources
 	 */
 	dispose(): void {
 		this.dragDropManager?.dispose();
 		this.view?.dispose();
-		this._editors.value.forEach(editor => editor.dispose());
-		this._nestedViews.value.forEach(nestedView => nestedView.dispose());
+
+		// Dispose all views (this includes TabViews, EditorViews, NestedViews, etc.)
+		this._views.value.forEach(view => view.dispose());
+
+		// Clear all tracking arrays
 		this._editors.value = [];
 		this._nestedViews.value = [];
+		this._views.value = [];
 	}
 
+}
+
+// Type guard functions for type-safe operations
+export function isEditorView(view: IEditorView): view is EditorView {
+	return view.type === 'editor';
+}
+
+export function isNestedView(view: IEditorView): view is NestedView {
+	return view.type === 'nested';
+}
+
+export function isTabView(view: IEditorView): view is TabView {
+	return view.type === 'tab';
 }

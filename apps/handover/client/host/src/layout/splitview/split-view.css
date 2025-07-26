@@ -37,16 +37,18 @@
 .split-view-view:not(.visible) {
 	display: none;
 }
-.nested-split-view {
-	width: 100%;
-	height: 100%;
-	position: relative;
-}
 .editor-view {
 	display: flex;
 	flex-direction: column;
 	height: 100%;
 	background: var(--vscode-editor-background);
+}
+
+/* Nested View Styles */
+.nested-split-view {
+	width: 100%;
+	height: 100%;
+	position: relative;
 }
 
 /* Sash Styles */
@@ -181,4 +183,115 @@
 	.drop-zone {
 		transition: opacity 0.2s ease, background-color 0.2s ease;
 	}
+}
+
+/* TabView Styles */
+.tab-view {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	background: var(--vscode-editor-background);
+}
+.tab-view-tabs {
+	display: flex;
+	background: var(--vscode-editorGroupHeader-tabsBackground);
+	border-bottom: 1px solid var(--vscode-editorGroupHeader-tabsBorder);
+	min-height: 35px;
+	overflow-x: auto;
+	flex-shrink: 0;
+}
+.tab-view-tabs::-webkit-scrollbar {
+	height: 3px;
+}
+.tab-view-tabs::-webkit-scrollbar-track {
+	background: transparent;
+}
+.tab-view-tabs::-webkit-scrollbar-thumb {
+	background: var(--vscode-scrollbarSlider-background);
+	border-radius: 3px;
+}
+.tab-view-tabs::-webkit-scrollbar-thumb:hover {
+	background: var(--vscode-scrollbarSlider-hoverBackground);
+}
+.tab-view-tab {
+	display: flex;
+	align-items: center;
+	padding: 8px 12px;
+	background: var(--vscode-tab-inactiveBackground);
+	color: var(--vscode-tab-inactiveForeground);
+	border-right: 1px solid var(--vscode-tab-border);
+	cursor: pointer;
+	user-select: none;
+	white-space: nowrap;
+	min-width: 0;
+	flex-shrink: 0;
+	font-size: 13px;
+	position: relative;
+}
+.tab-view-tab:hover {
+	background: var(--vscode-tab-inactiveHoverBackground, var(--vscode-tab-inactiveBackground));
+}
+.tab-view-tab.active {
+	background: var(--vscode-tab-activeBackground) !important;
+	color: var(--vscode-tab-activeForeground) !important;
+}
+.tab-view-tab.active::after {
+	content: '';
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	height: 1px;
+	background: var(--vscode-tab-activeBackground);
+}
+.tab-title {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	font-size: 13px;
+	line-height: 1.4;
+}
+.tab-close {
+	background: none;
+	border: none;
+	color: inherit;
+	cursor: pointer;
+	padding: 2px 4px;
+	margin-left: 6px;
+	border-radius: 2px;
+	font-size: 16px;
+	opacity: 0.7;
+	line-height: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+}
+.tab-close:hover {
+	background: var(--vscode-toolbar-hoverBackground);
+	opacity: 1;
+}
+.tab-view-content {
+	flex: 1;
+	position: relative;
+	overflow: hidden;
+}
+
+/* Tab drag and drop styles */
+.tab-view-tab.dragging {
+	opacity: 0.5;
+	transform: scale(0.95);
+}
+.tab-drop-indicator {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	width: 2px;
+	background: var(--vscode-focusBorder);
+	z-index: 100;
+	opacity: 0;
+	transition: opacity 0.2s ease;
+}
+.tab-drop-indicator.active {
+	opacity: 1;
 }

@@ -11,6 +11,7 @@ import {
 	NestedView,
 	Orientation,
 	Sizing,
+	TabView,
 	ViewManager,
 } from './splitview/index.ts';
 import splitViewStyles from './splitview/split-view.css' with { type: 'css'};
@@ -73,28 +74,45 @@ export class EditorAreaCmp extends ContentArea {
 		if (!this.viewManager?.isInitialized)
 			return;
 
-		// Create first row with 4 columns
-		const firstRow = new NestedView('row-1', 'Row 1', Orientation.HORIZONTAL);
+		//// Create first row with 4 columns
+		//const firstRow = new NestedView('row-1', 'Row 1', Orientation.HORIZONTAL);
 
-		// Add 4 editors to the first row - create them directly like the original
-		for (let i = 1; i <= 4; i++) {
-			const editor = new EditorView(
-				`row1-col${ i }`,
-				`R1 C${ i }`,
-				defaultEditorTemplate,
-				(id) => this.viewManager!.closeEditor(id),
-			);
-			firstRow.addEditor(editor);
-			// Register with ViewManager's editor tracking
-			this.viewManager.registerEditor(editor);
-		}
+		//// Add 4 editors to the first row - create them directly like the original
+		//for (let i = 1; i <= 4; i++) {
+		//	const editor = new EditorView(
+		//		`row1-col${ i }`,
+		//		`R1 C${ i }`,
+		//		defaultEditorTemplate,
+		//		(id) => this.viewManager!.closeEditor(id),
+		//	);
+		//	firstRow.addEditor(editor);
+		//	// Register with ViewManager's editor tracking
+		//	this.viewManager.registerEditor(editor);
+		//}
 
-		// Add the nested view with explicit Distribute sizing
-		this.viewManager.addNestedView(firstRow, Sizing.Distribute);
+		//// Add the nested view with explicit Distribute sizing
+		//this.viewManager.addNestedView(firstRow, Sizing.Distribute);
 
-		// Add standalone rows using createEditor (which handles its own state management)
-		this.viewManager.createEditor('row2-col1', 'Row 2', undefined, Sizing.Distribute);
-		this.viewManager.createEditor('row3-col1', 'Row 3', undefined, Sizing.Distribute);
+		//// Add standalone rows using createEditor (which handles its own state management)
+		//this.viewManager.createEditor('row2-col1', 'Row 2', undefined, Sizing.Distribute);
+		//this.viewManager.createEditor('row3-col1', 'Row 3', undefined, Sizing.Distribute);
+
+		const tabView = new TabView('test-tab-view', 'Tab View Test', (id) => {
+			console.log('Tab closed:', id);
+		});
+
+		// Create some test editors for the tab view
+		const editor1 = new EditorView('tab-editor-1', 'Tab 1', defaultEditorTemplate);
+		const editor2 = new EditorView('tab-editor-2', 'Tab 2', defaultEditorTemplate);
+		const editor3 = new EditorView('tab-editor-3', 'Tab 3', defaultEditorTemplate);
+
+		// Add editors to the tab view
+		tabView.addEditor(editor1);
+		tabView.addEditor(editor2);
+		tabView.addEditor(editor3);
+
+		// Add the tab view to the main view manager
+		this.viewManager.addView(tabView, Sizing.Distribute);
 	}
 
 	private getFirstStandaloneEditor(): EditorView | null {
@@ -127,6 +145,31 @@ export class EditorAreaCmp extends ContentArea {
 			this.viewManager?.convertNestedToEditor(convertibleNested);
 	}
 
+	private testCreateTabView(): void {
+		if (!this.viewManager?.isInitialized)
+			return;
+
+		// Create a new TabView
+		const tabView = new TabView('test-tab-view', 'Tab View Test', (id) => {
+			console.log('Tab closed:', id);
+		});
+
+		// Create some test editors for the tab view
+		const editor1 = new EditorView('tab-editor-1', 'Tab 1', defaultEditorTemplate);
+		const editor2 = new EditorView('tab-editor-2', 'Tab 2', defaultEditorTemplate);
+		const editor3 = new EditorView('tab-editor-3', 'Tab 3', defaultEditorTemplate);
+
+		// Add editors to the tab view
+		tabView.addEditor(editor1);
+		tabView.addEditor(editor2);
+		tabView.addEditor(editor3);
+
+		// Add the tab view to the main view manager
+		this.viewManager.addView(tabView, Sizing.Distribute);
+
+		console.log('Created TabView with 3 editors');
+	}
+
 	protected override render(): unknown {
 		return <>
 			<div class="editor-toolbar">
@@ -134,6 +177,7 @@ export class EditorAreaCmp extends ContentArea {
 				<button on-click={() => this.splitEditor('vertical')}>Add New Row</button>
 				<button on-click={() => this.testConvertToNested()}>Test: Convert Editor to Nested</button>
 				<button on-click={() => this.testConvertToEditor()}>Test: Convert Nested to Editor</button>
+				<button on-click={() => this.testCreateTabView()}>Test: Create Tab View</button>
 			</div>
 			<div class="editor-container"></div>
 		</>;

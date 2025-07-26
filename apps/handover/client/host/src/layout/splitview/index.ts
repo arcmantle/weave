@@ -7,11 +7,15 @@ export {
 } from './drag-drop-manager.ts';
 export { type ISashLayoutProvider, type ISashOptions, Sash } from './sash.ts';
 export { SplitView } from './split-view.ts';
+export { TabView } from './tab-view.ts';
 export {
 	type EditorTemplateContext,
 	type EditorTemplateFunction,
 	EditorView,
 	type IEditorView,
+	isEditorView,
+	isNestedView,
+	isTabView,
 	NestedView,
 	ViewManager,
 } from './view-manager.ts';
