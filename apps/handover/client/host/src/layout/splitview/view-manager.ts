@@ -23,6 +23,11 @@ export interface EditorTemplateContext {
 
 export type EditorTemplateFunction = (context: EditorTemplateContext) => unknown;
 
+export interface EditorWithCallback {
+	editor:    EditorView;
+	callback?: (id: string) => boolean | void;
+}
+
 export class EditorView implements IEditorView {
 
 	readonly id:          string;
@@ -32,14 +37,14 @@ export class EditorView implements IEditorView {
 	readonly maximumSize: number = Number.POSITIVE_INFINITY;
 	readonly type = 'editor' as const;
 
-	private onRemove?:        (id: string) => void;
+	private onRemove?:        (id: string) => boolean | void;
 	private templateFunction: EditorTemplateFunction;
 
 	constructor(
 		id: string,
 		title: string,
 		templateFunction: EditorTemplateFunction,
-		onRemove?: (id: string) => void,
+		onRemove?: (id: string) => boolean | void,
 	) {
 		this.id = id;
 		this.title = title;
@@ -63,7 +68,16 @@ export class EditorView implements IEditorView {
 	}
 
 	private handleClose = (): void => {
-		this.onRemove?.(this.id);
+		// If onRemove callback exists, check if removal should proceed
+		if (this.onRemove) {
+			const shouldRemove = this.onRemove(this.id);
+			// If callback returned false, don't proceed with removal
+			if (shouldRemove === false)
+				return;
+		}
+
+		// If no callback or callback returned true/undefined, removal is handled elsewhere
+		// This is just for the template to trigger the removal process
 	};
 
 	layout(size: number, offset: number, context: undefined): void {
@@ -79,13 +93,15 @@ export class EditorView implements IEditorView {
 	/**
 	 * Convert this EditorView into a NestedView containing this editor
 	 * @param orientation The orientation for the new nested view
+	 * @param onRemoved Optional callback for when editors are removed from the nested view
 	 * @returns A new NestedView containing this editor
 	 */
-	toNestedView(orientation: Orientation): NestedView {
+	toNestedView(orientation: Orientation, onRemoved?: (id: string) => void): NestedView {
 		const nestedView = new NestedView(
 			`nested-${ this.id }`,
 			`Nested ${ this.title }`,
 			orientation,
+			onRemoved,
 		);
 
 		// Add this editor to the nested view
@@ -109,12 +125,15 @@ export class NestedView implements IEditorView {
 	readonly maximumSize: number = Number.POSITIVE_INFINITY;
 	readonly type = 'nested' as const;
 
-	private splitView: SplitView<undefined, IEditorView>;
-	private editors:   IEditorView[] = [];
+	private splitView:       SplitView<undefined, IEditorView>;
+	private editors:         IEditorView[] = [];
+	private editorCallbacks: Map<string, (id: string) => boolean | void> = new Map();
+	private onRemoved?:      (id: string) => void;
 
-	constructor(id: string, title: string, orientation: Orientation) {
+	constructor(id: string, title: string, orientation: Orientation, onRemoved?: (id: string) => void) {
 		this.id      = id;
 		this.title   = title;
+		this.onRemoved = onRemoved;
 		this.element = document.createElement('div');
 		this.element.className = 'nested-split-view';
 
@@ -153,7 +172,18 @@ export class NestedView implements IEditorView {
 	}
 
 	addEditor(editor: IEditorView): void {
+		this.addEditorWithCallback(editor);
+	}
+
+	/**
+	 * Add an editor with optional per-editor onRemove callback
+	 */
+	addEditorWithCallback(editor: IEditorView, onRemove?: (id: string) => boolean | void): void {
 		this.editors.push(editor);
+
+		// Store the per-editor callback if provided
+		if (onRemove)
+			this.editorCallbacks.set(editor.id, onRemove);
 
 		if (this.editors.length === 1) {
 			// First editor gets all available space
@@ -163,6 +193,33 @@ export class NestedView implements IEditorView {
 			// New editor gets equal share (1/n of total space)
 			this.addEditorWithProportionalSizing(editor, 1 / this.editors.length);
 		}
+
+		// If it's an EditorView, add a close handler that respects the callback
+		if (isEditorView(editor))
+			this.setupEditorCloseHandler(editor);
+	}
+
+	/**
+	 * Setup close handler for EditorView that respects per-editor callbacks
+	 */
+	private setupEditorCloseHandler(editor: EditorView): void {
+		// Replace the editor's onRemove with our own that checks callbacks
+		(editor as any).onRemove = (id: string) => {
+			// Try the per-editor callback first
+			const editorCallback = this.editorCallbacks.get(id);
+			const shouldRemove = editorCallback ? editorCallback(id) : true;
+
+			// If callback returned false, don't remove
+			if (shouldRemove === false)
+				return;
+
+			// Handle removal internally
+			const removed = this.removeEditor(id);
+
+			// Notify after successful removal
+			if (removed && this.onRemoved)
+				this.onRemoved(id);
+		};
 	}
 
 	/**
@@ -209,6 +266,9 @@ export class NestedView implements IEditorView {
 		this.splitView.removeView(editorIndex, sizing);
 		editor.dispose();
 		this.editors.splice(editorIndex, 1);
+
+		// Clean up the per-editor callback
+		this.editorCallbacks.delete(id);
 
 		return true;
 	}
@@ -269,6 +329,58 @@ export class NestedView implements IEditorView {
 		this.splitView.dispose();
 		this.editors.forEach(editor => editor.dispose());
 		this.element.remove();
+	}
+
+	/**
+	 * Extract all editors with their callbacks for conversion purposes
+	 * @returns Array of editors with their associated callbacks
+	 */
+	extractEditorsWithCallbacks(): EditorWithCallback[] {
+		const result: EditorWithCallback[] = [];
+
+		for (const editor of this.editors) {
+			if (isEditorView(editor)) {
+				result.push({
+					editor,
+					callback: this.editorCallbacks.get(editor.id),
+				});
+			}
+		}
+
+		return result;
+	}
+
+	/**
+	 * Convert this NestedView to a TabView containing all editors
+	 * @param onRemoved Optional callback for when editors are removed from the tab view
+	 * @returns A new TabView containing all editors, or null if no EditorViews found
+	 */
+	toTabView(onRemoved?: (id: string) => void): TabView | null {
+		const editorsWithCallbacks = this.extractEditorsWithCallbacks();
+
+		if (editorsWithCallbacks.length === 0) {
+			console.warn('Cannot convert NestedView to TabView: no EditorViews found');
+
+			return null;
+		}
+
+		const tabView = new TabView(
+			`tab-from-nested-${ this.id }`,
+			`Tab ${ this.title }`,
+			undefined, // No global onRemove
+			onRemoved,
+		);
+
+		// Clear our editors array without disposing them
+		this.editors = [];
+		this.editorCallbacks.clear();
+
+		// Add editors to tab view
+		editorsWithCallbacks.forEach(({ editor, callback }) => {
+			tabView.addEditor(editor, callback);
+		});
+
+		return tabView;
 	}
 
 	/**
@@ -409,6 +521,124 @@ export class ViewManager {
 	}
 
 	/**
+	 * Create a new NestedView with proper onRemoved callback for cleanup
+	 */
+	createNestedView(id: string, title: string, orientation: Orientation): NestedView {
+		const nestedView = new NestedView(
+			id,
+			title,
+			orientation,
+			// onRemoved: called after successful removal for cleanup
+			(editorId) => {
+				// Remove the editor from central tracking and dispose it
+				const editor = this.getViewById(editorId);
+				if (editor && isEditorView(editor)) {
+					this.removeViewFromMap(editorId);
+					editor.dispose();
+
+					// If the NestedView is now empty, remove it from the main view
+					if (nestedView.editorCount === 0) {
+						const removedView = this.view?.removeViewByReference(nestedView);
+						if (removedView) {
+							nestedView.dispose();
+							this.removeViewFromMap(nestedView.id);
+						}
+					}
+
+					// If no editors remain, create a welcome editor
+					if (this.editors.value.length === 0)
+						this.createEditor('welcome', 'Welcome');
+				}
+			},
+		);
+
+		return nestedView;
+	}
+
+	/**
+	 * Add an editor to a NestedView with optional per-editor onRemove callback
+	 */
+	addEditorToNestedView(
+		nestedView: NestedView,
+		editor: EditorView,
+		onRemove?: (id: string) => boolean | void,
+	): void {
+		// Register the editor with the ViewManager first
+		this.addViewToTracking(editor);
+
+		// Add to the NestedView with the optional callback
+		nestedView.addEditorWithCallback(editor, onRemove);
+
+		// Initialize drag functionality
+		if (this.dragDropManager)
+			this.dragDropManager.initializeEditorDrag(editor);
+	}
+
+	/**
+	 * Create a new TabView with proper onRemoved callback for cleanup
+	 */
+	createTabView(id: string, title: string): TabView {
+		const tabView = new TabView(
+			id,
+			title,
+			undefined, // No global onRemove - editors will have their own
+			// onRemoved: called after successful removal for cleanup
+			(editorId) => {
+				// Remove the editor from central tracking and dispose it
+				const editor = this.getViewById(editorId);
+				if (editor && isEditorView(editor)) {
+					this.removeViewFromMap(editorId);
+					editor.dispose();
+
+					// If the TabView is now empty, remove it from the main view
+					if (tabView.editorCount === 0) {
+						const removedView = this.view?.removeViewByReference(tabView);
+						if (removedView) {
+							tabView.dispose();
+							this.removeViewFromMap(tabView.id);
+						}
+					}
+
+					// If no editors remain, create a welcome editor
+					if (this.editors.value.length === 0)
+						this.createEditor('welcome', 'Welcome');
+				}
+			},
+		);
+
+		return tabView;
+	}
+
+	/**
+	 * Add an editor to a TabView with optional per-editor onRemove callback
+	 */
+	addEditorToTabView(
+		tabView: TabView,
+		editor: EditorView,
+		onRemove?: (id: string) => boolean | void,
+	): void {
+		// Register the editor with the ViewManager first
+		this.addViewToTracking(editor);
+
+		// Add to the TabView with the optional callback
+		tabView.addEditor(editor, onRemove);
+
+		// Initialize drag functionality
+		if (this.dragDropManager)
+			this.dragDropManager.initializeEditorDrag(editor);
+	}
+
+	/**
+	 * Create a new TabView and add it to the view manager
+	 */
+	createAndAddTabView(id: string, title: string, sizing: number | Sizing = Sizing.Distribute): TabView {
+		const tabView = this.createTabView(id, title);
+		this.addView(tabView, sizing);
+
+		return tabView;
+	}
+
+	/**
 	 * Create a new editor with the specified template function
 	 */
 	createEditor(
@@ -416,9 +646,26 @@ export class ViewManager {
 		title: string,
 		templateFunction?: EditorTemplateFunction,
 		sizing: number | Sizing = Sizing.Distribute,
+		onRemove?: (id: string) => boolean | void,
 	): EditorView {
 		const templateFn = templateFunction || this.defaultTemplateFunction;
-		const editorView = new EditorView(id, title, templateFn, (id) => this.closeEditor(id));
+
+		// Create callback that handles both blocking and removal
+		const handleRemove = (editorId: string) => {
+			// If custom callback provided, check if removal should proceed
+			if (onRemove) {
+				const shouldRemove = onRemove(editorId);
+				if (shouldRemove === false)
+					return false;
+			}
+
+			// Proceed with removal via ViewManager
+			this.closeEditor(editorId);
+
+			return true;
+		};
+
+		const editorView = new EditorView(id, title, templateFn, handleRemove);
 
 		this.addViewToTracking(editorView);
 
@@ -434,85 +681,46 @@ export class ViewManager {
 
 	/**
 	 * Close an editor by ID
+	 * This method now primarily handles standalone editors, since TabView and NestedView
+	 * handle their own editor removal internally
 	 */
 	closeEditor(id: string): void {
-		// First, try to find the editor in TabViews
-		for (const view of this.views.value) {
-			if (isTabView(view)) {
-				const editor = view.findEditor(id);
-				if (editor) {
-					const removed = view.removeEditor(id);
-					if (!removed)
-						return console.warn('Failed to remove editor from TabView');
-
-					// Remove from central tracking
-					this.removeViewFromMap(editor.id);
-
-					// If the TabView is now empty, optionally remove it
-					if (view.editorCount === 0) {
-						const removedView = this.view!.removeViewByReference(view);
-						if (removedView) {
-							view.dispose();
-							this.removeViewFromMap(view.id);
-						}
-					}
-
-					// If no editors remain, create a welcome editor
-					if (this.editors.value.length === 0)
-						this.createEditor('welcome', 'Welcome');
-
-					return;
-				}
-			}
-		}
-
-		// Next, try to find the editor in nested split views
-		for (const nestedView of this.nestedViews.value) {
-			const editor = nestedView.findEditor(id);
-			if (editor) {
-				// Remove from nested split view
-				const removed = nestedView.removeEditor(id);
-				if (!removed)
-					return console.warn('Failed to remove editor from nested view');
-
-				// Remove from central tracking
-				this.removeViewFromMap(editor.id);
-
-				// If the nested view is now empty, remove it from the main split view
-				if (nestedView.editorCount === 0) {
-					const removedView = this.view!.removeViewByReference(nestedView);
-
-					if (removedView) {
-						nestedView.dispose();
-						this.removeViewFromMap(nestedView.id);
-					}
-				}
-
-				// If no editors remain, create a welcome editor
-				if (this.editors.value.length === 0)
-					this.createEditor('welcome', 'Welcome');
-
-				return;
-			}
-		}
-
-		// Finally, check for standalone editors
+		// Get the editor from central tracking
 		const editor = this.getViewById(id);
-		if (!editor)
-			return console.warn('Editor not found:', id);
+		if (!editor || !isEditorView(editor)) {
+			console.warn('Editor not found:', id);
 
-		const removedView = this.view!.removeViewByReference(editor);
-		if (removedView) {
+			return;
+		}
+
+		// Try to remove from main view first (standalone editor)
+		const removedFromMain = this.view!.removeViewByReference(editor);
+		if (removedFromMain) {
+			// It was a standalone editor
 			editor.dispose();
 			this.removeViewFromMap(editor.id);
 
 			// If no editors remain, create a welcome editor
 			if (this.editors.value.length === 0)
 				this.createEditor('welcome', 'Welcome');
+
+			return;
 		}
-		else {
-			console.warn('Failed to find editor in main split view');
+
+		// If not in main view, it must be in a nested view
+		for (const nestedView of this.nestedViews.value) {
+			if (nestedView.findEditor(id)) {
+				// NestedView will handle the removal internally via its callback system
+				// We don't need to do anything here - this is a fallback for edge cases
+				console.warn('Editor found in NestedView - should be handled by NestedView internally:', id);
+
+				return;
+			}
 		}
+
+		// If we get here, the editor exists in tracking but wasn't found in main or nested views
+		// This could happen if it's in a TabView (which handles its own removal)
+		console.warn('Editor found in tracking but not in main or nested views - may be in TabView:', id);
 	}
 
 	/**
@@ -582,6 +790,209 @@ export class ViewManager {
 	}
 
 	/**
+	 * Convert a TabView to a NestedView in place
+	 * @param tabView The TabView to convert
+	 * @param orientation The orientation for the new NestedView
+	 * @returns The new NestedView, or null if conversion failed
+	 */
+	convertTabViewToNested(tabView: TabView, orientation: Orientation): NestedView | null {
+		if (!this.view)
+			return null;
+
+		const viewIndex = this.view.indexOf(tabView);
+		if (viewIndex === -1) {
+			console.warn('TabView not found in main split view');
+
+			return null;
+		}
+
+		// Capture sizes and convert
+		const allSizes = this.captureViewSizes();
+
+		// Create NestedView with proper cleanup callback
+		const nestedView = this.createNestedView(
+			`nested-from-tab-${ tabView.id }`,
+			`Nested ${ tabView.title }`,
+			orientation,
+		);
+
+		// Extract editors with their callbacks from TabView
+		const editorsWithCallbacks = tabView.extractEditorsWithCallbacks();
+
+		// Remove TabView from main view and tracking
+		this.view.removeView(viewIndex);
+		this.removeViewFromMap(tabView.id);
+		tabView.dispose();
+
+		// Add NestedView and transfer editors
+		this.view.addView(nestedView, allSizes[viewIndex]!, viewIndex, true);
+		this.addViewToTracking(nestedView);
+
+		// Transfer editors to NestedView
+		editorsWithCallbacks.forEach(({ editor, callback }) => {
+			this.addEditorToNestedView(nestedView, editor, callback);
+		});
+
+		// Restore layout and sizes
+		this.restoreViewSizes(allSizes);
+		nestedView.layoutInternal();
+
+		return nestedView;
+	}
+
+	/**
+	 * Convert a NestedView to a TabView in place
+	 * @param nestedView The NestedView to convert
+	 * @returns The new TabView, or null if conversion failed
+	 */
+	convertNestedViewToTab(nestedView: NestedView): TabView | null {
+		if (!this.view)
+			return null;
+
+		const viewIndex = this.view.indexOf(nestedView);
+		if (viewIndex === -1) {
+			console.warn('NestedView not found in main split view');
+
+			return null;
+		}
+
+		// Capture sizes and convert
+		const allSizes = this.captureViewSizes();
+
+		// Create TabView with proper cleanup callback
+		const tabView = this.createTabView(
+			`tab-from-nested-${ nestedView.id }`,
+			`Tab ${ nestedView.title }`,
+		);
+
+		// Extract editors with their callbacks from NestedView
+		const editorsWithCallbacks = nestedView.extractEditorsWithCallbacks();
+
+		if (editorsWithCallbacks.length === 0) {
+			console.warn('Cannot convert NestedView to TabView: no EditorViews found');
+
+			return null;
+		}
+
+		// Remove NestedView from main view and tracking
+		this.view.removeView(viewIndex);
+		this.removeViewFromMap(nestedView.id);
+		nestedView.dispose();
+
+		// Add TabView and transfer editors
+		this.view.addView(tabView, allSizes[viewIndex]!, viewIndex, true);
+		this.addViewToTracking(tabView);
+
+		// Transfer editors to TabView
+		editorsWithCallbacks.forEach(({ editor, callback }) => {
+			this.addEditorToTabView(tabView, editor, callback);
+		});
+
+		// Restore layout and sizes
+		this.restoreViewSizes(allSizes);
+
+		return tabView;
+	}
+
+	/**
+	 * Convert an EditorView to a TabView in place
+	 * @param editorView The EditorView to convert
+	 * @returns The new TabView, or null if conversion failed
+	 */
+	convertEditorToTab(editorView: EditorView): TabView | null {
+		if (!this.view)
+			return null;
+
+		const viewIndex = this.view.indexOf(editorView);
+		if (viewIndex === -1) {
+			console.warn('EditorView not found in main split view');
+
+			return null;
+		}
+
+		// Capture sizes and convert
+		const allSizes = this.captureViewSizes();
+
+		// Create TabView with proper cleanup callback
+		const tabView = this.createTabView(
+			`tab-from-editor-${ editorView.id }`,
+			`Tab ${ editorView.title }`,
+		);
+
+		// Remove editor from main view and re-add to TabView
+		this.view.removeView(viewIndex);
+		this.removeViewFromMap(editorView.id);
+
+		// Add TabView and transfer the editor
+		this.view.addView(tabView, allSizes[viewIndex]!, viewIndex, true);
+		this.addViewToTracking(tabView);
+		this.addEditorToTabView(tabView, editorView);
+
+		// Restore layout and sizes
+		this.restoreViewSizes(allSizes);
+
+		return tabView;
+	}
+
+	/**
+	 * Unified conversion method that can convert between any view types
+	 * @param sourceView The view to convert from
+	 * @param targetType The type to convert to
+	 * @param options Additional options for conversion (e.g., orientation for NestedView)
+	 * @returns The converted view, or null if conversion failed
+	 */
+	convertView(
+		sourceView: IEditorView,
+		targetType: 'editor' | 'nested' | 'tab',
+		options?: { orientation?: Orientation; },
+	): IEditorView | null {
+		const sourceType = sourceView.type;
+
+		// Same type - no conversion needed
+		if (sourceType === targetType)
+			return sourceView;
+
+		// EditorView conversions
+		if (sourceType === 'editor' && isEditorView(sourceView)) {
+			if (targetType === 'nested')
+				return this.convertEditorToNested(sourceView, options?.orientation ?? Orientation.HORIZONTAL);
+			if (targetType === 'tab')
+				return this.convertEditorToTab(sourceView);
+		}
+
+		// NestedView conversions
+		if (sourceType === 'nested' && isNestedView(sourceView)) {
+			if (targetType === 'editor')
+				return this.convertNestedToEditor(sourceView);
+			if (targetType === 'tab')
+				return this.convertNestedViewToTab(sourceView);
+		}
+
+		// TabView conversions
+		if (sourceType === 'tab' && isTabView(sourceView)) {
+			if (targetType === 'nested')
+				return this.convertTabViewToNested(sourceView, options?.orientation ?? Orientation.HORIZONTAL);
+			// TabView to EditorView only possible if TabView has exactly one editor
+			if (targetType === 'editor') {
+				const editors = sourceView.getAllEditors();
+				if (editors.length === 1) {
+					// Convert to NestedView first, then to EditorView
+					const nestedView = this.convertTabViewToNested(sourceView, Orientation.HORIZONTAL);
+					if (nestedView)
+						return this.convertNestedToEditor(nestedView);
+				}
+				else {
+					console.warn('Cannot convert TabView to EditorView: TabView contains more than one editor');
+				}
+			}
+		}
+
+		console.warn(`Unsupported conversion: ${ sourceType } -> ${ targetType }`);
+
+		return null;
+	}
+
+	/**
 	 * Convert an EditorView to a NestedView in place
 	 * @param editorView The EditorView to convert
 	 * @param orientation The orientation for the new NestedView
@@ -607,7 +1018,18 @@ export class ViewManager {
 
 		// Capture sizes, convert, and replace
 		const allSizes = this.captureViewSizes();
-		const nestedView = editorView.toNestedView(orientation);
+
+		// Create NestedView with proper cleanup callback
+		const nestedView = this.createNestedView(
+			`nested-${ editorView.id }`,
+			`Nested ${ editorView.title }`,
+			orientation,
+		);
+
+		// Add the editor to the nested view (it gets removed from tracking and re-added)
+		this.removeViewFromMap(editorView.id);
+		nestedView.addEditor(editorView);
+		this.addViewToTracking(editorView);
 
 		this.view.removeView(viewIndex);
 		this.view.addView(nestedView, allSizes[viewIndex]!, viewIndex, true);
@@ -733,34 +1155,13 @@ export class ViewManager {
 
 	/**
 	 * Remove an editor from tracking without disposing it (for drag-drop operations)
+	 * Note: TabView editors handle their own removal, so this method primarily
+	 * handles NestedView and standalone editors
 	 */
 	removeEditorFromTracking(editorId: string): EditorView | null {
 		const editor = this.getViewById(editorId);
 		if (!editor || !isEditorView(editor))
 			return null;
-
-		// Check TabViews first
-		for (const view of this.views.value) {
-			if (isTabView(view)) {
-				const foundEditor = view.findEditor(editorId);
-				if (foundEditor) {
-					view.removeEditor(editorId);
-
-					// If the view is now empty, remove it
-					if (view.editorCount === 0) {
-						const removedView = this.view?.removeViewByReference(view);
-						if (removedView) {
-							view.dispose();
-							this.removeViewFromMap(view.id);
-						}
-					}
-
-					this.removeViewFromMap(editorId);
-
-					return editor;
-				}
-			}
-		}
 
 		// Remove from nested views if present
 		for (const nestedView of this.nestedViews.value) {

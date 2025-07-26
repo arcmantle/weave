@@ -11,7 +11,6 @@ import {
 	NestedView,
 	Orientation,
 	Sizing,
-	TabView,
 	ViewManager,
 } from './splitview/index.ts';
 import splitViewStyles from './splitview/split-view.css' with { type: 'css'};
@@ -149,25 +148,69 @@ export class EditorAreaCmp extends ContentArea {
 		if (!this.viewManager?.isInitialized)
 			return;
 
-		// Create a new TabView
-		const tabView = new TabView('test-tab-view', 'Tab View Test', (id) => {
-			console.log('Tab closed:', id);
+		// Create a new TabView using the ViewManager's helper method
+		const tabView = this.viewManager.createTabView('test-tab-view', 'Tab View Test');
+
+		// Create some test editors for the tab view with different removal behaviors
+		const editor1 = new EditorView('tab-editor-1', 'Tab 1 (Normal)', defaultEditorTemplate);
+		const editor2 = new EditorView('tab-editor-2', 'Tab 2 (Allowed)', defaultEditorTemplate);
+		const editor3 = new EditorView('tab-editor-3', 'Tab 3 (Protected)', defaultEditorTemplate);
+
+		// Add editors with different removal behaviors
+		this.viewManager.addEditorToTabView(tabView, editor1); // No callback = always removable
+
+		this.viewManager.addEditorToTabView(tabView, editor2, (id) => {
+			console.log(`Tab 2 removal requested - allowing removal`);
+
+			return true; // Allow removal
 		});
 
-		// Create some test editors for the tab view
-		const editor1 = new EditorView('tab-editor-1', 'Tab 1', defaultEditorTemplate);
-		const editor2 = new EditorView('tab-editor-2', 'Tab 2', defaultEditorTemplate);
-		const editor3 = new EditorView('tab-editor-3', 'Tab 3', defaultEditorTemplate);
+		this.viewManager.addEditorToTabView(tabView, editor3, (id) => {
+			console.log(`Tab 3 removal blocked - this tab is protected!`);
 
-		// Add editors to the tab view
-		tabView.addEditor(editor1);
-		tabView.addEditor(editor2);
-		tabView.addEditor(editor3);
+			return false; // Block removal
+		});
 
 		// Add the tab view to the main view manager
 		this.viewManager.addView(tabView, Sizing.Distribute);
 
-		console.log('Created TabView with 3 editors');
+		// Also create a NestedView with similar behavior
+		const nestedView = this.viewManager.createNestedView('test-nested-view', 'Nested View Test', Orientation.HORIZONTAL);
+
+		const nestedEditor1 = new EditorView('nested-editor-1', 'Nested 1 (Normal)', defaultEditorTemplate);
+		const nestedEditor2 = new EditorView('nested-editor-2', 'Nested 2 (Protected)', defaultEditorTemplate);
+
+		this.viewManager.addEditorToNestedView(nestedView, nestedEditor1); // No callback = always removable
+
+		this.viewManager.addEditorToNestedView(nestedView, nestedEditor2, (id) => {
+			console.log(`Nested editor 2 removal blocked - this editor is protected!`);
+
+			return false; // Block removal
+		});
+
+		// Add the nested view to the main view manager
+		this.viewManager.addView(nestedView, Sizing.Distribute);
+
+		// Create a protected standalone editor
+		this.viewManager.createEditor(
+			'standalone-protected',
+			'Standalone (Protected)',
+			undefined,
+			Sizing.Distribute,
+			(id) => {
+				console.log(`Standalone editor removal blocked - this editor is protected!`);
+
+				return false; // Block removal
+			},
+		);
+
+		console.log('Created comprehensive test with protected editors in TabView, NestedView, and standalone!');
+		console.log('Available conversions:');
+		console.log('- TabView ↔ NestedView');
+		console.log('- EditorView ↔ NestedView');
+		console.log('- EditorView → TabView');
+		console.log('- TabView → EditorView (if TabView has exactly 1 editor)');
+		console.log('Use viewManager.convertView(sourceView, targetType, options) for unified conversions');
 	}
 
 	protected override render(): unknown {

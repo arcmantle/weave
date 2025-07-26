@@ -1,4 +1,5 @@
-import { EditorView, type IEditorView } from './view-manager.ts';
+import { Orientation } from './types.ts';
+import { EditorView, type EditorWithCallback, type IEditorView, NestedView } from './view-manager.ts';
 
 
 /**
@@ -13,28 +14,26 @@ export class TabView implements IEditorView {
 	readonly maximumSize: number = Number.POSITIVE_INFINITY;
 	readonly type = 'tab' as const;
 
-	private editors:       EditorView[] = [];
-	private activeEditor:  EditorView | null = null;
-	private tabsContainer: HTMLElement;
-	private contentArea:   HTMLElement;
-	private onRemove?:     (id: string) => void;
+	private editors:         EditorView[] = [];
+	private activeEditor:    EditorView | null = null;
+	private tabsContainer:   HTMLElement;
+	private contentArea:     HTMLElement;
+	private onRemove?:       (id: string) => boolean | void;
+	private onRemoved?:      (id: string) => void;
+	private editorCallbacks: Map<string, (id: string) => boolean | void> = new Map();
 
 	constructor(
 		id: string,
 		title: string,
-		onRemove?: (id: string) => void,
+		onRemove?: (id: string) => boolean | void,
+		onRemoved?: (id: string) => void,
 	) {
 		this.id = id;
 		this.title = title;
 		this.onRemove = onRemove;
+		this.onRemoved = onRemoved;
 		this.element = document.createElement('div');
 		this.element.className = 'tab-view';
-		this.element.style.cssText = `
-			display: flex;
-			flex-direction: column;
-			height: 100%;
-			background: var(--vscode-editor-background);
-		`;
 
 		this.createStructure();
 	}
@@ -58,11 +57,16 @@ export class TabView implements IEditorView {
 	/**
 	 * Add an editor to the tab view
 	 */
-	addEditor(editor: EditorView): void {
+	addEditor(editor: EditorView, onRemove?: (id: string) => boolean | void): void {
 		if (this.editors.includes(editor))
 			return;
 
 		this.editors.push(editor);
+
+		// Store the per-editor callback if provided
+		if (onRemove)
+			this.editorCallbacks.set(editor.id, onRemove);
+
 		this.createTabForEditor(editor);
 
 		// If this is the first editor, make it active
@@ -100,6 +104,9 @@ export class TabView implements IEditorView {
 
 		// Remove from editors array
 		this.editors.splice(editorIndex, 1);
+
+		// Clean up the per-editor callback
+		this.editorCallbacks.delete(editorId);
 
 		// Hide the editor's element
 		if (editor.element.parentNode === this.contentArea)
@@ -163,10 +170,25 @@ export class TabView implements IEditorView {
 
 		closeButton.addEventListener('click', (e) => {
 			e.stopPropagation();
-			this.onRemove?.(editor.id);
-		});
 
-		closeButton.addEventListener('mouseenter', () => {
+			// Try the per-editor callback first, then fall back to global callback
+			const editorCallback = this.editorCallbacks.get(editor.id);
+			const callback = editorCallback || this.onRemove;
+
+			// Ask the callback if removal should proceed (if callback exists)
+			const shouldRemove = callback ? callback(editor.id) : true;
+
+			// If callback returned false, don't remove
+			if (shouldRemove === false)
+				return;
+
+			// Handle removal internally
+			const removed = this.removeEditor(editor.id);
+
+			// Notify after successful removal
+			if (removed && this.onRemoved)
+				this.onRemoved(editor.id);
+		});		closeButton.addEventListener('mouseenter', () => {
 			closeButton.style.backgroundColor = 'var(--vscode-toolbar-hoverBackground)';
 			closeButton.style.opacity = '1';
 		});
@@ -243,6 +265,46 @@ export class TabView implements IEditorView {
 	 */
 	findEditor(id: string): EditorView | undefined {
 		return this.editors.find(e => e.id === id);
+	}
+
+	/**
+	 * Extract all editors with their callbacks for conversion purposes
+	 * @returns Array of editors with their associated callbacks
+	 */
+	extractEditorsWithCallbacks(): EditorWithCallback[] {
+		return this.editors.map(editor => ({
+			editor,
+			callback: this.editorCallbacks.get(editor.id),
+		}));
+	}
+
+	/**
+	 * Convert this TabView to a NestedView containing all editors
+	 * @param orientation The orientation for the new NestedView
+	 * @param onRemoved Optional callback for when editors are removed from the nested view
+	 * @returns A new NestedView containing all editors
+	 */
+	toNestedView(orientation: Orientation, onRemoved?: (id: string) => void): NestedView {
+		const nestedView = new NestedView(
+			`nested-from-tab-${ this.id }`,
+			`Nested ${ this.title }`,
+			orientation,
+			onRemoved,
+		);
+
+		// Transfer all editors with their callbacks
+		const editorsWithCallbacks = this.extractEditorsWithCallbacks();
+
+		// Clear our editors array without disposing them
+		this.editors = [];
+		this.editorCallbacks.clear();
+
+		// Add editors to nested view
+		editorsWithCallbacks.forEach(({ editor, callback }) => {
+			nestedView.addEditorWithCallback(editor, callback);
+		});
+
+		return nestedView;
 	}
 
 	/**
