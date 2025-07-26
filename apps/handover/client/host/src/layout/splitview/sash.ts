@@ -1,5 +1,6 @@
 import { type ISashEvent, Orientation, SashState } from './types.ts';
 
+
 export interface ISashLayoutProvider {
 	getVerticalSashLeft?(sash: Sash): number;
 	getVerticalSashTop?(sash: Sash): number;
@@ -13,6 +14,7 @@ export interface ISashOptions {
 	readonly orientation: Orientation;
 	readonly size?:       number;
 }
+
 
 /**
  * The Sash is the UI component which allows the user to resize other components.
