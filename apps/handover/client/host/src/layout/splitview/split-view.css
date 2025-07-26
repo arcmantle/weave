@@ -5,15 +5,12 @@
 	height: 100%;
 	display: flex;
 }
-
 .split-view.vertical {
 	flex-direction: column;
 }
-
 .split-view.horizontal {
 	flex-direction: row;
 }
-
 .split-view .sash-container {
 	position: absolute;
 	top: 0;
@@ -22,27 +19,34 @@
 	height: 100%;
 	pointer-events: none;
 }
-
 .split-view .view-container {
 	flex: 1;
 	position: relative;
 	width: 100%;
 	height: 100%;
 }
-
 .split-view-view {
 	position: absolute;
 	box-sizing: border-box;
 	height: 100%;
 	width: 100%;
 }
-
 .split-view-view.visible {
 	display: block;
 }
-
 .split-view-view:not(.visible) {
 	display: none;
+}
+.nested-split-view {
+	width: 100%;
+	height: 100%;
+	position: relative;
+}
+.editor-view {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	background: var(--vscode-editor-background);
 }
 
 /* Sash Styles */
@@ -53,44 +57,35 @@
 	z-index: 35;
 	cursor: ew-resize;
 }
-
 .sash.horizontal {
 	cursor: ns-resize;
 	height: 4px;
 	width: 100%;
 }
-
 .sash.vertical {
 	cursor: ew-resize;
 	width: 4px;
 	height: 100%;
 }
-
 .sash.disabled {
 	cursor: default;
 	pointer-events: none;
 }
-
 .sash.minimum {
 	cursor: s-resize;
 }
-
 .sash.maximum {
 	cursor: n-resize;
 }
-
 .sash.vertical.minimum {
 	cursor: e-resize;
 }
-
 .sash.vertical.maximum {
 	cursor: w-resize;
 }
-
 .sash:hover {
 	background-color: var(--sash-hover-color, rgba(0, 122, 204, 0.2));
 }
-
 .sash.active {
 	background-color: var(--sash-active-color, #007acc);
 }
@@ -99,7 +94,6 @@
 .mac .sash.horizontal {
 	cursor: row-resize;
 }
-
 .mac .sash.vertical {
 	cursor: col-resize;
 }
