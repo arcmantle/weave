@@ -16,7 +16,7 @@ import {
 	clamp,
 	distributeEmptySpace,
 	resize,
-} from './utils.ts';
+} from './utilities/utils.ts';
 
 
 interface ISashItem {
@@ -405,10 +405,8 @@ export class SplitView<
 	 * Disable automatic resize handling
 	 */
 	disableAutoResize(): void {
-		if (this.resizeObserver) {
-			this.resizeObserver.disconnect();
-			this.resizeObserver = null;
-		}
+		this.resizeObserver?.disconnect();
+		this.resizeObserver = null;
 	}
 
 	/**
@@ -518,10 +516,6 @@ export class SplitView<
 				this.viewContainer.appendChild(container);
 			else
 				this.viewContainer.insertBefore(container, this.viewContainer.children.item(index));
-
-			const _onChangeDisposable = () => {
-				// Handle view change
-			};
 
 			let viewSize: number | { cachedVisibleSize: number; };
 

@@ -1,5 +1,6 @@
-import { Orientation } from './types.ts';
-import { EditorView, type EditorWithCallback, type IEditorView, NestedView } from './view-manager.ts';
+import { Orientation } from '../types.ts';
+import { EditorView } from './editor-view.ts';
+import { type EditorTemplateFunction, type EditorWithCallback, type IEditorView } from './shared.ts';
 
 
 /**
@@ -14,24 +15,27 @@ export class TabView implements IEditorView {
 	readonly maximumSize: number = Number.POSITIVE_INFINITY;
 	readonly type = 'tab' as const;
 
-	private editors:         EditorView[] = [];
-	private activeEditor:    EditorView | null = null;
-	private tabsContainer:   HTMLElement;
-	private contentArea:     HTMLElement;
-	private onRemove?:       (id: string) => boolean | void;
-	private onRemoved?:      (id: string) => void;
-	private editorCallbacks: Map<string, (id: string) => boolean | void> = new Map();
+	private editors:            EditorView[] = [];
+	private activeEditor:       EditorView | null = null;
+	private tabsContainer:      HTMLElement;
+	private contentArea:        HTMLElement;
+	private onRemove?:          (id: string) => boolean | void;
+	private onRemoved?:         (id: string) => void;
+	private editorCallbacks:    Map<string, (id: string) => boolean | void> = new Map();
+	private defaultTemplateFn?: EditorTemplateFunction;
 
 	constructor(
 		id: string,
 		title: string,
 		onRemove?: (id: string) => boolean | void,
 		onRemoved?: (id: string) => void,
+		defaultTemplateFn?: EditorTemplateFunction,
 	) {
 		this.id = id;
 		this.title = title;
 		this.onRemove = onRemove;
 		this.onRemoved = onRemoved;
+		this.defaultTemplateFn = defaultTemplateFn;
 		this.element = document.createElement('div');
 		this.element.className = 'tab-view';
 
@@ -52,6 +56,21 @@ export class TabView implements IEditorView {
 
 		this.element.appendChild(this.tabsContainer);
 		this.element.appendChild(this.contentArea);
+
+		// Update tab visibility based on editor count
+		this.updateTabVisibility();
+	}
+
+	/**
+	 * Update tab visibility based on number of editors
+	 * Hide tabs when there's only one editor to save space
+	 */
+	private updateTabVisibility(): void {
+		const showTabs = this.editors.length > 1;
+		this.tabsContainer.style.display = showTabs ? 'flex' : 'none';
+
+		// Adjust content area to take full height when tabs are hidden
+		this.contentArea.style.height = showTabs ? 'calc(100% - 32px)' : '100%';
 	}
 
 	/**
@@ -72,6 +91,63 @@ export class TabView implements IEditorView {
 		// If this is the first editor, make it active
 		if (this.editors.length === 1)
 			this.setActiveEditor(editor);
+
+		// Update tab visibility
+		this.updateTabVisibility();
+	}
+
+	/**
+	 * Create and add a new editor to the tab view
+	 */
+	createEditor(
+		id: string,
+		title: string,
+		templateFunction?: EditorTemplateFunction,
+		onRemove?: (id: string) => boolean | void,
+	): EditorView {
+		const templateFn = templateFunction || this.defaultTemplateFn;
+
+		if (!templateFn)
+			throw new Error('No template function provided and no default template function available');
+
+		// Create close handler that respects per-editor callbacks
+		const handleClose = (editorId: string) => {
+			// Try the per-editor callback first, then fall back to global callback
+			const editorCallback = this.editorCallbacks.get(editorId);
+			const callback = editorCallback || this.onRemove;
+
+			// Ask the callback if removal should proceed (if callback exists)
+			const shouldRemove = callback ? callback(editorId) : true;
+
+			// If callback returned false, don't remove
+			if (shouldRemove === false)
+				return;
+
+			// Handle removal internally
+			const removed = this.removeEditor(editorId);
+
+			// Notify after successful removal
+			if (removed && this.onRemoved)
+				this.onRemoved(editorId);
+		};
+
+		const editor = new EditorView(id, title, templateFn, handleClose);
+
+		// Store the per-editor callback if provided
+		if (onRemove)
+			this.editorCallbacks.set(editor.id, onRemove);
+
+		this.editors.push(editor);
+		this.createTabForEditor(editor);
+
+		// If this is the first editor, make it active
+		if (this.editors.length === 1)
+			this.setActiveEditor(editor);
+
+		// Update tab visibility
+		this.updateTabVisibility();
+
+		return editor;
 	}
 
 	/**
@@ -112,6 +188,9 @@ export class TabView implements IEditorView {
 		if (editor.element.parentNode === this.contentArea)
 			this.contentArea.removeChild(editor.element);
 
+		// Update tab visibility
+		this.updateTabVisibility();
+
 		return true;
 	}
 
@@ -148,7 +227,7 @@ export class TabView implements IEditorView {
 
 		const closeButton = document.createElement('button');
 		closeButton.className = 'tab-close';
-		closeButton.textContent = '×';
+		closeButton.textContent = 'x';
 		closeButton.style.cssText = `
 			background: none;
 			border: none;
@@ -280,31 +359,13 @@ export class TabView implements IEditorView {
 
 	/**
 	 * Convert this TabView to a NestedView containing all editors
+	 * Note: This method will be implemented by the ViewManager to avoid circular dependencies
 	 * @param orientation The orientation for the new NestedView
 	 * @param onRemoved Optional callback for when editors are removed from the nested view
 	 * @returns A new NestedView containing all editors
 	 */
-	toNestedView(orientation: Orientation, onRemoved?: (id: string) => void): NestedView {
-		const nestedView = new NestedView(
-			`nested-from-tab-${ this.id }`,
-			`Nested ${ this.title }`,
-			orientation,
-			onRemoved,
-		);
-
-		// Transfer all editors with their callbacks
-		const editorsWithCallbacks = this.extractEditorsWithCallbacks();
-
-		// Clear our editors array without disposing them
-		this.editors = [];
-		this.editorCallbacks.clear();
-
-		// Add editors to nested view
-		editorsWithCallbacks.forEach(({ editor, callback }) => {
-			nestedView.addEditorWithCallback(editor, callback);
-		});
-
-		return nestedView;
+	toNestedView?(orientation: Orientation, onRemoved?: (id: string) => void): any {
+		throw new Error('toNestedView must be implemented by ViewManager to avoid circular dependencies');
 	}
 
 	/**

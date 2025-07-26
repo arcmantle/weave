@@ -5,15 +5,10 @@ import { type ToComponent, toComponent } from '@arcmantle/lit-jsx';
 import type { ContentLocation } from '../extensions/create-manifest.ts';
 import { ContentArea } from './content-area.tsx';
 import { layoutPreferences } from './layout-preferences.ts';
-import {
-	type EditorTemplateContext,
-	EditorView,
-	NestedView,
-	Orientation,
-	Sizing,
-	ViewManager,
-} from './splitview/index.ts';
 import splitViewStyles from './splitview/split-view.css' with { type: 'css'};
+import { Orientation, Sizing } from './splitview/types.ts';
+import { ViewManager } from './splitview/view-manager.ts';
+import { type EditorTemplateContext, NestedView, TabView } from './splitview/views/index.ts';
 
 
 // Default template function for editors
@@ -76,49 +71,44 @@ export class EditorAreaCmp extends ContentArea {
 		// Create first row with 4 columns
 		const firstRow = new NestedView('row-1', 'Row 1', Orientation.HORIZONTAL);
 
-		// Add 4 editors to the first row - create them directly like the original
+		// Add 4 editors to the first row via TabViews
 		for (let i = 1; i <= 4; i++) {
-			const editor = new EditorView(
+			const tabView = new TabView(
+				`row1-col${ i }-tab`,
+				`R1 C${ i }`,
+				undefined,
+				undefined,
+				defaultEditorTemplate,
+			);
+
+			// Create editor inside the TabView
+			const editor = tabView.createEditor(
 				`row1-col${ i }`,
 				`R1 C${ i }`,
 				defaultEditorTemplate,
-				(id) => this.viewManager!.closeEditor(id),
+				(id: string) => this.viewManager!.closeEditor(id),
 			);
-			firstRow.addEditor(editor);
-			// Register with ViewManager's editor tracking
-			this.viewManager.registerEditor(editor);
+
+			firstRow.addEditorWithCallback(tabView);
+
+			// Register both TabView and editor with ViewManager's tracking
+			this.viewManager.addViewToTracking(tabView);
+			this.viewManager.addViewToTracking(editor);
 		}
 
 		// Add the nested view with explicit Distribute sizing
 		this.viewManager.addNestedView(firstRow, Sizing.Distribute);
 
-		// Add standalone rows using createEditor (which handles its own state management)
+		// Add standalone rows using createEditor (which now creates TabViews)
 		this.viewManager.createEditor('row2-col1', 'Row 2', undefined, Sizing.Distribute);
 		this.viewManager.createEditor('row3-col1', 'Row 3', undefined, Sizing.Distribute);
-
-		//const tabView = new TabView('test-tab-view', 'Tab View Test', (id) => {
-		//	console.log('Tab closed:', id);
-		//});
-
-		//// Create some test editors for the tab view
-		//const editor1 = new EditorView('tab-editor-1', 'Tab 1', defaultEditorTemplate);
-		//const editor2 = new EditorView('tab-editor-2', 'Tab 2', defaultEditorTemplate);
-		//const editor3 = new EditorView('tab-editor-3', 'Tab 3', defaultEditorTemplate);
-
-		//// Add editors to the tab view
-		//tabView.addEditor(editor1);
-		//tabView.addEditor(editor2);
-		//tabView.addEditor(editor3);
-
-		//// Add the tab view to the main view manager
-		//this.viewManager.addView(tabView, Sizing.Distribute);
 	}
 
-	private getFirstStandaloneEditor(): EditorView | null {
+	private getFirstSingleEditorTabView(): TabView | null {
 		if (!this.viewManager)
 			return null;
 
-		return this.viewManager.getFirstStandaloneEditor();
+		return this.viewManager.getFirstSingleEditorTabView();
 	}
 
 	private getFirstConvertibleNested(): NestedView | null {
@@ -133,15 +123,15 @@ export class EditorAreaCmp extends ContentArea {
 	}
 
 	private testConvertToNested(): void {
-		const standaloneEditor = this.getFirstStandaloneEditor();
-		if (standaloneEditor)
-			this.viewManager?.convertEditorToNested(standaloneEditor, Orientation.HORIZONTAL);
+		const singleEditorTabView = this.getFirstSingleEditorTabView();
+		if (singleEditorTabView)
+			this.viewManager?.convertView(singleEditorTabView, 'nested', { orientation: Orientation.HORIZONTAL });
 	}
 
-	private testConvertToEditor(): void {
+	private testConvertToTab(): void {
 		const convertibleNested = this.getFirstConvertibleNested();
 		if (convertibleNested)
-			this.viewManager?.convertNestedToEditor(convertibleNested);
+			this.viewManager?.convertView(convertibleNested, 'tab');
 	}
 
 	private testCreateTabView(): void {
@@ -149,23 +139,24 @@ export class EditorAreaCmp extends ContentArea {
 			return;
 
 		// Create a new TabView using the ViewManager's helper method
-		const tabView = this.viewManager.createTabView('test-tab-view', 'Tab View Test');
+		const tabView = this.viewManager.createTabView(
+			'test-tab-view',
+			'Tab View Test',
+			undefined,
+			undefined,
+			defaultEditorTemplate,
+		);
 
 		// Create some test editors for the tab view with different removal behaviors
-		const editor1 = new EditorView('tab-editor-1', 'Tab 1 (Normal)', defaultEditorTemplate);
-		const editor2 = new EditorView('tab-editor-2', 'Tab 2 (Allowed)', defaultEditorTemplate);
-		const editor3 = new EditorView('tab-editor-3', 'Tab 3 (Protected)', defaultEditorTemplate);
+		tabView.createEditor('tab-editor-1', 'Tab 1 (Normal)', defaultEditorTemplate); // No callback = always removable
 
-		// Add editors with different removal behaviors
-		this.viewManager.addEditorToTabView(tabView, editor1); // No callback = always removable
-
-		this.viewManager.addEditorToTabView(tabView, editor2, (id) => {
+		tabView.createEditor('tab-editor-2', 'Tab 2 (Allowed)', defaultEditorTemplate, (id) => {
 			console.log(`Tab 2 removal requested - allowing removal`);
 
 			return true; // Allow removal
 		});
 
-		this.viewManager.addEditorToTabView(tabView, editor3, (id) => {
+		tabView.createEditor('tab-editor-3', 'Tab 3 (Protected)', defaultEditorTemplate, (id) => {
 			console.log(`Tab 3 removal blocked - this tab is protected!`);
 
 			return false; // Block removal
@@ -177,13 +168,34 @@ export class EditorAreaCmp extends ContentArea {
 		// Also create a NestedView with similar behavior
 		const nestedView = this.viewManager.createNestedView('test-nested-view', 'Nested View Test', Orientation.HORIZONTAL);
 
-		const nestedEditor1 = new EditorView('nested-editor-1', 'Nested 1 (Normal)', defaultEditorTemplate);
-		const nestedEditor2 = new EditorView('nested-editor-2', 'Nested 2 (Protected)', defaultEditorTemplate);
+		// Create TabViews for the nested view (since we don't have standalone EditorViews anymore)
+		const nestedTabView1 = new TabView(
+			'nested-tab-1',
+			'Nested 1 (Normal)',
+			undefined,
+			undefined,
+			defaultEditorTemplate,
+		);
 
-		this.viewManager.addEditorToNestedView(nestedView, nestedEditor1); // No callback = always removable
+		nestedTabView1.createEditor('nested-editor-1', 'Nested 1 (Normal)', defaultEditorTemplate);
 
-		this.viewManager.addEditorToNestedView(nestedView, nestedEditor2, (id) => {
+		const nestedTabView2 = new TabView(
+			'nested-tab-2',
+			'Nested 2 (Protected)',
+			undefined,
+			undefined,
+			defaultEditorTemplate,
+		);
+
+		nestedTabView2.createEditor('nested-editor-2', 'Nested 2 (Protected)', defaultEditorTemplate, (id) => {
 			console.log(`Nested editor 2 removal blocked - this editor is protected!`);
+
+			return false; // Block removal
+		});
+
+		this.viewManager.addViewToNestedView(nestedView, nestedTabView1); // No callback = always removable
+		this.viewManager.addViewToNestedView(nestedView, nestedTabView2, (id) => {
+			console.log(`Nested view removal blocked - this view is protected!`);
 
 			return false; // Block removal
 		});
@@ -191,25 +203,30 @@ export class EditorAreaCmp extends ContentArea {
 		// Add the nested view to the main view manager
 		this.viewManager.addView(nestedView, Sizing.Distribute);
 
-		// Create a protected standalone editor
-		this.viewManager.createEditor(
-			'standalone-protected',
+		// Create a protected TabView
+		const protectedTabView = this.viewManager.createTabView(
+			'standalone-protected-tab',
 			'Standalone (Protected)',
-			undefined,
-			Sizing.Distribute,
 			(id) => {
-				console.log(`Standalone editor removal blocked - this editor is protected!`);
+				console.log(`Standalone tab removal blocked - this tab is protected!`);
 
 				return false; // Block removal
 			},
+			undefined,
+			defaultEditorTemplate,
 		);
+
+		protectedTabView.createEditor(
+			'standalone-protected',
+			'Standalone (Protected)',
+			defaultEditorTemplate,
+		);
+
+		this.viewManager.addView(protectedTabView, Sizing.Distribute);
 
 		console.log('Created comprehensive test with protected editors in TabView, NestedView, and standalone!');
 		console.log('Available conversions:');
 		console.log('- TabView ↔ NestedView');
-		console.log('- EditorView ↔ NestedView');
-		console.log('- EditorView → TabView');
-		console.log('- TabView → EditorView (if TabView has exactly 1 editor)');
 		console.log('Use viewManager.convertView(sourceView, targetType, options) for unified conversions');
 	}
 
@@ -218,8 +235,8 @@ export class EditorAreaCmp extends ContentArea {
 			<div class="editor-toolbar">
 				<button on-click={() => this.splitEditor('horizontal')}>Add Column to Row 1</button>
 				<button on-click={() => this.splitEditor('vertical')}>Add New Row</button>
-				<button on-click={() => this.testConvertToNested()}>Test: Convert Editor to Nested</button>
-				<button on-click={() => this.testConvertToEditor()}>Test: Convert Nested to Editor</button>
+				<button on-click={() => this.testConvertToNested()}>Test: Convert Tab to Nested</button>
+				<button on-click={() => this.testConvertToTab()}>Test: Convert Nested to Tab</button>
 				<button on-click={() => this.testCreateTabView()}>Test: Create Tab View</button>
 			</div>
 			<div class="editor-container"></div>

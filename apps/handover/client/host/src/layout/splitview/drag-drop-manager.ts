@@ -1,6 +1,7 @@
-import { TabView } from './tab-view.ts';
 import { Orientation, Sizing } from './types.ts';
-import { EditorView, type NestedView, type ViewManager } from './view-manager.ts';
+import type { ViewManager } from './view-manager.ts';
+import { type NestedView } from './views/index.ts';
+import { TabView } from './views/tab-view.ts';
 
 /**
  * Represents a drag operation in progress
