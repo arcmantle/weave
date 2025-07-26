@@ -55,8 +55,12 @@ export class EditorAreaCmp extends ContentArea {
 		if (!container)
 			return console.warn('EditorArea: Could not find .editor-container element');
 
-		// Create ViewManager with container and default template
-		this.viewManager = new ViewManager(container, defaultEditorTemplate);
+		// Create ViewManager with container, default template, and drag-drop config
+		this.viewManager = new ViewManager(container, defaultEditorTemplate, {
+			dragThreshold:   5,
+			dropZoneSize:    40,
+			showDragPreview: true,
+		});
 
 		// Initialize with vertical orientation for rows
 		this.viewManager.initialize(Orientation.VERTICAL);

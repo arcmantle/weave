@@ -119,3 +119,66 @@
 		transition: none;
 	}
 }
+
+/* Drag and Drop Styles */
+.draggable-tab {
+	cursor: move;
+}
+
+.draggable-tab:hover {
+	opacity: 0.8;
+}
+
+.being-dragged {
+	opacity: 0.5;
+	transform: scale(0.95);
+}
+
+.drag-drop-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100vw;
+	height: 100vh;
+	pointer-events: none;
+	z-index: 1000;
+}
+
+.drop-zone {
+	position: fixed;
+	background: var(--vscode-focusBorder, #007acc);
+	opacity: 0.3;
+	border: 2px solid var(--vscode-focusBorder, #007acc);
+	pointer-events: none;
+	z-index: 999;
+	transition: opacity 0.2s ease;
+}
+
+.drop-zone.active {
+	opacity: 0.5;
+	background: var(--vscode-button-background, #0e639c);
+}
+
+.drag-preview {
+	position: fixed;
+	background: var(--vscode-tab-activeBackground);
+	color: var(--vscode-tab-activeForeground);
+	padding: 8px 12px;
+	border-radius: 4px;
+	font-size: 13px;
+	pointer-events: none;
+	z-index: 1001;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+	opacity: 0.9;
+}
+
+/* Animation for smooth transitions */
+@media (prefers-reduced-motion: no-preference) {
+	.being-dragged {
+		transition: opacity 0.2s ease, transform 0.2s ease;
+	}
+
+	.drop-zone {
+		transition: opacity 0.2s ease, background-color 0.2s ease;
+	}
+}

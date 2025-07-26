@@ -1,5 +1,6 @@
 import { render, type Signal, signal } from '@arcmantle/adapter-element/shared';
 
+import { type DragDropConfig, DragDropManager } from './drag-drop-manager.ts';
 import { SplitView } from './split-view.ts';
 import { type IView, Orientation, Sizing } from './types.ts';
 
@@ -165,6 +166,31 @@ export class NestedView implements IEditorView {
 		}
 	}
 
+	/**
+	 * Add an editor at a specific index
+	 */
+	addEditorAtIndex(editor: IEditorView, index: number): void {
+		// Insert into editors array at the specified index
+		this.editors.splice(index, 0, editor);
+
+		if (this.editors.length === 1) {
+			// First editor gets all available space
+			this.splitView.addView(editor, Sizing.Distribute);
+		}
+		else {
+			// Add to split view at the specified index
+			this.splitView.addView(editor, Sizing.Distribute, index, true);
+
+			// Redistribute space equally among all editors
+			const equalSize = (this.splitView.orientation === Orientation.HORIZONTAL
+				? this.element.offsetWidth
+				: this.element.offsetHeight) / this.editors.length;
+
+			for (let i = 0; i < this.editors.length; i++)
+				this.splitView.setViewSize(i, equalSize);
+		}
+	}
+
 	removeEditor(id: string): boolean {
 		const editorIndex = this.editors.findIndex(e => e.id === id);
 		if (editorIndex === -1)
@@ -287,11 +313,13 @@ export class ViewManager {
 	readonly editors:     Signal<IEditorView[]> = this._editors;
 	readonly nestedViews: Signal<NestedView[]> = this._nestedViews;
 
-	private view: SplitView<undefined, IEditorView> | null = null;
+	private view:            SplitView<undefined, IEditorView> | null = null;
+	private dragDropManager: DragDropManager | null = null;
 
 	constructor(
 		private container: HTMLElement,
 		private defaultTemplateFunction: EditorTemplateFunction,
+		private dragDropConfig: DragDropConfig | undefined = undefined,
 	) {}
 
 	/**
@@ -311,6 +339,9 @@ export class ViewManager {
 		});
 
 		this.view.enableAutoResize();
+
+		// Initialize drag-drop manager
+		this.dragDropManager = new DragDropManager(this, this.dragDropConfig);
 
 		// Listen to the main split view's resize events to update nested views
 		this.view.onDidSashChange(() => {
@@ -338,6 +369,9 @@ export class ViewManager {
 		if (this.view)
 			this.view.addView(editorView, sizing);
 
+		// Initialize drag functionality for the new editor
+		if (this.dragDropManager)
+			this.dragDropManager.initializeEditorDrag(editorView);
 
 		return editorView;
 	}
@@ -604,12 +638,87 @@ export class ViewManager {
 	 */
 	registerEditor(editor: EditorView): void {
 		this._editors.value = [ ...this._editors.value, editor ];
+
+		// Initialize drag functionality for the registered editor
+		if (this.dragDropManager)
+			this.dragDropManager.initializeEditorDrag(editor);
+	}
+
+	/**
+	 * Remove an editor from tracking without disposing it (for drag-drop operations)
+	 */
+	removeEditorFromTracking(editorId: string): EditorView | null {
+		const editor = this._editors.value.find(e => e.id === editorId);
+		if (!editor || !(editor instanceof EditorView))
+			return null;
+
+		// Remove from editors array
+		this._editors.value = this._editors.value.filter(e => e.id !== editorId);
+
+		// Remove from nested views if present
+		for (const nestedView of this._nestedViews.value) {
+			if (nestedView.removeEditor(editorId)) {
+				// If nested view is now empty, remove it
+				if (nestedView.editorCount === 0) {
+					const removedView = this.view?.removeViewByReference(nestedView);
+					if (removedView) {
+						nestedView.dispose();
+						this._nestedViews.value = this._nestedViews.value.filter(nv => nv !== nestedView);
+					}
+				}
+
+				return editor;
+			}
+		}
+
+		// Remove from main view
+		const removedView = this.view?.removeViewByReference(editor);
+		if (removedView)
+			return editor;
+
+		return null;
+	}
+
+	/**
+	 * Add an existing editor to the view manager
+	 */
+	addExistingEditor(editor: EditorView, sizing: number | Sizing = Sizing.Distribute): void {
+		this._editors.value = [ ...this._editors.value, editor ];
+
+		if (this.view)
+			this.view.addView(editor, sizing);
+
+		// Initialize drag functionality
+		if (this.dragDropManager)
+			this.dragDropManager.initializeEditorDrag(editor);
+	}
+
+	/**
+	 * Add an existing editor at a specific index in the main view
+	 */
+	addExistingEditorAtIndex(editor: EditorView, index: number, sizing: number | Sizing = Sizing.Distribute): void {
+		this._editors.value = [ ...this._editors.value, editor ];
+
+		if (this.view)
+			this.view.addView(editor, sizing, index, true);
+
+		// Initialize drag functionality
+		if (this.dragDropManager)
+			this.dragDropManager.initializeEditorDrag(editor);
+	}
+
+	/**
+	 * Get the index of an editor in the main view (for drag-drop operations)
+	 */
+	getEditorIndex(editor: EditorView): number {
+		return this.view?.indexOf(editor) ?? -1;
 	}
 
 	/**
 	 * Dispose all resources
 	 */
 	dispose(): void {
+		this.dragDropManager?.dispose();
 		this.view?.dispose();
 		this._editors.value.forEach(editor => editor.dispose());
 		this._nestedViews.value.forEach(nestedView => nestedView.dispose());
