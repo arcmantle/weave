@@ -2,6 +2,12 @@ import { Orientation } from '../types.ts';
 import { EditorView } from './editor-view.ts';
 import { type EditorTemplateFunction, type EditorWithCallback, type IEditorView } from './shared.ts';
 
+// Forward declaration to avoid circular dependency
+interface IViewManager {
+	closeEditor(id: string): void;
+	removeEmptyTabView(tabView: any): void;
+}
+
 
 /**
  * A view that displays multiple editors in tabs with one active editor visible
@@ -23,10 +29,23 @@ export class TabView implements IEditorView {
 	private onRemoved?:         (id: string) => void;
 	private editorCallbacks:    Map<string, (id: string) => boolean | void> = new Map();
 	private defaultTemplateFn?: EditorTemplateFunction;
+	private _viewManager:       WeakRef<IViewManager>;
+
+	/**
+	 * Get the ViewManager instance, throwing an error if it has been garbage collected
+	 */
+	private get viewManager(): IViewManager {
+		const vm = this._viewManager.deref();
+		if (!vm)
+			throw new Error('ViewManager has been garbage collected');
+
+		return vm;
+	}
 
 	constructor(
 		id: string,
 		title: string,
+		viewManager: IViewManager,
 		onRemove?: (id: string) => boolean | void,
 		onRemoved?: (id: string) => void,
 		defaultTemplateFn?: EditorTemplateFunction,
@@ -36,6 +55,7 @@ export class TabView implements IEditorView {
 		this.onRemove = onRemove;
 		this.onRemoved = onRemoved;
 		this.defaultTemplateFn = defaultTemplateFn;
+		this._viewManager = new WeakRef(viewManager);
 		this.element = document.createElement('div');
 		this.element.className = 'tab-view';
 
@@ -56,21 +76,6 @@ export class TabView implements IEditorView {
 
 		this.element.appendChild(this.tabsContainer);
 		this.element.appendChild(this.contentArea);
-
-		// Update tab visibility based on editor count
-		this.updateTabVisibility();
-	}
-
-	/**
-	 * Update tab visibility based on number of editors
-	 * Hide tabs when there's only one editor to save space
-	 */
-	private updateTabVisibility(): void {
-		const showTabs = this.editors.length > 1;
-		this.tabsContainer.style.display = showTabs ? 'flex' : 'none';
-
-		// Adjust content area to take full height when tabs are hidden
-		this.contentArea.style.height = showTabs ? 'calc(100% - 32px)' : '100%';
 	}
 
 	/**
@@ -91,9 +96,6 @@ export class TabView implements IEditorView {
 		// If this is the first editor, make it active
 		if (this.editors.length === 1)
 			this.setActiveEditor(editor);
-
-		// Update tab visibility
-		this.updateTabVisibility();
 	}
 
 	/**
@@ -110,28 +112,11 @@ export class TabView implements IEditorView {
 		if (!templateFn)
 			throw new Error('No template function provided and no default template function available');
 
-		// Create close handler that respects per-editor callbacks
+		// Create internal handler that checks callback but delegates removal to external path
 		const handleClose = (editorId: string) => {
-			// Try the per-editor callback first, then fall back to global callback
-			const editorCallback = this.editorCallbacks.get(editorId);
-			const callback = editorCallback || this.onRemove;
-
-			// Ask the callback if removal should proceed (if callback exists)
-			const shouldRemove = callback ? callback(editorId) : true;
-
-			// If callback returned false, don't remove
-			if (shouldRemove === false)
-				return;
-
-			// Handle removal internally
-			const removed = this.removeEditor(editorId);
-
-			// Notify after successful removal
-			if (removed && this.onRemoved)
-				this.onRemoved(editorId);
-		};
-
-		const editor = new EditorView(id, title, templateFn, handleClose);
+			// Use ViewManager for consistent close handling
+			return this.viewManager.closeEditor(editorId);
+		};		const editor = new EditorView(id, title, templateFn, handleClose);
 
 		// Store the per-editor callback if provided
 		if (onRemove)
@@ -144,9 +129,6 @@ export class TabView implements IEditorView {
 		if (this.editors.length === 1)
 			this.setActiveEditor(editor);
 
-		// Update tab visibility
-		this.updateTabVisibility();
-
 		return editor;
 	}
 
@@ -155,10 +137,12 @@ export class TabView implements IEditorView {
 	 */
 	removeEditor(editorId: string): boolean {
 		const editorIndex = this.editors.findIndex(e => e.id === editorId);
+
 		if (editorIndex === -1)
 			return false;
 
 		const editor = this.editors[editorIndex];
+
 		if (!editor)
 			return false;
 
@@ -187,9 +171,6 @@ export class TabView implements IEditorView {
 		// Hide the editor's element
 		if (editor.element.parentNode === this.contentArea)
 			this.contentArea.removeChild(editor.element);
-
-		// Update tab visibility
-		this.updateTabVisibility();
 
 		return true;
 	}
@@ -250,23 +231,9 @@ export class TabView implements IEditorView {
 		closeButton.addEventListener('click', (e) => {
 			e.stopPropagation();
 
-			// Try the per-editor callback first, then fall back to global callback
-			const editorCallback = this.editorCallbacks.get(editor.id);
-			const callback = editorCallback || this.onRemove;
-
-			// Ask the callback if removal should proceed (if callback exists)
-			const shouldRemove = callback ? callback(editor.id) : true;
-
-			// If callback returned false, don't remove
-			if (shouldRemove === false)
-				return;
-
-			// Handle removal internally
-			const removed = this.removeEditor(editor.id);
-
-			// Notify after successful removal
-			if (removed && this.onRemoved)
-				this.onRemoved(editor.id);
+			// Delegate to the EditorView's close mechanism instead of handling removal directly
+			// This prevents duplicate removal calls
+			editor.close();
 		});		closeButton.addEventListener('mouseenter', () => {
 			closeButton.style.backgroundColor = 'var(--vscode-toolbar-hoverBackground)';
 			closeButton.style.opacity = '1';
@@ -350,7 +317,7 @@ export class TabView implements IEditorView {
 	 * Extract all editors with their callbacks for conversion purposes
 	 * @returns Array of editors with their associated callbacks
 	 */
-	extractEditorsWithCallbacks(): EditorWithCallback[] {
+	extractEditors(): EditorWithCallback[] {
 		return this.editors.map(editor => ({
 			editor,
 			callback: this.editorCallbacks.get(editor.id),

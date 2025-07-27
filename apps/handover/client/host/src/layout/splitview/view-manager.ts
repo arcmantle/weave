@@ -30,7 +30,22 @@ export class ViewManager {
 		return Array.from(this._allViews.values());
 	});
 
-	private view:            SplitView<undefined, IEditorView> | null = null;
+	private _view: SplitView<undefined, IEditorView> | null = null;
+	private get view(): SplitView<undefined, IEditorView> {
+		if (!this._view)
+			throw new Error('ViewManager: SplitView not initialized yet');
+
+		return this._view;
+	}
+
+	private set view(value: SplitView<undefined, IEditorView>) {
+		if (this._view)
+			throw new Error('ViewManager: SplitView already initialized');
+
+		this._view = value;
+	}
+
+
 	private dragDropManager: DragDropManager | null = null;
 
 	/**
@@ -124,8 +139,25 @@ export class ViewManager {
 			id,
 			title,
 			orientation,
+			this, // Pass ViewManager reference
 			// onRemoved: called after successful removal for cleanup
 			(editorId) => {
+				// Check if this is the NestedView itself being removed (empty NestedView)
+				if (editorId === nestedView.id) {
+					// Remove the empty NestedView from the main view
+					const removedView = this.view?.removeViewByReference(nestedView);
+					if (removedView) {
+						nestedView.dispose();
+						this.removeViewFromMap(nestedView.id);
+					}
+
+					// If no TabViews remain, create a welcome editor
+					if (this.tabViews.value.length === 0)
+						this.createEditor('welcome', 'Welcome');
+
+					return;
+				}
+
 				// Remove the editor from central tracking and dispose it
 				const editor = this.getViewById(editorId);
 				if (isEditorView(editor)) {
@@ -152,20 +184,25 @@ export class ViewManager {
 	}
 
 	/**
-	 * Add a view to a NestedView with optional per-view onRemove callback
+	 * Add a view to a NestedView
+	 * Note: NestedViews should only contain TabViews, not standalone EditorViews
 	 */
 	addViewToNestedView(
 		nestedView: NestedView,
 		view: IEditorView,
 		onRemove?: (id: string) => boolean | void,
 	): void {
+		// Warn if adding a non-TabView to a NestedView (should not happen in normal usage)
+		if (!isTabView(view))
+			console.warn('Adding non-TabView to NestedView. NestedViews should only contain TabViews:', view.type);
+
 		// Register the view with the ViewManager first
 		this.addViewToTracking(view);
 
 		// Add to the NestedView with the optional callback
 		nestedView.addEditorWithCallback(view, onRemove);
 
-		// Initialize drag functionality for EditorViews
+		// Initialize drag functionality only for EditorViews (TabViews don't need it)
 		if (isEditorView(view) && this.dragDropManager)
 			this.dragDropManager.initializeEditorDrag(view);
 	}
@@ -183,6 +220,7 @@ export class ViewManager {
 		const tabView = new TabView(
 			id,
 			title,
+			this, // Pass ViewManager reference first (now required)
 			onRemove,
 			// onRemoved: called after successful removal for cleanup
 			onRemoved || ((editorId) => {
@@ -192,14 +230,9 @@ export class ViewManager {
 					this.removeViewFromMap(editorId);
 					editor.dispose();
 
-					// If the TabView is now empty, remove it from the main view
-					if (tabView.editorCount === 0) {
-						const removedView = this.view?.removeViewByReference(tabView);
-						if (removedView) {
-							tabView.dispose();
-							this.removeViewFromMap(tabView.id);
-						}
-					}
+					// If the TabView is now empty, remove it from its parent
+					if (tabView.editorCount === 0)
+						this.removeEmptyTabView(tabView);
 
 					// If no TabViews remain, create a welcome editor
 					if (this.tabViews.value.length === 0)
@@ -210,6 +243,38 @@ export class ViewManager {
 		);
 
 		return tabView;
+	}
+
+	/**
+	 * Remove an empty TabView from its parent (either main view or NestedView)
+	 */
+	removeEmptyTabView(tabView: TabView): void {
+		// First try to remove from main view
+		const removedFromMain = this.view?.removeViewByReference(tabView);
+		if (removedFromMain) {
+			tabView.dispose();
+			this.removeViewFromMap(tabView.id);
+
+			return;
+		}
+
+		// If not in main view, find which NestedView contains it
+		for (const nestedView of this.nestedViews.value) {
+			// Check if the TabView is directly in the NestedView's editors array
+			const isContained = nestedView.allEditors.some(editor => editor.id === tabView.id);
+			if (isContained) {
+				// Remove from the NestedView (this will call dispose on the TabView)
+				const removed = nestedView.removeEditor(tabView.id);
+				if (removed) {
+					// Also remove from ViewManager tracking
+					this.removeViewFromMap(tabView.id);
+
+					return;
+				}
+			}
+		}
+
+		console.warn('Could not find parent for empty TabView:', tabView.id);
 	}
 
 	/**
@@ -266,8 +331,7 @@ export class ViewManager {
 		const editor = tabView.createEditor(id, title, templateFn, onRemove);
 
 		// Add TabView to the main view
-		if (this.view)
-			this.view.addView(tabView, sizing);
+		this.view.addView(tabView, sizing);
 
 		this.addViewToTracking(tabView);
 		this.addViewToTracking(editor);
@@ -307,7 +371,10 @@ export class ViewManager {
 				const tabView = containingView as TabView;
 				const removed = tabView.removeEditor(id);
 				if (removed) {
-					// TabView handles cleanup via its callback system
+					// Check if TabView is now empty and remove it if so
+					if (tabView.editorCount === 0)
+						this.removeEmptyTabView(tabView);
+
 					return;
 				}
 			}
@@ -358,9 +425,6 @@ export class ViewManager {
 	 * Split editor - add new editor either horizontally or vertically
 	 */
 	splitEditor(direction: 'horizontal' | 'vertical' = 'horizontal'): void {
-		if (!this.view)
-			return;
-
 		const newId = `editor-${ Date.now() }`;
 		const newTitle = `Editor ${ this.tabViews.value.length + 1 }`;
 
@@ -373,6 +437,7 @@ export class ViewManager {
 					const newTabView = new TabView(
 						`${ newId }-tab`,
 						newTitle,
+						this, // ViewManager reference (required)
 						undefined,
 						undefined,
 						this.defaultTemplateFunction,
@@ -396,18 +461,12 @@ export class ViewManager {
 	 * @returns The new NestedView, or null if conversion failed
 	 */
 	convertTabViewToNested(tabView: TabView, orientation: Orientation): NestedView | null {
-		if (!this.view)
-			return null;
-
 		const viewIndex = this.view.indexOf(tabView);
 		if (viewIndex === -1) {
 			console.warn('TabView not found in main split view');
 
 			return null;
 		}
-
-		// Capture sizes and convert
-		const allSizes = this.captureViewSizes();
 
 		// Create NestedView with proper cleanup callback
 		const nestedView = this.createNestedView(
@@ -416,25 +475,14 @@ export class ViewManager {
 			orientation,
 		);
 
-		// Extract editors with their callbacks from TabView
-		const editorsWithCallbacks = tabView.extractEditorsWithCallbacks();
-
-		// Remove TabView from main view and tracking
-		this.view.removeView(viewIndex);
-		this.removeViewFromMap(tabView.id);
-		tabView.dispose();
-
-		// Add NestedView and transfer editors
-		this.view.addView(nestedView, allSizes[viewIndex]!, viewIndex, true);
+		// Replace the TabView with the NestedView, preserving size and preventing disposal
+		this.view.replaceView(viewIndex, nestedView, { preventDisposal: true });
 		this.addViewToTracking(nestedView);
 
-		// Transfer editors to NestedView
-		editorsWithCallbacks.forEach(({ editor, callback }) => {
-			this.addViewToNestedView(nestedView, editor, callback);
-		});
+		// Move the existing TabView directly into the NestedView to preserve DOM elements
+		this.addViewToNestedView(nestedView, tabView);
 
-		// Restore layout and sizes
-		this.restoreViewSizes(allSizes);
+		// Finalize the layout
 		nestedView.layoutInternal();
 
 		return nestedView;
@@ -446,9 +494,6 @@ export class ViewManager {
 	 * @returns The new TabView, or null if conversion failed
 	 */
 	convertNestedViewToTab(nestedView: NestedView): TabView | null {
-		if (!this.view)
-			return null;
-
 		const viewIndex = this.view.indexOf(nestedView);
 		if (viewIndex === -1) {
 			console.warn('NestedView not found in main split view');
@@ -456,42 +501,46 @@ export class ViewManager {
 			return null;
 		}
 
-		// Capture sizes and convert
-		const allSizes = this.captureViewSizes();
+		// Get all views from the NestedView (should only be TabViews)
+		const allViews = nestedView.allEditors;
 
-		// Create TabView with proper cleanup callback
-		const tabView = this.createTabView(
-			`tab-from-nested-${ nestedView.id }`,
-			`Tab ${ nestedView.title }`,
-		);
-
-		// Extract editors with their callbacks from NestedView
-		const editorsWithCallbacks = nestedView.extractEditorsWithCallbacks();
-
-		if (editorsWithCallbacks.length === 0) {
-			console.warn('Cannot convert NestedView to TabView: no EditorViews found');
+		if (allViews.length === 0) {
+			console.warn('Cannot convert NestedView to TabView: no views found');
 
 			return null;
 		}
 
-		// Remove NestedView from main view and tracking
-		this.view.removeView(viewIndex);
+		if (allViews.length !== 1) {
+			console.warn('Cannot convert NestedView to TabView: expected exactly 1 TabView, found', allViews.length);
+
+			return null;
+		}
+
+		const view = allViews[0];
+		if (!isTabView(view)) {
+			console.warn('Cannot convert NestedView to TabView: contained view is not a TabView');
+
+			return null;
+		}
+
+		// Extract the TabView from the NestedView without disposing it
+		const extractedTabView = nestedView.extractSingleView();
+		if (!extractedTabView || !isTabView(extractedTabView)) {
+			console.warn('Failed to extract TabView from NestedView');
+
+			return null;
+		}
+
+		// Replace the NestedView with the extracted TabView, preserving size
+		this.view.replaceView(viewIndex, extractedTabView);
+
+		// Remove the NestedView from tracking (TabView stays tracked)
 		this.removeViewFromMap(nestedView.id);
+
+		// Dispose the now-empty NestedView wrapper
 		nestedView.dispose();
 
-		// Add TabView and transfer editors
-		this.view.addView(tabView, allSizes[viewIndex]!, viewIndex, true);
-		this.addViewToTracking(tabView);
-
-		// Transfer editors to TabView
-		editorsWithCallbacks.forEach(({ editor, callback }) => {
-			this.addEditorToTabView(tabView, editor, callback);
-		});
-
-		// Restore layout and sizes
-		this.restoreViewSizes(allSizes);
-
-		return tabView;
+		return extractedTabView as TabView;
 	}
 
 	/**
@@ -506,68 +555,27 @@ export class ViewManager {
 		targetType: 'nested' | 'tab',
 		options?: { orientation?: Orientation; },
 	): IEditorView | null {
-		const sourceType = sourceView.type;
-
 		// Same type - no conversion needed
-		if (sourceType === targetType)
+		if (sourceView.type === targetType)
 			return sourceView;
 
 		// NestedView conversions
-		if (sourceType === 'nested' && isNestedView(sourceView)) {
-			if (targetType === 'tab')
-				return this.convertNestedViewToTab(sourceView);
-		}
+		if (isNestedView(sourceView) && targetType === 'tab')
+			return this.convertNestedViewToTab(sourceView);
 
 		// TabView conversions
-		if (sourceType === 'tab' && isTabView(sourceView)) {
-			const tabView = sourceView as TabView;
-			if (targetType === 'nested')
-				return this.convertTabViewToNested(tabView, options?.orientation ?? Orientation.HORIZONTAL);
-		}
+		if (isTabView(sourceView) && targetType === 'nested')
+			return this.convertTabViewToNested(sourceView, options?.orientation ?? Orientation.HORIZONTAL);
 
-		console.warn(`Unsupported conversion: ${ sourceType } -> ${ targetType }`);
+		console.warn(`Unsupported conversion: ${ sourceView.type } -> ${ targetType }`);
 
 		return null;
-	}
-
-	/**
-	 * Capture all current view sizes for restoration after layout changes
-	 */
-	private captureViewSizes(): number[] {
-		return this.view ? Array.from({ length: this.view.length }, (_, i) => this.view!.getViewSize(i)) : [];
-	}
-
-	/**
-	 * Restore view sizes and trigger layout to preserve proportions after view changes
-	 */
-	private restoreViewSizes(allSizes: number[]): void {
-		if (!this.view)
-			return;
-
-		const size = this.view.orientation === Orientation.HORIZONTAL
-			? this.container.offsetWidth
-			: this.container.offsetHeight;
-
-		this.view.layout(size);
-
-		// Restore sizes for views that have changed significantly (> 1px difference)
-		const tolerance = 1;
-		allSizes.forEach((targetSize, i) => {
-			if (i < this.view!.length && targetSize !== undefined) {
-				const currentSize = this.view!.getViewSize(i);
-				if (Math.abs(currentSize - targetSize) > tolerance)
-					this.view!.setViewSize(i, targetSize);
-			}
-		});
 	}
 
 	/**
 	 * Add a nested view to the main split view
 	 */
 	addNestedView(nestedView: NestedView, sizing: number | Sizing = Sizing.Distribute): void {
-		if (!this.view)
-			return;
-
 		this.addViewToTracking(nestedView);
 		this.view.addView(nestedView, sizing);
 	}

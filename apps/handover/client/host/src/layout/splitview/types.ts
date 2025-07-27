@@ -33,6 +33,8 @@ export interface IView<TLayoutContext = undefined> {
 
 	/** Set view visibility */
 	setVisible?(visible: boolean): void;
+
+	dispose(): void;
 }
 
 export interface ISashEvent {

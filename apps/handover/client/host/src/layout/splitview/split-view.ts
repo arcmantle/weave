@@ -48,6 +48,10 @@ abstract class ViewItem<TLayoutContext, TView extends IView<TLayoutContext>> {
 	private _size:              number;
 	private _cachedVisibleSize: number | undefined = undefined;
 
+	get containerElement(): HTMLElement {
+		return this.container;
+	}
+
 	set enabled(enabled: boolean) {
 		this.container.style.pointerEvents = enabled ? '' : 'none';
 	}
@@ -150,11 +154,6 @@ class HorizontalViewItem<TLayoutContext, TView extends IView<TLayoutContext>>
 
 }
 
-enum State {
-	Idle,
-	Busy,
-}
-
 /**
  * The SplitView is the UI component which implements a one dimensional
  * flex-like layout algorithm for a collection of IView instances.
@@ -177,7 +176,6 @@ export class SplitView<
 	private sashItems:                   ISashItem[] = [];
 	private sashDragState:               DragState | undefined;
 	private sashPointerStatesBeforeDrag: boolean[] = [];
-	private state:                       State = State.Idle;
 	private proportionalResize:          boolean;
 
 	private readonly onDidSashChangeCallbacks: ((index: number) => void)[] = [];
@@ -228,73 +226,123 @@ export class SplitView<
 			callback(index);
 	}
 
-	addView(view: TView, size: number | Sizing, index: number = this.viewItems.length, skipLayout?: boolean): void {
-		this.doAddView(view, size, index, skipLayout);
-	}
-
 	removeView(index: number, sizing?: Sizing): TView {
 		if (index < 0 || index >= this.viewItems.length)
 			throw new Error('Index out of bounds');
 
-		if (this.state !== State.Idle)
-			throw new Error('Cannot modify splitview');
-
-		this.state = State.Busy;
-
-		try {
-			if (sizing?.type === 'auto') {
-				if (this.areViewsDistributed())
-					sizing = { type: 'distribute' };
-				else
-					sizing = { type: 'split', index: sizing.index };
-			}
-
-			// Validate split index for removeView first
-			if (sizing?.type === 'split' && (sizing.index < 0 || sizing.index >= this.viewItems.length)) {
-				throw new Error(
-					`Invalid split index for removeView: ${ sizing.index }. ` +
-					`Must be between 0 and ${ this.viewItems.length - 1 }`,
-				);
-			}
-
-			// Save reference view, in case of `split` sizing (before removing the view)
-			const referenceViewItem = sizing?.type === 'split' ?
-				this.viewItems[sizing.index] : undefined;
-
-			// Remove view
-			const viewItemToRemove = this.viewItems.splice(index, 1)[0]!;
-
-			// Resize reference view, in case of `split` sizing
-			// Note: If the removed view was before the reference view, we need to adjust
-			if (referenceViewItem && sizing?.type === 'split') {
-				// Find the reference view after removal (its index may have shifted)
-				const adjustedIndex = index < sizing.index ? sizing.index - 1 : sizing.index;
-				const actualReferenceView = this.viewItems[adjustedIndex];
-				if (actualReferenceView)
-					actualReferenceView.size += viewItemToRemove.size;
-			}
-
-			// Remove sash
-			if (this.viewItems.length >= 1) {
-				const sashIndex = Math.max(index - 1, 0);
-				const sashItem = this.sashItems.splice(sashIndex, 1)[0]!;
-				sashItem.sash.dispose();
-				sashItem.disposable();
-			}
-
-			this.reLayout();
-
-			if (sizing?.type === 'distribute')
-				this.distributeViewSizes();
-
-			const result = viewItemToRemove.view;
-			viewItemToRemove.dispose();
-
-			return result;
+		if (sizing?.type === 'auto') {
+			if (this.areViewsDistributed())
+				sizing = { type: 'distribute' };
+			else
+				sizing = { type: 'split', index: sizing.index };
 		}
-		finally {
-			this.state = State.Idle;
+
+		// Validate split index for removeView first
+		if (sizing?.type === 'split' && (sizing.index < 0 || sizing.index >= this.viewItems.length)) {
+			throw new Error(
+				`Invalid split index for removeView: ${ sizing.index }. ` +
+				`Must be between 0 and ${ this.viewItems.length - 1 }`,
+			);
 		}
+
+		// Save reference view, in case of `split` sizing (before removing the view)
+		const referenceViewItem = sizing?.type === 'split' ?
+			this.viewItems[sizing.index] : undefined;
+
+		// Remove view
+		const viewItemToRemove = this.viewItems.splice(index, 1)[0]!;
+
+		// Resize reference view, in case of `split` sizing
+		// Note: If the removed view was before the reference view, we need to adjust
+		if (referenceViewItem && sizing?.type === 'split') {
+			// Find the reference view after removal (its index may have shifted)
+			const adjustedIndex = index < sizing.index ? sizing.index - 1 : sizing.index;
+			const actualReferenceView = this.viewItems[adjustedIndex];
+			if (actualReferenceView)
+				actualReferenceView.size += viewItemToRemove.size;
+		}
+
+		// Remove sash
+		if (this.viewItems.length >= 1) {
+			const sashIndex = Math.max(index - 1, 0);
+			const sashItem = this.sashItems.splice(sashIndex, 1)[0]!;
+			sashItem.sash.dispose();
+			sashItem.disposable();
+		}
+
+		this.reLayout();
+
+		if (sizing?.type === 'distribute')
+			this.distributeViewSizes();
+
+		const result = viewItemToRemove.view;
+		viewItemToRemove.dispose();
+
+		return result;
+	}
+
+	/**
+	 * Replace a view at the specified index with a new view, preserving size and layout
+	 * @param index The index of the view to replace
+	 * @param newView The new view to insert
+	 * @param options Options for the replacement
+	 * @returns The replaced view, or undefined if index is invalid
+	 */
+	replaceView(index: number, newView: TView, options?: { preventDisposal?: boolean; }): TView | undefined {
+		if (index < 0 || index >= this.viewItems.length)
+			return undefined;
+
+		const oldViewItem = this.viewItems[index]!;
+		const oldView = oldViewItem.view;
+		const preservedSize = oldViewItem.size;
+		const preservedVisible = oldViewItem.visible;
+		const preservedCachedVisibleSize = oldViewItem.cachedVisibleSize;
+
+		// Create new container for the new view
+		const newContainer = document.createElement('div');
+		newContainer.classList.add('split-view-view');
+
+		// Replace the DOM container
+		const oldContainer = oldViewItem.containerElement;
+		oldContainer.parentNode?.replaceChild(newContainer, oldContainer);
+
+		// Create new ViewItem with preserved properties
+		const newViewItem = this.orientation === Orientation.VERTICAL
+			? new VerticalViewItem(newContainer, newView, preservedSize)
+			: new HorizontalViewItem(newContainer, newView, preservedSize);
+
+		// Preserve visibility state
+		if (!preservedVisible && preservedCachedVisibleSize !== undefined)
+			newViewItem.setVisible(false, preservedCachedVisibleSize);
+
+		// Replace the view item in the array
+		this.viewItems[index] = newViewItem;
+
+		// Layout the new view
+		this.layoutViews();
+
+		// Dispose the old view item and optionally the old view
+		if (!options?.preventDisposal)
+			oldView.dispose();
+
+		oldViewItem.dispose();
+
+		return oldView;
+	}
+
+	/**
+	 * Replace a view by reference with a new view, preserving size and layout
+	 * @param oldView The view to replace
+	 * @param newView The new view to insert
+	 * @param options Options for the replacement
+	 * @returns The replaced view, or undefined if not found
+	 */
+	replaceViewByReference(oldView: TView, newView: TView, options?: { preventDisposal?: boolean; }): TView | undefined {
+		const index = this.indexOf(oldView);
+		if (index === -1)
+			return undefined;
+
+		return this.replaceView(index, newView, options);
 	}
 
 	getViewSize(index: number): number {
@@ -341,8 +389,8 @@ export class SplitView<
 
 		// If no sizing specified, default to giving space to adjacent view
 		if (!sizing) {
-			// Give space to the view immediately to the right, or to the left if it's the rightmost
-			const adjacentIndex = index < this.viewItems.length - 1 ? index + 1 : index - 1;
+			// Give space to the view immediately to the left, or to the right if it's the leftmost
+			const adjacentIndex = index > 0 ? index - 1 : index + 1;
 			if (adjacentIndex >= 0 && adjacentIndex < this.viewItems.length)
 				sizing = { type: 'split', index: adjacentIndex };
 		}
@@ -356,7 +404,7 @@ export class SplitView<
 	 * @param preferRight If true, prefer giving space to the right neighbor; if false, prefer left
 	 * @returns The removed view, or undefined if not found
 	 */
-	removeViewByReferenceWithDirection(view: TView, preferRight: boolean = true): TView | undefined {
+	removeViewByReferenceWithDirection(view: TView, preferRight: boolean = false): TView | undefined {
 		const index = this.indexOf(view);
 		if (index === -1)
 			return undefined;
@@ -501,108 +549,98 @@ export class SplitView<
 		return 0;
 	}
 
-	private doAddView(view: TView, size: number | Sizing, index = this.viewItems.length, skipLayout?: boolean): void {
-		if (this.state !== State.Idle)
-			throw new Error('Cannot modify splitview');
+	addView(view: TView, size: number | Sizing, index: number = this.viewItems.length, skipLayout?: boolean): void {
+		// Add view
+		const container = document.createElement('div');
+		container.classList.add('split-view-view');
 
-		this.state = State.Busy;
+		if (index === this.viewItems.length)
+			this.viewContainer.appendChild(container);
+		else
+			this.viewContainer.insertBefore(container, this.viewContainer.children.item(index));
 
-		try {
-			// Add view
-			const container = document.createElement('div');
-			container.classList.add('split-view-view');
+		let viewSize: number | { cachedVisibleSize: number; };
 
-			if (index === this.viewItems.length)
-				this.viewContainer.appendChild(container);
-			else
-				this.viewContainer.insertBefore(container, this.viewContainer.children.item(index));
+		if (typeof size === 'number') {
+			viewSize = size;
+		}
+		else {
+			if (size.type === 'auto') {
+				if (this.areViewsDistributed())
+					size = { type: 'distribute' };
+				else
+					size = { type: 'split', index: size.index };
+			}
 
-			let viewSize: number | { cachedVisibleSize: number; };
+			if (size.type === 'split') {
+				// Validate the split index
+				if (size.index < 0 || size.index >= this.viewItems.length)
+					throw new Error(`Invalid split index: ${ size.index }. Must be between 0 and ${ this.viewItems.length - 1 }`);
 
-			if (typeof size === 'number') {
-				viewSize = size;
+				const targetViewSize = this.getViewSize(size.index);
+				const splitSize = targetViewSize / 2;
+
+				// Check if splitting would violate minimum size constraints
+				const targetView = this.viewItems[size.index]!;
+				if (splitSize < targetView.minimumSize)
+					throw new Error(`Cannot split: target view would be too small (${ splitSize } < ${ targetView.minimumSize })`);
+				if (splitSize < view.minimumSize)
+					throw new Error(`Cannot split: new view would be too small (${ splitSize } < ${ view.minimumSize })`);
+
+				viewSize = splitSize;
+				// Shrink the target view to make space for the new view
+				targetView.size = splitSize;
+			}
+			else if (size.type === 'invisible') {
+				// Validate cached visible size
+				if (size.cachedVisibleSize < 0)
+					throw new Error(`Invalid cachedVisibleSize: ${ size.cachedVisibleSize }. Must be non-negative`);
+				if (size.cachedVisibleSize < view.minimumSize)
+					throw new Error(`Invalid cachedVisibleSize: ${ size.cachedVisibleSize } < minimum size ${ view.minimumSize }`);
+				if (size.cachedVisibleSize > view.maximumSize)
+					throw new Error(`Invalid cachedVisibleSize: ${ size.cachedVisibleSize } > maximum size ${ view.maximumSize }`);
+
+				viewSize = { cachedVisibleSize: size.cachedVisibleSize };
 			}
 			else {
-				if (size.type === 'auto') {
-					if (this.areViewsDistributed())
-						size = { type: 'distribute' };
-					else
-						size = { type: 'split', index: size.index };
-				}
-
-				if (size.type === 'split') {
-					// Validate the split index
-					if (size.index < 0 || size.index >= this.viewItems.length)
-						throw new Error(`Invalid split index: ${ size.index }. Must be between 0 and ${ this.viewItems.length - 1 }`);
-
-					const targetViewSize = this.getViewSize(size.index);
-					const splitSize = targetViewSize / 2;
-
-					// Check if splitting would violate minimum size constraints
-					const targetView = this.viewItems[size.index]!;
-					if (splitSize < targetView.minimumSize)
-						throw new Error(`Cannot split: target view would be too small (${ splitSize } < ${ targetView.minimumSize })`);
-					if (splitSize < view.minimumSize)
-						throw new Error(`Cannot split: new view would be too small (${ splitSize } < ${ view.minimumSize })`);
-
-					viewSize = splitSize;
-					// Shrink the target view to make space for the new view
-					targetView.size = splitSize;
-				}
-				else if (size.type === 'invisible') {
-					// Validate cached visible size
-					if (size.cachedVisibleSize < 0)
-						throw new Error(`Invalid cachedVisibleSize: ${ size.cachedVisibleSize }. Must be non-negative`);
-					if (size.cachedVisibleSize < view.minimumSize)
-						throw new Error(`Invalid cachedVisibleSize: ${ size.cachedVisibleSize } < minimum size ${ view.minimumSize }`);
-					if (size.cachedVisibleSize > view.maximumSize)
-						throw new Error(`Invalid cachedVisibleSize: ${ size.cachedVisibleSize } > maximum size ${ view.maximumSize }`);
-
-					viewSize = { cachedVisibleSize: size.cachedVisibleSize };
-				}
-				else {
-					viewSize = view.minimumSize;
-				}
+				viewSize = view.minimumSize;
 			}
-
-			const item = this.orientation === Orientation.VERTICAL
-				? new VerticalViewItem(container, view, viewSize)
-				: new HorizontalViewItem(container, view, viewSize);
-
-			this.viewItems.splice(index, 0, item);
-
-			// Add sash
-			if (this.viewItems.length > 1) {
-				const sash = new Sash(this.sashContainer, this, {
-					orientation: this.orientation === Orientation.VERTICAL ?
-						Orientation.HORIZONTAL : Orientation.VERTICAL,
-				});
-
-				sash.onDidStart((event: ISashEvent) => this.onSashStart(sash, event));
-				sash.onDidChange(this.onSashChange.bind(this));
-				sash.onDidEnd(this.onSashEnd.bind(this));
-				sash.onDidReset(() => {
-					const sashIndex = this.sashItems.findIndex(item => item.sash === sash);
-					this.fireOnDidSashReset(sashIndex);
-				});
-
-				const disposable = () => {
-					// Cleanup
-				};
-
-				const sashItem: ISashItem = { sash, disposable };
-				this.sashItems.splice(index - 1, 0, sashItem);
-			}
-
-			if (!skipLayout)
-				this.reLayout();
-
-			if (!skipLayout && typeof size !== 'number' && size.type === 'distribute')
-				this.distributeViewSizes();
 		}
-		finally {
-			this.state = State.Idle;
+
+		const item = this.orientation === Orientation.VERTICAL
+			? new VerticalViewItem(container, view, viewSize)
+			: new HorizontalViewItem(container, view, viewSize);
+
+		this.viewItems.splice(index, 0, item);
+
+		// Add sash
+		if (this.viewItems.length > 1) {
+			const sash = new Sash(this.sashContainer, this, {
+				orientation: this.orientation === Orientation.VERTICAL ?
+					Orientation.HORIZONTAL : Orientation.VERTICAL,
+			});
+
+			sash.onDidStart((event: ISashEvent) => this.onSashStart(sash, event));
+			sash.onDidChange(this.onSashChange.bind(this));
+			sash.onDidEnd(this.onSashEnd.bind(this));
+			sash.onDidReset(() => {
+				const sashIndex = this.sashItems.findIndex(item => item.sash === sash);
+				this.fireOnDidSashReset(sashIndex);
+			});
+
+			const disposable = () => {
+				// Cleanup
+			};
+
+			const sashItem: ISashItem = { sash, disposable };
+			this.sashItems.splice(index - 1, 0, sashItem);
 		}
+
+		if (!skipLayout)
+			this.reLayout();
+
+		if (!skipLayout && typeof size !== 'number' && size.type === 'distribute')
+			this.distributeViewSizes();
 	}
 
 	private onSashStart(sash: Sash, { currentX, currentY }: ISashEvent): void {
@@ -985,10 +1023,7 @@ export class SplitView<
 		this.saveProportions();
 	}
 
-	resize(
-		index: number,
-		delta: number,
-	): number {
+	resize(index: number, delta: number): number {
 		const viewStates: ViewState[] = this.viewItems.map(item => ({
 			size:              item.size,
 			visible:           item.visible,

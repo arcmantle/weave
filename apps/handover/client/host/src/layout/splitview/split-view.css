@@ -275,6 +275,7 @@
 	flex: 1;
 	position: relative;
 	overflow: hidden;
+	height: calc(100% - 32px);
 }
 
 /* Tab drag and drop styles */

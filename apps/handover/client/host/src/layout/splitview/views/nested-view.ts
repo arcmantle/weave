@@ -3,6 +3,13 @@ import { Orientation, Sizing } from '../types.ts';
 import { EditorView } from './editor-view.ts';
 import { type EditorWithCallback, type IEditorView, isEditorView } from './shared.ts';
 
+// Forward declaration to avoid circular dependency
+interface IViewManager {
+	closeEditor(id: string): void;
+	removeEmptyTabView(tabView: any): void;
+	convertNestedViewToTab?(nestedView: NestedView): void;
+}
+
 
 /**
  * NestedView wraps a SplitView to behave like an IEditorView for nesting.
@@ -20,12 +27,27 @@ export class NestedView implements IEditorView {
 	private splitView:       SplitView<undefined, IEditorView>;
 	private editors:         IEditorView[] = [];
 	private editorCallbacks: Map<string, (id: string) => boolean | void> = new Map();
-	private onRemoved?:      (id: string) => void;
+	private onRemoved:       (id: string) => void;
+	private _viewManager:    WeakRef<IViewManager>;
+	private get viewManager(): IViewManager {
+		const vm = this._viewManager.deref();
+		if (!vm)
+			throw new Error('ViewManager has been garbage collected');
 
-	constructor(id: string, title: string, orientation: Orientation, onRemoved?: (id: string) => void) {
-		this.id      = id;
-		this.title   = title;
+		return vm;
+	}
+
+	constructor(
+		id: string,
+		title: string,
+		orientation: Orientation,
+		viewManager: IViewManager,
+		onRemoved: (id: string) => void,
+	) {
+		this.id = id;
+		this.title = title;
 		this.onRemoved = onRemoved;
+		this._viewManager = new WeakRef(viewManager);
 		this.element = document.createElement('div');
 		this.element.className = 'nested-split-view';
 
@@ -96,7 +118,7 @@ export class NestedView implements IEditorView {
 	 */
 	private setupEditorCloseHandler(editor: EditorView): void {
 		// Replace the editor's onRemove with our own that checks callbacks
-		(editor as any).onRemove = (id: string) => {
+		editor.onRemove = (id: string) => {
 			// Try the per-editor callback first
 			const editorCallback = this.editorCallbacks.get(id);
 			const shouldRemove = editorCallback ? editorCallback(id) : true;
@@ -105,12 +127,8 @@ export class NestedView implements IEditorView {
 			if (shouldRemove === false)
 				return;
 
-			// Handle removal internally
-			const removed = this.removeEditor(id);
-
-			// Notify after successful removal
-			if (removed && this.onRemoved)
-				this.onRemoved(id);
+			// Use ViewManager for proper cleanup
+			this.viewManager.closeEditor(id);
 		};
 	}
 
@@ -149,8 +167,8 @@ export class NestedView implements IEditorView {
 			return false;
 
 		// Use split sizing to give space to adjacent editor
-		// Give space to the editor immediately to the right, or to the left if it's the rightmost
-		const adjacentIndex = editorIndex < this.editors.length - 1 ? editorIndex + 1 : editorIndex - 1;
+		// Give space to the editor immediately to the left, or to the right if it's the leftmost
+		const adjacentIndex = editorIndex > 0 ? editorIndex - 1 : editorIndex + 1;
 		let sizing: Sizing | undefined;
 		if (adjacentIndex >= 0 && adjacentIndex < this.editors.length)
 			sizing = { type: 'split', index: adjacentIndex };
@@ -161,6 +179,18 @@ export class NestedView implements IEditorView {
 
 		// Clean up the per-editor callback
 		this.editorCallbacks.delete(id);
+
+		// Check if the NestedView should be converted or removed
+		if (this.editors.length === 0) {
+			// Notify the parent that this NestedView is now empty and should be removed
+			// We pass the NestedView's own ID as the removed editor ID
+			this.onRemoved(this.id);
+		}
+		else if (this.editors.length === 1) {
+			// Convert to TabView when only one editor remains to reduce GUI complexity
+			// Use ViewManager to handle the conversion to avoid circular dependencies
+			this.viewManager.convertNestedViewToTab?.(this);
+		}
 
 		return true;
 	}
@@ -217,17 +247,11 @@ export class NestedView implements IEditorView {
 		this.finalizeLayout();
 	}
 
-	dispose(): void {
-		this.splitView.dispose();
-		this.editors.forEach(editor => editor.dispose());
-		this.element.remove();
-	}
-
 	/**
 	 * Extract all editors with their callbacks for conversion purposes
 	 * @returns Array of editors with their associated callbacks
 	 */
-	extractEditorsWithCallbacks(): EditorWithCallback[] {
+	extractEditors(): EditorWithCallback[] {
 		const result: EditorWithCallback[] = [];
 
 		for (const editor of this.editors) {
@@ -242,45 +266,34 @@ export class NestedView implements IEditorView {
 		return result;
 	}
 
-	/**
-	 * Convert this NestedView to a TabView containing all editors
-	 * Note: This method will be implemented by the ViewManager to avoid circular dependencies
-	 * @param onRemoved Optional callback for when editors are removed from the tab view
-	 * @returns A new TabView containing all editors, or null if no EditorViews found
-	 */
-	toTabView?(onRemoved?: (id: string) => void): any {
-		throw new Error('toTabView must be implemented by ViewManager to avoid circular dependencies');
+	dispose(): void {
+		this.splitView.dispose();
+		this.editors.forEach(editor => editor.dispose());
+		this.element.remove();
 	}
 
 	/**
-	 * Convert this NestedView to an EditorView if it contains exactly one editor
-	 * @returns The single EditorView if successful, null if conversion is not possible
+	 * Extract the single view from this NestedView without disposing it
+	 * This is used for conversion when we want to preserve the contained view
+	 * @returns The extracted view, or null if extraction is not possible
 	 */
-	toEditorView(): EditorView | null {
-		// Can only convert if there's exactly one editor
+	extractSingleView(): IEditorView | null {
 		if (this.editors.length !== 1) {
-			console.warn(''
-				+ `Cannot convert NestedView to EditorView: contains`
-				+ ` ${ this.editors.length } editors, expected 1`);
+			console.warn('Cannot extract single view: NestedView contains', this.editors.length, 'views');
 
 			return null;
 		}
 
-		const editor = this.editors[0];
+		const view = this.editors[0]!;
 
-		// Ensure it's actually an EditorView (not another NestedView)
-		if (!(editor instanceof EditorView)) {
-			console.warn('Cannot convert NestedView to EditorView: child is not an EditorView');
-
-			return null;
-		}
-
-		// Remove the editor from this nested view without disposing it
-		this.splitView.removeView(0);
+		// Remove from internal structures without disposing the view
+		this.splitView.removeView(0); // This will dispose the ViewItem wrapper but return the view
 		this.editors.splice(0, 1);
 
-		// The editor is now standalone and can be used elsewhere
-		return editor;
+		// Clean up callback tracking
+		this.editorCallbacks.delete(view.id);
+
+		return view;
 	}
 
 }

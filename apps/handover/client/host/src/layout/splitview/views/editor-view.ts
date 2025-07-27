@@ -20,7 +20,7 @@ export class EditorView implements IEditorView {
 	readonly maximumSize: number = Number.POSITIVE_INFINITY;
 	readonly type = 'editor' as const;
 
-	private onRemove?:        (id: string) => boolean | void;
+	onRemove?:                (id: string) => boolean | void;
 	private templateFunction: EditorTemplateFunction;
 
 	constructor(
@@ -62,6 +62,13 @@ export class EditorView implements IEditorView {
 		// If no callback or callback returned true/undefined, removal is handled elsewhere
 		// This is just for the template to trigger the removal process
 	};
+
+	/**
+	 * Public method to trigger editor closing
+	 */
+	close(): void {
+		this.handleClose();
+	}
 
 	layout(size: number, offset: number, context: undefined): void {
 		// The parent .split-view-view container is already being positioned and sized
