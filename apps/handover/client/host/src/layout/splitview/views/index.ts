@@ -6,7 +6,6 @@ export { TabView } from './tab-view.ts';
 export {
 	type EditorTemplateContext,
 	type EditorTemplateFunction,
-	type EditorWithCallback,
 	type IEditorView,
 	isNestedView,
 	isTabView,

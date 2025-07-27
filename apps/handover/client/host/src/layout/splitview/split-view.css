@@ -191,6 +191,10 @@
 	flex-direction: column;
 	height: 100%;
 	background: var(--vscode-editor-background);
+
+	&.hidden {
+		display: none;
+	}
 }
 .tab-view-tabs {
 	display: flex;
@@ -249,6 +253,10 @@
 	text-overflow: ellipsis;
 	font-size: 13px;
 	line-height: 1.4;
+
+	overflow: hidden;
+	text-overflow: ellipsis;
+	font-size: 13px;
 }
 .tab-close {
 	background: none;

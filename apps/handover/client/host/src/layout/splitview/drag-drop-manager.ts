@@ -1,7 +1,9 @@
 import { Orientation, Sizing } from './types.ts';
 import type { ViewManager } from './view-manager.ts';
+import type { EditorView } from './views/editor-view.ts';
 import { type NestedView } from './views/index.ts';
 import { TabView } from './views/tab-view.ts';
+
 
 /**
  * Represents a drag operation in progress
@@ -46,6 +48,7 @@ export interface DragDropConfig {
 	/** Whether to show drag preview */
 	showDragPreview: boolean;
 }
+
 
 /**
  * Manages drag and drop operations for the split view system

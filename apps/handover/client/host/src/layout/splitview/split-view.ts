@@ -25,7 +25,7 @@ interface ISashItem {
 }
 
 
-abstract class ViewItem<TLayoutContext, TView extends IView<TLayoutContext>> {
+abstract class ViewItem<TView extends IView> {
 
 	constructor(
 		protected container: HTMLElement,
@@ -115,11 +115,11 @@ abstract class ViewItem<TLayoutContext, TView extends IView<TLayoutContext>> {
 		}
 	}
 
-	layout(offset: number, layoutContext: TLayoutContext | undefined): void {
+	layout(offset: number): void {
 		this.layoutContainer(offset);
 
 		try {
-			this.view.layout(this.size, offset, layoutContext);
+			this.view.layout(this.size, offset);
 		}
 		catch (error) {
 			console.error('SplitView: Failed to layout view', error);
@@ -134,33 +134,33 @@ abstract class ViewItem<TLayoutContext, TView extends IView<TLayoutContext>> {
 
 }
 
-class VerticalViewItem<TLayoutContext, TView extends IView<TLayoutContext>>
-	extends ViewItem<TLayoutContext, TView> {
+class VerticalViewItem<TView extends IView>
+	extends ViewItem<TView> {
 
 	layoutContainer(offset: number): void {
-		this.container.style.top = `${ offset }px`;
-		this.container.style.height = `${ this.size }px`;
+		this.container.style.top = offset + 'px';
+		this.container.style.height = this.size + 'px';
 	}
 
 }
 
-class HorizontalViewItem<TLayoutContext, TView extends IView<TLayoutContext>>
-	extends ViewItem<TLayoutContext, TView> {
+class HorizontalViewItem<TView extends IView>
+	extends ViewItem<TView> {
 
 	layoutContainer(offset: number): void {
-		this.container.style.left = `${ offset }px`;
-		this.container.style.width = `${ this.size }px`;
+		this.container.style.left = offset + 'px';
+		this.container.style.width = this.size + 'px';
 	}
 
 }
+
 
 /**
  * The SplitView is the UI component which implements a one dimensional
  * flex-like layout algorithm for a collection of IView instances.
  */
 export class SplitView<
-	TLayoutContext = undefined,
-	TView extends IView<TLayoutContext> = IView<TLayoutContext>,
+	TView extends IView = IView,
 > implements ISashLayoutProvider {
 
 	readonly orientation: Orientation;
@@ -169,10 +169,9 @@ export class SplitView<
 	private sashContainer:               HTMLElement;
 	private viewContainer:               HTMLElement;
 	private size = 0;
-	private layoutContext:               TLayoutContext | undefined;
 	private _contentSize = 0;
 	private proportions:                 (number | undefined)[] | undefined = undefined;
-	private viewItems:                   ViewItem<TLayoutContext, TView>[] = [];
+	private viewItems:                   ViewItem<TView>[] = [];
 	private sashItems:                   ISashItem[] = [];
 	private sashDragState:               DragState | undefined;
 	private sashPointerStatesBeforeDrag: boolean[] = [];
@@ -190,7 +189,7 @@ export class SplitView<
 		return this.proportions !== undefined;
 	}
 
-	constructor(container: HTMLElement, options: ISplitViewOptions<TLayoutContext> = {}) {
+	constructor(container: HTMLElement, options: ISplitViewOptions = {}) {
 		this.orientation = options.orientation ?? Orientation.VERTICAL;
 		this.proportionalResize = options.proportionalResize ?? true;
 
@@ -471,11 +470,10 @@ export class SplitView<
 		this.viewItems.forEach((item, index) => callback(item.view, index));
 	}
 
-	layout(size: number, layoutContext?: TLayoutContext): void {
+	layout(size: number): void {
 		const previousSize = Math.max(this.size, this._contentSize);
 
 		this.size = size;
-		this.layoutContext = layoutContext;
 
 		if (!this.proportions) {
 			this.resize(this.viewItems.length - 1, size - previousSize);
@@ -550,6 +548,16 @@ export class SplitView<
 	}
 
 	addView(view: TView, size: number | Sizing, index: number = this.viewItems.length, skipLayout?: boolean): void {
+		if (typeof size !== 'number' && size.type === 'proportional') {
+			const viewCount = this.viewItems.length;
+			const targetShare = 1 / (viewCount + 1);
+
+			this.addViewWithProportionalSizing(view, targetShare, index);
+
+			return;
+		}
+
+
 		// Add view
 		const container = document.createElement('div');
 		container.classList.add('split-view-view');
@@ -628,11 +636,7 @@ export class SplitView<
 				this.fireOnDidSashReset(sashIndex);
 			});
 
-			const disposable = () => {
-				// Cleanup
-			};
-
-			const sashItem: ISashItem = { sash, disposable };
+			const sashItem: ISashItem = { sash, disposable: () => { } };
 			this.sashItems.splice(index - 1, 0, sashItem);
 		}
 
@@ -641,6 +645,37 @@ export class SplitView<
 
 		if (!skipLayout && typeof size !== 'number' && size.type === 'distribute')
 			this.distributeViewSizes();
+	}
+
+	/**
+	 * Add a view with proportional sizing that preserves existing layout proportions
+	 * @param view The view to add
+	 * @param targetShare The fraction of total space the new view should get (e.g., 0.25 for 1/4)
+	 * @param index The index at which to insert the view (defaults to end)
+	 */
+	addViewWithProportionalSizing(view: TView, targetShare: number, index: number = this.viewItems.length): void {
+		const totalSize = this.orientation === Orientation.HORIZONTAL
+			? this.el.offsetWidth
+			: this.el.offsetHeight;
+
+		const targetSize = totalSize * targetShare;
+
+		// Capture current sizes and calculate reduction factor
+		const currentSizes = Array.from({ length: this.viewItems.length }, (_, i) =>
+			this.getViewSize(i));
+
+		const currentTotal = currentSizes.reduce((sum, size) => sum + size, 0);
+		const reductionFactor = Math.max(0, (currentTotal - targetSize) / currentTotal);
+
+		// Add new view and resize existing ones
+		this.addView(view, targetSize, index);
+
+		currentSizes.forEach((currentSize, i) => {
+			// Adjust index if we inserted before this position
+			const adjustedIndex = i >= index ? i + 1 : i;
+			const newSize = Math.max(100, currentSize * reductionFactor);
+			this.setViewSize(adjustedIndex, newSize);
+		});
 	}
 
 	private onSashStart(sash: Sash, { currentX, currentY }: ISashEvent): void {
@@ -1079,7 +1114,7 @@ export class SplitView<
 		// Layout views
 		let offset = 0;
 		for (const viewItem of this.viewItems) {
-			viewItem.layout(offset, this.layoutContext);
+			viewItem.layout(offset);
 			offset += viewItem.size;
 		}
 
@@ -1157,7 +1192,7 @@ export class SplitView<
 
 	distributeViewSizes(): void {
 		// Distribute sizes equally among flexible views
-		const flexibleViewItems: ViewItem<TLayoutContext, TView>[] = [];
+		const flexibleViewItems: ViewItem<TView>[] = [];
 		let flexibleSize = 0;
 
 		for (const item of this.viewItems) {

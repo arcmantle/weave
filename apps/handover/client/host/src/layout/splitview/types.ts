@@ -18,7 +18,7 @@ export enum SashState {
 	Enabled = 3,
 }
 
-export interface IView<TLayoutContext = undefined> {
+export interface IView {
 	/** The DOM element for this view */
 	readonly element: HTMLElement;
 
@@ -29,7 +29,7 @@ export interface IView<TLayoutContext = undefined> {
 	readonly maximumSize: number;
 
 	/** Layout the view with given size and offset */
-	layout(size: number, offset: number, context: TLayoutContext | undefined): void;
+	layout(size: number, offset: number): void;
 
 	/** Set view visibility */
 	setVisible?(visible: boolean): void;
@@ -44,7 +44,7 @@ export interface ISashEvent {
 	readonly currentY: number;
 }
 
-export interface ISplitViewOptions<_TLayoutContext = undefined> {
+export interface ISplitViewOptions {
 	/** Which axis the views align on */
 	readonly orientation?: Orientation;
 
@@ -82,12 +82,14 @@ export interface SnapState {
 
 export type Sizing =
 	| { type: 'distribute'; }
+	| { type: 'proportional'; }
 	| { type: 'split'; index: number; }
 	| { type: 'auto'; index: number; }
 	| { type: 'invisible'; cachedVisibleSize: number; };
 
 export namespace Sizing {
 	export const Distribute: Sizing = { type: 'distribute' };
+	export const Proportional: Sizing = ({ type: 'proportional' });
 	export const Split = (index: number): Sizing => ({ type: 'split', index });
 	export const Auto = (index: number): Sizing => ({ type: 'auto', index });
 	export const Invisible = (cachedVisibleSize: number): Sizing => ({

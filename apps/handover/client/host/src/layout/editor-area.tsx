@@ -8,7 +8,7 @@ import { layoutPreferences } from './layout-preferences.ts';
 import splitViewStyles from './splitview/split-view.css' with { type: 'css'};
 import { Orientation, Sizing } from './splitview/types.ts';
 import { ViewManager } from './splitview/view-manager.ts';
-import { type EditorTemplateContext, NestedView, TabView } from './splitview/views/index.ts';
+import { type EditorTemplateContext } from './splitview/views/index.ts';
 
 
 class TestCmp extends AdapterElement {
@@ -63,7 +63,6 @@ export class EditorAreaCmp extends ContentArea {
 
 	override afterConnected(): void {
 		super.afterConnected();
-
 		this.initializeViewManager();
 	}
 
@@ -97,82 +96,46 @@ export class EditorAreaCmp extends ContentArea {
 
 		// Add 4 editors to the first row via TabViews
 		for (let i = 1; i <= 4; i++) {
-			const tabView = this.viewManager.createTabView(
-				`row1-col${ i }-tab`,
-				`R1 C${ i }`,
-				undefined,
-				undefined,
+			const tabView = this.viewManager.createTabView();
+
+			tabView.createAndAddEditor(
+				`row1-col${ i }a`,
+				`R1 C${ i }a`,
+				defaultEditorTemplate,
+			);
+			tabView.createAndAddEditor(
+				`row1-col${ i }b`,
+				`R1 C${ i }b`,
 				defaultEditorTemplate,
 			);
 
-			// Create editor inside the TabView
-			const editor = tabView.createEditor(
-				`row1-col${ i }`,
-				`R1 C${ i }`,
-				defaultEditorTemplate,
-				id => this.viewManager!.closeEditor(id),
-			);
-
-			firstRow.addEditorWithCallback(tabView);
-
-			// Register both TabView and editor with ViewManager's tracking
-			this.viewManager.addViewToTracking(tabView);
-			this.viewManager.addViewToTracking(editor);
+			firstRow.addEditor(tabView);
 		}
 
 		// Add the nested view with explicit Distribute sizing
 		this.viewManager.addNestedView(firstRow, Sizing.Distribute);
 
 		// Add standalone rows using createEditor (which now creates TabViews)
-		this.viewManager.createEditor(
+		this.viewManager.createAndAddTabView(
 			'row2-col1',
 			'Row 2',
-			undefined,
+			defaultEditorTemplate,
 			Sizing.Distribute,
-			id => this.viewManager!.closeEditor(id),
 		);
 
-		this.viewManager.createEditor(
+		this.viewManager.createAndAddTabView(
 			'row3-col1',
 			'Row 3',
-			undefined,
+			defaultEditorTemplate,
 			Sizing.Distribute,
-			id => this.viewManager!.closeEditor(id),
 		);
 	}
-
-	private getFirstSingleEditorTabView(): TabView | null {
-		return this.viewManager.getFirstSingleEditorTabView();
-	}
-
-	private getFirstConvertibleNested(): NestedView | null {
-		return this.viewManager.getFirstConvertibleNested();
-	}
-
-	private splitEditor(direction: 'horizontal' | 'vertical' = 'horizontal'): void {
-		this.viewManager?.splitEditor(direction);
-	}
-
-	private testConvertToNested(): void {
-		const singleEditorTabView = this.getFirstSingleEditorTabView();
-		if (singleEditorTabView)
-			this.viewManager?.convertView(singleEditorTabView, 'nested', { orientation: Orientation.HORIZONTAL });
-	}
-
-	private testConvertToTab(): void {
-		const convertibleNested = this.getFirstConvertibleNested();
-		if (convertibleNested)
-			this.viewManager?.convertView(convertibleNested, 'tab');
-	}
-
 
 	protected override render(): unknown {
 		return <>
 			<div class="editor-toolbar">
-				<button on-click={() => this.splitEditor('horizontal')}>Add Column to Row 1</button>
-				<button on-click={() => this.splitEditor('vertical')}>Add New Row</button>
-				<button on-click={() => this.testConvertToNested()}>Test: Convert Tab to Nested</button>
-				<button on-click={() => this.testConvertToTab()}>Test: Convert Nested to Tab</button>
+				<button on-click={() => this.viewManager?.splitEditor('horizontal')}>Add Column to Row 1</button>
+				<button on-click={() => this.viewManager?.splitEditor('vertical')}>Add New Row</button>
 			</div>
 			<div class="editor-container"></div>
 		</>;

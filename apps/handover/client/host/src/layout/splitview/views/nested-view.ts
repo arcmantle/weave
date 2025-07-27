@@ -1,14 +1,7 @@
 import { SplitView } from '../split-view.ts';
 import { Orientation, Sizing } from '../types.ts';
-import { EditorView } from './editor-view.ts';
-import { type EditorWithCallback, type IEditorView, isEditorView } from './shared.ts';
-
-// Forward declaration to avoid circular dependency
-interface IViewManager {
-	closeEditor(id: string): void;
-	removeEmptyTabView(tabView: any): void;
-	convertNestedViewToTab?(nestedView: NestedView): void;
-}
+import type { IViewManager } from '../view-manager.ts';
+import { type IEditorView } from './shared.ts';
 
 
 /**
@@ -16,26 +9,6 @@ interface IViewManager {
  * It can contain multiple editors arranged in a split layout.
  */
 export class NestedView implements IEditorView {
-
-	readonly id:          string;
-	readonly title:       string;
-	readonly element:     HTMLElement;
-	readonly minimumSize = 100;
-	readonly maximumSize: number = Number.POSITIVE_INFINITY;
-	readonly type = 'nested' as const;
-
-	private splitView:       SplitView<undefined, IEditorView>;
-	private editors:         IEditorView[] = [];
-	private editorCallbacks: Map<string, (id: string) => boolean | void> = new Map();
-	private onRemoved:       (id: string) => void;
-	private _viewManager:    WeakRef<IViewManager>;
-	private get viewManager(): IViewManager {
-		const vm = this._viewManager.deref();
-		if (!vm)
-			throw new Error('ViewManager has been garbage collected');
-
-		return vm;
-	}
 
 	constructor(
 		id: string,
@@ -57,104 +30,33 @@ export class NestedView implements IEditorView {
 		});
 	}
 
-	/**
-	 * Add a new editor with proportional sizing that preserves existing layout proportions
-	 * @param editor The editor to add
-	 * @param targetShare The fraction of total space the new editor should get (e.g., 0.25 for 1/4)
-	 */
-	private addEditorWithProportionalSizing(editor: IEditorView, targetShare: number): void {
-		const totalSize = this.splitView.orientation === Orientation.HORIZONTAL
-			? this.element.offsetWidth
-			: this.element.offsetHeight;
+	readonly id:          string;
+	readonly title:       string;
+	readonly element:     HTMLElement;
+	readonly minimumSize = 100;
+	readonly maximumSize: number = Number.POSITIVE_INFINITY;
+	readonly type = 'nested' as const;
 
-		const targetSize = totalSize * targetShare;
+	private splitView:    SplitView<IEditorView>;
+	private editors:      IEditorView[] = [];
+	private onRemoved:    (id: string) => void;
+	private _viewManager: WeakRef<IViewManager>;
 
-		// Capture current sizes and calculate reduction factor
-		const currentSizes = Array.from({ length: this.editors.length - 1 },
-			(_, i) => this.splitView.getViewSize(i));
+	private get viewManager(): IViewManager {
+		const vm = this._viewManager.deref();
+		if (!vm)
+			throw new Error('ViewManager has been garbage collected');
 
-		const currentTotal = currentSizes.reduce((sum, size) => sum + size, 0);
-		const reductionFactor = Math.max(0, (currentTotal - targetSize) / currentTotal);
-
-		// Add new editor and resize existing ones
-		this.splitView.addView(editor, targetSize);
-
-		currentSizes.forEach((currentSize, i) => {
-			const newSize = Math.max(100, currentSize * reductionFactor);
-			this.splitView.setViewSize(i, newSize);
-		});
+		return vm;
 	}
 
 	addEditor(editor: IEditorView): void {
-		this.addEditorWithCallback(editor);
-	}
-
-	/**
-	 * Add an editor with optional per-editor onRemove callback
-	 */
-	addEditorWithCallback(editor: IEditorView, onRemove?: (id: string) => boolean | void): void {
 		this.editors.push(editor);
 
-		// Store the per-editor callback if provided
-		if (onRemove)
-			this.editorCallbacks.set(editor.id, onRemove);
-
-		if (this.editors.length === 1) {
-			// First editor gets all available space
+		if (this.editors.length === 1) // First editor gets all available space
 			this.splitView.addView(editor, Sizing.Distribute);
-		}
-		else {
-			// New editor gets equal share (1/n of total space)
-			this.addEditorWithProportionalSizing(editor, 1 / this.editors.length);
-		}
-
-		// If it's an EditorView, add a close handler that respects the callback
-		if (isEditorView(editor))
-			this.setupEditorCloseHandler(editor as EditorView);
-	}
-
-	/**
-	 * Setup close handler for EditorView that respects per-editor callbacks
-	 */
-	private setupEditorCloseHandler(editor: EditorView): void {
-		// Replace the editor's onRemove with our own that checks callbacks
-		editor.onRemove = (id: string) => {
-			// Try the per-editor callback first
-			const editorCallback = this.editorCallbacks.get(id);
-			const shouldRemove = editorCallback ? editorCallback(id) : true;
-
-			// If callback returned false, don't remove
-			if (shouldRemove === false)
-				return;
-
-			// Use ViewManager for proper cleanup
-			this.viewManager.closeEditor(id);
-		};
-	}
-
-	/**
-	 * Add an editor at a specific index
-	 */
-	addEditorAtIndex(editor: IEditorView, index: number): void {
-		// Insert into editors array at the specified index
-		this.editors.splice(index, 0, editor);
-
-		if (this.editors.length === 1) {
-			// First editor gets all available space
-			this.splitView.addView(editor, Sizing.Distribute);
-		}
-		else {
-			// Add to split view at the specified index
-			this.splitView.addView(editor, Sizing.Distribute, index, true);
-
-			// Redistribute space equally among all editors
-			const equalSize = (this.splitView.orientation === Orientation.HORIZONTAL
-				? this.element.offsetWidth
-				: this.element.offsetHeight) / this.editors.length;
-
-			for (let i = 0; i < this.editors.length; i++)
-				this.splitView.setViewSize(i, equalSize);
-		}
+		else // New editor gets equal share (1/n of total space)
+			this.splitView.addView(editor, Sizing.Proportional);
 	}
 
 	removeEditor(id: string): boolean {
@@ -176,9 +78,6 @@ export class NestedView implements IEditorView {
 		this.splitView.removeView(editorIndex, sizing);
 		editor.dispose();
 		this.editors.splice(editorIndex, 1);
-
-		// Clean up the per-editor callback
-		this.editorCallbacks.delete(id);
 
 		// Check if the NestedView should be converted or removed
 		if (this.editors.length === 0) {
@@ -237,7 +136,7 @@ export class NestedView implements IEditorView {
 			this.splitView.distributeViewSizes();
 	}
 
-	layout(size: number, offset: number, context: undefined): void {
+	layout(size: number, offset: number): void {
 		// Layout the nested split view with the correct dimension
 		// For horizontal orientation, we use the full size (width)
 		// For vertical orientation, we use the full size (height)
@@ -245,25 +144,6 @@ export class NestedView implements IEditorView {
 
 		// Always finalize layout to ensure proper sizing, especially for newly converted views
 		this.finalizeLayout();
-	}
-
-	/**
-	 * Extract all editors with their callbacks for conversion purposes
-	 * @returns Array of editors with their associated callbacks
-	 */
-	extractEditors(): EditorWithCallback[] {
-		const result: EditorWithCallback[] = [];
-
-		for (const editor of this.editors) {
-			if (isEditorView(editor)) {
-				result.push({
-					editor,
-					callback: this.editorCallbacks.get(editor.id),
-				});
-			}
-		}
-
-		return result;
 	}
 
 	dispose(): void {
@@ -289,9 +169,6 @@ export class NestedView implements IEditorView {
 		// Remove from internal structures without disposing the view
 		this.splitView.removeView(0); // This will dispose the ViewItem wrapper but return the view
 		this.editors.splice(0, 1);
-
-		// Clean up callback tracking
-		this.editorCallbacks.delete(view.id);
 
 		return view;
 	}

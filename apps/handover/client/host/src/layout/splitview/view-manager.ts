@@ -10,96 +10,54 @@ import { type EditorTemplateFunction, type IEditorView, isEditorView, isNestedVi
 import { TabView } from './views/tab-view.ts';
 
 
-export class ViewManager {
+export interface IViewManager {
+	dragDropManager: DragDropManager | null;
+
+	addViewToTracking(...view: IEditorView[]): void;
+	removeViewFromTracking(...viewId: string[]): boolean;
+	closeEditor(id: string): void;
+	removeEmptyTabView(tabView: any): void;
+	convertNestedViewToTab?(nestedView: NestedView): void;
+}
+
+
+export class ViewManager implements IViewManager {
+
+	constructor(
+		private container: HTMLElement,
+		private defaultTemplateFn: EditorTemplateFunction,
+		private dragDropConfig: DragDropConfig | undefined = undefined,
+	) {}
 
 	// Single source of truth for all views using SignalMap for automatic reactivity
 	private _allViews: SignalMap<string, IEditorView> = new SignalMap();
 
 	// Computed signals for filtered view types
-	readonly nestedViews: ReadonlySignal<NestedView[]> = computed(() => {
-		return Array.from(this._allViews.values())
-			.filter((view): view is NestedView => isNestedView(view));
-	});
+	readonly views: ReadonlySignal<IEditorView[]> = computed(() =>
+		this._allViews.values().toArray());
 
-	readonly tabViews: ReadonlySignal<TabView[]> = computed(() => {
-		return Array.from(this._allViews.values())
-			.filter((view): view is TabView => isTabView(view));
-	});
+	readonly nestedViews: ReadonlySignal<NestedView[]> = computed(() =>
+		this.views.value.filter((view): view is NestedView => isNestedView(view)));
 
-	readonly views: ReadonlySignal<IEditorView[]> = computed(() => {
-		return Array.from(this._allViews.values());
-	});
+	readonly tabViews: ReadonlySignal<TabView[]> = computed(() =>
+		this.views.value.filter((view): view is TabView => isTabView(view)));
 
-	private _view: SplitView<undefined, IEditorView> | null = null;
-	private get view(): SplitView<undefined, IEditorView> {
+	private _view: SplitView<IEditorView> | null = null;
+	private get view(): SplitView<IEditorView> {
 		if (!this._view)
 			throw new Error('ViewManager: SplitView not initialized yet');
 
 		return this._view;
 	}
 
-	private set view(value: SplitView<undefined, IEditorView>) {
+	private set view(value: SplitView<IEditorView>) {
 		if (this._view)
 			throw new Error('ViewManager: SplitView already initialized');
 
 		this._view = value;
 	}
 
-
-	private dragDropManager: DragDropManager | null = null;
-
-	/**
-	 * Add a view to the central tracking map
-	 */
-	addViewToTracking(view: IEditorView): void {
-		this._allViews.set(view.id, view);
-	}
-
-	/**
-	 * Remove a view from the central tracking map
-	 */
-	private removeViewFromMap(viewId: string): boolean {
-		return this._allViews.delete(viewId);
-	}
-
-	/**
-	 * Get a view by ID
-	 */
-	private getViewById(id: string): IEditorView | undefined {
-		return this._allViews.get(id);
-	}
-
-	/**
-	 * Find views that contain a specific editor (for nested searches)
-	 */
-	private findViewsContainingEditor(editorId: string): IEditorView[] {
-		const containingViews: IEditorView[] = [];
-
-		for (const view of this._allViews.values()) {
-			switch (true) {
-			case isTabView(view): {
-				if (view.findEditor(editorId))
-					containingViews.push(view);
-
-				break;
-			}
-			case isNestedView(view): {
-				if (view.findEditor(editorId))
-					containingViews.push(view);
-
-				break;
-			}
-			}
-		}
-
-		return containingViews;
-	}
-
-	constructor(
-		private container: HTMLElement,
-		private defaultTemplateFunction: EditorTemplateFunction,
-		private dragDropConfig: DragDropConfig | undefined = undefined,
-	) {}
+	dragDropManager: DragDropManager | null = null;
 
 	/**
 	 * Initialize the ViewManager with a root split view
@@ -132,6 +90,54 @@ export class ViewManager {
 	}
 
 	/**
+	 * Add a view to the central tracking map
+	 */
+	addViewToTracking(...view: IEditorView[]): void {
+		view.forEach(v => this._allViews.set(v.id, v));
+	}
+
+	/**
+	 * Remove a view from the central tracking map
+	 */
+	removeViewFromTracking(...viewId: string[]): boolean {
+		return viewId.every(v => this._allViews.delete(v));
+	}
+
+	/**
+	 * Get a view by ID
+	 */
+	private getViewById(id: string): IEditorView | undefined {
+		return this._allViews.get(id);
+	}
+
+	/**
+	 * Find views that contain a specific editor (for nested searches)
+	 */
+	private findViewsContainingEditor(editorId: string): IEditorView[] {
+		const containingViews: IEditorView[] = [];
+
+		for (const view of this._allViews.values()) {
+			switch (true) {
+			case isTabView(view): {
+				if (view.findEditorById(editorId))
+					containingViews.push(view);
+
+				break;
+			}
+			case isNestedView(view): {
+				if (view.findEditor(editorId))
+					containingViews.push(view);
+
+				break;
+			}
+			}
+		}
+
+		return containingViews;
+	}
+
+
+	/**
 	 * Create a new NestedView with proper onRemoved callback for cleanup
 	 */
 	createNestedView(id: string, title: string, orientation: Orientation): NestedView {
@@ -139,7 +145,7 @@ export class ViewManager {
 			id,
 			title,
 			orientation,
-			this, // Pass ViewManager reference
+			this,
 			// onRemoved: called after successful removal for cleanup
 			(editorId) => {
 				// Check if this is the NestedView itself being removed (empty NestedView)
@@ -148,12 +154,8 @@ export class ViewManager {
 					const removedView = this.view?.removeViewByReference(nestedView);
 					if (removedView) {
 						nestedView.dispose();
-						this.removeViewFromMap(nestedView.id);
+						this.removeViewFromTracking(nestedView.id);
 					}
-
-					// If no TabViews remain, create a welcome editor
-					if (this.tabViews.value.length === 0)
-						this.createEditor('welcome', 'Welcome');
 
 					return;
 				}
@@ -161,7 +163,7 @@ export class ViewManager {
 				// Remove the editor from central tracking and dispose it
 				const editor = this.getViewById(editorId);
 				if (isEditorView(editor)) {
-					this.removeViewFromMap(editorId);
+					this.removeViewFromTracking(editorId);
 					editor.dispose();
 
 					// If the NestedView is now empty, remove it from the main view
@@ -169,13 +171,9 @@ export class ViewManager {
 						const removedView = this.view?.removeViewByReference(nestedView);
 						if (removedView) {
 							nestedView.dispose();
-							this.removeViewFromMap(nestedView.id);
+							this.removeViewFromTracking(nestedView.id);
 						}
 					}
-
-					// If no TabViews remain, create a welcome editor
-					if (this.tabViews.value.length === 0)
-						this.createEditor('welcome', 'Welcome');
 				}
 			},
 		);
@@ -190,7 +188,6 @@ export class ViewManager {
 	addViewToNestedView(
 		nestedView: NestedView,
 		view: IEditorView,
-		onRemove?: (id: string) => boolean | void,
 	): void {
 		// Warn if adding a non-TabView to a NestedView (should not happen in normal usage)
 		if (!isTabView(view))
@@ -200,7 +197,7 @@ export class ViewManager {
 		this.addViewToTracking(view);
 
 		// Add to the NestedView with the optional callback
-		nestedView.addEditorWithCallback(view, onRemove);
+		nestedView.addEditor(view);
 
 		// Initialize drag functionality only for EditorViews (TabViews don't need it)
 		if (isEditorView(view) && this.dragDropManager)
@@ -210,39 +207,17 @@ export class ViewManager {
 	/**
 	 * Create a new TabView with proper onRemoved callback for cleanup
 	 */
-	createTabView(
-		id: string,
-		title: string,
-		onRemove?: (id: string) => boolean | void,
-		onRemoved?: (id: string) => void,
-		defaultTemplateFn?: EditorTemplateFunction,
-	): TabView {
-		const tabView = new TabView(
-			id,
-			title,
-			this, // Pass ViewManager reference first (now required)
-			onRemove,
-			// onRemoved: called after successful removal for cleanup
-			onRemoved || ((editorId) => {
-				// Remove the editor from central tracking and dispose it
-				const editor = this.getViewById(editorId);
-				if (isEditorView(editor)) {
-					this.removeViewFromMap(editorId);
-					editor.dispose();
-
-					// If the TabView is now empty, remove it from its parent
-					if (tabView.editorCount === 0)
-						this.removeEmptyTabView(tabView);
-
-					// If no TabViews remain, create a welcome editor
-					if (this.tabViews.value.length === 0)
-						this.createEditor('welcome', 'Welcome');
-				}
-			}),
-			defaultTemplateFn,
-		);
+	createTabView(): TabView {
+		const tabView = new TabView(this);
 
 		return tabView;
+	}
+
+	/**
+	 * Add an editor to a TabView with optional per-editor onRemove callback
+	 */
+	addEditorToTabView(tabView: TabView, editor: EditorView): void {
+		tabView.addEditor(editor);
 	}
 
 	/**
@@ -253,7 +228,7 @@ export class ViewManager {
 		const removedFromMain = this.view?.removeViewByReference(tabView);
 		if (removedFromMain) {
 			tabView.dispose();
-			this.removeViewFromMap(tabView.id);
+			this.removeViewFromTracking(tabView.id);
 
 			return;
 		}
@@ -267,7 +242,7 @@ export class ViewManager {
 				const removed = nestedView.removeEditor(tabView.id);
 				if (removed) {
 					// Also remove from ViewManager tracking
-					this.removeViewFromMap(tabView.id);
+					this.removeViewFromTracking(tabView.id);
 
 					return;
 				}
@@ -278,67 +253,46 @@ export class ViewManager {
 	}
 
 	/**
-	 * Add an editor to a TabView with optional per-editor onRemove callback
-	 */
-	addEditorToTabView(
-		tabView: TabView,
-		editor: EditorView,
-		onRemove?: (id: string) => boolean | void,
-	): void {
-		// Register the editor with the ViewManager first
-		this.addViewToTracking(editor);
-
-		// Add to the TabView with the optional callback
-		tabView.addEditor(editor, onRemove);
-
-		// Initialize drag functionality
-		if (this.dragDropManager)
-			this.dragDropManager.initializeEditorDrag(editor);
-	}
-
-	/**
-	 * Create a new TabView and add it to the view manager
-	 */
-	createAndAddTabView(
-		id: string,
-		title: string,
-		sizing: number | Sizing = Sizing.Distribute,
-		defaultTemplateFn?: EditorTemplateFunction,
-	): TabView {
-		const tabView = this.createTabView(id, title, undefined, undefined, defaultTemplateFn);
-		this.addView(tabView, sizing);
-
-		return tabView;
-	}
-
-	/**
-	 * Create a new editor within a TabView (replaces standalone EditorView creation)
+	 * Create a new editor within a TabView (does not add to main view)
 	 */
 	createEditor(
 		id: string,
 		title: string,
-		templateFunction?: EditorTemplateFunction,
-		sizing: number | Sizing = Sizing.Distribute,
-		onRemove?: (id: string) => boolean | void,
+		templateFunction: EditorTemplateFunction,
 	): TabView {
-		const templateFn = templateFunction || this.defaultTemplateFunction;
+		const templateFn = templateFunction || this.defaultTemplateFn;
 
 		// Create a TabView to contain the editor
-		const tabViewId = `tab-${ id }`;
-		const tabView = this.createTabView(tabViewId, title, undefined, undefined, templateFn);
+		const tabView = new TabView(this);
 
 		// Create the editor inside the TabView
-		const editor = tabView.createEditor(id, title, templateFn, onRemove);
+		const editor = tabView.createEditor(id, title, templateFn);
+		tabView.addEditor(editor);
 
-		// Add TabView to the main view
-		this.view.addView(tabView, sizing);
-
+		// Add to tracking
 		this.addViewToTracking(tabView);
 		this.addViewToTracking(editor);
 
 		// Initialize drag functionality for the editor
 		if (this.dragDropManager)
 			this.dragDropManager.initializeEditorDrag(editor);
+
+		return tabView;
+	}
+
+	/**
+	 * Create a new editor within a TabView and add it to the main view
+	 */
+	createAndAddTabView(
+		id: string,
+		title: string,
+		templateFunction: EditorTemplateFunction,
+		sizing: number | Sizing = Sizing.Distribute,
+	): TabView {
+		const tabView = this.createTabView();
+		tabView.createAndAddEditor(id, title, templateFunction);
+
+		this.view.addView(tabView, sizing);
 
 		return tabView;
 	}
@@ -392,34 +346,6 @@ export class ViewManager {
 	}
 
 	/**
-	 * Add a new view with proportional sizing that preserves existing layout proportions
-	 * @param view The view to add
-	 * @param targetShare The fraction of total space the new view should get (e.g., 0.25 for 1/4)
-	 */
-	private addViewWithProportionalSizing(view: IEditorView, targetShare: number): void {
-		const totalSize = this.view.orientation === Orientation.HORIZONTAL
-			? this.container.offsetWidth
-			: this.container.offsetHeight;
-
-		const targetSize = totalSize * targetShare;
-
-		// Capture current sizes and calculate reduction factor
-		const currentSizes = Array.from({ length: this.view.length },
-			(_, i) => this.view!.getViewSize(i));
-
-		const currentTotal = currentSizes.reduce((sum, size) => sum + size, 0);
-		const reductionFactor = Math.max(0, (currentTotal - targetSize) / currentTotal);
-
-		// Add new view and resize existing ones
-		this.view.addView(view, targetSize);
-
-		currentSizes.forEach((currentSize, i) => {
-			const newSize = Math.max(100, currentSize * reductionFactor);
-			this.view!.setViewSize(i, newSize);
-		});
-	}
-
-	/**
 	 * Split editor - add new editor either horizontally or vertically
 	 */
 	splitEditor(direction: 'horizontal' | 'vertical' = 'horizontal'): void {
@@ -432,8 +358,7 @@ export class ViewManager {
 				const firstRow = this.nestedViews.value[0];
 				if (firstRow) {
 					// Create a TabView with a single editor for the nested view
-					const newTabView = this.createTabView(`${ newId }-tab`, newTitle);
-					newTabView.createEditor(newId, newTitle, this.defaultTemplateFunction);
+					const newTabView = this.createEditor(newId, newTitle, this.defaultTemplateFn);
 
 					this.addViewToNestedView(firstRow, newTabView);
 				}
@@ -445,20 +370,11 @@ export class ViewManager {
 			const currentRowCount = this.view.length;
 			const targetShare = 1 / (currentRowCount + 1);
 
-			// Use the existing createEditor method but with proportional sizing
-			// We need to manually handle proportional sizing since createEditor uses addView with the sizing parameter
-			const tabView = this.createTabView(`${ newId }-tab`, newTitle);
-			tabView.createEditor(newId, newTitle, this.defaultTemplateFunction);
-
-			// Add to tracking
-			this.addViewToTracking(tabView);
-			this.addViewToTracking(tabView.getAllEditors()[0]!);
-
-			if (this.dragDropManager)
-				this.dragDropManager.initializeEditorDrag(tabView.getAllEditors()[0]!);
+			// Create editor without adding to main view, then add with proportional sizing
+			const tabView = this.createEditor(newId, newTitle, this.defaultTemplateFn);
 
 			// Add with proportional sizing to preserve current proportions
-			this.addViewWithProportionalSizing(tabView, targetShare);
+			this.view.addViewWithProportionalSizing(tabView, targetShare);
 		}
 	}
 
@@ -543,7 +459,7 @@ export class ViewManager {
 		this.view.replaceView(viewIndex, extractedTabView);
 
 		// Remove the NestedView from tracking (TabView stays tracked)
-		this.removeViewFromMap(nestedView.id);
+		this.removeViewFromTracking(nestedView.id);
 
 		// Dispose the now-empty NestedView wrapper
 		nestedView.dispose();
@@ -589,27 +505,6 @@ export class ViewManager {
 	}
 
 	/**
-	 * Get the first TabView with a single editor (for testing purposes)
-	 */
-	getFirstSingleEditorTabView(): TabView | null {
-		return this.tabViews.value.find(tv => tv.editorCount === 1) || null;
-	}
-
-	/**
-	 * Get the first convertible nested view (for testing purposes)
-	 */
-	getFirstConvertibleNested(): NestedView | null {
-		return this.nestedViews.value.find(nv => nv.editorCount === 1) || null;
-	}
-
-	/**
-	 * Check if the ViewManager is initialized
-	 */
-	get isInitialized(): boolean {
-		return this.view !== null;
-	}
-
-	/**
 	 * Register an editor with the ViewManager (for test scenarios)
 	 */
 	registerEditor(editor: EditorView): void {
@@ -618,13 +513,6 @@ export class ViewManager {
 		// Initialize drag functionality for the registered editor
 		if (this.dragDropManager)
 			this.dragDropManager.initializeEditorDrag(editor);
-	}
-
-	/**
-	 * Get the index of a view in the main split view (for drag-drop operations)
-	 */
-	getViewIndex(view: IEditorView): number {
-		return this.view?.indexOf(view) ?? -1;
 	}
 
 	/**
