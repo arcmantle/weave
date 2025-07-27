@@ -397,9 +397,6 @@ export class ViewManager {
 	 * @param targetShare The fraction of total space the new view should get (e.g., 0.25 for 1/4)
 	 */
 	private addViewWithProportionalSizing(view: IEditorView, targetShare: number): void {
-		if (!this.view)
-			return;
-
 		const totalSize = this.view.orientation === Orientation.HORIZONTAL
 			? this.container.offsetWidth
 			: this.container.offsetHeight;
@@ -407,8 +404,9 @@ export class ViewManager {
 		const targetSize = totalSize * targetShare;
 
 		// Capture current sizes and calculate reduction factor
-		const currentSizes = Array.from({ length: this.view.length }, (_, i) =>
-			this.view!.getViewSize(i));
+		const currentSizes = Array.from({ length: this.view.length },
+			(_, i) => this.view!.getViewSize(i));
+
 		const currentTotal = currentSizes.reduce((sum, size) => sum + size, 0);
 		const reductionFactor = Math.max(0, (currentTotal - targetSize) / currentTotal);
 
@@ -434,14 +432,7 @@ export class ViewManager {
 				const firstRow = this.nestedViews.value[0];
 				if (firstRow) {
 					// Create a TabView with a single editor for the nested view
-					const newTabView = new TabView(
-						`${ newId }-tab`,
-						newTitle,
-						this, // ViewManager reference (required)
-						undefined,
-						undefined,
-						this.defaultTemplateFunction,
-					);
+					const newTabView = this.createTabView(`${ newId }-tab`, newTitle);
 					newTabView.createEditor(newId, newTitle, this.defaultTemplateFunction);
 
 					this.addViewToNestedView(firstRow, newTabView);
@@ -449,8 +440,25 @@ export class ViewManager {
 			}
 		}
 		else {
-			// Add a new row to the main vertical split view using createEditor
-			this.createEditor(newId, newTitle, undefined, Sizing.Distribute);
+			// Add a new row to the main vertical split view with proportional sizing
+			// Calculate target share: 1/(current_rows + 1) to maintain proportions
+			const currentRowCount = this.view.length;
+			const targetShare = 1 / (currentRowCount + 1);
+
+			// Use the existing createEditor method but with proportional sizing
+			// We need to manually handle proportional sizing since createEditor uses addView with the sizing parameter
+			const tabView = this.createTabView(`${ newId }-tab`, newTitle);
+			tabView.createEditor(newId, newTitle, this.defaultTemplateFunction);
+
+			// Add to tracking
+			this.addViewToTracking(tabView);
+			this.addViewToTracking(tabView.getAllEditors()[0]!);
+
+			if (this.dragDropManager)
+				this.dragDropManager.initializeEditorDrag(tabView.getAllEditors()[0]!);
+
+			// Add with proportional sizing to preserve current proportions
+			this.addViewWithProportionalSizing(tabView, targetShare);
 		}
 	}
 
