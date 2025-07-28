@@ -12,6 +12,7 @@ import { TabView } from './views/tab-view.ts';
 
 export interface IViewManager {
 	dragDropManager: DragDropManager | null;
+	view:            SplitView<IEditorView>;
 
 	addViewToTracking(...view: IEditorView[]): void;
 	removeViewFromTracking(...viewId: string[]): boolean;
@@ -43,7 +44,7 @@ export class ViewManager implements IViewManager {
 		this.views.value.filter((view): view is TabView => isTabView(view)));
 
 	private _view: SplitView<IEditorView> | null = null;
-	private get view(): SplitView<IEditorView> {
+	get view(): SplitView<IEditorView> {
 		if (!this._view)
 			throw new Error('ViewManager: SplitView not initialized yet');
 
@@ -99,8 +100,8 @@ export class ViewManager implements IViewManager {
 	/**
 	 * Remove a view from the central tracking map
 	 */
-	removeViewFromTracking(...viewId: string[]): boolean {
-		return viewId.every(v => this._allViews.delete(v));
+	removeViewFromTracking(viewId: string): boolean {
+		return this._allViews.delete(viewId);
 	}
 
 	/**
@@ -113,29 +114,34 @@ export class ViewManager implements IViewManager {
 	/**
 	 * Find views that contain a specific editor (for nested searches)
 	 */
-	private findViewsContainingEditor(editorId: string): IEditorView[] {
-		const containingViews: IEditorView[] = [];
+	private findEditorLineage(editorId: string): IEditorView[] {
+		const lineage: Set<IEditorView> = new Set();
+		let currentId = editorId;
 
-		for (const view of this._allViews.values()) {
-			switch (true) {
-			case isTabView(view): {
-				if (view.findEditorById(editorId))
-					containingViews.push(view);
+		outer: do {
+			for (const view of this._allViews.values()) {
+				if (!isTabView(view) && !isNestedView(view))
+					continue;
 
-				break;
-			}
-			case isNestedView(view): {
-				if (view.findEditor(editorId))
-					containingViews.push(view);
+				const foundEditor = view.findEditorById(currentId);
+				if (!foundEditor)
+					continue;
 
-				break;
+				lineage.add(foundEditor);
+				lineage.add(view);
+
+				currentId = view.id;
+
+				continue outer;
 			}
-			}
+
+			break;
 		}
+		// eslint-disable-next-line no-constant-condition
+		while (true);
 
-		return containingViews;
+		return lineage.values().toArray();
 	}
-
 
 	/**
 	 * Create a new NestedView with proper onRemoved callback for cleanup
@@ -147,35 +153,35 @@ export class ViewManager implements IViewManager {
 			orientation,
 			this,
 			// onRemoved: called after successful removal for cleanup
-			(editorId) => {
-				// Check if this is the NestedView itself being removed (empty NestedView)
-				if (editorId === nestedView.id) {
-					// Remove the empty NestedView from the main view
-					const removedView = this.view?.removeViewByReference(nestedView);
-					if (removedView) {
-						nestedView.dispose();
-						this.removeViewFromTracking(nestedView.id);
-					}
+			//(editorId) => {
+			//	// Check if this is the NestedView itself being removed (empty NestedView)
+			//	if (editorId === nestedView.id) {
+			//		// Remove the empty NestedView from the main view
+			//		const removedView = this.view?.removeViewByReference(nestedView);
+			//		if (removedView) {
+			//			nestedView.dispose();
+			//			this.removeViewFromTracking(nestedView.id);
+			//		}
 
-					return;
-				}
+			//		return;
+			//	}
 
-				// Remove the editor from central tracking and dispose it
-				const editor = this.getViewById(editorId);
-				if (isEditorView(editor)) {
-					this.removeViewFromTracking(editorId);
-					editor.dispose();
+			//	// Remove the editor from central tracking and dispose it
+			//	const editor = this.getViewById(editorId);
+			//	if (isEditorView(editor)) {
+			//		this.removeViewFromTracking(editorId);
+			//		editor.dispose();
 
-					// If the NestedView is now empty, remove it from the main view
-					if (nestedView.editorCount === 0) {
-						const removedView = this.view?.removeViewByReference(nestedView);
-						if (removedView) {
-							nestedView.dispose();
-							this.removeViewFromTracking(nestedView.id);
-						}
-					}
-				}
-			},
+			//		// If the NestedView is now empty, remove it from the main view
+			//		if (nestedView.editorCount === 0) {
+			//			const removedView = this.view?.removeViewByReference(nestedView);
+			//			if (removedView) {
+			//				nestedView.dispose();
+			//				this.removeViewFromTracking(nestedView.id);
+			//			}
+			//		}
+			//	}
+			//},
 		);
 
 		return nestedView;
@@ -205,22 +211,6 @@ export class ViewManager implements IViewManager {
 	}
 
 	/**
-	 * Create a new TabView with proper onRemoved callback for cleanup
-	 */
-	createTabView(): TabView {
-		const tabView = new TabView(this);
-
-		return tabView;
-	}
-
-	/**
-	 * Add an editor to a TabView with optional per-editor onRemove callback
-	 */
-	addEditorToTabView(tabView: TabView, editor: EditorView): void {
-		tabView.addEditor(editor);
-	}
-
-	/**
 	 * Remove an empty TabView from its parent (either main view or NestedView)
 	 */
 	removeEmptyTabView(tabView: TabView): void {
@@ -236,10 +226,10 @@ export class ViewManager implements IViewManager {
 		// If not in main view, find which NestedView contains it
 		for (const nestedView of this.nestedViews.value) {
 			// Check if the TabView is directly in the NestedView's editors array
-			const isContained = nestedView.allEditors.some(editor => editor.id === tabView.id);
+			const isContained = nestedView.editors.some(editor => editor.id === tabView.id);
 			if (isContained) {
 				// Remove from the NestedView (this will call dispose on the TabView)
-				const removed = nestedView.removeEditor(tabView.id);
+				const removed = nestedView.removeEditorById(tabView.id);
 				if (removed) {
 					// Also remove from ViewManager tracking
 					this.removeViewFromTracking(tabView.id);
@@ -281,6 +271,15 @@ export class ViewManager implements IViewManager {
 	}
 
 	/**
+	 * Create a new TabView with proper onRemoved callback for cleanup
+	 */
+	createTabView(): TabView {
+		const tabView = new TabView(this);
+
+		return tabView;
+	}
+
+	/**
 	 * Create a new editor within a TabView and add it to the main view
 	 */
 	createAndAddTabView(
@@ -302,47 +301,26 @@ export class ViewManager implements IViewManager {
 	 * This method handles editors within TabViews and NestedViews
 	 */
 	closeEditor(id: string): void {
-		// Get the editor from central tracking
-		const editor = this.getViewById(id);
-		if (!isEditorView(editor)) {
-			console.warn('Editor not found:', id);
+		const editorLineage = this.findEditorLineage(id) as [
+			EditorView,
+			TabView,
+			...NestedView[],
+		];
 
-			return;
+		if (editorLineage.length < 2)
+			return console.warn('Editor lineage could not be found:', id);
+
+		const editorView = editorLineage[0];
+		const tabView = editorLineage[1];
+		tabView.removeEditorById(editorView.id);
+
+		if (!tabView.editorCount) {
+			// If the TabView is now empty, remove it from the main view
+			this.removeEmptyTabView(tabView);
+			console.log('Removed empty TabView:', tabView.id);
 		}
 
-		// Find containing views (TabView or NestedView)
-		const containingViews = this.findViewsContainingEditor(id);
-
-		if (containingViews.length === 0) {
-			console.warn('Editor not found in any container view:', id);
-
-			return;
-		}
-
-		// Handle removal from containing view
-		for (const containingView of containingViews) {
-			if (isTabView(containingView)) {
-				const tabView = containingView as TabView;
-				const removed = tabView.removeEditor(id);
-				if (removed) {
-					// Check if TabView is now empty and remove it if so
-					if (tabView.editorCount === 0)
-						this.removeEmptyTabView(tabView);
-
-					return;
-				}
-			}
-			else if (isNestedView(containingView)) {
-				const nestedView = containingView as NestedView;
-				const removed = nestedView.removeEditor(id);
-				if (removed) {
-					// NestedView handles cleanup via its callback system
-					return;
-				}
-			}
-		}
-
-		console.warn('Failed to remove editor from containing views:', id);
+		const nestedViews = editorLineage.slice(2) as NestedView[];
 	}
 
 	/**
@@ -426,7 +404,7 @@ export class ViewManager implements IViewManager {
 		}
 
 		// Get all views from the NestedView (should only be TabViews)
-		const allViews = nestedView.allEditors;
+		const allViews = nestedView.editors;
 
 		if (allViews.length === 0) {
 			console.warn('Cannot convert NestedView to TabView: no views found');

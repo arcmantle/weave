@@ -15,11 +15,9 @@ export class NestedView implements IEditorView {
 		title: string,
 		orientation: Orientation,
 		viewManager: IViewManager,
-		onRemoved: (id: string) => void,
 	) {
 		this.id = id;
 		this.title = title;
-		this.onRemoved = onRemoved;
 		this._viewManager = new WeakRef(viewManager);
 		this.element = document.createElement('div');
 		this.element.className = 'nested-split-view';
@@ -38,8 +36,7 @@ export class NestedView implements IEditorView {
 	readonly type = 'nested' as const;
 
 	private splitView:    SplitView<IEditorView>;
-	private editors:      IEditorView[] = [];
-	private onRemoved:    (id: string) => void;
+	private _editors:     IEditorView[] = [];
 	private _viewManager: WeakRef<IViewManager>;
 
 	private get viewManager(): IViewManager {
@@ -51,62 +48,70 @@ export class NestedView implements IEditorView {
 	}
 
 	addEditor(editor: IEditorView): void {
-		this.editors.push(editor);
+		this._editors.push(editor);
 
-		if (this.editors.length === 1) // First editor gets all available space
+		this.viewManager.addViewToTracking(editor);
+
+		if (this._editors.length === 1) // First editor gets all available space
 			this.splitView.addView(editor, Sizing.Distribute);
 		else // New editor gets equal share (1/n of total space)
 			this.splitView.addView(editor, Sizing.Proportional);
 	}
 
-	removeEditor(id: string): boolean {
-		const editorIndex = this.editors.findIndex(e => e.id === id);
+	removeEditorById(id: string): boolean {
+		const editorIndex = this._editors.findIndex(e => e.id === id);
 		if (editorIndex === -1)
 			return false;
 
-		const editor = this.editors[editorIndex];
-		if (!editor)
+		const view = this._editors[editorIndex];
+		if (!view)
 			return false;
 
 		// Use split sizing to give space to adjacent editor
-		// Give space to the editor immediately to the left, or to the right if it's the leftmost
-		const adjacentIndex = editorIndex > 0 ? editorIndex - 1 : editorIndex + 1;
+		// Give space to the editor immediately to the left,
+		// or to the right if it's the leftmost
+		const adjacentIndex = editorIndex > 0
+			? editorIndex - 1
+			: editorIndex + 1;
+
 		let sizing: Sizing | undefined;
-		if (adjacentIndex >= 0 && adjacentIndex < this.editors.length)
+		if (adjacentIndex >= 0 && adjacentIndex < this._editors.length)
 			sizing = { type: 'split', index: adjacentIndex };
 
 		this.splitView.removeView(editorIndex, sizing);
-		editor.dispose();
-		this.editors.splice(editorIndex, 1);
 
-		// Check if the NestedView should be converted or removed
-		if (this.editors.length === 0) {
-			// Notify the parent that this NestedView is now empty and should be removed
-			// We pass the NestedView's own ID as the removed editor ID
-			this.onRemoved(this.id);
+		view.dispose();
+		this._editors.splice(editorIndex, 1);
+
+		// Remove the nested view if it becomes empty
+		if (this._editors.length === 0) {
+			const removedView = this.viewManager.view.removeViewByReference(this);
+			if (removedView) {
+				this.dispose();
+				this.viewManager.removeViewFromTracking(this.id);
+			}
 		}
-		else if (this.editors.length === 1) {
+		else if (this._editors.length === 1) {
 			// Convert to TabView when only one editor remains to reduce GUI complexity
-			// Use ViewManager to handle the conversion to avoid circular dependencies
 			this.viewManager.convertNestedViewToTab?.(this);
 		}
 
 		return true;
 	}
 
-	findEditor(id: string): IEditorView | undefined {
-		return this.editors.find(e => e.id === id);
+	findEditorById(id: string): IEditorView | undefined {
+		return this._editors.find(e => e.id === id);
 	}
 
 	get editorCount(): number {
-		return this.editors.length;
+		return this._editors.length;
 	}
 
 	/**
 	 * Get all editors (for conversion logic)
 	 */
-	get allEditors(): readonly IEditorView[] {
-		return this.editors;
+	get editors(): readonly IEditorView[] {
+		return this._editors;
 	}
 
 	/**
@@ -131,7 +136,7 @@ export class NestedView implements IEditorView {
 		this.splitView.layout(size);
 
 		// Only force equal distribution for initial setup with no user adjustments
-		const shouldDistribute = !this.splitView.hasProportions && this.editors.length <= 1;
+		const shouldDistribute = !this.splitView.hasProportions && this._editors.length <= 1;
 		if (shouldDistribute)
 			this.splitView.distributeViewSizes();
 	}
@@ -148,7 +153,7 @@ export class NestedView implements IEditorView {
 
 	dispose(): void {
 		this.splitView.dispose();
-		this.editors.forEach(editor => editor.dispose());
+		this._editors.forEach(editor => editor.dispose());
 		this.element.remove();
 	}
 
@@ -158,17 +163,17 @@ export class NestedView implements IEditorView {
 	 * @returns The extracted view, or null if extraction is not possible
 	 */
 	extractSingleView(): IEditorView | null {
-		if (this.editors.length !== 1) {
-			console.warn('Cannot extract single view: NestedView contains', this.editors.length, 'views');
+		if (this._editors.length !== 1) {
+			console.warn('Cannot extract single view: NestedView contains', this._editors.length, 'views');
 
 			return null;
 		}
 
-		const view = this.editors[0]!;
+		const view = this._editors[0]!;
 
 		// Remove from internal structures without disposing the view
 		this.splitView.removeView(0); // This will dispose the ViewItem wrapper but return the view
-		this.editors.splice(0, 1);
+		this._editors.splice(0, 1);
 
 		return view;
 	}

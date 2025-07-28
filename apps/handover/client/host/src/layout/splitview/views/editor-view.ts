@@ -7,7 +7,7 @@ import { type EditorTemplateContext, type EditorTemplateFunction, type IEditorVi
 /**
  * EditorView represents a single editor instance used within other View containers.
  */
-export class EditorView implements IEditorView {
+export class EditorView extends EventTarget implements IEditorView {
 
 	constructor(
 		id: string,
@@ -15,6 +15,8 @@ export class EditorView implements IEditorView {
 		viewManager: IViewManager,
 		templateFunction: EditorTemplateFunction,
 	) {
+		super();
+
 		this.id = id;
 		this.title = title;
 		this._viewManager = new WeakRef(viewManager);
@@ -47,7 +49,7 @@ export class EditorView implements IEditorView {
 	private renderTemplate(): void {
 		effect(() => {
 			const context: EditorTemplateContext = {
-				handleClose: this.close.bind(this),
+				handleClose: this.remove.bind(this),
 				id:          this.id,
 				title:       this.title,
 			};
@@ -56,8 +58,9 @@ export class EditorView implements IEditorView {
 		});
 	}
 
-	close(): void {
+	remove(): void {
 		this.viewManager.closeEditor(this.id);
+		this.dispatchEvent(new CustomEvent('on-removed', { detail: { id: this.id } }));
 	}
 
 	layout(size: number, offset: number): void {}

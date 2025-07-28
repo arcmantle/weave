@@ -527,7 +527,7 @@ export class DragDropManager {
 	private findEditorContainer(editor: EditorView): ViewManager | NestedView {
 		// Check nested views first
 		for (const nested of this.viewManager.nestedViews.value) {
-			if (nested.findEditor(editor.id))
+			if (nested.findEditorById(editor.id))
 				return nested;
 		}
 

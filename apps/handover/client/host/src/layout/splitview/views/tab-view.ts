@@ -12,7 +12,7 @@ import { type EditorTemplateFunction, type IEditorView } from './shared.ts';
 /**
  * A view that displays multiple editors in tabs with one active editor visible
  */
-export class TabView implements IEditorView {
+export class TabView extends EventTarget implements IEditorView {
 
 	readonly id:          string;
 	readonly title:       string;
@@ -41,6 +41,8 @@ export class TabView implements IEditorView {
 	constructor(
 		viewManager: IViewManager,
 	) {
+		super();
+
 		this.id = `tab-view-${ crypto.randomUUID() }`;
 		this.title = `Tab View ${ this.id }`;
 		this._viewManager = new WeakRef(viewManager);
@@ -85,7 +87,7 @@ export class TabView implements IEditorView {
 					class="tab-close"
 					@click=${ (ev: MouseEvent) => {
 						ev.stopPropagation();
-						editor.close();
+						editor.remove();
 					} }
 				>
 					x
@@ -111,6 +113,7 @@ export class TabView implements IEditorView {
 			return;
 
 		this.viewManager.addViewToTracking(editor);
+
 		if (this.viewManager.dragDropManager)
 			this.viewManager.dragDropManager.initializeEditorDrag(editor);
 
@@ -119,6 +122,10 @@ export class TabView implements IEditorView {
 		// If this is the first editor, make it active
 		if (this.editors.value.length === 1)
 			this.activeEditor.value = editor;
+
+		editor.addEventListener('on-removed', (ev) => {
+			console.log('editor was removed', ev);
+		});
 	}
 
 	/**
@@ -148,7 +155,7 @@ export class TabView implements IEditorView {
 	/**
 	 * Remove an editor from the tab view
 	 */
-	removeEditor(editorId: string): boolean {
+	removeEditorById(editorId: string): boolean {
 		const editorIndex = this.editors.value.findIndex(e => e.id === editorId);
 		if (editorIndex === -1)
 			return false;
