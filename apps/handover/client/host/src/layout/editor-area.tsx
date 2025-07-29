@@ -91,51 +91,34 @@ export class EditorAreaCmp extends ContentArea {
 	}
 
 	private createTestScenario(): void {
-		// Create first row with 4 columns using ViewManager
-		const firstRow = this.viewManager.createNestedView('row-1', 'Row 1', Orientation.HORIZONTAL);
-
-		// Add 4 editors to the first row via TabViews
+		// Create first row with 4 columns each containing 2 editors
+		const firstRowNestedView = this.viewManager.createNestedView(Orientation.HORIZONTAL);
 		for (let i = 1; i <= 4; i++) {
-			const tabView = this.viewManager.createTabView();
-
-			tabView.createAndAddEditor(
-				`row1-col${ i }a`,
-				`R1 C${ i }a`,
-				defaultEditorTemplate,
+			firstRowNestedView.createAndAddTabView(
+				Sizing.Distribute,
+				{ id: `row1-col${ i }a`, title: `R1 C${ i }a`, templateFunction: defaultEditorTemplate },
+				{ id: `row1-col${ i }b`, title: `R1 C${ i }b`, templateFunction: defaultEditorTemplate },
 			);
-			tabView.createAndAddEditor(
-				`row1-col${ i }b`,
-				`R1 C${ i }b`,
-				defaultEditorTemplate,
-			);
-
-			firstRow.addEditor(tabView);
 		}
+		this.viewManager.addNestedView(firstRowNestedView, Sizing.Distribute);
 
-		// Add the nested view with explicit Distribute sizing
-		this.viewManager.addNestedView(firstRow, Sizing.Distribute);
+		// Create second row with one TabView containing one editor
+		const secondRowTabView = this.viewManager.createTabView();
+		secondRowTabView.createAndAddEditor('row2-col1a', 'Row 2 Col 1a', defaultEditorTemplate);
+		this.viewManager.addTabView(secondRowTabView);
 
-		// Add standalone rows using createEditor (which now creates TabViews)
-		this.viewManager.createAndAddTabView(
-			'row2-col1',
-			'Row 2',
-			defaultEditorTemplate,
-			Sizing.Distribute,
-		);
-
-		this.viewManager.createAndAddTabView(
-			'row3-col1',
-			'Row 3',
-			defaultEditorTemplate,
-			Sizing.Distribute,
-		);
+		// Create third row with one TabView containing one editor
+		const thirdRowTabView = this.viewManager.createTabView();
+		thirdRowTabView.createAndAddEditor('row3-col1a', 'Row 3 Col 1a', defaultEditorTemplate);
+		this.viewManager.addTabView(thirdRowTabView, Sizing.Distribute);
 	}
 
 	protected override render(): unknown {
 		return <>
 			<div class="editor-toolbar">
-				<button on-click={() => this.viewManager?.splitEditor('horizontal')}>Add Column to Row 1</button>
-				<button on-click={() => this.viewManager?.splitEditor('vertical')}>Add New Row</button>
+				<button on-click={() => this.viewManager?.splitEditor(Orientation.VERTICAL)}>
+					Add New Row
+				</button>
 			</div>
 			<div class="editor-container"></div>
 		</>;

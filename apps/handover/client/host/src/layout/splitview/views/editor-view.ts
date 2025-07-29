@@ -60,7 +60,6 @@ export class EditorView extends EventTarget implements IEditorView {
 
 	remove(): void {
 		this.viewManager.closeEditor(this.id);
-		this.dispatchEvent(new CustomEvent('on-removed', { detail: { id: this.id } }));
 	}
 
 	layout(size: number, offset: number): void {}

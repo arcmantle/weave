@@ -508,7 +508,7 @@ export class DragDropManager {
 	 */
 	private performAddToNested(sourceEditor: EditorView, targetNested: NestedView): void {
 		this.removeEditorFromSource(sourceEditor);
-		targetNested.addEditor(sourceEditor);
+		targetNested.addTabView(sourceEditor);
 		// Re-register with ViewManager for tracking
 		this.viewManager.registerEditor(sourceEditor);
 	}

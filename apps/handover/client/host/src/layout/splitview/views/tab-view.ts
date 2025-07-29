@@ -14,12 +14,25 @@ import { type EditorTemplateFunction, type IEditorView } from './shared.ts';
  */
 export class TabView extends EventTarget implements IEditorView {
 
+	constructor(viewManager: IViewManager) {
+		super();
+
+		this.id = `tab-view-${ crypto.randomUUID() }`;
+		this.title = `Tab View ${ this.id }`;
+		this._viewManager = new WeakRef(viewManager);
+
+		this.element = document.createElement('div');
+		this.element.className = 'tab-view';
+
+		this.performRender();
+	}
+
+	readonly type = 'tab' as const;
 	readonly id:          string;
 	readonly title:       string;
 	readonly element:     HTMLElement;
 	readonly minimumSize = 150;
 	readonly maximumSize: number = Number.POSITIVE_INFINITY;
-	readonly type = 'tab' as const;
 
 	private readonly activeEditor:  Signal<EditorView | null> = signal(null);
 	private readonly isVisible:     Signal<boolean> = signal(true);
@@ -38,20 +51,10 @@ export class TabView extends EventTarget implements IEditorView {
 		return vm;
 	}
 
-	constructor(
-		viewManager: IViewManager,
-	) {
-		super();
-
-		this.id = `tab-view-${ crypto.randomUUID() }`;
-		this.title = `Tab View ${ this.id }`;
-		this._viewManager = new WeakRef(viewManager);
-
-		this.element = document.createElement('div');
-		this.element.className = 'tab-view';
-
-		this.performRender();
+	get editorCount(): number {
+		return this.editors.value.length;
 	}
+
 
 	private performRender(): void {
 		this.disposeRender = effect(() => void render(this.render(), this.element));
@@ -105,9 +108,6 @@ export class TabView extends EventTarget implements IEditorView {
 		`;
 	}
 
-	/**
-	 * Add an editor to the tab view
-	 */
 	addEditor(editor: EditorView): void {
 		if (this.editors.value.includes(editor))
 			return;
@@ -122,39 +122,15 @@ export class TabView extends EventTarget implements IEditorView {
 		// If this is the first editor, make it active
 		if (this.editors.value.length === 1)
 			this.activeEditor.value = editor;
-
-		editor.addEventListener('on-removed', (ev) => {
-			console.log('editor was removed', ev);
-		});
 	}
 
-	/**
-	 * Create a new editor
-	 */
-	createEditor(
-		id: string,
-		title: string,
-		templateFunction: EditorTemplateFunction,
-	): EditorView {
-		const editor = new EditorView(id, title, this.viewManager, templateFunction);
-
-		return editor;
-	}
-
-	createAndAddEditor(
-		id: string,
-		title: string,
-		templateFunction: EditorTemplateFunction,
-	): EditorView {
-		const editor = this.createEditor(id, title, templateFunction);
+	createAndAddEditor(id: string, title: string, templateFunction: EditorTemplateFunction): EditorView {
+		const editor = this.viewManager.createEditorView(id, title, templateFunction);
 		this.addEditor(editor);
 
 		return editor;
 	}
 
-	/**
-	 * Remove an editor from the tab view
-	 */
 	removeEditorById(editorId: string): boolean {
 		const editorIndex = this.editors.value.findIndex(e => e.id === editorId);
 		if (editorIndex === -1)
@@ -180,13 +156,6 @@ export class TabView extends EventTarget implements IEditorView {
 		return true;
 	}
 
-	/**
-	 * Get the number of editors in this tab view
-	 */
-	get editorCount(): number {
-		return this.editors.value.length;
-	}
-
 	findEditorById(id: string): EditorView | undefined {
 		return this.editors.value.find(e => e.id === id);
 	}
@@ -197,9 +166,6 @@ export class TabView extends EventTarget implements IEditorView {
 		this.isVisible.value = visible;
 	}
 
-	/**
-	 * Dispose of the tab view and all its editors
-	 */
 	dispose(): void {
 		this.disposeRender?.();
 

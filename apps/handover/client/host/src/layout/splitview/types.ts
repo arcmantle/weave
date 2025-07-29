@@ -1,8 +1,4 @@
-/**
- * Core types for the splitview system, inspired by VSCode's implementation
- */
-
-export enum Orientation {
+export const enum Orientation {
 	VERTICAL = 0,
 	HORIZONTAL = 1,
 }

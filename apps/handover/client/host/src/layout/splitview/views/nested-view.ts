@@ -1,7 +1,8 @@
 import { SplitView } from '../split-view.ts';
 import { Orientation, Sizing } from '../types.ts';
 import type { IViewManager } from '../view-manager.ts';
-import { type IEditorView } from './shared.ts';
+import { type EditorTemplateFunction, type IEditorView } from './shared.ts';
+import type { TabView } from './tab-view.ts';
 
 
 /**
@@ -11,13 +12,11 @@ import { type IEditorView } from './shared.ts';
 export class NestedView implements IEditorView {
 
 	constructor(
-		id: string,
-		title: string,
-		orientation: Orientation,
 		viewManager: IViewManager,
+		orientation: Orientation,
 	) {
-		this.id = id;
-		this.title = title;
+		this.id = `nested-view-${ crypto.randomUUID() }`;
+		this.title = `Nested View ${ this.id }`;
 		this._viewManager = new WeakRef(viewManager);
 		this.element = document.createElement('div');
 		this.element.className = 'nested-split-view';
@@ -28,15 +27,15 @@ export class NestedView implements IEditorView {
 		});
 	}
 
+	readonly type = 'nested' as const;
 	readonly id:          string;
 	readonly title:       string;
 	readonly element:     HTMLElement;
 	readonly minimumSize = 100;
 	readonly maximumSize: number = Number.POSITIVE_INFINITY;
-	readonly type = 'nested' as const;
 
-	private splitView:    SplitView<IEditorView>;
-	private _editors:     IEditorView[] = [];
+	private splitView:    SplitView<TabView>;
+	private views:        TabView[] = [];
 	private _viewManager: WeakRef<IViewManager>;
 
 	private get viewManager(): IViewManager {
@@ -47,23 +46,49 @@ export class NestedView implements IEditorView {
 		return vm;
 	}
 
-	addEditor(editor: IEditorView): void {
-		this._editors.push(editor);
+	get viewCount(): number {
+		return this.views.length;
+	}
 
-		this.viewManager.addViewToTracking(editor);
+	addTabView(view: TabView, sizing: number | Sizing = Sizing.Proportional): void {
+		this.views.push(view);
 
-		if (this._editors.length === 1) // First editor gets all available space
-			this.splitView.addView(editor, Sizing.Distribute);
+		this.viewManager.addViewToTracking(view);
+
+		if (this.views.length === 1) // First editor gets all available space
+			this.splitView.addView(view, Sizing.Distribute);
 		else // New editor gets equal share (1/n of total space)
-			this.splitView.addView(editor, Sizing.Proportional);
+			this.splitView.addView(view, sizing);
+	}
+
+	createAndAddTabView(
+		sizing: number | Sizing = Sizing.Distribute,
+		...editorViews: {
+			id:               string;
+			title:            string;
+			templateFunction: EditorTemplateFunction;
+		}[]
+	): TabView {
+		const tabView = this.viewManager.createTabView();
+		editorViews.forEach(({ id, title, templateFunction }) => {
+			tabView.createAndAddEditor(id, title, templateFunction);
+		});
+
+		this.addTabView(tabView, sizing);
+
+		return tabView;
+	}
+
+	findEditorById(id: string): TabView | undefined {
+		return this.views.find(e => e.id === id);
 	}
 
 	removeEditorById(id: string): boolean {
-		const editorIndex = this._editors.findIndex(e => e.id === id);
+		const editorIndex = this.views.findIndex(e => e.id === id);
 		if (editorIndex === -1)
 			return false;
 
-		const view = this._editors[editorIndex];
+		const view = this.views[editorIndex];
 		if (!view)
 			return false;
 
@@ -75,43 +100,28 @@ export class NestedView implements IEditorView {
 			: editorIndex + 1;
 
 		let sizing: Sizing | undefined;
-		if (adjacentIndex >= 0 && adjacentIndex < this._editors.length)
+		if (adjacentIndex >= 0 && adjacentIndex < this.views.length)
 			sizing = { type: 'split', index: adjacentIndex };
 
 		this.splitView.removeView(editorIndex, sizing);
 
 		view.dispose();
-		this._editors.splice(editorIndex, 1);
+		this.views.splice(editorIndex, 1);
 
 		// Remove the nested view if it becomes empty
-		if (this._editors.length === 0) {
+		if (this.views.length === 0) {
 			const removedView = this.viewManager.view.removeViewByReference(this);
 			if (removedView) {
 				this.dispose();
 				this.viewManager.removeViewFromTracking(this.id);
 			}
 		}
-		else if (this._editors.length === 1) {
+		else if (this.views.length === 1) {
 			// Convert to TabView when only one editor remains to reduce GUI complexity
-			this.viewManager.convertNestedViewToTab?.(this);
+			this.viewManager.convertView?.(this);
 		}
 
 		return true;
-	}
-
-	findEditorById(id: string): IEditorView | undefined {
-		return this._editors.find(e => e.id === id);
-	}
-
-	get editorCount(): number {
-		return this._editors.length;
-	}
-
-	/**
-	 * Get all editors (for conversion logic)
-	 */
-	get editors(): readonly IEditorView[] {
-		return this._editors;
 	}
 
 	/**
@@ -119,13 +129,11 @@ export class NestedView implements IEditorView {
 	 * This allows us to size the nested view without triggering size redistribution
 	 */
 	layoutInternal(): void {
-		if (this.element.offsetWidth > 0 && this.element.offsetHeight > 0) {
-			const size = this.splitView.orientation === Orientation.HORIZONTAL
-				? this.element.offsetWidth
-				: this.element.offsetHeight;
+		const size = this.splitView.orientation === Orientation.HORIZONTAL
+			? this.element.offsetWidth
+			: this.element.offsetHeight;
 
-			this.splitView.layout(size);
-		}
+		this.splitView.layout(size);
 	}
 
 	finalizeLayout(): void {
@@ -136,7 +144,7 @@ export class NestedView implements IEditorView {
 		this.splitView.layout(size);
 
 		// Only force equal distribution for initial setup with no user adjustments
-		const shouldDistribute = !this.splitView.hasProportions && this._editors.length <= 1;
+		const shouldDistribute = !this.splitView.hasProportions && this.views.length <= 1;
 		if (shouldDistribute)
 			this.splitView.distributeViewSizes();
 	}
@@ -151,31 +159,27 @@ export class NestedView implements IEditorView {
 		this.finalizeLayout();
 	}
 
-	dispose(): void {
-		this.splitView.dispose();
-		this._editors.forEach(editor => editor.dispose());
-		this.element.remove();
-	}
-
 	/**
 	 * Extract the single view from this NestedView without disposing it
 	 * This is used for conversion when we want to preserve the contained view
-	 * @returns The extracted view, or null if extraction is not possible
+	 * @returns The extracted view, or undefined if extraction is not possible
 	 */
-	extractSingleView(): IEditorView | null {
-		if (this._editors.length !== 1) {
-			console.warn('Cannot extract single view: NestedView contains', this._editors.length, 'views');
+	extractSingleView(): TabView | void {
+		if (this.views.length !== 1)
+			return console.warn('Cannot extract single view: NestedView contains', this.viewCount, 'views');
 
-			return null;
-		}
+		const view = this.views[0]!;
 
-		const view = this._editors[0]!;
-
-		// Remove from internal structures without disposing the view
-		this.splitView.removeView(0); // This will dispose the ViewItem wrapper but return the view
-		this._editors.splice(0, 1);
+		this.splitView.removeView(0);
+		this.views.splice(0, 1);
 
 		return view;
+	}
+
+	dispose(): void {
+		this.splitView.dispose();
+		this.views.forEach(editor => editor.dispose());
+		this.element.remove();
 	}
 
 }
