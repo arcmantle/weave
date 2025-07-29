@@ -255,7 +255,7 @@ export class DragDropManager {
 			return targets;
 
 		// Get all editor views and nested views
-		const allEditors = this.viewManager.editors.value;
+		const allEditors = this.viewManager.tabViews.value;
 		const allNested = this.viewManager.nestedViews.value;
 
 		// Check each editor for drop opportunities
