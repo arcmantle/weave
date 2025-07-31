@@ -1,6 +1,6 @@
 export const enum Orientation {
-	VERTICAL = 0,
-	HORIZONTAL = 1,
+	VERTICAL = 'vertical',
+	HORIZONTAL = 'horizontal',
 }
 
 export enum SashState {
@@ -92,4 +92,11 @@ export namespace Sizing {
 		type: 'invisible',
 		cachedVisibleSize,
 	});
+}
+
+
+export interface IRenderableView {
+	disposeRender?: () => void;
+	performRender(): void;
+	render(): unknown;
 }

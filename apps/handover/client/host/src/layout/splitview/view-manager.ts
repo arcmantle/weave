@@ -1,6 +1,5 @@
 import { computed, type ReadonlySignal } from '@arcmantle/adapter-element/shared';
 
-import { type DragDropConfig, DragDropManager } from './drag-drop-manager.ts';
 import { SplitView } from './split-view.ts';
 import { Orientation, Sizing } from './types.ts';
 import { SignalMap } from './utilities/signal-map.ts';
@@ -32,7 +31,6 @@ export class ViewManager implements IViewManager {
 	constructor(
 		private container: HTMLElement,
 		private defaultTemplateFn: EditorTemplateFunction,
-		private dragDropConfig: DragDropConfig | undefined = undefined,
 	) {}
 
 	private _allViews: SignalMap<string, IEditorView> = new SignalMap();
@@ -61,8 +59,6 @@ export class ViewManager implements IViewManager {
 		this._view = value;
 	}
 
-	dragDropManager: DragDropManager | null = null;
-
 	/**
 	 * Initialize the ViewManager with a root split view
 	 */
@@ -80,9 +76,6 @@ export class ViewManager implements IViewManager {
 		});
 
 		this.view.enableAutoResize();
-
-		// Initialize drag-drop manager
-		this.dragDropManager = new DragDropManager(this, this.dragDropConfig);
 
 		// Listen to the main split view's resize events to update nested views
 		this.view.onDidSashChange(() => {
@@ -182,6 +175,7 @@ export class ViewManager implements IViewManager {
 		}
 
 		for (let i = 1; i < nestedViews.length; i++) {
+			// Here we can iteratively remove empty nested views
 			const _childView = nestedViews[i - 1];
 			const _parentView = nestedViews[i];
 		}
@@ -301,7 +295,6 @@ export class ViewManager implements IViewManager {
 	}
 
 	dispose(): void {
-		this.dragDropManager?.dispose();
 		this.view?.dispose();
 
 		// Dispose all views

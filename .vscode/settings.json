@@ -73,6 +73,5 @@
 				}
 			]
 		},
-	],
-	"vitest.maximumConfigs": 10
+	]
 }

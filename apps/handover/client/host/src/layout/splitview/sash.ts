@@ -1,7 +1,10 @@
+import type { Ref } from 'lit-html/directives/ref.js';
+
 import { type ISashEvent, Orientation, SashState } from './types.ts';
 
 
 export interface ISashLayoutProvider {
+	el: Ref<HTMLElement>;
 	getVerticalSashLeft?(sash: Sash): number;
 	getVerticalSashTop?(sash: Sash): number;
 	getVerticalSashHeight?(sash: Sash): number;
@@ -22,6 +25,29 @@ export interface ISashOptions {
  * becomes highlighted and can be dragged along the perpendicular dimension.
  */
 export class Sash {
+
+	constructor(
+		container: HTMLElement,
+		layoutProvider: ISashLayoutProvider,
+		options: ISashOptions,
+	) {
+		this.layoutProvider = layoutProvider;
+		this.orientation = options.orientation;
+		this.size = options.size ?? 4;
+
+		this.el = document.createElement('div');
+		this.el.className = 'sash';
+
+		if (this.orientation === Orientation.HORIZONTAL)
+			this.el.classList.add('horizontal');
+		else
+			this.el.classList.add('vertical');
+
+		container.appendChild(this.el);
+
+		this.setupEventListeners();
+		this.layout();
+	}
 
 	private el:             HTMLElement;
 	private layoutProvider: ISashLayoutProvider;
@@ -62,35 +88,10 @@ export class Sash {
 		this._pointerEventsEnabled = enabled;
 	}
 
-	constructor(
-		container: HTMLElement,
-		layoutProvider: ISashLayoutProvider,
-		options: ISashOptions,
-	) {
-		this.layoutProvider = layoutProvider;
-		this.orientation = options.orientation;
-		this.size = options.size ?? 4;
-
-		this.el = document.createElement('div');
-		this.el.className = 'sash';
-
-		if (this.orientation === Orientation.HORIZONTAL)
-			this.el.classList.add('horizontal');
-		else
-			this.el.classList.add('vertical');
-
-		container.appendChild(this.el);
-
-		this.setupEventListeners();
-		this.layout();
-	}
-
 	private setupEventListeners(): void {
 		// Mouse events
 		this.el.addEventListener('mousedown', this.onPointerStart.bind(this));
 		this.el.addEventListener('dblclick', this.onPointerDoublePress.bind(this));
-
-		// Touch events would go here if needed
 	}
 
 	private onPointerStart(event: MouseEvent): void {
@@ -101,7 +102,7 @@ export class Sash {
 			return;
 
 		// Get container bounds to convert page coordinates to container-relative coordinates
-		const containerElement = (this.layoutProvider as any).el as HTMLElement;
+		const containerElement = this.layoutProvider.el.value;
 		const containerRect = containerElement?.getBoundingClientRect();
 		const containerOffsetX = containerRect?.left ?? 0;
 		const containerOffsetY = containerRect?.top ?? 0;
@@ -181,10 +182,6 @@ export class Sash {
 			callback();
 	}
 
-	/**
-	 * Layout the sash. The sash will size and position itself
-	 * based on its provided layout provider.
-	 */
 	layout(): void {
 		if (this.orientation === Orientation.VERTICAL) {
 			if (this.layoutProvider.getVerticalSashLeft)

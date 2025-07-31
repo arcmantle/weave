@@ -1,3 +1,7 @@
+import { html, render } from 'lit-html';
+import { classMap } from 'lit-html/directives/class-map.js';
+import { createRef, type Ref, ref } from 'lit-html/directives/ref.js';
+
 import { type ISashLayoutProvider, Sash } from './sash.ts';
 import {
 	type DragState,
@@ -10,6 +14,7 @@ import {
 	type ViewConstraints,
 	type ViewState,
 } from './types.ts';
+import { splitViewErrors } from './utilities/errors.ts';
 import {
 	areViewsDistributed,
 	calculateDeltaConstraints,
@@ -164,12 +169,12 @@ export class SplitView<
 > implements ISashLayoutProvider {
 
 	readonly orientation: Orientation;
-	readonly el:          HTMLElement;
+	readonly el:          Ref<HTMLElement>;
 
-	private sashContainer:               HTMLElement;
-	private viewContainer:               HTMLElement;
-	private size = 0;
-	private _contentSize = 0;
+	private sashContainer:               Ref<HTMLElement>;
+	private viewContainer:               Ref<HTMLElement>;
+	private size:                        number = 0;
+	private _contentSize:                number = 0;
 	private proportions:                 (number | undefined)[] | undefined = undefined;
 	private viewItems:                   ViewItem<TView>[] = [];
 	private sashItems:                   ISashItem[] = [];
@@ -193,18 +198,25 @@ export class SplitView<
 		this.orientation = options.orientation ?? Orientation.VERTICAL;
 		this.proportionalResize = options.proportionalResize ?? true;
 
-		this.el = document.createElement('div');
-		this.el.classList.add('split-view');
-		this.el.classList.add(this.orientation === Orientation.VERTICAL ? 'vertical' : 'horizontal');
-		container.appendChild(this.el);
+		this.el = createRef<HTMLElement>();
+		this.sashContainer = createRef<HTMLElement>();
+		this.viewContainer = createRef<HTMLElement>();
 
-		this.sashContainer = document.createElement('div');
-		this.sashContainer.classList.add('sash-container');
-		this.el.appendChild(this.sashContainer);
+		const template = html`
+		<div ${ ref(this.el) } class=${ classMap({
+			'split-view':       true,
+			[this.orientation]: true,
+		}) }>
+			<div ${ ref(this.sashContainer) } class="sash-container">
 
-		this.viewContainer = document.createElement('div');
-		this.viewContainer.classList.add('view-container');
-		this.el.appendChild(this.viewContainer);
+			</div>
+			<div ${ ref(this.viewContainer) } class="view-container">
+
+			</div>
+		</div>
+		`;
+
+		render(template, container);
 	}
 
 	onDidSashChange(callback: (index: number) => void): void {
@@ -227,7 +239,7 @@ export class SplitView<
 
 	removeView(index: number, sizing?: Sizing): TView {
 		if (index < 0 || index >= this.viewItems.length)
-			throw new Error('Index out of bounds');
+			throw splitViewErrors.indexOutOfBounds(index, this.viewItems.length);
 
 		if (sizing?.type === 'auto') {
 			if (this.areViewsDistributed())
@@ -237,12 +249,8 @@ export class SplitView<
 		}
 
 		// Validate split index for removeView first
-		if (sizing?.type === 'split' && (sizing.index < 0 || sizing.index >= this.viewItems.length)) {
-			throw new Error(
-				`Invalid split index for removeView: ${ sizing.index }. ` +
-				`Must be between 0 and ${ this.viewItems.length - 1 }`,
-			);
-		}
+		if (sizing?.type === 'split' && (sizing.index < 0 || sizing.index >= this.viewItems.length))
+			throw splitViewErrors.invalidSplitIndex(sizing.index, this.viewItems.length - 1);
 
 		// Save reference view, in case of `split` sizing (before removing the view)
 		const referenceViewItem = sizing?.type === 'split' ?
@@ -435,7 +443,7 @@ export class SplitView<
 
 		this.resizeObserver = new ResizeObserver((entries) => {
 			for (const entry of entries) {
-				if (entry.target === this.el) {
+				if (entry.target === this.el.value) {
 					const newSize = this.orientation === Orientation.HORIZONTAL
 						? entry.contentRect.width
 						: entry.contentRect.height;
@@ -445,7 +453,7 @@ export class SplitView<
 			}
 		});
 
-		this.resizeObserver.observe(this.el);
+		this.resizeObserver.observe(this.el.value!);
 	}
 
 	/**
@@ -563,9 +571,9 @@ export class SplitView<
 		container.classList.add('split-view-view');
 
 		if (index === this.viewItems.length)
-			this.viewContainer.appendChild(container);
+			this.viewContainer.value!.appendChild(container);
 		else
-			this.viewContainer.insertBefore(container, this.viewContainer.children.item(index));
+			this.viewContainer.value!.insertBefore(container, this.viewContainer.value!.children.item(index));
 
 		let viewSize: number | { cachedVisibleSize: number; };
 
@@ -583,7 +591,7 @@ export class SplitView<
 			if (size.type === 'split') {
 				// Validate the split index
 				if (size.index < 0 || size.index >= this.viewItems.length)
-					throw new Error(`Invalid split index: ${ size.index }. Must be between 0 and ${ this.viewItems.length - 1 }`);
+					throw splitViewErrors.invalidSplitIndex(size.index, this.viewItems.length - 1);
 
 				const targetViewSize = this.getViewSize(size.index);
 				const splitSize = targetViewSize / 2;
@@ -591,9 +599,9 @@ export class SplitView<
 				// Check if splitting would violate minimum size constraints
 				const targetView = this.viewItems[size.index]!;
 				if (splitSize < targetView.minimumSize)
-					throw new Error(`Cannot split: target view would be too small (${ splitSize } < ${ targetView.minimumSize })`);
+					throw splitViewErrors.targetTooSmall(splitSize, targetView.minimumSize);
 				if (splitSize < view.minimumSize)
-					throw new Error(`Cannot split: new view would be too small (${ splitSize } < ${ view.minimumSize })`);
+					throw splitViewErrors.newViewTooSmall(splitSize, view.minimumSize);
 
 				viewSize = splitSize;
 				// Shrink the target view to make space for the new view
@@ -602,11 +610,11 @@ export class SplitView<
 			else if (size.type === 'invisible') {
 				// Validate cached visible size
 				if (size.cachedVisibleSize < 0)
-					throw new Error(`Invalid cachedVisibleSize: ${ size.cachedVisibleSize }. Must be non-negative`);
+					throw splitViewErrors.invalidCachedVisibleSize(size.cachedVisibleSize);
 				if (size.cachedVisibleSize < view.minimumSize)
-					throw new Error(`Invalid cachedVisibleSize: ${ size.cachedVisibleSize } < minimum size ${ view.minimumSize }`);
+					throw splitViewErrors.cachedSizeTooSmall(size.cachedVisibleSize, view.minimumSize);
 				if (size.cachedVisibleSize > view.maximumSize)
-					throw new Error(`Invalid cachedVisibleSize: ${ size.cachedVisibleSize } > maximum size ${ view.maximumSize }`);
+					throw splitViewErrors.cachedSizeTooLarge(size.cachedVisibleSize, view.maximumSize);
 
 				viewSize = { cachedVisibleSize: size.cachedVisibleSize };
 			}
@@ -623,7 +631,7 @@ export class SplitView<
 
 		// Add sash
 		if (this.viewItems.length > 1) {
-			const sash = new Sash(this.sashContainer, this, {
+			const sash = new Sash(this.sashContainer.value!, this, {
 				orientation: this.orientation === Orientation.VERTICAL ?
 					Orientation.HORIZONTAL : Orientation.VERTICAL,
 			});
@@ -655,8 +663,8 @@ export class SplitView<
 	 */
 	addViewWithProportionalSizing(view: TView, targetShare: number, index: number = this.viewItems.length): void {
 		const totalSize = this.orientation === Orientation.HORIZONTAL
-			? this.el.offsetWidth
-			: this.el.offsetHeight;
+			? this.el.value!.offsetWidth
+			: this.el.value!.offsetHeight;
 
 		const targetSize = totalSize * targetShare;
 
@@ -1238,7 +1246,7 @@ export class SplitView<
 		this.onDidSashResetCallbacks.length = 0;
 
 		// Remove the element
-		this.el.remove();
+		this.el.value!.remove();
 	}
 
 }
