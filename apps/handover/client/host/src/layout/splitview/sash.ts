@@ -3,8 +3,14 @@ import type { Ref } from 'lit-html/directives/ref.js';
 import { type ISashEvent, Orientation, SashState } from './types.ts';
 
 
+export interface ISashItem {
+	sash:       Sash;
+	disposable: () => void;
+}
+
+
 export interface ISashLayoutProvider {
-	el: Ref<HTMLElement>;
+	splitViewEl: Ref<HTMLElement>;
 	getVerticalSashLeft?(sash: Sash): number;
 	getVerticalSashTop?(sash: Sash): number;
 	getVerticalSashHeight?(sash: Sash): number;
@@ -102,7 +108,7 @@ export class Sash {
 			return;
 
 		// Get container bounds to convert page coordinates to container-relative coordinates
-		const containerElement = this.layoutProvider.el.value;
+		const containerElement = this.layoutProvider.splitViewEl.value;
 		const containerRect = containerElement?.getBoundingClientRect();
 		const containerOffsetX = containerRect?.left ?? 0;
 		const containerOffsetY = containerRect?.top ?? 0;

@@ -1,4 +1,5 @@
 import { effect, type Signal, signal } from '@arcmantle/adapter-element/shared';
+import type { Writeable } from '@arcmantle/library/types';
 import { html, render } from 'lit-html';
 import { classMap } from 'lit-html/directives/class-map.js';
 import { map } from 'lit-html/directives/map.js';
@@ -64,6 +65,12 @@ export class TabView extends EventTarget implements IEditorView, IRenderableView
 
 	performRender(): void {
 		this.disposeRender = effect(() => void render(this.render(), this.element));
+		//this.disposeRender = effect(() => {
+		//	(this as Writeable<this>).element = standaloneRender(
+		//		html` <div class="tab-view"></div>`,
+		//		this.render(),
+		//	);
+		//});
 	}
 
 	render(): unknown {
@@ -212,3 +219,23 @@ export class TabView extends EventTarget implements IEditorView, IRenderableView
 	}
 
 }
+
+
+const hostMap: WeakMap<TemplateStringsArray, HTMLElement> = new WeakMap();
+
+
+const standaloneRender = (host: { strings: TemplateStringsArray; }, value: unknown) => {
+	let _host = hostMap.get(host.strings);
+	if (!_host) {
+		const template = document.createElement('template');
+		hostMap.set(host.strings, template);
+		_host = template;
+	}
+
+	const child = render(host, _host);
+
+	const realHost = (child.parentNode as HTMLElement).firstElementChild as HTMLElement;
+	render(value, realHost);
+
+	return realHost;
+};

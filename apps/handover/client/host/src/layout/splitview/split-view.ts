@@ -1,8 +1,9 @@
+import { effect } from '@arcmantle/adapter-element/shared';
 import { html, render } from 'lit-html';
 import { classMap } from 'lit-html/directives/class-map.js';
 import { createRef, type Ref, ref } from 'lit-html/directives/ref.js';
 
-import { type ISashLayoutProvider, Sash } from './sash.ts';
+import { type ISashItem, type ISashLayoutProvider, Sash } from './sash.ts';
 import {
 	type DragState,
 	type ISashEvent,
@@ -22,12 +23,6 @@ import {
 	distributeEmptySpace,
 	resize,
 } from './utilities/utils.ts';
-
-
-interface ISashItem {
-	sash:       Sash;
-	disposable: () => void;
-}
 
 
 abstract class ViewItem<TView extends IView> {
@@ -122,13 +117,7 @@ abstract class ViewItem<TView extends IView> {
 
 	layout(offset: number): void {
 		this.layoutContainer(offset);
-
-		try {
-			this.view.layout(this.size, offset);
-		}
-		catch (error) {
-			console.error('SplitView: Failed to layout view', error);
-		}
+		this.view.layout(this.size, offset);
 	}
 
 	abstract layoutContainer(offset: number): void;
@@ -168,11 +157,14 @@ export class SplitView<
 	TView extends IView = IView,
 > implements ISashLayoutProvider {
 
-	readonly orientation: Orientation;
-	readonly el:          Ref<HTMLElement>;
+	readonly orientation:     Orientation;
+	readonly containerEl:     HTMLElement;
+	readonly splitViewEl:     Ref<HTMLElement>;
+	readonly sashContainerEl: Ref<HTMLElement>;
+	readonly viewContainerEl: Ref<HTMLElement>;
 
-	private sashContainer:               Ref<HTMLElement>;
-	private viewContainer:               Ref<HTMLElement>;
+	disposeRender?: () => void;
+
 	private size:                        number = 0;
 	private _contentSize:                number = 0;
 	private proportions:                 (number | undefined)[] | undefined = undefined;
@@ -195,29 +187,39 @@ export class SplitView<
 	}
 
 	constructor(container: HTMLElement, options: ISplitViewOptions = {}) {
+		this.containerEl = container;
 		this.orientation = options.orientation ?? Orientation.VERTICAL;
 		this.proportionalResize = options.proportionalResize ?? true;
 
-		this.el = createRef<HTMLElement>();
-		this.sashContainer = createRef<HTMLElement>();
-		this.viewContainer = createRef<HTMLElement>();
+		this.splitViewEl = createRef<HTMLElement>();
+		this.sashContainerEl = createRef<HTMLElement>();
+		this.viewContainerEl = createRef<HTMLElement>();
 
+		this.performRender();
+	}
+
+	performRender(): void {
+		this.disposeRender = effect(() => void render(this.render(), this.containerEl));
+	}
+
+	render(): unknown {
 		const template = html`
-		<div ${ ref(this.el) } class=${ classMap({
+		<div ${ ref(this.splitViewEl) } class=${ classMap({
 			'split-view':       true,
 			[this.orientation]: true,
 		}) }>
-			<div ${ ref(this.sashContainer) } class="sash-container">
+			<div ${ ref(this.sashContainerEl) } class="sash-container">
 
 			</div>
-			<div ${ ref(this.viewContainer) } class="view-container">
+			<div ${ ref(this.viewContainerEl) } class="view-container">
 
 			</div>
 		</div>
 		`;
 
-		render(template, container);
+		return template;
 	}
+
 
 	onDidSashChange(callback: (index: number) => void): void {
 		this.onDidSashChangeCallbacks.push(callback);
@@ -443,7 +445,7 @@ export class SplitView<
 
 		this.resizeObserver = new ResizeObserver((entries) => {
 			for (const entry of entries) {
-				if (entry.target === this.el.value) {
+				if (entry.target === this.splitViewEl.value) {
 					const newSize = this.orientation === Orientation.HORIZONTAL
 						? entry.contentRect.width
 						: entry.contentRect.height;
@@ -453,7 +455,7 @@ export class SplitView<
 			}
 		});
 
-		this.resizeObserver.observe(this.el.value!);
+		this.resizeObserver.observe(this.splitViewEl.value!);
 	}
 
 	/**
@@ -565,15 +567,14 @@ export class SplitView<
 			return;
 		}
 
-
 		// Add view
 		const container = document.createElement('div');
 		container.classList.add('split-view-view');
 
 		if (index === this.viewItems.length)
-			this.viewContainer.value!.appendChild(container);
+			this.viewContainerEl.value!.appendChild(container);
 		else
-			this.viewContainer.value!.insertBefore(container, this.viewContainer.value!.children.item(index));
+			this.viewContainerEl.value!.insertBefore(container, this.viewContainerEl.value!.children.item(index));
 
 		let viewSize: number | { cachedVisibleSize: number; };
 
@@ -631,7 +632,7 @@ export class SplitView<
 
 		// Add sash
 		if (this.viewItems.length > 1) {
-			const sash = new Sash(this.sashContainer.value!, this, {
+			const sash = new Sash(this.sashContainerEl.value!, this, {
 				orientation: this.orientation === Orientation.VERTICAL ?
 					Orientation.HORIZONTAL : Orientation.VERTICAL,
 			});
@@ -663,8 +664,8 @@ export class SplitView<
 	 */
 	addViewWithProportionalSizing(view: TView, targetShare: number, index: number = this.viewItems.length): void {
 		const totalSize = this.orientation === Orientation.HORIZONTAL
-			? this.el.value!.offsetWidth
-			: this.el.value!.offsetHeight;
+			? this.splitViewEl.value!.offsetWidth
+			: this.splitViewEl.value!.offsetHeight;
 
 		const targetSize = totalSize * targetShare;
 
@@ -1228,6 +1229,9 @@ export class SplitView<
 	}
 
 	dispose(): void {
+		// Stop signal based rerendering.
+		this.disposeRender?.();
+
 		// Dispose resize observer
 		this.disableAutoResize();
 
@@ -1246,7 +1250,7 @@ export class SplitView<
 		this.onDidSashResetCallbacks.length = 0;
 
 		// Remove the element
-		this.el.value!.remove();
+		this.splitViewEl.value!.remove();
 	}
 
 }
