@@ -1,0 +1,18 @@
+{
+	"name": "@arcmantle/lit-html-extended",
+	"version": "1.0.0",
+	"description": "description",
+	"author": "Kristoffer Roen-Lie",
+	"type": "module",
+	"main": "pathToMain",
+	"dependencies": {
+		"@types/trusted-types": "^2.0.7"
+	},
+	"devDependencies": {
+		"jsdom": "^26.1.0",
+		"magic-string": "^0.30.17",
+		"oxc-walker": "^0.4.0",
+		"tsdown": "^0.13.2",
+		"vitest": "^3.2.4"
+	}
+}
