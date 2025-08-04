@@ -4,13 +4,13 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import { noChange } from './constants.ts';
-import { isPrimitive } from './helpers.ts';
-import type { AttributePart } from './parts/attribute-part.ts';
-import type { ChildPart } from './parts/child-part.ts';
-import type { Disconnectable } from './parts/disconnectable.ts';
-import type { ElementPart } from './parts/element-part.ts';
-import type { Part } from './parts/template.ts';
+import { noChange } from '../constants.ts';
+import { isPrimitive } from '../helpers.ts';
+import type { AttributePart } from '../parts/attribute-part.ts';
+import type { ChildPart } from '../parts/child-part.ts';
+import type { Disconnectable } from '../parts/disconnectable.ts';
+import type { ElementPart } from '../parts/element-part.ts';
+import type { Part } from '../parts/template.ts';
 
 
 export type DirectiveClass = new (part: PartInfo) => Directive;

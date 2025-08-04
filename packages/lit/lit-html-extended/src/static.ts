@@ -1,15 +1,7 @@
-/**
- * @license
- * Copyright 2020 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */
+/** @license Copyright 2020 Google LLC SPDX-License-Identifier: BSD-3-Clause */
 
-import {
-	html as coreHtml,
-	mathml as coreMathml,
-	svg as coreSvg,
-} from './lit-html.js';
 import type { TemplateProducer, TemplateResult } from './parts/types.js';
+import { html as coreHtml, mathml as coreMathml, svg as coreSvg } from './tags.ts';
 
 
 export interface StaticValue {

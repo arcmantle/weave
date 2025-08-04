@@ -104,10 +104,10 @@ export const createSanitizer: SanitizerFactory = (node, name, type) => {
 export let sanitizerFactoryInternal: SanitizerFactory = noopSanitizer;
 
 
-export function trustFromTemplateString(
+export const trustFromTemplateString = (
 	tsa: TemplateStringsArray,
 	stringFromTSA: string,
-): TrustedHTML {
+): TrustedHTML => {
 	// A security check to prevent spoofing of Lit template results.
 	// In the future, we may be able to replace this with Array.isTemplateObject,
 	// though we might need to make that check inside of the html and svg
@@ -136,4 +136,4 @@ export function trustFromTemplateString(
 	return policy !== undefined
 		? policy.createHTML(stringFromTSA)
 		: (stringFromTSA as unknown as TrustedHTML);
-}
+};

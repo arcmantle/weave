@@ -1,6 +1,6 @@
 import { DEV_MODE, EVENT_PART, type EventPartType, noChange, nothing } from '../constants.ts';
 import { debugLogEvent } from '../debug.ts';
-import { type DirectiveParent, resolveDirective } from '../directive.ts';
+import { type DirectiveParent, resolveDirective } from '../directives/directive.ts';
 import { AttributePart } from './attribute-part.ts';
 import type { Disconnectable } from './disconnectable.ts';
 import type { RenderOptions } from './types.ts';

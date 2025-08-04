@@ -10,7 +10,7 @@ import {
 	wrap,
 } from '../constants.ts';
 import { debugLogEvent } from '../debug.ts';
-import { type Directive, type DirectiveParent, resolveDirective } from '../directive.ts';
+import { type Directive, type DirectiveParent, resolveDirective } from '../directives/directive.ts';
 import { isPrimitive } from '../helpers.ts';
 import { sanitizerFactoryInternal, type ValueSanitizer } from '../security.ts';
 import type { Disconnectable } from './disconnectable.ts';

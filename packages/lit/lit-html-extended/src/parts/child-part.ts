@@ -1,6 +1,6 @@
 import { CHILD_PART, type ChildPartType, createMarker, DEV_MODE, doc, ENABLE_EXTRA_SECURITY_HOOKS, noChange, nothing, templateCache, wrap } from '../constants.ts';
 import { debugLogEvent } from '../debug.ts';
-import { type Directive, type DirectiveParent, resolveDirective } from '../directive.ts';
+import { type Directive, type DirectiveParent, resolveDirective } from '../directives/directive.ts';
 import { isIterable, isPrimitive } from '../helpers.ts';
 import { createSanitizer, noopSanitizer, sanitizerFactoryInternal, trustFromTemplateString, type ValueSanitizer } from '../security.ts';
 import type { Disconnectable } from './disconnectable.ts';

@@ -1,1 +1,4 @@
-export * from './lit-html.ts';
+/** @license Copyright 2017 Google LLC SPDX-License-Identifier: BSD-3-Clause */
+
+export * from './render.ts';
+export * from './tags.ts';

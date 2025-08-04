@@ -50,7 +50,13 @@ const devModeStripper = () => {
 
 
 export default defineConfig({
-	entry:   [ './src/index.ts' ],
+	entry: [
+		'./src/tags.ts',
+		'./src/render.ts',
+		'./src/static.ts',
+		'./src/internal.ts',
+		'./src/directives/directive.ts',
+	],
 	dts:     true,
 	minify:  true,
 	plugins: [ devModeStripper() ],

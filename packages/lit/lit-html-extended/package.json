@@ -3,6 +3,9 @@
 	"version": "1.0.0",
 	"description": "description",
 	"author": "Kristoffer Roen-Lie",
+	"sideEffects": [
+		"./dist/render.ts"
+	],
 	"type": "module",
 	"main": "pathToMain",
 	"dependencies": {

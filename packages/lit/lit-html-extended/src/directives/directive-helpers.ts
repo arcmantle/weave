@@ -11,9 +11,9 @@ import type {
 	DirectiveResult,
 	PartInfo,
 } from './directive.js';
-import { ChildPart } from './parts/child-part.js';
-import type { Part } from './parts/template.js';
-import type { CompiledTemplateResult, MaybeCompiledTemplateResult, UncompiledTemplateResult } from './parts/types.js';
+import { ChildPart } from '../parts/child-part.js';
+import type { Part } from '../parts/template.js';
+import type { CompiledTemplateResult, MaybeCompiledTemplateResult, UncompiledTemplateResult } from '../parts/types.js';
 
 
 type Primitive = null | undefined | boolean | number | string | symbol | bigint;

@@ -1,6 +1,6 @@
 import { ELEMENT_PART, type ElementPartType } from '../constants.ts';
 import { debugLogEvent } from '../debug.ts';
-import { type Directive, resolveDirective } from '../directive.ts';
+import { type Directive, resolveDirective } from '../directives/directive.ts';
 import type { Disconnectable } from './disconnectable.ts';
 import type { RenderOptions } from './types.ts';
 
