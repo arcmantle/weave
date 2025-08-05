@@ -4,7 +4,7 @@ import { noChange } from '../constants.ts';
 import type { ChildPart } from '../internal.ts';
 import { AsyncDirective } from './async-directive.ts';
 import { forAwaitOf, Pauser, PseudoWeakRef } from './async-helpers.ts';
-import { directive, type DirectiveParameters } from './directive.ts';
+import { directive, type DirectiveFn, type DirectiveParameters } from './directive.ts';
 
 
 type Mapper<T> = (v: T, index?: number) => unknown;
@@ -16,14 +16,11 @@ export class AsyncReplaceDirective extends AsyncDirective {
 	private __weakThis = new PseudoWeakRef(this);
 	private __pauser = new Pauser();
 
-	render<T>(value: AsyncIterable<T>, _mapper?: Mapper<T>) {
+	render<T>(value: AsyncIterable<T>, _mapper?: Mapper<T>): unknown {
 		return noChange;
 	}
 
-	override update(
-		_part: ChildPart,
-		[ value, mapper ]: DirectiveParameters<this>,
-	) {
+	override update(part: ChildPart, [ value, mapper ]: DirectiveParameters<this>): unknown {
 		// If our initial render occurs while disconnected, ensure that the pauser
 		// and weakThis are in the disconnected state
 		if (!this.isConnected)
@@ -77,16 +74,16 @@ export class AsyncReplaceDirective extends AsyncDirective {
 	}
 
 	// Override point for AsyncAppend to append rather than replace
-	protected commitValue(value: unknown, _index: number) {
+	protected commitValue(value: unknown, _index: number): void {
 		this.setValue(value);
 	}
 
-	override disconnected() {
+	override disconnected(): void {
 		this.__weakThis.disconnect();
 		this.__pauser.pause();
 	}
 
-	override reconnected() {
+	override reconnected(): void {
 		this.__weakThis.reconnect(this);
 		this.__pauser.resume();
 	}
@@ -112,4 +109,4 @@ export class AsyncReplaceDirective extends AsyncDirective {
  * @param mapper An optional function that maps from (value, index) to another
  *     value. Useful for generating templates for each item in the iterable.
  */
-export const asyncReplace = directive(AsyncReplaceDirective);
+export const asyncReplace: DirectiveFn<typeof AsyncReplaceDirective> = directive(AsyncReplaceDirective);

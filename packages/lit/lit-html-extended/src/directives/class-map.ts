@@ -1,17 +1,16 @@
-/**
- * @license
- * Copyright 2018 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */
+/** @license Copyright 2018 Google LLC SPDX-License-Identifier: BSD-3-Clause */
 
+import { noChange } from '../constants.js';
+import type { AttributePart } from '../parts/attribute-part.js';
 import {
 	Directive,
 	directive,
-	DirectiveParameters,
-	PartInfo,
+	type DirectiveFn,
+	type DirectiveParameters,
+	type PartInfo,
 	PartType,
 } from './directive.js';
-import { AttributePart, noChange } from '../lit-html.js';
+
 
 /**
  * A key-value set of class names to truthy values.
@@ -20,7 +19,8 @@ export interface ClassInfo {
 	readonly [name: string]: string | boolean | number;
 }
 
-class ClassMapDirective extends Directive {
+
+export class ClassMapDirective extends Directive {
 
 	/**
    * Stores the ClassInfo object applied to a given AttributePart.
@@ -43,18 +43,16 @@ class ClassMapDirective extends Directive {
 		}
 	}
 
-	render(classInfo: ClassInfo) {
+	render(classInfo: ClassInfo): unknown {
 		// Add spaces to ensure separation from static classes
-		return (
-			' ' +
-      Object.keys(classInfo)
-      	.filter((key) => classInfo[key])
-      	.join(' ') +
-      ' '
-		);
+		return ' '
+		+ Object.keys(classInfo)
+			.filter((key) => classInfo[key])
+			.join(' ')
+		+ ' ';
 	}
 
-	override update(part: AttributePart, [ classInfo ]: DirectiveParameters<this>) {
+	override update(part: AttributePart, [ classInfo ]: DirectiveParameters<this>): unknown {
 		// Remember dynamic classes on the first render
 		if (this._previousClasses === undefined) {
 			this._previousClasses = new Set();
@@ -124,10 +122,4 @@ class ClassMapDirective extends Directive {
  *
  * @param classInfo
  */
-export const classMap = directive(ClassMapDirective);
-
-/**
- * The type of the class that powers this directive. Necessary for naming the
- * directive's return type.
- */
-export type { ClassMapDirective };
+export const classMap: DirectiveFn<typeof ClassMapDirective> = directive(ClassMapDirective);

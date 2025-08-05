@@ -1,16 +1,12 @@
-/**
- * @license
- * Copyright 2017 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */
+/** @license Copyright 2017 Google LLC SPDX-License-Identifier: BSD-3-Clause */
 
 import type { ChildPart } from '../internal.ts';
 import { AsyncReplaceDirective } from './async-replace.ts';
-import { directive, type DirectiveParameters, type PartInfo, PartType } from './directive.ts';
+import { directive, type DirectiveFn, type DirectiveParameters, type PartInfo, PartType } from './directive.ts';
 import { clearPart, insertPart, setChildPartValue } from './directive-helpers.ts';
 
 
-class AsyncAppendDirective extends AsyncReplaceDirective {
+export class AsyncAppendDirective extends AsyncReplaceDirective {
 
 	private __childPart!: ChildPart;
 
@@ -22,14 +18,14 @@ class AsyncAppendDirective extends AsyncReplaceDirective {
 	}
 
 	// Override AsyncReplace to save the part since we need to append into it
-	override update(part: ChildPart, params: DirectiveParameters<this>) {
+	override update(part: ChildPart, params: DirectiveParameters<this>): unknown {
 		this.__childPart = part;
 
 		return super.update(part, params);
 	}
 
 	// Override AsyncReplace to append rather than replace
-	protected override commitValue(value: unknown, index: number) {
+	protected override commitValue(value: unknown, index: number): void {
 		// When we get the first value, clear the part. This lets the
 		// previous value display until we can replace it.
 		if (index === 0)
@@ -61,10 +57,4 @@ class AsyncAppendDirective extends AsyncReplaceDirective {
  * @param mapper An optional function that maps from (value, index) to another
  *     value. Useful for generating templates for each item in the iterable.
  */
-export const asyncAppend = directive(AsyncAppendDirective);
-
-/**
- * The type of the class that powers this directive. Necessary for naming the
- * directive's return type.
- */
-export type { AsyncAppendDirective };
+export const asyncAppend: DirectiveFn<typeof AsyncAppendDirective> = directive(AsyncAppendDirective);

@@ -17,7 +17,7 @@
 export const forAwaitOf = async <T>(
 	iterable: AsyncIterable<T>,
 	callback: (value: T) => Promise<boolean>,
-) => {
+): Promise<void> => {
 	for await (const v of iterable) {
 		if ((await callback(v)) === false)
 			return;
@@ -38,27 +38,28 @@ export class PseudoWeakRef<T> {
 	}
 
 	/**
-   * Disassociates the ref with the backing instance.
-   */
-	disconnect() {
+	 * Disassociates the ref with the backing instance.
+	 */
+	disconnect(): void {
 		this._ref = undefined;
 	}
 
 	/**
-   * Reassociates the ref with the backing instance.
-   */
-	reconnect(ref: T) {
+	 * Reassociates the ref with the backing instance.
+	 */
+	reconnect(ref: T): void {
 		this._ref = ref;
 	}
 
 	/**
-   * Retrieves the backing instance (will be undefined when disconnected)
-   */
-	deref() {
+	 * Retrieves the backing instance (will be undefined when disconnected)
+	 */
+	deref(): T | undefined {
 		return this._ref;
 	}
 
 }
+
 
 /**
  * A helper to pause and resume waiting on a condition in an async function
@@ -67,28 +68,29 @@ export class Pauser {
 
 	private _promise?: Promise<void> = undefined;
 	private _resolve?: () => void = undefined;
+
 	/**
-   * When paused, returns a promise to be awaited; when unpaused, returns
-   * undefined. Note that in the microtask between the pauser being resumed
-   * an await of this promise resolving, the pauser could be paused again,
-   * hence callers should check the promise in a loop when awaiting.
-   * @returns A promise to be awaited when paused or undefined
-   */
-	get() {
+	 * When paused, returns a promise to be awaited; when unpaused, returns
+	 * undefined. Note that in the microtask between the pauser being resumed
+	 * an await of this promise resolving, the pauser could be paused again,
+	 * hence callers should check the promise in a loop when awaiting.
+	 * @returns A promise to be awaited when paused or undefined
+	 */
+	get(): Promise<void> | undefined {
 		return this._promise;
 	}
 
 	/**
-   * Creates a promise to be awaited
-   */
-	pause() {
+	 * Creates a promise to be awaited
+	 */
+	pause(): void {
 		this._promise ??= new Promise((resolve) => (this._resolve = resolve));
 	}
 
 	/**
-   * Resolves the promise which may be awaited
-   */
-	resume() {
+	 * Resolves the promise which may be awaited
+	 */
+	resume(): void {
 		this._resolve?.();
 		this._promise = this._resolve = undefined;
 	}

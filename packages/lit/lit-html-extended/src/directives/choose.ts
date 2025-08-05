@@ -1,8 +1,4 @@
-/**
- * @license
- * Copyright 2021 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */
+/** @license Copyright 2021 Google LLC SPDX-License-Identifier: BSD-3-Clause */
 
 /**
  * Chooses and evaluates a template function from a list based on matching
@@ -33,9 +29,10 @@ export const choose = <T, V, K extends T = T>(
 	value: T,
 	cases: [K, () => V][],
 	defaultCase?: () => V,
-) => {
+): V | undefined => {
 	for (const c of cases) {
 		const caseValue = c[0];
+
 		if (caseValue === value) {
 			const fn = c[1];
 

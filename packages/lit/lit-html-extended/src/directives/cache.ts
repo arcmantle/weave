@@ -1,10 +1,16 @@
-/** @license - Copyright 2017 Google LLC SPDX-License-Identifier: BSD-3-Clause */
+/** @license Copyright 2017 Google LLC SPDX-License-Identifier: BSD-3-Clause */
 
+import { nothing } from '../constants.js';
+import type { ChildPart } from '../internal.js';
+import type { RootPart } from '../parts/root-part.js';
+import type { CompiledTemplateResult, TemplateResult } from '../parts/types.js';
+import { render } from '../render.js';
 import {
 	Directive,
 	directive,
-	DirectiveParameters,
-	PartInfo,
+	type DirectiveFn,
+	type DirectiveParameters,
+	type PartInfo,
 } from './directive.js';
 import {
 	clearPart,
@@ -14,14 +20,7 @@ import {
 	isTemplateResult,
 	setCommittedValue,
 } from './directive-helpers.js';
-import {
-	ChildPart,
-	CompiledTemplateResult,
-	nothing,
-	render,
-	RootPart,
-	TemplateResult,
-} from '../lit-html.js';
+
 
 /**
  * The template strings array contents are not compatible between the two
@@ -30,10 +29,12 @@ import {
  */
 const getStringsFromTemplateResult = (
 	result: TemplateResult | CompiledTemplateResult,
-): TemplateStringsArray =>
-	isCompiledTemplateResult(result) ? result['_$litType$'].h : result.strings;
+): TemplateStringsArray => isCompiledTemplateResult(result)
+	? result['_$litType$'].h
+	: result.strings;
 
-class CacheDirective extends Directive {
+
+export class CacheDirective extends Directive {
 
 	private _templateCache: WeakMap<TemplateStringsArray, RootPart> = new WeakMap();
 	private _value?:        TemplateResult | CompiledTemplateResult;
@@ -42,13 +43,13 @@ class CacheDirective extends Directive {
 		super(partInfo);
 	}
 
-	render(v: unknown) {
+	render(v: unknown): unknown {
 		// Return an array of the value to induce lit-html to create a ChildPart
 		// for the value that we can move into the cache.
 		return [ v ];
 	}
 
-	override update(containerPart: ChildPart, [ v ]: DirectiveParameters<this>) {
+	override update(containerPart: ChildPart, [ v ]: DirectiveParameters<this>): unknown {
 		const _valueKey = isTemplateResult(this._value)
 			? getStringsFromTemplateResult(this._value)
 			: null;
@@ -104,6 +105,7 @@ class CacheDirective extends Directive {
 
 }
 
+
 /**
  * Enables fast switching between multiple templates by caching the DOM nodes
  * and TemplateInstances produced by the templates.
@@ -118,10 +120,4 @@ class CacheDirective extends Directive {
  * `
  * ```
  */
-export const cache = directive(CacheDirective);
-
-/**
- * The type of the class that powers this directive. Necessary for naming the
- * directive's return type.
- */
-export type { CacheDirective };
+export const cache: DirectiveFn<typeof CacheDirective> = directive(CacheDirective);

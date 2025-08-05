@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import { Directive, directive, DirectiveParameters } from './directive.js';
 import { noChange, Part } from '../lit-html.js';
+import { Directive, directive, DirectiveParameters } from './directive.js';
 
 
 // A sentinel that indicates guard() hasn't rendered anything yet

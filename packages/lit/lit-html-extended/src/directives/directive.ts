@@ -94,6 +94,10 @@ export const directive = <C extends DirectiveClass>(c: C) => (
 	values,
 });
 
+export type DirectiveFn<C extends DirectiveClass> = (
+	...values: DirectiveParameters<InstanceType<C>>
+) => DirectiveResult<C>;
+
 
 /**
  * Base class for creating custom directives. Users should extend this class,
