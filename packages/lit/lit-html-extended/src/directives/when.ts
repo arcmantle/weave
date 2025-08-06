@@ -1,10 +1,8 @@
-/**
- * @license
- * Copyright 2021 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */
+/** @license Copyright 2021 Google LLC SPDX-License-Identifier: BSD-3-Clause */
+
 
 type Falsy = null | undefined | false | 0 | -0 | 0n | '';
+
 
 /**
  * When `condition` is true, returns the result of calling `trueCase()`, else

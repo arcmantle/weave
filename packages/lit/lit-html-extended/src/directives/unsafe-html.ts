@@ -1,71 +1,69 @@
-/**
- * @license
- * Copyright 2017 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */
+/** @license Copyright 2017 Google LLC SPDX-License-Identifier: BSD-3-Clause */
 
-import { Directive, directive, PartInfo, PartType } from './directive.js';
-import { noChange, nothing, TemplateResult } from '../lit-html.js';
+import { HTML_RESULT, type HTMLResult, noChange, nothing } from '../constants.ts';
+import type { TemplateResult } from '../parts/types.ts';
+import { Directive, directive, type DirectiveFn, type PartInfo, PartType } from './directive.ts';
 
-const HTML_RESULT = 1;
 
 export class UnsafeHTMLDirective extends Directive {
 
+	declare ['constructor']: typeof UnsafeHTMLDirective;
+	constructor(partInfo: PartInfo) {
+		super(partInfo);
+
+		if (partInfo.type !== PartType.CHILD) {
+			throw new Error(''
+			+ this.constructor.directiveName
+			+ '() can only be used in child bindings');
+		}
+	}
+
 	static directiveName = 'unsafeHTML';
-	static resultType = HTML_RESULT;
+	static resultType: HTMLResult = HTML_RESULT;
 
 	private _value:           unknown = nothing;
 	private _templateResult?: TemplateResult;
 
-	constructor(partInfo: PartInfo) {
-		super(partInfo);
-		if (partInfo.type !== PartType.CHILD) {
-			throw new Error(
-        `${
-          (this.constructor as typeof UnsafeHTMLDirective).directiveName
-        }() can only be used in child bindings`,
-			);
-		}
-	}
-
-	render(value: string | typeof nothing | typeof noChange | undefined | null) {
+	render(value: string | typeof nothing | typeof noChange | undefined | null): unknown {
 		if (value === nothing || value == null) {
 			this._templateResult = undefined;
 
 			return (this._value = value);
 		}
+
 		if (value === noChange)
 			return value;
 
 		if (typeof value != 'string') {
-			throw new Error(
-        `${
-          (this.constructor as typeof UnsafeHTMLDirective).directiveName
-        }() called with a non-string value`,
-			);
+			throw new Error(''
+			+ this.constructor.directiveName
+			+ '() called with a non-string value');
 		}
+
 		if (value === this._value)
 			return this._templateResult;
 
 		this._value = value;
+
 		const strings = [ value ] as unknown as TemplateStringsArray;
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		(strings as any).raw = strings;
+		(strings as any as { raw: TemplateStringsArray; }).raw = strings;
 
 		// WARNING: impersonating a TemplateResult like this is extremely
 		// dangerous. Third-party directives should not do this.
-		return (this._templateResult = {
+		this._templateResult = {
 			// Cast to a known set of integers that satisfy ResultType so that we
 			// don't have to export ResultType and possibly encourage this pattern.
 			// This property needs to remain unminified.
-			['_$litType$']: (this.constructor as typeof UnsafeHTMLDirective)
-				.resultType as 1 | 2,
+			['_$litType$']: this.constructor.resultType,
 			strings,
-			values: [],
-		});
+			values:         [],
+		};
+
+		return this._templateResult;
 	}
 
 }
+
 
 /**
  * Renders the result as HTML, rather than text.
@@ -77,4 +75,4 @@ export class UnsafeHTMLDirective extends Directive {
  * sanitized or escaped, as it may lead to cross-site-scripting
  * vulnerabilities.
  */
-export const unsafeHTML = directive(UnsafeHTMLDirective);
+export const unsafeHTML: DirectiveFn<typeof UnsafeHTMLDirective> = directive(UnsafeHTMLDirective);

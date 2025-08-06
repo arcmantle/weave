@@ -1,10 +1,7 @@
-/**
- * @license
- * Copyright 2018 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */
+/** @license Copyright 2018 Google LLC SPDX-License-Identifier: BSD-3-Clause */
 
-import { nothing } from '../lit-html.js';
+import { nothing } from '../constants.ts';
+
 
 /**
  * For AttributeParts, sets the attribute if the value is defined and removes
@@ -12,4 +9,4 @@ import { nothing } from '../lit-html.js';
  *
  * For other part types, this directive is a no-op.
  */
-export const ifDefined = <T>(value: T) => value ?? nothing;
+export const ifDefined = <T>(value: T): T => value ?? nothing as T;

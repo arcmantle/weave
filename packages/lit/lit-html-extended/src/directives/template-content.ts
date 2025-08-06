@@ -1,13 +1,10 @@
-/**
- * @license
- * Copyright 2020 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */
+/** @license Copyright 2020 Google LLC SPDX-License-Identifier: BSD-3-Clause */
 
-import { Directive, directive, PartInfo, PartType } from './directive.js';
-import { noChange } from '../lit-html.js';
+import { noChange } from '../constants.ts';
+import { Directive, directive, type DirectiveFn, type PartInfo, PartType } from './directive.ts';
 
-class TemplateContentDirective extends Directive {
+
+export class TemplateContentDirective extends Directive {
 
 	private _previousTemplate?: HTMLTemplateElement;
 
@@ -17,7 +14,7 @@ class TemplateContentDirective extends Directive {
 			throw new Error('templateContent can only be used in child bindings');
 	}
 
-	render(template: HTMLTemplateElement) {
+	render(template: HTMLTemplateElement): unknown {
 		if (this._previousTemplate === template)
 			return noChange;
 
@@ -28,6 +25,7 @@ class TemplateContentDirective extends Directive {
 
 }
 
+
 /**
  * Renders the content of a template element as HTML.
  *
@@ -35,10 +33,4 @@ class TemplateContentDirective extends Directive {
  * Rendering a user-controlled template with this directive
  * could lead to cross-site-scripting vulnerabilities.
  */
-export const templateContent = directive(TemplateContentDirective);
-
-/**
- * The type of the class that powers this directive. Necessary for naming the
- * directive's return type.
- */
-export type { TemplateContentDirective };
+export const templateContent: DirectiveFn<typeof TemplateContentDirective> = directive(TemplateContentDirective);

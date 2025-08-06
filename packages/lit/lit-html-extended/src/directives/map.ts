@@ -1,8 +1,4 @@
-/**
- * @license
- * Copyright 2021 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */
+/** @license Copyright 2021 Google LLC SPDX-License-Identifier: BSD-3-Clause */
 
 /**
  * Returns an iterable containing the result of calling `f(value)` on each
@@ -23,7 +19,7 @@
 export function* map<T>(
 	items: Iterable<T> | undefined,
 	f: (value: T, index: number) => unknown,
-) {
+): Generator<unknown, void, unknown> {
 	if (items !== undefined) {
 		let i = 0;
 		for (const value of items)

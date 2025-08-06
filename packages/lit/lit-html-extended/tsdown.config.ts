@@ -55,7 +55,7 @@ export default defineConfig({
 		'./src/render.ts',
 		'./src/static.ts',
 		'./src/internal.ts',
-		'./src/directives/directive.ts',
+		'./src/directives/',
 	],
 	dts:     true,
 	minify:  true,

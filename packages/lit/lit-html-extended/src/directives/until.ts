@@ -1,19 +1,16 @@
-/**
- * @license
- * Copyright 2017 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */
+/** @license Copyright 2017 Google LLC SPDX-License-Identifier: BSD-3-Clause */
 
-import { AsyncDirective, directive } from '../async-directive.js';
-import { isPrimitive } from './directive-helpers.js';
-import { noChange, Part } from '../lit-html.js';
-import { Pauser, PseudoWeakRef } from './async-helpers.js';
+import { noChange } from '../constants.ts';
+import type { Part } from '../parts/template.ts';
+import { AsyncDirective } from './async-directive.ts';
+import { Pauser, PseudoWeakRef } from './async-helpers.ts';
+import { directive, type DirectiveFn } from './directive.ts';
+import { isPromise } from './directive-helpers.ts';
 
-const isPromise = (x: unknown) => {
-	return !isPrimitive(x) && typeof (x as { then?: unknown; }).then === 'function';
-};
+
 // Effectively infinity, but a SMI.
 const _infinity = 0x3fffffff;
+
 
 export class UntilDirective extends AsyncDirective {
 
@@ -26,7 +23,7 @@ export class UntilDirective extends AsyncDirective {
 		return args.find((x) => !isPromise(x)) ?? noChange;
 	}
 
-	override update(_part: Part, args: unknown[]) {
+	override update(_part: Part, args: unknown[]): unknown {
 		const previousValues = this.__values;
 		let previousLength = previousValues.length;
 		this.__values = args;
@@ -98,17 +95,18 @@ export class UntilDirective extends AsyncDirective {
 		return noChange;
 	}
 
-	override disconnected() {
+	override disconnected(): void {
 		this.__weakThis.disconnect();
 		this.__pauser.pause();
 	}
 
-	override reconnected() {
+	override reconnected(): void {
 		this.__weakThis.reconnect(this);
 		this.__pauser.resume();
 	}
 
 }
+
 
 /**
  * Renders one of a series of values, including Promises, to a Part.
@@ -131,10 +129,4 @@ export class UntilDirective extends AsyncDirective {
  * html`${until(content, html`<span>Loading...</span>`)}`
  * ```
  */
-export const until = directive(UntilDirective);
-
-/**
- * The type of the class that powers this directive. Necessary for naming the
- * directive's return type.
- */
-// export type {UntilDirective};
+export const until: DirectiveFn<typeof UntilDirective> = directive(UntilDirective);

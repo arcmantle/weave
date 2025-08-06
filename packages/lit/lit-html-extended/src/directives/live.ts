@@ -1,30 +1,23 @@
-/**
- * @license
- * Copyright 2020 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */
+/** @license Copyright 2020 Google LLC SPDX-License-Identifier: BSD-3-Clause */
 
-import {
-	Directive,
-	directive,
-	DirectiveParameters,
-	PartInfo,
-	PartType,
-} from './directive.js';
-import { isSingleExpression, setCommittedValue } from './directive-helpers.js';
-import { AttributePart, noChange, nothing } from '../lit-html.js';
+import { noChange, nothing } from '../constants.ts';
+import type { AttributePart } from '../internal.ts';
+import { Directive, directive, type DirectiveFn, type DirectiveParameters, type PartInfo, PartType } from './directive.ts';
+import { isSingleExpression, setCommittedValue } from './directive-helpers.ts';
 
-class LiveDirective extends Directive {
+
+export class LiveDirective extends Directive {
 
 	constructor(partInfo: PartInfo) {
 		super(partInfo);
-		if (
-			!(
-				partInfo.type === PartType.PROPERTY ||
-        partInfo.type === PartType.ATTRIBUTE ||
-        partInfo.type === PartType.BOOLEAN_ATTRIBUTE
-			)
-		) {
+
+		const isCorrectPart = !(
+			partInfo.type === PartType.PROPERTY
+			|| partInfo.type === PartType.ATTRIBUTE
+			|| partInfo.type === PartType.BOOLEAN_ATTRIBUTE
+		);
+
+		if (isCorrectPart) {
 			throw new Error(
 				'The `live` directive is not allowed on child or event bindings',
 			);
@@ -33,11 +26,11 @@ class LiveDirective extends Directive {
 			throw new Error('`live` bindings can only contain a single expression');
 	}
 
-	render(value: unknown) {
+	render(value: unknown): unknown {
 		return value;
 	}
 
-	override update(part: AttributePart, [ value ]: DirectiveParameters<this>) {
+	override update(part: AttributePart, [ value ]: DirectiveParameters<this>): unknown {
 		if (value === noChange || value === nothing)
 			return value;
 
@@ -92,10 +85,4 @@ class LiveDirective extends Directive {
  * you use `live()` with an attribute binding, make sure that only strings are
  * passed in, or the binding will update every render.
  */
-export const live = directive(LiveDirective);
-
-/**
- * The type of the class that powers this directive. Necessary for naming the
- * directive's return type.
- */
-export type { LiveDirective };
+export const live: DirectiveFn<typeof LiveDirective> = directive(LiveDirective);

@@ -1,20 +1,17 @@
-/**
- * @license
- * Copyright 2024 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */
+/** @license Copyright 2024 Google LLC SPDX-License-Identifier: BSD-3-Clause */
 
-import { directive } from './directive.js';
+import { MATHML_RESULT, type MATHMLResult } from '../constants.js';
+import { directive, type DirectiveFn } from './directive.js';
 import { UnsafeHTMLDirective } from './unsafe-html.js';
 
-const MATHML_RESULT = 3;
 
-class UnsafeMathMLDirective extends UnsafeHTMLDirective {
+export class UnsafeMathMLDirective extends UnsafeHTMLDirective {
 
 	static override directiveName = 'unsafeMath';
-	static override resultType = MATHML_RESULT;
+	static override resultType: MATHMLResult = MATHML_RESULT;
 
 }
+
 
 /**
  * Renders the result as MathML, rather than text.
@@ -26,10 +23,4 @@ class UnsafeMathMLDirective extends UnsafeHTMLDirective {
  * sanitized or escaped, as it may lead to cross-site-scripting
  * vulnerabilities.
  */
-export const unsafeMathML = directive(UnsafeMathMLDirective);
-
-/**
- * The type of the class that powers this directive. Necessary for naming the
- * directive's return type.
- */
-export type { UnsafeMathMLDirective as UnsafeMathDirective };
+export const unsafeMathML: DirectiveFn<typeof UnsafeMathMLDirective> = directive(UnsafeMathMLDirective);

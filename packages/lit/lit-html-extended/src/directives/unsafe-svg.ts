@@ -1,20 +1,17 @@
-/**
- * @license
- * Copyright 2017 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */
+/** @license Copyright 2017 Google LLC SPDX-License-Identifier: BSD-3-Clause */
 
-import { directive } from './directive.js';
+import { SVG_RESULT, type SVGResult } from '../constants.js';
+import { directive, type DirectiveFn } from './directive.js';
 import { UnsafeHTMLDirective } from './unsafe-html.js';
 
-const SVG_RESULT = 2;
 
-class UnsafeSVGDirective extends UnsafeHTMLDirective {
+export class UnsafeSVGDirective extends UnsafeHTMLDirective {
 
 	static override directiveName = 'unsafeSVG';
-	static override resultType = SVG_RESULT;
+	static override resultType: SVGResult = SVG_RESULT;
 
 }
+
 
 /**
  * Renders the result as SVG, rather than text.
@@ -26,10 +23,4 @@ class UnsafeSVGDirective extends UnsafeHTMLDirective {
  * sanitized or escaped, as it may lead to cross-site-scripting
  * vulnerabilities.
  */
-export const unsafeSVG = directive(UnsafeSVGDirective);
-
-/**
- * The type of the class that powers this directive. Necessary for naming the
- * directive's return type.
- */
-export type { UnsafeSVGDirective };
+export const unsafeSVG: DirectiveFn<typeof UnsafeSVGDirective> = directive(UnsafeSVGDirective);

@@ -1,19 +1,9 @@
-/**
- * @license
- * Copyright 2020 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */
+/** @license Copyright 2020 Google LLC SPDX-License-Identifier: BSD-3-Clause */
 
-import type {
-	AttributePartInfo,
-	DirectiveClass,
-	DirectiveParent,
-	DirectiveResult,
-	PartInfo,
-} from './directive.js';
 import { ChildPart } from '../parts/child-part.js';
 import type { Part } from '../parts/template.js';
 import type { CompiledTemplateResult, MaybeCompiledTemplateResult, UncompiledTemplateResult } from '../parts/types.js';
+import type { AttributePartInfo, DirectiveClass, DirectiveParent, DirectiveResult, PartInfo } from './directive.js';
 
 
 type Primitive = null | undefined | boolean | number | string | symbol | bigint;
@@ -29,12 +19,11 @@ type ShadyWindow = typeof window & {
 
 const ENABLE_SHADYDOM_NOPATCH = true;
 
-const wrap =
-  ENABLE_SHADYDOM_NOPATCH &&
-  (window as ShadyWindow).ShadyDOM?.inUse &&
-  (window as ShadyWindow).ShadyDOM?.noPatch === true
-  	? (window as ShadyWindow).ShadyDOM!.wrap
-  	: (node: Node) => node;
+const wrap = ENABLE_SHADYDOM_NOPATCH
+  && (window as ShadyWindow).ShadyDOM?.inUse
+  && (window as ShadyWindow).ShadyDOM?.noPatch === true
+	? (window as ShadyWindow).ShadyDOM!.wrap
+	: (node: Node) => node;
 
 
 /**
@@ -44,6 +33,10 @@ const wrap =
  */
 export const isPrimitive = (value: unknown): value is Primitive =>
 	value === null || (typeof value != 'object' && typeof value != 'function');
+
+
+export const isPromise = (x: unknown): x is Promise<any> =>
+	!isPrimitive(x) && typeof (x as { then?: unknown; }).then === 'function';
 
 
 export const TemplateResultType = {
@@ -270,3 +263,17 @@ export const removePart = (part: ChildPart): void => {
 
 
 export const clearPart = (part: ChildPart): void => part._$clear();
+
+
+// Helper for generating a map of array item to its index over a subset
+// of an array (used to lazily generate `newKeyToIndexMap` and
+// `oldKeyToIndexMap`)
+export const generateMap = (
+	list: unknown[], start: number, end: number,
+): Map<unknown, number> => {
+	const map: Map<unknown, number> = new Map();
+	for (let i = start; i <= end; i++)
+		map.set(list[i], i);
+
+	return map;
+};

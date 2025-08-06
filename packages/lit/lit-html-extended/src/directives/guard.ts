@@ -1,26 +1,23 @@
-/**
- * @license
- * Copyright 2018 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */
+/** @license Copyright 2018 Google LLC SPDX-License-Identifier: BSD-3-Clause */
 
-import { noChange, Part } from '../lit-html.js';
-import { Directive, directive, DirectiveParameters } from './directive.js';
+import { noChange } from '../constants.ts';
+import type { Part } from '../parts/template.ts';
+import { Directive, directive, type DirectiveFn, type DirectiveParameters } from './directive.ts';
 
 
 // A sentinel that indicates guard() hasn't rendered anything yet
 const initialValue = {};
 
 
-class GuardDirective extends Directive {
+export class GuardDirective extends Directive {
 
 	private _previousValue: unknown = initialValue;
 
-	render(_value: unknown, f: () => unknown) {
+	render(_value: unknown, f: () => unknown): unknown {
 		return f();
 	}
 
-	override update(_part: Part, [ value, f ]: DirectiveParameters<this>) {
+	override update(_part: Part, [ value, f ]: DirectiveParameters<this>): unknown {
 		if (Array.isArray(value)) {
 			// Dirty-check arrays by item
 			if (
@@ -86,10 +83,4 @@ class GuardDirective extends Directive {
  * @param value the value to check before re-rendering
  * @param f the template function
  */
-export const guard = directive(GuardDirective);
-
-/**
- * The type of the class that powers this directive. Necessary for naming the
- * directive's return type.
- */
-export type { GuardDirective };
+export const guard: DirectiveFn<typeof GuardDirective> = directive(GuardDirective);

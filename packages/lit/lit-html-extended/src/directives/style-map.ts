@@ -1,17 +1,9 @@
-/**
- * @license
- * Copyright 2018 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */
+/** @license Copyright 2018 Google LLC SPDX-License-Identifier: BSD-3-Clause */
 
-import {
-	Directive,
-	directive,
-	DirectiveParameters,
-	PartInfo,
-	PartType,
-} from './directive.js';
-import { AttributePart, noChange } from '../lit-html.js';
+import { noChange } from '../constants.ts';
+import type { AttributePart } from '../internal.ts';
+import { Directive, directive, type DirectiveFn, type DirectiveParameters, type PartInfo, PartType } from './directive.ts';
+
 
 /**
  * A key-value set of CSS properties and values.
@@ -24,13 +16,15 @@ export interface StyleInfo {
 	[name: string]: string | number | undefined | null;
 }
 
+
 const important = 'important';
 // The leading space is important
 const importantFlag = ' !' + important;
 // How many characters to remove from a value, as a negative number
 const flagTrim = 0 - importantFlag.length;
 
-class StyleMapDirective extends Directive {
+
+export class StyleMapDirective extends Directive {
 
 	private _previousStyleProperties?: Set<string>;
 
@@ -48,7 +42,7 @@ class StyleMapDirective extends Directive {
 		}
 	}
 
-	render(styleInfo: Readonly<StyleInfo>) {
+	render(styleInfo: Readonly<StyleInfo>): unknown {
 		return Object.keys(styleInfo).reduce((style, prop) => {
 			const value = styleInfo[prop];
 			if (value == null)
@@ -71,8 +65,8 @@ class StyleMapDirective extends Directive {
 		}, '');
 	}
 
-	override update(part: AttributePart, [ styleInfo ]: DirectiveParameters<this>) {
-		const { style } = part.element as HTMLElement;
+	override update(part: AttributePart, [ styleInfo ]: DirectiveParameters<this>): unknown {
+		const { style } = part.element;
 
 		if (this._previousStyleProperties === undefined) {
 			this._previousStyleProperties = new Set(Object.keys(styleInfo));
@@ -123,6 +117,7 @@ class StyleMapDirective extends Directive {
 
 }
 
+
 /**
  * A directive that applies CSS properties to an element.
  *
@@ -143,10 +138,4 @@ class StyleMapDirective extends Directive {
  * @param styleInfo
  * @see {@link https://lit.dev/docs/templates/directives/#stylemap styleMap code samples on Lit.dev}
  */
-export const styleMap = directive(StyleMapDirective);
-
-/**
- * The type of the class that powers this directive. Necessary for naming the
- * directive's return type.
- */
-export type { StyleMapDirective };
+export const styleMap: DirectiveFn<typeof StyleMapDirective> = directive(StyleMapDirective);

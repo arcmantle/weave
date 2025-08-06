@@ -1,8 +1,4 @@
-/**
- * @license
- * Copyright 2021 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */
+/** @license Copyright 2021 Google LLC SPDX-License-Identifier: BSD-3-Clause */
 
 /**
  * Returns an iterable of integers from `start` to `end` (exclusive)
@@ -21,12 +17,9 @@
  * ```
  */
 export function range(end: number): Iterable<number>;
-export function range(
-	start: number,
-	end: number,
-	step?: number
-): Iterable<number>;
-export function* range(startOrEnd: number, end?: number, step = 1) {
+// eslint-disable-next-line @typescript-eslint/unified-signatures
+export function range(start: number, end: number, step?: number): Iterable<number>;
+export function* range(startOrEnd: number, end?: number, step = 1): Iterable<number> {
 	const start = end === undefined ? 0 : startOrEnd;
 	end ??= startOrEnd;
 	for (let i = start; step > 0 ? i < end : end < i; i += step)
