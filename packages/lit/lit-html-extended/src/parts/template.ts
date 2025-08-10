@@ -55,6 +55,12 @@ export type Part =
 /** @internal */
 export class Template {
 
+	static ctors = {
+		'.': PropertyPart,
+		'?': BooleanAttributePart,
+		'@': EventPart,
+	} as Record<keyof any, any>;
+
 	/** @internal */
 	el: HTMLTemplateElement;
 
@@ -83,7 +89,12 @@ export class Template {
 		}
 
 		// Walk the template to find binding markers and create TemplateParts
-		while ((node = walker.nextNode()) !== null && parts.length < partCount) {
+		while (true) {
+			if ((node = walker.nextNode()) === null)
+				break;
+			if (parts.length >= partCount)
+				break;
+
 			if (node.nodeType === 1) {
 				if (DEV_MODE.value) {
 					const tag = (node as Element).localName;
@@ -103,6 +114,8 @@ export class Template {
 							issueWarning('', m);
 					}
 				}
+
+
 				// TODO (justinfagnani):
 				// for attempted dynamic tag names, we don't increment the bindingIndex,
 				// and it'll be off by 1 in the element and off by two after it.
@@ -112,19 +125,16 @@ export class Template {
 							const realName = attrNames[attrNameIndex++]!;
 							const value = (node as Element).getAttribute(name)!;
 							const statics = value.split(marker);
-							const m = /([.?@])?(.*)/.exec(realName)!;
+							const m = /([.?@])?(.*)/.exec(realName)! as any as [
+								unknown, string, string,
+							];
+
 							parts.push({
 								type:    ATTRIBUTE_PART,
 								index:   nodeIndex,
-								name:    m[2]!,
+								name:    m[2],
 								strings: statics,
-								ctor:    m[1] === '.'
-									? PropertyPart
-									: m[1] === '?'
-										? BooleanAttributePart
-										: m[1] === '@'
-											? EventPart
-											: AttributePart,
+								ctor:    Template.ctors[m[1]] ?? AttributePart,
 							});
 							(node as Element).removeAttribute(name);
 						}
@@ -137,6 +147,7 @@ export class Template {
 						}
 					}
 				}
+
 				// TODO (justinfagnani):
 				// benchmark the regex against testing for each of the 3 raw text element names.
 				if (rawTextElement.test((node as Element).tagName)) {
@@ -158,6 +169,7 @@ export class Template {
 							walker.nextNode();
 							parts.push({ type: CHILD_PART, index: ++nodeIndex });
 						}
+
 						// Note because this marker is added after the walker's current
 						// node, it will be walked to in the outer loop (and ignored), so
 						// we don't need to adjust nodeIndex here
@@ -239,7 +251,8 @@ export class TemplateInstance implements Disconnectable {
 	_$parts:    (Part | undefined)[] = [];
 
 	/** @internal */
-	_$parent:                  ChildPart;
+	_$parent: ChildPart;
+
 	/** @internal */
 	_$disconnectableChildren?: Set<Disconnectable> = undefined;
 
@@ -299,8 +312,7 @@ export class TemplateInstance implements Disconnectable {
 		}
 
 		// We need to set the currentNode away from the cloned tree so that we
-		// don't hold onto the tree even if the tree is detached and should be
-		// freed.
+		// don't hold onto the tree even if the tree is detached and should be freed.
 		walker.currentNode = doc;
 
 		return fragment;
@@ -321,6 +333,7 @@ export class TemplateInstance implements Disconnectable {
 
 				if ((part as AttributePart).strings !== undefined) {
 					(part as AttributePart)._$setValue(values, part as AttributePart, i);
+
 					// The number of values the part consumes is part.strings.length - 1
 					// since values are in between template spans. We increment i by 1
 					// later in the loop, so increment it by part.strings.length - 2 here
