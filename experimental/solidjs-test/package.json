@@ -1,0 +1,14 @@
+{
+	"name": "experimental-solidjs-test",
+	"version": "1.0.0",
+	"description": "description",
+	"author": "author",
+	"main": "pathToMain",
+	"dependencies": {
+		"solid-js": "^1.9.5"
+	},
+	"devDependencies": {
+		"vite": "^6.0.0",
+		"vite-plugin-solid": "^2.11.6"
+	}
+}
