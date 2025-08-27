@@ -1,6 +1,6 @@
 import { AdapterElement, state } from '@arcmantle/adapter-element/adapter';
 import { css, type CSSStyle } from '@arcmantle/adapter-element/shared';
-import { For, type ToComponent, toComponent, toTag } from '@arcmantle/lit-jsx';
+import { For, type ToComponent, toComponent } from '@arcmantle/lit-jsx';
 
 import { Icon } from '../components/icon.tsx';
 import type { ContentCtor, ContentManifest } from '../extensions/create-manifest.ts';
@@ -20,10 +20,7 @@ export class ActivitybarCmp extends AdapterElement {
 	}
 
 	protected override render(): unknown {
-		const Tag = toTag(this.element.className === 'something' ? 'div' : 'a');
-
 		return <>
-			<Tag static about={''} href={''}></Tag>
 			<s-top-actions>
 				<For each={ this.tabs }>
 					{({ tab }) => <button on-click={tab.onClick}>

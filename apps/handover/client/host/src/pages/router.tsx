@@ -67,24 +67,28 @@ export class RouterCmp extends AdapterElement {
 			<PrimarySidebar
 				activeTemplateId={this.layoutState.primarySidebar}
 				class="primary-sidebar"
+				static
 			></PrimarySidebar>
 
 			<EditorArea
 				activeTemplateId={this.layoutState.primaryPanel}
 				class="primary-panel"
+				static
 			></EditorArea>
 
 			<SecondarySidebar
 				activeTemplateId={this.layoutState.secondarySidebar}
 				class="secondary-sidebar"
+				static
 			></SecondarySidebar>
 
 			<PanelArea
 				activeTemplateId={this.layoutState.secondaryPanel}
 				class="secondary-panel"
+				static
 			></PanelArea>
 
-			<Statusbar class="statusbar"></Statusbar>
+			<Statusbar class="statusbar" static></Statusbar>
 		</>;
 	}
 
