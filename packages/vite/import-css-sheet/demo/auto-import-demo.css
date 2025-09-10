@@ -1,0 +1,20 @@
+/* Styles that will be automatically imported by the plugin */
+.container {
+	background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+	border-radius: 12px;
+	padding: 24px;
+	color: white;
+	font-family: 'Arial', sans-serif;
+}
+
+.container h1 {
+	margin: 0 0 16px 0;
+	font-size: 2rem;
+	text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.container p {
+	margin: 0;
+	font-size: 1.1rem;
+	opacity: 0.9;
+}

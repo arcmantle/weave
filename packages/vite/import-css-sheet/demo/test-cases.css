@@ -1,0 +1,19 @@
+/* Test CSS for test-cases.ts auto-import functionality */
+.test-case {
+	border: 2px solid #333;
+	margin: 8px;
+	padding: 16px;
+	border-radius: 8px;
+}
+
+.test-case-1 {
+	background: #ffeeee;
+}
+
+.test-case-2 {
+	background: #eeeeff;
+}
+
+.test-case-3 {
+	background: #eeffee;
+}

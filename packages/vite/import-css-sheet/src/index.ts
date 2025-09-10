@@ -7,6 +7,19 @@ export const importCSSSheet = (options?: Partial<{
 	transformers:   ((code: string, id: string) => string)[];
 	additionalCode: string[];
 	minify:         boolean;
+	/** Enables auto import and assignment of stylesheet. */
+	autoImport:     {
+		/**
+		 * Tuple identifying the class and style property to use when augmenting
+		 * the class with the imported CSSStyleSheet.
+		 */
+		identifier: [
+			/** Class where the auto imported CSStylesheet will be automatically added */
+			className: string,
+			/** Identifier to use for the imported CSStylesheet */
+			styleName: string,
+		][];
+	};
 }>): PluginOption => {
 	const {
 		transformers = [],
@@ -25,6 +38,7 @@ export const importCSSSheet = (options?: Partial<{
 				transformers,
 				additionalCode,
 				minify,
+				options?.autoImport,
 			);
 		},
 		resolveId: {
@@ -37,6 +51,14 @@ export const importCSSSheet = (options?: Partial<{
 		},
 		load(id, options) {
 			return importSheet.load(this, id, options);
+		},
+		transform: {
+			filter: {
+				id: [ /\.ts$|\.mts$|\.tsx$|\.js$|\.mjs$|\.jsx$/ ],
+			},
+			handler(code, id, options) {
+				return importSheet.transform(code, id, options);
+			},
 		},
 		buildEnd() {
 			if (importSheet.config.mode !== 'development') {
