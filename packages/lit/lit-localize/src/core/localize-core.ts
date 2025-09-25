@@ -6,33 +6,33 @@ type Func = (...args: any) => any;
 
 export abstract class TermStore {
 
-	public static loadTerms(...args: Parameters<TermStore['setTerms']>) {
+	static loadTerms(...args: Parameters<TermStore['setTerms']>) {
 		return termFunctionRefs.loadRef!(...args);
 	}
 
-	public static requestTerm(...args: Parameters<TermStore['requestTerm']>) {
+	static requestTerm(...args: Parameters<TermStore['requestTerm']>) {
 		return termFunctionRefs.requestRef!(...args);
 	}
 
-	public static toggleListener(...args: Parameters<TermStore['toggleListener']>) {
+	static toggleListener(...args: Parameters<TermStore['toggleListener']>) {
 		return termFunctionRefs.toggleRef!(...args);
 	}
 
-	public static start() {
+	static start() {
 		if (!this.instance)
 			return void (this.instance = new (this as any)());
 
 		console.error('Term store instance already active.');
 	}
 
-	public static instance: TermStore;
+	static instance: TermStore;
 
-	protected store = new Map<string, string>();
-	protected listeners = new Map<string, Set<WeakRef<Func>>>();
-	protected gcRegistry = new FinalizationRegistry<{
+	protected store:      Map<string, string> = new Map();
+	protected listeners:  Map<string, Set<WeakRef<Func>>> = new Map();
+	protected gcRegistry: FinalizationRegistry<{
 		ref: WeakRef<Func>;
 		set: Set<WeakRef<Func>>;
-	}>(({ set, ref }) => void set.delete(ref));
+	}> = new FinalizationRegistry(({ set, ref }) => void set.delete(ref));
 
 	protected langChangeObs = new MutationObserver(() => this.onLanguageChange());
 
@@ -67,7 +67,7 @@ export abstract class TermStore {
 
 	protected toggleListener(term: string, callback: Func, state: boolean): void {
 		const set = this.listeners.get(term) ?? (() => {
-			const set = new Set<WeakRef<Func>>();
+			const set: Set<WeakRef<Func>> = new Set();
 
 			return this.listeners.set(term, set), set;
 		})();
@@ -113,7 +113,7 @@ export abstract class TermStore {
 		);
 	}
 
-	public setTerm(lang: string, term: string, text: string) {
+	setTerm(lang: string, term: string, text: string) {
 		this.store.set(this.createCacheKey(lang, term), text);
 
 		// Invoke any listeners for this term.
@@ -129,22 +129,22 @@ export abstract class TermStore {
 		}
 	}
 
-	public setTerms(lang: string, terms: [term: string, text: string][]) {
+	setTerms(lang: string, terms: [term: string, text: string][]) {
 		for (const [ term, text ] of terms)
 			this.setTerm(lang, term, text);
 
 		this.onLanguageChange();
 	}
 
-	public getTerm(term: string, lang: string) {
+	getTerm(term: string, lang: string) {
 		return this.store.get(this.createCacheKey(lang, term));
 	}
 
-	public hasTerm(term: string, lang: string) {
+	hasTerm(term: string, lang: string) {
 		return this.store.has(this.createCacheKey(lang, term));
 	}
 
-	public detectLanguage() {
+	detectLanguage() {
 		return document.documentElement.getAttribute('lang') ?? 'en';
 	}
 
@@ -156,9 +156,9 @@ export abstract class TermStore {
 
 
 const termFunctionRefs: Partial<{
-	loadRef:    TermStore['setTerms'],
-	toggleRef:  TermStore['toggleListener'],
-	requestRef: TermStore['requestTerm'],
+	loadRef:    TermStore['setTerms'];
+	toggleRef:  TermStore['toggleListener'];
+	requestRef: TermStore['requestTerm'];
 }> = {};
 
 

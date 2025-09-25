@@ -27,18 +27,18 @@
 		"typecheck": "tsc --project ./tsconfig.json"
 	},
 	"dependencies": {
-		"@arcmantle/library": "workspace:^",
+		"@arcmantle/library": "catalog:",
 		"@arcmantle/lit-localize": "workspace:^",
 		"@arcmantle/lit-utilities": "workspace:^",
-		"@floating-ui/dom": "^1.6.13",
-		"lit": "^3.3.0",
-		"tslib": "^2.8.1"
+		"@floating-ui/dom": "catalog:",
+		"lit": "catalog:",
+		"tslib": "catalog:"
 	},
 	"devDependencies": {
 		"@arcmantle/elements": "workspace:^",
 		"@arcmantle/mirage-docs": "workspace:^",
-		"@arcmantle/vite-lib-config": "workspace:^",
+		"@arcmantle/vite-lib-config": "catalog:",
 		"@arcmantle/vite-plugin-import-css-sheet": "workspace:^",
-		"@faker-js/faker": "^9.7.0"
+		"@faker-js/faker": "catalog:"
 	}
 }

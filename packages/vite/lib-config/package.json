@@ -23,10 +23,10 @@
 		"build": "rimraf dist && tsc --project ./src/tsconfig.json"
 	},
 	"dependencies": {
-		"deepmerge-ts": "^7.1.5"
+		"deepmerge-ts": "catalog:"
 	},
 	"devDependencies": {
-		"vite": "^7.0.0"
+		"vite": "catalog:"
 	},
 	"engines": {
 		"node": ">=22"

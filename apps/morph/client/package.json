@@ -17,17 +17,17 @@
 	},
 	"dependencies": {
 		"@arcmantle/elements": "workspace:^",
-		"@arcmantle/library": "workspace:^",
+		"@arcmantle/library": "catalog:",
 		"@arcmantle/lit-context": "workspace:^",
 		"@arcmantle/lit-state-store": "workspace:^",
 		"@arcmantle/lit-utilities": "workspace:^",
-		"@faker-js/faker": "^9.7.0",
-		"@floating-ui/dom": "^1.6.13",
-		"@lit-labs/preact-signals": "^1.0.3",
-		"lit": "^3.3.0",
-		"monaco-editor": "^0.52.2",
-		"socket.io-client": "^4.8.1",
-		"tslib": "^2.8.1"
+		"@faker-js/faker": "catalog:",
+		"@floating-ui/dom": "catalog:",
+		"@lit-labs/preact-signals": "catalog:",
+		"lit": "catalog:",
+		"monaco-editor": "catalog:",
+		"socket.io-client": "catalog:",
+		"tslib": "catalog:"
 	},
 	"devDependencies": {
 		"@arcmantle/vite-plugin-html-module": "workspace:^",

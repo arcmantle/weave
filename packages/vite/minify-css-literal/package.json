@@ -2,12 +2,12 @@
 	"name": "@arcmantle/vite-plugin-minify-css-literal",
 	"version": "1.0.0",
 	"description": "Minifies css literals.",
-	"license": "Apache-2.0",
-	"author": "Kristoffer Roen-Lie",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/arcmantle/vite-plugin-minify-css-literal.git"
 	},
+	"license": "Apache-2.0",
+	"author": "Kristoffer Roen-Lie",
 	"type": "module",
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
@@ -22,17 +22,17 @@
 		"dev": "vite --config ./demo/vite.config.ts"
 	},
 	"dependencies": {
-		"@babel/parser": "^7.27.0",
-		"@babel/traverse": "^7.27.0",
-		"@babel/types": "^7.27.0",
-		"lightningcss": "^1.29.3",
-		"magic-string": "^0.30.17"
+		"@babel/parser": "catalog:",
+		"@babel/traverse": "catalog:",
+		"@babel/types": "catalog:",
+		"lightningcss": "catalog:",
+		"magic-string": "catalog:"
 	},
 	"devDependencies": {
-		"@types/babel__traverse": "^7.20.7",
-		"lit": "^3.3.0",
-		"rollup": "^4.40.0",
-		"vite": "^7.0.0"
+		"@types/babel__traverse": "catalog:",
+		"lit": "catalog:",
+		"rollup": "catalog:",
+		"vite": "catalog:"
 	},
 	"engines": {
 		"node": ">=22"

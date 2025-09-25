@@ -9,13 +9,13 @@
 		"test": "vitest --dom ./src/**/*.test.ts"
 	},
 	"dependencies": {
-		"@arcmantle/adapter-element": "workspace:^",
-		"lit-html": "^3.3.0"
+		"@arcmantle/adapter-element": "catalog:",
+		"lit-html": "catalog:"
 	},
 	"devDependencies": {
 		"@arcmantle/mirage-docs": "workspace:^",
-		"@arcmantle/vite-lib-config": "workspace:^",
+		"@arcmantle/vite-lib-config": "catalog:",
 		"@arcmantle/vite-plugin-sass": "workspace:^",
-		"lit": "^3.3.0"
+		"lit": "catalog:"
 	}
 }

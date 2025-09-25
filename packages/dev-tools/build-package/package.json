@@ -13,7 +13,7 @@
 		"build-package": "./bin/index.ts"
 	},
 	"dependencies": {
-		"@types/semver": "^7.7.0",
-		"semver": "^7.7.2"
+		"@types/semver": "catalog:",
+		"semver": "catalog:"
 	}
 }

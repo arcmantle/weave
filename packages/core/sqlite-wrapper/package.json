@@ -18,9 +18,9 @@
 		"build": "rimraf dist && tsc --project ./src/tsconfig.json"
 	},
 	"dependencies": {
-		"better-sqlite3": "^11.9.1"
+		"better-sqlite3": "catalog:"
 	},
 	"devDependencies": {
-		"@types/better-sqlite3": "^7.6.13"
+		"@types/better-sqlite3": "catalog:"
 	}
 }

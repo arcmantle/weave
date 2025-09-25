@@ -14,41 +14,11 @@
 		"@arcmantle/eslint-config": "workspace:^",
 		"@arcmantle/package-toolbox": "workspace:^",
 		"@arcmantle/tsconfig": "workspace:^",
-		"@types/node": "^24.0.3",
-		"typedoc": "^0.28.7",
-		"typedoc-github-theme": "^0.3.0",
-		"typescript": "^5.8.3",
-		"vite": "^7.0.0",
-		"vitest": "^3.2.4"
-	},
-	"pnpm": {
-		"onlyBuiltDependencies": [
-			"@firebase/util",
-			"@nestjs/core",
-			"@parcel/watcher",
-			"@tailwindcss/oxide",
-			"bcrypt",
-			"better-sqlite3",
-			"esbuild",
-			"msw",
-			"oxc-resolver",
-			"protobufjs",
-			"sharp",
-			"tesseract.js",
-			"workerd"
-		],
-		"overrides": {
-			"@arcmantle/lit-jsx": "workspace:^",
-			"@arcmantle/library": "workspace:^",
-			"@arcmantle/injector": "workspace:^",
-			"@arcmantle/vite-lib-config": "workspace:^",
-			"@arcmantle/vite-plugin-copy": "workspace:^",
-			"@arcmantle/mirage-mde-display": "workspace:^",
-			"@arcmantle/adapter-element": "workspace:^",
-			"@arcmantle/elements": "workspace:^",
-			"@arcmantle/lit-utilities": "workspace:^",
-			"@arcmantle/posix-path-browser": "workspace:^",
-			"@arcmantle/vite-plugin-import-css-sheet": "workspace:^"
-		}
+		"@types/node": "catalog:",
+		"typedoc": "catalog:",
+		"typedoc-github-theme": "catalog:",
+		"typescript": "catalog:",
+		"vite": "catalog:",
+		"vitest": "catalog:"
 	}
 }

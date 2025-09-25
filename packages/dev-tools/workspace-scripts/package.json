@@ -14,7 +14,7 @@
 		"release": "pnpm build-toolbox && node ./build-package.ts --publish"
 	},
 	"devDependencies": {
-		"@types/node": "^22.14.1"
+		"@types/node": "catalog:"
 	},
 	"authors": "Kristoffer Roen-Lie"
 }

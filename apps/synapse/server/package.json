@@ -14,28 +14,28 @@
 		"start": "tsx ./src/index.ts"
 	},
 	"dependencies": {
-		"@arcmantle/library": "workspace:^",
+		"@arcmantle/library": "catalog:",
 		"@arcmantle/sqlite-wrapper": "workspace:^",
 		"@arcmantle/synapse-server": "workspace:^",
-		"better-sqlite3": "^11.9.1",
-		"cors": "^2.8.5",
-		"dotenv": "^16.5.0",
-		"env-paths": "^3.0.0",
-		"express": "^5.1.0",
-		"formidable": "^3.5.2",
-		"globby": "^14.1.0",
-		"mime": "^4.0.7",
-		"nodemon": "^3.1.9",
-		"pino": "^9.6.0",
-		"rotating-file-stream": "^3.2.6",
-		"tesseract.js": "^6.0.1",
-		"tslib": "^2.8.1",
-		"weaviate-client": "^3.5.2"
+		"better-sqlite3": "catalog:",
+		"cors": "catalog:",
+		"dotenv": "catalog:",
+		"env-paths": "catalog:",
+		"express": "catalog:",
+		"formidable": "catalog:",
+		"globby": "catalog:",
+		"mime": "catalog:",
+		"nodemon": "catalog:",
+		"pino": "catalog:",
+		"rotating-file-stream": "catalog:",
+		"tesseract.js": "catalog:",
+		"tslib": "catalog:",
+		"weaviate-client": "catalog:"
 	},
 	"devDependencies": {
-		"@types/cors": "^2.8.17",
-		"@types/express": "^5.0.1",
-		"@types/formidable": "^3.4.5",
-		"tsx": "^4.19.3"
+		"@types/cors": "catalog:",
+		"@types/express": "catalog:",
+		"@types/formidable": "catalog:",
+		"tsx": "catalog:"
 	}
 }

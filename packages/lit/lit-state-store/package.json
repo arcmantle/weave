@@ -28,10 +28,10 @@
 		"test:dom": "vitest --dom"
 	},
 	"dependencies": {
-		"@arcmantle/library": "workspace:^",
-		"lit": "^3.3.0"
+		"@arcmantle/library": "catalog:",
+		"lit": "catalog:"
 	},
 	"devDependencies": {
-		"@arcmantle/vite-lib-config": "workspace:^"
+		"@arcmantle/vite-lib-config": "catalog:"
 	}
 }

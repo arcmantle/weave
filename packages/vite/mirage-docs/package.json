@@ -38,32 +38,32 @@
 		"test": "vitest --config ./tests/vite.config.ts"
 	},
 	"dependencies": {
-		"@arcmantle/adapter-element": "workspace:^",
-		"@arcmantle/injector": "workspace:^",
-		"@arcmantle/library": "workspace:^",
+		"@arcmantle/adapter-element": "catalog:",
+		"@arcmantle/injector": "catalog:",
+		"@arcmantle/library": "catalog:",
 		"@arcmantle/monaco-editor-wc": "workspace:^",
-		"@arcmantle/vite-plugin-copy": "workspace:^",
-		"@custom-elements-manifest/analyzer": "^0.10.4",
-		"@orama/orama": "3.1.6",
-		"@orama/plugin-data-persistence": "3.1.6",
-		"@orama/plugin-match-highlight": "3.1.6",
-		"@orama/plugin-parsedoc": "3.1.6",
-		"@sindresorhus/slugify": "^2.2.1",
-		"deepmerge-ts": "^7.1.5",
-		"globby": "^14.1.0",
-		"highlight.js": "^11.11.1",
-		"markdown-it": "^14.1.0",
-		"markdown-it-anchor": "^9.2.0",
-		"mermaid": "^11.6.0",
-		"tabbable": "^6.2.0",
-		"tslib": "^2.8.1"
+		"@arcmantle/vite-plugin-copy": "catalog:",
+		"@custom-elements-manifest/analyzer": "catalog:",
+		"@orama/orama": "catalog:",
+		"@orama/plugin-data-persistence": "catalog:",
+		"@orama/plugin-match-highlight": "catalog:",
+		"@orama/plugin-parsedoc": "catalog:",
+		"@sindresorhus/slugify": "catalog:",
+		"deepmerge-ts": "catalog:",
+		"globby": "catalog:",
+		"highlight.js": "catalog:",
+		"markdown-it": "catalog:",
+		"markdown-it-anchor": "catalog:",
+		"mermaid": "catalog:",
+		"tabbable": "catalog:",
+		"tslib": "catalog:"
 	},
 	"devDependencies": {
-		"@types/markdown-it": "^14.1.2",
-		"@types/sharedworker": "^0.0.155"
+		"@types/markdown-it": "catalog:",
+		"@types/sharedworker": "catalog:"
 	},
 	"peerDependencies": {
-		"lit": "^3.2.1",
-		"vite": "^6.2.4"
+		"lit": "catalog:",
+		"vite": "catalog:"
 	}
 }

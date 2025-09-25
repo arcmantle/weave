@@ -42,7 +42,7 @@
 		"test": "vitest --config ./vite.config.test.ts"
 	},
 	"dependencies": {
-		"nanoid": "^5.1.5",
-		"ts-toolbelt": "^9.6.0"
+		"nanoid": "catalog:",
+		"ts-toolbelt": "catalog:"
 	}
 }
