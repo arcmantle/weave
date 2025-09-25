@@ -6,27 +6,31 @@ import { cssreset } from '../styles/css-reset.ts';
 import badgeStyles from './badge.css' with { type: 'css' };
 
 
-class BadgeCmp extends AdapterElement {
+export type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline';
+
+
+export class BadgeCmp extends AdapterElement {
 
 	static override tagName = 'ho-badge';
 
-	@property(String) accessor variant: 'default' | 'secondary' | 'destructive' | 'outline' = 'default';
+	@property(String) accessor variant: BadgeVariant = 'default';
 	@property(String) accessor href: string | undefined;
 
 	protected override render(): unknown {
 		const Wrapper = toTag(this.href ? 'a' : 'span');
 
-		return (
+		return <>
 			<Wrapper
 				id="base"
 				tabindex="0"
 				href={ ifDefined(this.href) }
 				classList={{ [this.variant]: true }}
+				static
 			>
 				<slot></slot>
 			</Wrapper>
-		);
-	}
+		</>;
+	};
 
 	static override styles: CSSStyle = [
 		cssreset,

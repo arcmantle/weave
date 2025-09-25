@@ -44,7 +44,9 @@ export class SecondarySidebarCmp extends ContentArea {
 			return;
 
 		return <>
-			<s-drag-handle on-mousedown={this.onWrapperMousedown}></s-drag-handle>
+			<s-drag-handle
+				on-mousedown={this.onWrapperMousedown}
+			></s-drag-handle>
 
 			<s-wrapper>
 			</s-wrapper>

@@ -24,7 +24,7 @@ export class ActivitybarCmp extends AdapterElement {
 			<s-top-actions>
 				<For each={ this.tabs }>
 					{({ tab }) => <button on-click={tab.onClick}>
-						<Icon static class="icon" url={tab.icon}></Icon>
+						<Icon class="icon" url={tab.icon} static></Icon>
 					</button>}
 				</For>
 			</s-top-actions>

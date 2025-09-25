@@ -11,19 +11,19 @@ export class BadgePageCmp extends AdapterElement {
 	protected override render(): unknown {
 		return (
 			<>
-				<Badge variant="default">
+				<Badge variant="default" static>
 					Badge
 				</Badge>
 
-				<Badge variant="secondary">
+				<Badge variant="secondary" static>
 					Badge
 				</Badge>
 
-				<Badge variant="outline">
+				<Badge variant="outline" static>
 					Badge
 				</Badge>
 
-				<Badge variant="destructive">
+				<Badge variant="destructive" static>
 					Badge
 				</Badge>
 			</>

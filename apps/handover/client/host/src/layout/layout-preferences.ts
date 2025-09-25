@@ -1,5 +1,6 @@
 import { type Signal, signal } from '@arcmantle/adapter-element/shared';
 
+
 class LocalStorageManager {
 
 	static getItem<T>(key: string, fallback: T): T {

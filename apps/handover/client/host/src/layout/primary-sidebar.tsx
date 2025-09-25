@@ -50,7 +50,7 @@ export class PrimarySidebarCmp extends ContentArea {
 
 	protected override render(): unknown {
 		return <>
-			<Activitybar class="activitybar"></Activitybar>
+			<Activitybar class="activitybar" static></Activitybar>
 
 			<Show when={this.primarySidebar.visible.value}>
 				{() => <s-wrapper>
