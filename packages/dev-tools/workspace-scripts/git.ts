@@ -64,7 +64,7 @@ const getWorkspaceDependants = async (packagePath: string) => {
 	const initialPackage = getPackageFromPath(packagePath);
 	const packages = packagePaths.map(path => getPackageFromPath(path));
 
-	const dependants = new Set<Package>();
+	const dependants: Set<Package> = new Set();
 	const getDependants = (pkg: Package) => {
 		dependants.add(pkg);
 
@@ -88,7 +88,7 @@ let packagesToIncrement: Package[] = [];
 for (const path of packagePathsChanged)
 	packagesToIncrement.push(...(await getWorkspaceDependants(resolve(path))));
 
-const map = new Map<string, Package>();
+const map: Map<string, Package> = new Map();
 packagesToIncrement.forEach(pkg => map.set(pkg.name, pkg));
 packagesToIncrement = [ ...map ].map(([ , pkg ]) => pkg);
 
