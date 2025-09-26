@@ -4,6 +4,9 @@ packages:
   - components/**/*
   - experimental/**/*
 
+publicHoistPattern:
+  - "*eslint*"
+
 onlyBuiltDependencies:
   - "@firebase/util"
   - "@nestjs/core"
