@@ -6,11 +6,14 @@ type PathSelector<T> = (object: T) => any;
 
 type PathMode = 'exact' | 'up' | 'down';
 
+interface PathTrieNode {
+	children: Map<string, PathTrieNode>;
+	modes:    Map<PathMode, Set<ChangeListener>>;
+}
+
 interface ListenerBucket {
 	global: Set<ChangeListener>;
-	// Keyed by a stable stringified representation of the path segments
-	// Value stores the original segments and the mode->listeners map
-	paths:  Map<string, { segs: string[]; modes: Map<PathMode, Set<ChangeListener>>; }>;
+	trie:   PathTrieNode;
 }
 
 const listenerCache: WeakMap<object, ListenerBucket> = new WeakMap();
@@ -156,7 +159,7 @@ const ensureListenerBucket = (root: object): ListenerBucket => {
 	if (!bucket) {
 		bucket = {
 			global: new Set<ChangeListener>(),
-			paths:  new Map<string, { segs: string[]; modes: Map<PathMode, Set<ChangeListener>>; }>(),
+			trie:   { children: new Map<string, PathTrieNode>(), modes: new Map<PathMode, Set<ChangeListener>>() },
 		};
 		listenerCache.set(root, bucket);
 	}
@@ -164,45 +167,96 @@ const ensureListenerBucket = (root: object): ListenerBucket => {
 	return bucket;
 };
 
+const isNodeEmpty = (node: PathTrieNode): boolean => node.children.size === 0 && (node.modes.size === 0);
+
 const cleanupListenerBucket = (root: object, bucket: ListenerBucket) => {
-	if (bucket.global.size === 0 && bucket.paths.size === 0)
+	if (bucket.global.size === 0 && isNodeEmpty(bucket.trie))
 		listenerCache.delete(root);
 };
 
-// --- Path helpers (segment-based matching) ---
-type Path = string[];
+const getOrCreateNode = (root: PathTrieNode, segs: string[]): PathTrieNode => {
+	let node = root;
+	for (const s of segs) {
+		let next = node.children.get(s);
+		if (!next) {
+			next = { children: new Map<string, PathTrieNode>(), modes: new Map<PathMode, Set<ChangeListener>>() };
+			node.children.set(s, next);
+		}
 
-// stable key for segment arrays without ambiguity from '.' in segment text
-const keyFromSegments = (segs: Path): string => JSON.stringify(segs);
+		node = next;
+	}
+
+	return node;
+};
+
+const getNode = (root: PathTrieNode, segs: string[]): PathTrieNode | undefined => {
+	let node: PathTrieNode | undefined = root;
+	for (const s of segs) {
+		node = node?.children.get(s);
+		if (!node)
+			return undefined;
+	}
+
+	return node;
+};
+
+const prunePathIfEmpty = (root: PathTrieNode, segs: string[]) => {
+	const stack: { seg: string; node: PathTrieNode; }[] = [];
+	let node: PathTrieNode | undefined = root;
+	for (const s of segs) {
+		if (!node)
+			return;
+
+		stack.push({ seg: s, node });
+		node = node.children.get(s);
+	}
+	// node is the target node
+	if (!node)
+		return;
+
+	// Walk back up pruning empty nodes
+	for (let i = segs.length - 1; i >= 0; i--) {
+		const parent = stack[i]!.node;
+		const seg = stack[i]!.seg;
+		const child = parent.children.get(seg)!;
+		if (child.children.size === 0 && child.modes.size === 0)
+			parent.children.delete(seg);
+		else
+			break;
+	}
+};
+
+const _addListenerToTrie = (root: PathTrieNode, segs: string[], mode: PathMode, listener: ChangeListener): PathTrieNode => {
+	const node = getOrCreateNode(root, segs);
+	const set = node.modes.get(mode) ?? new Set<ChangeListener>();
+	set.add(listener);
+	node.modes.set(mode, set);
+
+	return node;
+};
+
+const _removeListenerFromTrie = (root: PathTrieNode, segs: string[], mode: PathMode, listener: ChangeListener) => {
+	const node = getNode(root, segs);
+	if (!node)
+		return;
+
+	const set = node.modes.get(mode);
+	if (set) {
+		set.delete(listener);
+		if (set.size === 0)
+			node.modes.delete(mode);
+	}
+
+	prunePathIfEmpty(root, segs);
+};
+
+// --- Path helpers (segment-based matching) ---
 
 // Normalize property key to a stable string segment (symbols -> sym:desc)
 const normalizeKey = (prop: PropertyKey): string =>
 	typeof prop === 'symbol' ? `sym:${ String(prop.description ?? '') }` : String(prop);
 
-const pathEquals = (a: Path, b: Path): boolean => {
-	if (a.length !== b.length)
-		return false;
-
-	for (let i = 0; i < a.length; i++) {
-		if (a[i] !== b[i])
-			return false;
-	}
-
-	return true;
-};
-
-// prefix is a prefix of full (or equal)
-const isPrefix = (prefix: Path, full: Path): boolean => {
-	if (prefix.length > full.length)
-		return false;
-
-	for (let i = 0; i < prefix.length; i++) {
-		if (prefix[i] !== full[i])
-			return false;
-	}
-
-	return true;
-};
+// (segment compare helpers removed; trie-based dispatch no longer uses them)
 
 /* eslint-disable key-spacing */
 export const observe: (<T extends object>(object: T) => T) & {
@@ -351,21 +405,53 @@ export const observe: (<T extends object>(object: T) => T) & {
 
 					bucket.global.forEach(listener => affectedListeners.add(listener));
 
-					if (bucket.paths.size > 0) {
-						bucket.paths.forEach(entry => {
-							const watchedSegs = entry.segs;
-							const exact = entry.modes.get('exact');
-							if (exact && pathEquals(currentPath, watchedSegs))
-								exact.forEach((l: ChangeListener) => affectedListeners.add(l));
-
-							const down = entry.modes.get('down');
-							if (down && isPrefix(watchedSegs, currentPath))
+					// Trie-based dispatch
+					const root = bucket.trie;
+					// collect down listeners from all ancestor nodes along currentPath
+					{
+						let node: PathTrieNode | undefined = root;
+						if (node.modes.size > 0) {
+							const down = node.modes.get('down');
+							if (down)
 								down.forEach((l: ChangeListener) => affectedListeners.add(l));
+						}
 
-							const up = entry.modes.get('up');
-							if (up && isPrefix(currentPath, watchedSegs) && currentPath.length < watchedSegs.length)
-								up.forEach((l: ChangeListener) => affectedListeners.add(l));
-						});
+						for (const s of currentPath) {
+							node = node?.children.get(s);
+							if (!node)
+								break;
+
+							node.modes.get('down')?.forEach((l: ChangeListener) => affectedListeners.add(l));
+						}
+					}
+					// exact listeners at the leaf node
+					{
+						const node = getNode(root, currentPath);
+						if (node) {
+							const exact = node.modes.get('exact');
+							if (exact)
+								exact.forEach((l: ChangeListener) => affectedListeners.add(l));
+						}
+					}
+					// up listeners on descendants (strictly deeper than currentPath)
+					{
+						const start = getNode(root, currentPath);
+						if (start) {
+							const stack: { node: PathTrieNode; depth: number; }[] = [];
+							// seed with children to ensure strict depth
+							for (const child of start.children.values())
+								stack.push({ node: child, depth: 1 });
+
+							while (stack.length > 0) {
+								const { node } = stack.pop()!;
+								const up = node.modes.get('up');
+								if (up)
+									up.forEach((l: ChangeListener) => affectedListeners.add(l));
+
+								for (const child of node.children.values())
+									stack.push({ node: child, depth: 1 });
+							}
+						}
 					}
 
 					affectedListeners.forEach(listener => listener(currentPath, value, oldValue));
@@ -421,21 +507,52 @@ export const observe: (<T extends object>(object: T) => T) & {
 				if (bucket) {
 					const affectedListeners: Set<ChangeListener> = new Set();
 					bucket.global.forEach(listener => affectedListeners.add(listener));
-					if (bucket.paths.size > 0) {
-						bucket.paths.forEach(entry => {
-							const watchedSegs = entry.segs;
-							const exact = entry.modes.get('exact');
-							if (exact && pathEquals(currentPath, watchedSegs))
-								exact.forEach((l: ChangeListener) => affectedListeners.add(l));
-
-							const down = entry.modes.get('down');
-							if (down && isPrefix(watchedSegs, currentPath))
+					// Trie-based dispatch
+					const root = bucket.trie;
+					// collect down listeners from all ancestor nodes along currentPath
+					{
+						let node: PathTrieNode | undefined = root;
+						if (node.modes.size > 0) {
+							const down = node.modes.get('down');
+							if (down)
 								down.forEach((l: ChangeListener) => affectedListeners.add(l));
+						}
 
-							const up = entry.modes.get('up');
-							if (up && isPrefix(currentPath, watchedSegs) && currentPath.length < watchedSegs.length)
-								up.forEach((l: ChangeListener) => affectedListeners.add(l));
-						});
+						for (const s of currentPath) {
+							node = node?.children.get(s);
+							if (!node)
+								break;
+
+							node.modes.get('down')?.forEach((l: ChangeListener) => affectedListeners.add(l));
+						}
+					}
+					// exact listeners at the leaf node
+					{
+						const node = getNode(root, currentPath);
+						if (node) {
+							const exact = node.modes.get('exact');
+							if (exact)
+								exact.forEach((l: ChangeListener) => affectedListeners.add(l));
+						}
+					}
+					// up listeners on descendants (strictly deeper than currentPath)
+					{
+						const start = getNode(root, currentPath);
+						if (start) {
+							const stack: { node: PathTrieNode; depth: number; }[] = [];
+							for (const child of start.children.values())
+								stack.push({ node: child, depth: 1 });
+
+							while (stack.length > 0) {
+								const { node } = stack.pop()!;
+								const up = node.modes.get('up');
+								if (up)
+									up.forEach((l: ChangeListener) => affectedListeners.add(l));
+
+								for (const child of node.children.values())
+									stack.push({ node: child, depth: 1 });
+							}
+						}
 					}
 
 					affectedListeners.forEach(listener => listener(currentPath, undefined, oldValue));
@@ -463,7 +580,6 @@ observe.listen = <T extends object>(
 	const segs = nameofSegments(selector);
 	const root = proxyToRoot.get(object as object) ?? (object as object);
 	const bucket = ensureListenerBucket(root);
-	const key = keyFromSegments(segs);
 
 	if (segs.length === 0) {
 		bucket.global.add(listener);
@@ -474,23 +590,10 @@ observe.listen = <T extends object>(
 		};
 	}
 
-	let entry = bucket.paths.get(key);
-	if (!entry) {
-		entry = { segs: segs.slice(), modes: new Map<PathMode, Set<ChangeListener>>() };
-		bucket.paths.set(key, entry);
-	}
-
-	const set = entry.modes.get(mode) ?? new Set<ChangeListener>();
-	set.add(listener);
-	entry.modes.set(mode, set);
+	_addListenerToTrie(bucket.trie, segs, mode, listener);
 
 	return () => {
-		set.delete(listener);
-		if (set.size === 0) {
-			entry!.modes.delete(mode);
-			if (entry!.modes.size === 0)
-				bucket.paths.delete(key);
-		}
+		_removeListenerFromTrie(bucket.trie, segs, mode, listener);
 
 		cleanupListenerBucket(root, bucket);
 	};
