@@ -13,7 +13,6 @@ interface ListenerBucket {
 
 const listenerCache: WeakMap<object, ListenerBucket> = new WeakMap();
 const proxyToRoot: WeakMap<object, object> = new WeakMap();
-
 // --- Change history (for undo/diff) ---
 type ChangeType = 'set' | 'delete';
 interface ChangeRecord {
@@ -23,10 +22,28 @@ interface ChangeRecord {
 	newValue:       any;
 	timestamp:      number;
 	existedBefore?: boolean;
+	groupId?:       string;
 }
 
 const historyCache: WeakMap<object, ChangeRecord[]> = new WeakMap();
 const suspendWriteCounter: WeakMap<object, number> = new WeakMap();
+const batchStack: WeakMap<object, { marker: number; id: string; }[]> = new WeakMap();
+const groupCounter: WeakMap<object, number> = new WeakMap();
+/* eslint-disable key-spacing */
+const optionsCache: WeakMap<object, {
+	mergeUngrouped?:             boolean;
+	mergeWindowMs?:              number;
+	compactConsecutiveSamePath?: boolean;
+}> = new WeakMap();
+/* eslint-enable key-spacing */
+const lastUngrouped: WeakMap<object, { id: string; at: number; }> = new WeakMap();
+
+const nextGroupId = (root: object): string => {
+	const n = (groupCounter.get(root) ?? 0) + 1;
+	groupCounter.set(root, n);
+
+	return `g${ n }`;
+};
 
 const ensureHistory = (root: object): ChangeRecord[] => {
 	let h = historyCache.get(root);
@@ -118,9 +135,7 @@ const originalSnapshotCache: WeakMap<object, any> = new WeakMap();
 // Deep clone utility for snapshotting
 const deepClone = <T>(v: T): T => {
 	try {
-		const sc = (globalThis as unknown as { structuredClone?: (x: unknown) => unknown; }).structuredClone;
-		if (typeof sc === 'function')
-			return sc(v) as T;
+		return structuredClone(v) as T;
 	}
 	catch { /* ignore */ }
 
@@ -151,7 +166,7 @@ const cleanupListenerBucket = (root: object, bucket: ListenerBucket) => {
 		listenerCache.delete(root);
 };
 
-
+/* eslint-disable key-spacing */
 export const observe: (<T extends object>(object: T) => T) & {
 	listen: <T extends object>(object: T, selector: PathSelector<T>, listener: ChangeListener, mode?: PathMode) => () => void;
 } & {
@@ -159,12 +174,29 @@ export const observe: (<T extends object>(object: T) => T) & {
 	clearHistory: (object: object) => void;
 	undo:         (object: object, steps?: number) => void;
 	undoSince:    (object: object, historyLengthBefore: number) => void;
+	undoGroups:   (object: object, groups?: number) => void;
 	diff:         (object: object) => readonly DiffRecord[];
 	isPristine:   (object: object) => boolean;
 	markPristine: (object: object) => void;
 	mark:         (object: object) => number;
-	transaction:  <T extends object, R>(object: T, action: (observed: T) => R) => { result: R; undo: () => void; marker: number; };
-} = object => {
+	transaction:   <T extends object, R>(object: T, action: (observed: T) => R) => {
+		result: R;
+		undo:   () => void;
+		marker: number;
+	};
+	beginBatch:    (object: object) => void;
+	commitBatch:   (object: object) => void;
+	rollbackBatch: (object: object) => void;
+	batch:         <T extends object, R>(object: T, action: (observed: T) => R) => R;
+	configure:     (
+		object: object,
+		options: {
+			mergeUngrouped?:             boolean;
+			mergeWindowMs?:              number;
+			compactConsecutiveSamePath?: boolean;
+		}
+	) => void;
+} /* eslint-enable key-spacing */ = object => {
 	// Capture original snapshot once per root
 	if (!originalSnapshotCache.has(object as object))
 		originalSnapshotCache.set(object as object, deepClone(object));
@@ -201,6 +233,32 @@ export const observe: (<T extends object>(object: T) => T) & {
 				const result = Reflect.set(target, prop, value);
 				const pathKey = currentPath.join('.');
 				const bucket = listenerCache.get(rootObject);
+				const batchFrames = batchStack.get(rootObject);
+				let activeGroupId: string;
+				if (batchFrames && batchFrames.length > 0) {
+					activeGroupId = batchFrames[batchFrames.length - 1]!.id;
+				}
+				else {
+					const opts = optionsCache.get(rootObject);
+					if (opts && opts.mergeUngrouped) {
+						const now = Date.now();
+						const prev = lastUngrouped.get(rootObject);
+						const within = opts.mergeWindowMs == null || (prev ? (now - prev.at) <= opts.mergeWindowMs : false);
+						if (prev && within) {
+							activeGroupId = prev.id;
+							lastUngrouped.set(rootObject, { id: prev.id, at: now });
+						}
+						else {
+							const gid = nextGroupId(rootObject);
+							lastUngrouped.set(rootObject, { id: gid, at: now });
+							activeGroupId = gid;
+						}
+					}
+					else {
+						lastUngrouped.delete(rootObject);
+						activeGroupId = nextGroupId(rootObject);
+					}
+				}
 
 				// Record change in history unless suspended
 				if (!isSuspended(rootObject)) {
@@ -212,6 +270,7 @@ export const observe: (<T extends object>(object: T) => T) & {
 						newValue:      value,
 						timestamp:     Date.now(),
 						existedBefore: hadBefore,
+						groupId:       activeGroupId,
 					});
 
 					// If we shrank array length, synthesize delete records for removed indices
@@ -224,7 +283,28 @@ export const observe: (<T extends object>(object: T) => T) & {
 								oldValue:  oldVal,
 								newValue:  undefined,
 								timestamp: Date.now(),
+								groupId:   activeGroupId,
 							});
+						}
+					}
+
+					// Optional compaction: merge consecutive sets on the same path within the same group
+					const opts = optionsCache.get(rootObject);
+					if (opts && opts.compactConsecutiveSamePath && history.length >= 2) {
+						const a = history[history.length - 2]!;
+						const b = history[history.length - 1]!;
+						const sameGroup = (a.groupId ?? `__g#${ history.length - 2 }`) === (b.groupId ?? `__g#${ history.length - 1 }`);
+						const samePath = a.path.length === b.path.length && a.path.every((seg, i) => seg === b.path[i]);
+						const isSetSet = a.type === 'set' && b.type === 'set';
+						// Avoid compacting array index updates and length changes
+						const lastSeg = b.path[b.path.length - 1]!;
+						const isArrayIndex = /^(?:0|[1-9]\d*)$/.test(lastSeg);
+						const isLengthProp = lastSeg === 'length';
+						if (sameGroup && samePath && isSetSet && !isArrayIndex && !isLengthProp) {
+							// Merge: keep 'a' with oldValue from original and update newValue/timestamp from 'b'; drop 'b'
+							a.newValue = b.newValue;
+							a.timestamp = b.timestamp;
+							history.pop();
 						}
 					}
 				}
@@ -260,6 +340,32 @@ export const observe: (<T extends object>(object: T) => T) & {
 				const oldValue = Reflect.get(target, prop);
 				const result = Reflect.deleteProperty(target, prop);
 				const bucket = listenerCache.get(rootObject);
+				const batchFrames = batchStack.get(rootObject);
+				let activeGroupId: string;
+				if (batchFrames && batchFrames.length > 0) {
+					activeGroupId = batchFrames[batchFrames.length - 1]!.id;
+				}
+				else {
+					const opts = optionsCache.get(rootObject);
+					if (opts && opts.mergeUngrouped) {
+						const now = Date.now();
+						const prev = lastUngrouped.get(rootObject);
+						const within = opts.mergeWindowMs == null || (prev ? (now - prev.at) <= opts.mergeWindowMs : false);
+						if (prev && within) {
+							activeGroupId = prev.id;
+							lastUngrouped.set(rootObject, { id: prev.id, at: now });
+						}
+						else {
+							const gid = nextGroupId(rootObject);
+							lastUngrouped.set(rootObject, { id: gid, at: now });
+							activeGroupId = gid;
+						}
+					}
+					else {
+						lastUngrouped.delete(rootObject);
+						activeGroupId = nextGroupId(rootObject);
+					}
+				}
 
 				if (!isSuspended(rootObject)) {
 					const history = ensureHistory(rootObject);
@@ -269,6 +375,7 @@ export const observe: (<T extends object>(object: T) => T) & {
 						oldValue,
 						newValue:  undefined,
 						timestamp: Date.now(),
+						groupId:   activeGroupId,
 					});
 				}
 
@@ -356,12 +463,16 @@ observe.getHistory = (obj: object) => {
 observe.clearHistory = (obj: object) => {
 	const root = proxyToRoot.get(obj) ?? obj;
 	historyCache.delete(root);
+
+	lastUngrouped.delete(root);
 };
 
 observe.markPristine = (obj: object) => {
 	const root = proxyToRoot.get(obj) ?? obj;
 	originalSnapshotCache.set(root, deepClone(root as any));
 	historyCache.delete(root);
+
+	lastUngrouped.delete(root);
 };
 
 observe.undo = (obj: object, steps: number = Number.POSITIVE_INFINITY) => {
@@ -404,6 +515,8 @@ observe.undoSince = (obj: object, historyLengthBefore: number) => {
 	const steps = Math.max(0, history.length - Math.max(0, historyLengthBefore | 0));
 	if (steps > 0)
 		observe.undo(root, steps);
+
+	lastUngrouped.delete(root);
 };
 
 // --- Diff and pristine helpers ---
@@ -472,22 +585,143 @@ observe.mark = (obj: object) => {
 };
 
 observe.transaction = <T extends object, R>(object: T, action: (observed: T) => R) => {
-	// capture a marker and run action; on error rollback to marker
 	const root = (proxyToRoot.get(object as object) ?? (object as object));
 	const marker = observe.mark(root);
+
+	// Begin a batch for the transaction
+	observe.beginBatch(root);
 	const observed = observe(object);
 
+	let groupId: string | undefined;
 	try {
 		const result = action(observed);
+		// Capture current batch id before commit
+		const frames = (batchStack.get(root) ?? []);
+		groupId = frames.length > 0 ? frames[frames.length - 1]!.id : undefined;
+		observe.commitBatch(root);
 
 		return {
 			result,
 			marker,
-			undo: () => observe.undoSince(root, marker),
+			undo: () => {
+				// If the transaction's group is still the top-most, undo one group; otherwise fallback to marker
+				const h = historyCache.get(root);
+				if (groupId && h && h.length > 0) {
+					const topGroup = h[h.length - 1]!.groupId ?? `__g#${ h.length - 1 }`;
+					if (topGroup === groupId) {
+						observe.undoGroups(root, 1);
+
+						return;
+					}
+				}
+
+				observe.undoSince(root, marker);
+			},
 		};
 	}
 	catch (err) {
-		observe.undoSince(root, marker);
+		// Roll back the batch entirely
+		observe.rollbackBatch(root);
 		throw err;
 	}
 };
+
+// --- Batching APIs ---
+observe.beginBatch = (obj: object) => {
+	const root = proxyToRoot.get(obj) ?? obj;
+	const history = ensureHistory(root);
+	const frames = batchStack.get(root) ?? [];
+	const id = nextGroupId(root);
+	frames.push({ marker: history.length, id });
+	batchStack.set(root, frames);
+	lastUngrouped.delete(root);
+};
+
+observe.commitBatch = (obj: object) => {
+	const root = proxyToRoot.get(obj) ?? obj;
+	const frames = batchStack.get(root);
+	if (!frames || frames.length === 0)
+		return;
+
+	frames.pop();
+	if (frames.length === 0)
+		batchStack.delete(root);
+
+	lastUngrouped.delete(root);
+};
+
+observe.rollbackBatch = (obj: object) => {
+	const root = proxyToRoot.get(obj) ?? obj;
+	const frames = batchStack.get(root);
+	if (!frames || frames.length === 0)
+		return;
+
+	const frame = frames.pop()!;
+	observe.undoSince(root, frame.marker);
+	if (frames.length === 0)
+		batchStack.delete(root);
+
+	lastUngrouped.delete(root);
+};
+
+observe.batch = <T extends object, R>(object: T, action: (observed: T) => R) => {
+	const root = (proxyToRoot.get(object as object) ?? (object as object));
+	observe.beginBatch(root);
+	const observed = observe(object);
+	try {
+		const result = action(observed);
+		observe.commitBatch(root);
+
+		return result;
+	}
+	catch (err) {
+		observe.rollbackBatch(root);
+		throw err;
+	}
+};
+
+// Undo by operation groups (batch groups)
+observe.undoGroups = (obj: object, groups: number = 1) => {
+	const root = proxyToRoot.get(obj) ?? obj;
+	const history = historyCache.get(root);
+	if (!history || history.length === 0)
+		return;
+
+	const toUndo = Math.max(0, groups | 0);
+	if (toUndo === 0)
+		return;
+
+	let steps = 0;
+	const seen: Set<string> = new Set();
+	for (let i = history.length - 1; i >= 0; i--) {
+		const gid = (history[i]!.groupId ?? `__g#${ i }`);
+		if (seen.size === toUndo && !seen.has(gid))
+			break;
+
+		seen.add(gid);
+		steps++;
+	}
+
+	if (steps > 0)
+		observe.undo(root, steps);
+
+	lastUngrouped.delete(root);
+};
+
+// --- Options/configure API ---
+/* eslint-disable key-spacing */
+observe.configure = (
+	obj: object,
+	options: {
+		mergeUngrouped?:             boolean;
+		mergeWindowMs?:              number;
+		compactConsecutiveSamePath?: boolean;
+	},
+) => {
+	const root = proxyToRoot.get(obj) ?? obj;
+	const prev = optionsCache.get(root) ?? {};
+	optionsCache.set(root, { ...prev, ...options });
+	if (!options.mergeUngrouped)
+		lastUngrouped.delete(root);
+};
+/* eslint-enable key-spacing */

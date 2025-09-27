@@ -6,9 +6,12 @@ describe('observe', () => {
 	test('path listener fires with correct path and values', () => {
 		const obj = { a: { b: 1 } };
 		const observed = observe(obj);
+		// exercise to avoid unused var lint false-positive
+		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
+		observed.a;
 
 		const calls: { path: string; newV: any; oldV: any; }[] = [];
-		const dispose = observe.listen(obj, o => o.a.b, (path, newValue, oldValue) => {
+		const dispose = observe.listen(observed, o => o.a.b, (path, newValue, oldValue) => {
 			calls.push({ path: path.join('.'), newV: newValue, oldV: oldValue });
 		});
 
@@ -19,6 +22,143 @@ describe('observe', () => {
 		dispose();
 	});
 
+	test('batch groups multiple changes into one undoGroups step', () => {
+		const state = { a: 1, arr: [ 1, 2 ] as number[] };
+		const observed = observe(state);
+		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
+		observed.arr;
+
+		const before = observe.getHistory(observed).length;
+		const result = observe.batch(observed, obs => {
+			obs.arr.push(3);      // index set + maybe length
+			obs.a = 2;            // primitive set
+			obs.arr.unshift(0);   // multiple records
+
+			return obs.a + obs.arr.length;
+		});
+
+		expect(result).toBe(2 + 4);
+		expect(state).toEqual({ a: 2, arr: [ 0, 1, 2, 3 ] });
+		const after = observe.getHistory(observed).length;
+		expect(after).toBeGreaterThan(before);
+
+		// single grouped undo should revert entire batch
+		observe.undoGroups(observed, 1);
+		expect(state).toEqual({ a: 1, arr: [ 1, 2 ] });
+		expect(observe.getHistory(observed)).toEqual([]);
+	});
+
+	test('begin/commit preserves, rollback reverts and clears history to marker', () => {
+		const state = { x: 1, list: [ 1 ] as number[] };
+		const observed = observe(state);
+		const m = observe.getHistory(observed).length;
+
+		observe.beginBatch(observed);
+		observed.x = 10;
+		observed.list.push(2);
+		observe.commitBatch(observed);
+
+		expect(state).toEqual({ x: 10, list: [ 1, 2 ] });
+		expect(observe.getHistory(observed).length).toBeGreaterThan(m);
+
+		observe.beginBatch(observed);
+		observed.x = 99;
+		observed.list.unshift(0);
+		observe.rollbackBatch(observed);
+
+		expect(state).toEqual({ x: 10, list: [ 1, 2 ] });
+		// history should be unchanged by the rolled-back batch
+		expect(observe.getHistory(observed).length).toBeGreaterThan(m);
+
+		// undoGroups(1) should remove the committed first batch
+		observe.undoGroups(observed, 1);
+		expect(state).toEqual({ x: 1, list: [ 1 ] });
+		expect(observe.getHistory(observed)).toEqual([]);
+	});
+
+	test('configure: mergeUngrouped coalesces consecutive non-batched changes into a single group', () => {
+		const state = { a: 1, arr: [] as number[] };
+		const observed = observe(state);
+
+		observe.configure(observed, { mergeUngrouped: true });
+
+		// Two separate, non-batched changes
+		observed.a = 2;
+		observed.arr.push(1);
+
+		// One grouped undo should revert both
+		observe.undoGroups(observed, 1);
+		expect(state).toEqual({ a: 1, arr: [] });
+		expect(observe.getHistory(observed)).toEqual([]);
+	});
+
+	test('configure: mergeUngrouped respects mergeWindowMs (separates groups when window elapses)', () => {
+		vi.useFakeTimers();
+		try {
+			const state = { a: 1, arr: [] as number[] };
+			const observed = observe(state);
+
+			observe.configure(observed, { mergeUngrouped: true, mergeWindowMs: 50 });
+
+			// First change at T0
+			vi.setSystemTime(new Date('2020-01-01T00:00:00.000Z'));
+			observed.a = 2;
+
+			// Advance beyond window and perform second change -> new group
+			vi.setSystemTime(new Date('2020-01-01T00:00:00.100Z'));
+			observed.arr.push(1);
+
+			// Undo one group should revert only the second change
+			observe.undoGroups(observed, 1);
+			expect(state).toEqual({ a: 2, arr: [] });
+			// Undo another group reverts the first change
+			observe.undoGroups(observed, 1);
+			expect(state).toEqual({ a: 1, arr: [] });
+			expect(observe.getHistory(observed)).toEqual([]);
+		}
+		finally {
+			vi.useRealTimers();
+		}
+	});
+
+	test('configure: compactConsecutiveSamePath compacts repeated sets to same path within one group', () => {
+		const state = { a: 1, b: { c: 1 } };
+		const observed = observe(state);
+		observe.configure(observed, { compactConsecutiveSamePath: true });
+
+		// Use batch to guarantee one group
+		observe.batch(observed, obs => {
+			obs.a = 2;
+			obs.a = 3; // should compact into one record (old 1 -> new 3)
+			obs.b.c = 2;
+			obs.b.c = 5; // should compact into one record (old 1 -> new 5)
+		});
+
+		const history = observe.getHistory(observed);
+		// Expect 2 records (a and b.c), not 4
+		expect(history.length).toBe(2);
+		expect(history[0]).toMatchObject({ path: [ 'a' ], type: 'set', oldValue: 1, newValue: 3 });
+		expect(history[1]).toMatchObject({ path: [ 'b', 'c' ], type: 'set', oldValue: 1, newValue: 5 });
+	});
+
+	test('configure: compactConsecutiveSamePath does not compact array index updates', () => {
+		const state = { arr: [ 0 ] as number[] };
+		const observed = observe(state);
+		observe.configure(observed, { compactConsecutiveSamePath: true });
+
+		observe.batch(observed, obs => {
+			obs.arr[0] = 1;
+			obs.arr[0] = 2; // should remain as two separate records
+		});
+
+		const history = observe.getHistory(observed);
+		expect(history.length).toBeGreaterThanOrEqual(2);
+		const idxRecords = history.filter(h => h.path.join('.') === 'arr.0');
+		expect(idxRecords.length).toBe(2);
+		expect(idxRecords[0]).toMatchObject({ type: 'set', oldValue: 0, newValue: 1 });
+		expect(idxRecords[1]).toMatchObject({ type: 'set', oldValue: 1, newValue: 2 });
+	});
+
 	test('listeners are per-path and do not cross-fire for same object at different locations', () => {
 		const shared = { v: 1 };
 		const root = { x1: shared, x2: shared };
@@ -26,8 +166,8 @@ describe('observe', () => {
 
 		const onX1 = vi.fn();
 		const onX2 = vi.fn();
-		const stop1 = observe.listen(root, o => o.x1.v, (p, nv, ov) => onX1(p.join('.'), nv, ov));
-		const stop2 = observe.listen(root, o => o.x2.v, (p, nv, ov) => onX2(p.join('.'), nv, ov));
+		const stop1 = observe.listen(observed, o => o.x1.v, (p, nv, ov) => onX1(p.join('.'), nv, ov));
+		const stop2 = observe.listen(observed, o => o.x2.v, (p, nv, ov) => onX2(p.join('.'), nv, ov));
 
 		observed.x2.v = 10;
 		expect(onX1).not.toHaveBeenCalled();
@@ -48,7 +188,7 @@ describe('observe', () => {
 		const observed = observe(state);
 
 		const onUser0 = vi.fn();
-		const stop = observe.listen(state, s => s.users[0], (p, nv, ov) => onUser0(p.join('.'), nv, ov));
+		const stop = observe.listen(observed, s => s.users[0], (p, nv, ov) => onUser0(p.join('.'), nv, ov));
 
 		observed.users[0].name = 'b';
 		expect(onUser0).toHaveBeenCalled();
@@ -62,7 +202,7 @@ describe('observe', () => {
 		const observed = observe(obj);
 
 		const onAB = vi.fn();
-		const stop = observe.listen(obj, o => o.a.b, (p, nv, ov) => onAB(p.join('.'), nv, ov));
+		const stop = observe.listen(observed, o => o.a.b, (p, nv, ov) => onAB(p.join('.'), nv, ov));
 
 		// delete via proxy
 		// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
@@ -83,16 +223,16 @@ describe('observe', () => {
 		// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
 		delete (observed as any).b.c;
 
-		const history = observe.getHistory(original);
+		const history = observe.getHistory(observed);
 		expect(history.length).toBe(3);
 		expect(history[0]).toMatchObject({ path: [ 'a' ], type: 'set', oldValue: 1, newValue: 5 });
 		expect(history[1]).toMatchObject({ path: [ 'b', 'c' ], type: 'set', oldValue: 2, newValue: 7 });
 		expect(history[2]).toMatchObject({ path: [ 'b', 'c' ], type: 'delete', oldValue: 7 });
 
-		observe.undo(original); // undo all
+		observe.undo(observed); // undo all
 		expect(original).toEqual({ a: 1, b: { c: 2 } });
 		// undo should not add to history
-		expect(observe.getHistory(original)).toEqual([]);
+		expect(observe.getHistory(observed)).toEqual([]);
 	});
 
 	test('undo reconstructs missing parents (deep delete then undo)', () => {
@@ -104,7 +244,7 @@ describe('observe', () => {
 		delete (observed as any).user.profile;
 		expect(state.user.profile).toBeUndefined();
 
-		observe.undo(state);
+		observe.undo(observed);
 		expect(state.user.profile).toEqual({ name: 'Anna' });
 	});
 
@@ -113,33 +253,33 @@ describe('observe', () => {
 		const observed = observe(state);
 
 		// initial pristine
-		expect(observe.isPristine!(state)).toBe(true);
+		expect(observe.isPristine!(observed)).toBe(true);
 
 		// change existing -> changed
 		observed.a = 3;
-		let d = observe.diff!(state);
+		let d = observe.diff!(observed);
 		expect(d).toEqual([ { path: [ 'a' ], kind: 'changed', oldValue: 1, newValue: 3 } ]);
-		expect(observe.isPristine!(state)).toBe(false);
+		expect(observe.isPristine!(observed)).toBe(false);
 
 		// add new -> added
 		(observed as any).b.d = 4;
-		d = observe.diff!(state);
+		d = observe.diff!(observed);
 		expect(d.some(x => x.kind === 'added' && x.path.join('.') === 'b.d')).toBe(true);
 
 		// delete -> removed
 		// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
 		delete (observed as any).b.c;
-		d = observe.diff!(state);
+		d = observe.diff!(observed);
 		expect(d.some(x => x.kind === 'removed' && x.path.join('.') === 'b.c')).toBe(true);
 
 		// mark pristine -> considered same
-		observe.markPristine!(state);
-		expect(observe.isPristine!(state)).toBe(true);
-		expect(observe.getHistory(state)).toEqual([]);
+		observe.markPristine!(observed);
+		expect(observe.isPristine!(observed)).toBe(true);
+		expect(observe.getHistory(observed)).toEqual([]);
 
 		// further change marks it non-pristine again
 		observed.a = 42;
-		expect(observe.isPristine!(state)).toBe(false);
+		expect(observe.isPristine!(observed)).toBe(false);
 	});
 
 	test('array push: index listener, history, and diff reflect new element', () => {
@@ -147,7 +287,7 @@ describe('observe', () => {
 		const observed = observe(state);
 
 		const onIndex1 = vi.fn();
-		const stop = observe.listen(state, s => s.items[1], (p, nv, ov) => onIndex1(p.join('.'), nv, ov));
+		const stop = observe.listen(observed, s => s.items[1], (p, nv, ov) => onIndex1(p.join('.'), nv, ov));
 
 		observed.items.push({ name: 'b' });
 
@@ -156,11 +296,11 @@ describe('observe', () => {
 		expect(onIndex1).toHaveBeenLastCalledWith('items.1', { name: 'b' }, undefined);
 
 		// history should contain a set for items.1 (ignore length record if present)
-		const history = observe.getHistory(state);
+		const history = observe.getHistory(observed);
 		expect(history.some(h => h.type === 'set' && h.path.join('.') === 'items.1')).toBe(true);
 
 		// diff should report the added index
-		const diffs = observe.diff!(state);
+		const diffs = observe.diff!(observed);
 		expect(diffs.some(d => d.kind === 'added' && d.path.join('.') === 'items.1')).toBe(true);
 
 		stop();
@@ -190,12 +330,12 @@ describe('observe', () => {
 		observed.arr.shift();                    // [99,2]
 
 		// Undo all
-		observe.undo(state);
+		observe.undo(observed);
 
 		// Back to original shape and values
 		expect(state).toEqual({ a: { child: shared }, b: { slot: null }, arr: [ { id: 1 }, { id: 2 } ] });
-		expect(observe.isPristine(state)).toBe(true);
-		expect(observe.getHistory(state)).toEqual([]);
+		expect(observe.isPristine(observed)).toBe(true);
+		expect(observe.getHistory(observed)).toEqual([]);
 	});
 
 	test('undo of push/unshift/splice removes inserted indices without holes and correct length', () => {
@@ -204,28 +344,28 @@ describe('observe', () => {
 		const observed = observe(state);
 
 		// push then undoSince -> back to original, no holes
-		let marker = observe.getHistory(state).length;
+		let marker = observe.getHistory(observed).length;
 		observed.arr.push({ id: 3 });
 		expect(state.arr.length).toBe(3);
-		observe.undoSince(state, marker);
+		observe.undoSince(observed, marker);
 		expect(state.arr.length).toBe(2);
 		expect(state.arr).toEqual([ { id: 1 }, { id: 2 } ]);
 		expect(state.arr.every((_v, i) => i in state.arr)).toBe(true);
 
 		// unshift then undoSince -> back to original, no holes
-		marker = observe.getHistory(state).length;
+		marker = observe.getHistory(observed).length;
 		observed.arr.unshift({ id: 0 });
 		expect(state.arr.length).toBe(3);
-		observe.undoSince(state, marker);
+		observe.undoSince(observed, marker);
 		expect(state.arr.length).toBe(2);
 		expect(state.arr).toEqual([ { id: 1 }, { id: 2 } ]);
 		expect(state.arr.every((_v, i) => i in state.arr)).toBe(true);
 
 		// splice insert then undoSince -> back to original, no holes
-		marker = observe.getHistory(state).length;
+		marker = observe.getHistory(observed).length;
 		observed.arr.splice(1, 0, { id: 99 });
 		expect(state.arr.length).toBe(3);
-		observe.undoSince(state, marker);
+		observe.undoSince(observed, marker);
 		expect(state.arr.length).toBe(2);
 		expect(state.arr).toEqual([ { id: 1 }, { id: 2 } ]);
 		expect(state.arr.every((_v, i) => i in state.arr)).toBe(true);
@@ -236,36 +376,36 @@ describe('observe', () => {
 		const observed = observe(state);
 
 		// 1) primitive set -> 1 record
-		let before = observe.getHistory(state).length;
+		let before = observe.getHistory(observed).length;
 		observed.a = 2;
-		let after = observe.getHistory(state).length;
+		let after = observe.getHistory(observed).length;
 		expect(after - before).toBe(1);
 
 		// 2) push -> typically 2 records (index set + length set)
 		before = after;
 		observed.arr.push(3);
-		after = observe.getHistory(state).length;
+		after = observe.getHistory(observed).length;
 		const pushRecords = after - before;
 		expect(pushRecords).toBeGreaterThanOrEqual(1); // at least one
-		observe.undo(state, pushRecords);
+		observe.undo(observed, pushRecords);
 		expect(state.arr).toEqual([ 1, 2 ]);
 
 		// 3) assign existing index -> 1 record
-		before = observe.getHistory(state).length;
+		before = observe.getHistory(observed).length;
 		observed.arr[1] = 22;
-		after = observe.getHistory(state).length;
+		after = observe.getHistory(observed).length;
 		expect(after - before).toBe(1);
-		observe.undo(state, 1);
+		observe.undo(observed, 1);
 		expect(state.arr).toEqual([ 1, 2 ]);
 
 		// 4) length truncate -> 1 length-set + N deletes
-		before = observe.getHistory(state).length;
+		before = observe.getHistory(observed).length;
 		observed.arr.push(3); // prepare three items again
 		(observed as any).arr.length = 1;
-		after = observe.getHistory(state).length;
+		after = observe.getHistory(observed).length;
 		const truncateRecords = after - before; // should be >= 2
 		expect(truncateRecords).toBeGreaterThanOrEqual(2);
-		observe.undo(state, truncateRecords);
+		observe.undo(observed, truncateRecords);
 		expect(state.arr).toEqual([ 1, 2 ]);
 		// a is still 2 from the primitive set above
 		expect(state.a).toBe(2);
@@ -275,33 +415,34 @@ describe('observe', () => {
 		const state = { a: { n: 1 }, arr: [ { id: 1 } ] };
 		const observed = observe(state);
 
-		const marker = observe.getHistory(state).length;
+		const marker = observe.getHistory(observed).length;
 		observed.a.n = 2;               // 1
 		observed.arr.push({ id: 2 });   // 2
 		observed.a.n = 3;               // 3
 
-		observe.undoSince(state, marker);
+		observe.undoSince(observed, marker);
 		expect(state).toEqual({ a: { n: 1 }, arr: [ { id: 1 } ] });
-		expect(observe.getHistory(state)).toEqual([]);
+		expect(observe.getHistory(observed)).toEqual([]);
 	});
 
 	test('mark: capture and undoSince marker reverts just the intended operations', () => {
 		const state = { a: 1, arr: [ 1 ] };
 		const observed = observe(state);
 
-		const m = observe.mark(state);
+		const m = observe.mark(observed);
 		observed.a = 2;
 		observed.arr.push(2);
-		observe.undoSince(state, m);
+		observe.undoSince(observed, m);
 		expect(state).toEqual({ a: 1, arr: [ 1 ] });
-		expect(observe.getHistory(state)).toEqual([]);
+		expect(observe.getHistory(observed)).toEqual([]);
 	});
 
 	test('transaction: commit leaves state, returned undo reverts; throws auto-rollback', () => {
 		const state = { user: { name: 'A' }, items: [ { id: 1 } ] };
+		const observed = observe(state);
 
 		// commit path
-		const { result, marker, undo } = observe.transaction(state, obs => {
+		const { result, marker, undo } = observe.transaction(observed, obs => {
 			obs.user.name = 'B';
 			obs.items.push({ id: 2 });
 
@@ -311,12 +452,12 @@ describe('observe', () => {
 		expect(state).toEqual({ user: { name: 'B' }, items: [ { id: 1 }, { id: 2 } ] });
 		undo();
 		expect(state).toEqual({ user: { name: 'A' }, items: [ { id: 1 } ] });
-		expect(observe.getHistory(state).length).toBe(marker);
+		expect(observe.getHistory(observed).length).toBe(marker);
 
 		// rollback path
-		const m2 = observe.mark(state);
+		const m2 = observe.mark(observed);
 		try {
-			observe.transaction(state, obs => {
+			observe.transaction(observed, obs => {
 				obs.user.name = 'C';
 				obs.items.push({ id: 3 });
 				throw new Error('boom');
@@ -327,7 +468,7 @@ describe('observe', () => {
 		catch {
 			// rolled back automatically
 			expect(state).toEqual({ user: { name: 'A' }, items: [ { id: 1 } ] });
-			expect(observe.getHistory(state).length).toBe(m2);
+			expect(observe.getHistory(observed).length).toBe(m2);
 		}
 	});
 });
