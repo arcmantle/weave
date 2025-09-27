@@ -40,6 +40,8 @@ const optionsCache: WeakMap<object, {
 	mergeUngrouped?:             boolean;
 	mergeWindowMs?:              number;
 	compactConsecutiveSamePath?: boolean;
+	maxHistory?:                 number;
+	filter?:                     (record: ChangeRecord) => boolean;
 }> = new WeakMap();
 /* eslint-enable key-spacing */
 const lastUngrouped: WeakMap<object, { id: string; at: number; }> = new WeakMap();
@@ -264,6 +266,7 @@ export const observe: (<T extends object>(object: T) => T) & {
 } & {
 	getHistory:   (object: object) => readonly ChangeRecord[];
 	clearHistory: (object: object) => void;
+	reset:        (object: object) => void;
 	undo:         (object: object, steps?: number) => void;
 	undoSince:    (object: object, historyLengthBefore: number) => void;
 	undoGroups:   (object: object, groups?: number) => void;
@@ -286,6 +289,8 @@ export const observe: (<T extends object>(object: T) => T) & {
 			mergeUngrouped?:             boolean;
 			mergeWindowMs?:              number;
 			compactConsecutiveSamePath?: boolean;
+			maxHistory?:                 number;
+			filter?:                     (record: ChangeRecord) => boolean;
 		}
 	) => void;
 } /* eslint-enable key-spacing */ = object => {
@@ -354,7 +359,8 @@ export const observe: (<T extends object>(object: T) => T) & {
 				// Record change in history unless suspended
 				if (!isSuspended(rootObject)) {
 					const history = ensureHistory(rootObject);
-					history.push({
+					const cfg = optionsCache.get(rootObject);
+					const baseRecord: ChangeRecord = {
 						path:          currentPath.slice(),
 						type:          'set',
 						oldValue,
@@ -362,26 +368,29 @@ export const observe: (<T extends object>(object: T) => T) & {
 						timestamp:     Date.now(),
 						existedBefore: hadBefore,
 						groupId:       activeGroupId,
-					});
+					};
+					if (!cfg?.filter || cfg.filter(baseRecord))
+						history.push(baseRecord);
 
 					// If we shrank array length, synthesize delete records for removed indices
 					if (removedForLengthShrink && removedForLengthShrink.length > 0) {
 						const basePath = path.slice();
 						for (const { index, value: oldVal } of removedForLengthShrink) {
-							history.push({
+							const delRec: ChangeRecord = {
 								path:      [ ...basePath, String(index) ],
 								type:      'delete',
 								oldValue:  oldVal,
 								newValue:  undefined,
 								timestamp: Date.now(),
 								groupId:   activeGroupId,
-							});
+							};
+							if (!cfg?.filter || cfg.filter(delRec))
+								history.push(delRec);
 						}
 					}
 
 					// Optional compaction: merge consecutive sets on the same path within the same group
-					const opts = optionsCache.get(rootObject);
-					if (opts && opts.compactConsecutiveSamePath && history.length >= 2) {
+					if (cfg && cfg.compactConsecutiveSamePath && history.length >= 2) {
 						const a = history[history.length - 2]!;
 						const b = history[history.length - 1]!;
 						const sameGroup = (a.groupId ?? `__g#${ history.length - 2 }`) === (b.groupId ?? `__g#${ history.length - 1 }`);
@@ -397,6 +406,13 @@ export const observe: (<T extends object>(object: T) => T) & {
 							a.timestamp = b.timestamp;
 							history.pop();
 						}
+					}
+
+					// Enforce maxHistory ring buffer if configured
+					if (cfg && typeof cfg.maxHistory === 'number' && cfg.maxHistory >= 0 && history.length > cfg.maxHistory) {
+						const overflow = history.length - cfg.maxHistory;
+						if (overflow > 0)
+							history.splice(0, overflow);
 					}
 				}
 
@@ -460,9 +476,28 @@ export const observe: (<T extends object>(object: T) => T) & {
 				return result;
 			},
 			deleteProperty(target, prop) {
-				const currentPath = [ ...path, String(prop) ];
+				const key = normalizeKey(prop);
+				const currentPath = [ ...path, key ];
 				const oldValue = Reflect.get(target, prop);
-				const result = Reflect.deleteProperty(target, prop);
+				let result: boolean;
+
+				// If deleting from an array by numeric index, use splice to avoid holes (parity with undo behavior)
+				if (Array.isArray(target) && /^(?:0|[1-9]\d*)$/.test(key)) {
+					const idx = Number(key);
+					// Perform the splice with history suspended to avoid noisy shift/length records
+					suspendWrites(rootObject);
+					try {
+						(target as any).splice(idx, 1);
+						result = true;
+					}
+					finally {
+						resumeWrites(rootObject);
+					}
+				}
+				else {
+					result = Reflect.deleteProperty(target, prop);
+				}
+
 				const bucket = listenerCache.get(rootObject);
 				const batchFrames = batchStack.get(rootObject);
 				let activeGroupId: string;
@@ -493,14 +528,24 @@ export const observe: (<T extends object>(object: T) => T) & {
 
 				if (!isSuspended(rootObject)) {
 					const history = ensureHistory(rootObject);
-					history.push({
+					const opts = optionsCache.get(rootObject);
+					const delRec: ChangeRecord = {
 						path:      currentPath.slice(),
 						type:      'delete',
 						oldValue,
 						newValue:  undefined,
 						timestamp: Date.now(),
 						groupId:   activeGroupId,
-					});
+					};
+					if (!opts?.filter || opts.filter(delRec))
+						history.push(delRec);
+
+					// Enforce maxHistory ring buffer if configured
+					if (opts && typeof opts.maxHistory === 'number' && opts.maxHistory >= 0 && history.length > opts.maxHistory) {
+						const overflow = history.length - opts.maxHistory;
+						if (overflow > 0)
+							history.splice(0, overflow);
+					}
 				}
 
 				// Notify listeners (deletes affect exact path only and descendants no longer exist)
@@ -613,6 +658,74 @@ observe.clearHistory = (obj: object) => {
 	lastUngrouped.delete(root);
 };
 
+// Reset the observed object back to its pristine snapshot, regardless of history size.
+// This performs a deep overwrite with writes suspended, then marks the state pristine.
+observe.reset = (obj: object) => {
+	const root = proxyToRoot.get(obj) ?? obj;
+	const snapshot = originalSnapshotCache.get(root);
+	if (!snapshot) {
+		// Nothing to reset to; just clear history and take current as pristine
+		observe.markPristine(root);
+
+		return;
+	}
+
+	const overwriteDeep = (target: any, source: any) => {
+		// Arrays
+		if (Array.isArray(target) && Array.isArray(source)) {
+			target.length = source.length;
+			for (let i = 0; i < source.length; i++)
+				target[i] = deepClone(source[i]);
+
+			return;
+		}
+
+		// Plain objects
+		if (isObject(target) && isObject(source) && !Array.isArray(target) && !Array.isArray(source)) {
+			// delete keys not in source
+			for (const k of Object.keys(target)) {
+				if (!Object.prototype.hasOwnProperty.call(source, k))
+					// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+					delete (target as any)[k];
+			}
+			// set/overwrite from source
+			for (const k of Object.keys(source)) {
+				const sv = (source as any)[k];
+				const tv = (target as any)[k];
+				const bothArrays = Array.isArray(sv) && Array.isArray(tv);
+				const bothObjects = isObject(sv) && isObject(tv) && !Array.isArray(sv) && !Array.isArray(tv);
+				if (bothArrays || bothObjects)
+					overwriteDeep(tv, sv);
+				else
+					(target as any)[k] = deepClone(sv);
+			}
+
+			return;
+		}
+
+		// Fallback: replace by shallow reassign of enumerable props
+		for (const k of Object.keys(target)) {
+			// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+			delete (target as any)[k];
+		}
+		if (isObject(source)) {
+			for (const k of Object.keys(source))
+				(target as any)[k] = deepClone((source as any)[k]);
+		}
+	};
+
+	suspendWrites(root);
+	try {
+		overwriteDeep(root as any, snapshot);
+	}
+	finally {
+		resumeWrites(root);
+	}
+
+	// Clear history and update the pristine snapshot to the new state
+	observe.markPristine(root);
+};
+
 observe.markPristine = (obj: object) => {
 	const root = proxyToRoot.get(obj) ?? obj;
 	originalSnapshotCache.set(root, deepClone(root as any));
@@ -640,7 +753,15 @@ observe.undo = (obj: object, steps: number = Number.POSITIVE_INFINITY) => {
 					setAtPath(root as any, rec.path, rec.oldValue);
 			}
 			else if (rec.type === 'delete') {
-				setAtPath(root as any, rec.path, rec.oldValue);
+				// If the path points into an array at a numeric index, use splice to re-insert
+				const parentAndKey = getParentAndKey(root as any, rec.path);
+				if (parentAndKey) {
+					const [ parent, key ] = parentAndKey;
+					if (Array.isArray(parent) && isArrayIndexKey(String(key)))
+						(parent as any).splice(Number(key), 0, rec.oldValue);
+					else
+						setAtPath(root as any, rec.path, rec.oldValue);
+				}
 			}
 
 			remaining--;
@@ -862,6 +983,8 @@ observe.configure = (
 		mergeUngrouped?:             boolean;
 		mergeWindowMs?:              number;
 		compactConsecutiveSamePath?: boolean;
+		maxHistory?:                 number;
+		filter?:                     (record: ChangeRecord) => boolean;
 	},
 ) => {
 	const root = proxyToRoot.get(obj) ?? obj;
