@@ -22,6 +22,25 @@ describe('observe', () => {
 		dispose();
 	});
 
+	test('symbol keys are handled in listen selectors and dispatch correctly', () => {
+		const S = Symbol('skey');
+		const state: any = { bag: { [S]: { n: 1 }, other: 0 } };
+		const observed = observe(state);
+		// warm up proxy path
+		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
+		(observed as any).bag;
+
+		const onUp = vi.fn();
+
+		const stopUp = observe.listen(observed, o => (o as any).bag[S], (p, nv, ov) => onUp(p.join('.'), nv, ov), 'up');
+
+		// Replace the parent so 'up' (ancestor) fires
+		(observed as any).bag = { [S]: { n: 3 }, other: 0 };
+		expect(onUp).toHaveBeenCalledTimes(1);
+
+		stopUp();
+	});
+
 	test('batch groups multiple changes into one undoGroups step', () => {
 		const state = { a: 1, arr: [ 1, 2 ] as number[] };
 		const observed = observe(state);

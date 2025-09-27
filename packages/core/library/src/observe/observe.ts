@@ -175,6 +175,10 @@ type Path = string[];
 // stable key for segment arrays without ambiguity from '.' in segment text
 const keyFromSegments = (segs: Path): string => JSON.stringify(segs);
 
+// Normalize property key to a stable string segment (symbols -> sym:desc)
+const normalizeKey = (prop: PropertyKey): string =>
+	typeof prop === 'symbol' ? `sym:${ String(prop.description ?? '') }` : String(prop);
+
 const pathEquals = (a: Path, b: Path): boolean => {
 	if (a.length !== b.length)
 		return false;
@@ -242,19 +246,19 @@ export const observe: (<T extends object>(object: T) => T) & {
 				if (!result || typeof result !== 'object')
 					return result;
 
-				const currentPath = [ ...path, String(prop) ];
+				const currentPath = [ ...path, normalizeKey(prop) ];
 
 				return createProxy(result, currentPath, rootObject);
 			},
 			set(target, prop, value) {
-				const currentPath = [ ...path, String(prop) ];
+				const currentPath = [ ...path, normalizeKey(prop) ];
 				const hadBefore = Reflect.has(target, prop);
 				const oldValue = Reflect.get(target, prop);
 				// capture elements that will be removed if shrinking array length
 				let removedForLengthShrink: { index: number; value: any; }[] | null = null;
 				if (
 					Array.isArray(target)
-					&& String(prop) === 'length'
+					&& normalizeKey(prop) === 'length'
 					&& typeof oldValue === 'number'
 					&& typeof value === 'number'
 					&& value < oldValue

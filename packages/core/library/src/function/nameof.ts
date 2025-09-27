@@ -4,8 +4,9 @@ const propertyThatWasAccessed: string[] = [];
 
 // Proxy objects to store the property path.
 const proxy: any = new Proxy({} as any, {
-	get: <const C extends string>(_: any, prop: C) => {
-		propertyThatWasAccessed.push(prop);
+	get: <const C extends PropertyKey>(_: any, prop: C) => {
+		// Normalize to string so bracket keys with dots and Symbols become stable segments
+		propertyThatWasAccessed.push(typeof prop === 'symbol' ? `sym:${ String(prop.description ?? '') }` : String(prop));
 
 		return proxy;
 	},
