@@ -39,8 +39,9 @@
 		"README.md"
 	],
 	"scripts": {
+		"bench": "vitest bench --run",
 		"build": "rimraf dist && tsc --project ./src/tsconfig.json",
-		"test": "vitest --config ./vite.config.test.ts"
+		"test": "vitest"
 	},
 	"dependencies": {
 		"nanoid": "catalog:",
