@@ -4,9 +4,11 @@ type ChangeListener = (path: string[], newValue: any, oldValue: any) => void;
 
 type PathSelector<T> = (object: T) => any;
 
+type PathMode = 'exact' | 'up' | 'down';
+
 interface ListenerBucket {
 	global: Set<ChangeListener>;
-	paths:  Map<string, Set<ChangeListener>>;
+	paths:  Map<string, Map<PathMode, Set<ChangeListener>>>;
 }
 
 const listenerCache: WeakMap<object, ListenerBucket> = new WeakMap();
@@ -136,8 +138,8 @@ const ensureListenerBucket = (root: object): ListenerBucket => {
 	if (!bucket) {
 		bucket = {
 			global: new Set<ChangeListener>(),
-		} as ListenerBucket;
-		bucket.paths = new Map<string, Set<ChangeListener>>();
+			paths:  new Map<string, Map<PathMode, Set<ChangeListener>>>(),
+		};
 		listenerCache.set(root, bucket);
 	}
 
@@ -151,7 +153,7 @@ const cleanupListenerBucket = (root: object, bucket: ListenerBucket) => {
 
 
 export const observe: (<T extends object>(object: T) => T) & {
-	listen: <T extends object>(object: T, selector: PathSelector<T>, listener: ChangeListener) => () => void;
+	listen: <T extends object>(object: T, selector: PathSelector<T>, listener: ChangeListener, mode?: PathMode) => () => void;
 } & {
 	getHistory:   (object: object) => readonly ChangeRecord[];
 	clearHistory: (object: object) => void;
@@ -160,6 +162,8 @@ export const observe: (<T extends object>(object: T) => T) & {
 	diff:         (object: object) => readonly DiffRecord[];
 	isPristine:   (object: object) => boolean;
 	markPristine: (object: object) => void;
+	mark:         (object: object) => number;
+	transaction:  <T extends object, R>(object: T, action: (observed: T) => R) => { result: R; undo: () => void; marker: number; };
 } = object => {
 	// Capture original snapshot once per root
 	if (!originalSnapshotCache.has(object as object))
@@ -231,9 +235,18 @@ export const observe: (<T extends object>(object: T) => T) & {
 					bucket.global.forEach(listener => affectedListeners.add(listener));
 
 					if (bucket.paths.size > 0) {
-						bucket.paths.forEach((listeners, watchedPath) => {
-							if (pathKey === watchedPath || pathKey.startsWith(`${ watchedPath }.`))
-								listeners.forEach(listener => affectedListeners.add(listener));
+						bucket.paths.forEach((modeMap, watchedPath) => {
+							const exact = modeMap.get('exact');
+							if (exact && pathKey === watchedPath)
+								exact.forEach(l => affectedListeners.add(l));
+
+							const down = modeMap.get('down');
+							if (down && (pathKey === watchedPath || pathKey.startsWith(`${ watchedPath }.`)))
+								down.forEach(l => affectedListeners.add(l));
+
+							const up = modeMap.get('up');
+							if (up && (watchedPath === pathKey || watchedPath.startsWith(`${ pathKey }.`)))
+								up.forEach(l => affectedListeners.add(l));
 						});
 					}
 
@@ -265,9 +278,18 @@ export const observe: (<T extends object>(object: T) => T) & {
 					bucket.global.forEach(listener => affectedListeners.add(listener));
 					if (bucket.paths.size > 0) {
 						const pathKey = currentPath.join('.');
-						bucket.paths.forEach((listeners, watchedPath) => {
-							if (pathKey === watchedPath || pathKey.startsWith(`${ watchedPath }.`))
-								listeners.forEach(listener => affectedListeners.add(listener));
+						bucket.paths.forEach((modeMap, watchedPath) => {
+							const exact = modeMap.get('exact');
+							if (exact && pathKey === watchedPath)
+								exact.forEach(l => affectedListeners.add(l));
+
+							const down = modeMap.get('down');
+							if (down && (pathKey === watchedPath || pathKey.startsWith(`${ watchedPath }.`)))
+								down.forEach(l => affectedListeners.add(l));
+
+							const up = modeMap.get('up');
+							if (up && (watchedPath === pathKey || watchedPath.startsWith(`${ pathKey }.`)))
+								up.forEach(l => affectedListeners.add(l));
 						});
 					}
 
@@ -291,6 +313,7 @@ observe.listen = <T extends object>(
 	object: T,
 	selector: PathSelector<T>,
 	listener: ChangeListener,
+	mode: PathMode = 'down',
 ) => {
 	const path = nameof(selector);
 	const root = proxyToRoot.get(object as object) ?? (object as object);
@@ -305,14 +328,19 @@ observe.listen = <T extends object>(
 		};
 	}
 
-	const existing = bucket.paths.get(path) ?? new Set<ChangeListener>();
-	existing.add(listener);
-	bucket.paths.set(path, existing);
+	const modeMap = bucket.paths.get(path) ?? new Map<PathMode, Set<ChangeListener>>();
+	const set = modeMap.get(mode) ?? new Set<ChangeListener>();
+	set.add(listener);
+	modeMap.set(mode, set);
+	bucket.paths.set(path, modeMap);
 
 	return () => {
-		existing.delete(listener);
-		if (existing.size === 0)
-			bucket.paths.delete(path);
+		set.delete(listener);
+		if (set.size === 0) {
+			modeMap.delete(mode);
+			if (modeMap.size === 0)
+				bucket.paths.delete(path);
+		}
 
 		cleanupListenerBucket(root, bucket);
 	};
@@ -433,4 +461,33 @@ observe.isPristine = (obj: object) => {
 	const diffs = observe.diff!(obj);
 
 	return diffs.length === 0;
+};
+
+// --- Marks and transactions ---
+observe.mark = (obj: object) => {
+	const root = proxyToRoot.get(obj) ?? obj;
+	const history = historyCache.get(root);
+
+	return history ? history.length : 0;
+};
+
+observe.transaction = <T extends object, R>(object: T, action: (observed: T) => R) => {
+	// capture a marker and run action; on error rollback to marker
+	const root = (proxyToRoot.get(object as object) ?? (object as object));
+	const marker = observe.mark(root);
+	const observed = observe(object);
+
+	try {
+		const result = action(observed);
+
+		return {
+			result,
+			marker,
+			undo: () => observe.undoSince(root, marker),
+		};
+	}
+	catch (err) {
+		observe.undoSince(root, marker);
+		throw err;
+	}
 };

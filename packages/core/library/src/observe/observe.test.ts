@@ -284,4 +284,50 @@ describe('observe', () => {
 		expect(state).toEqual({ a: { n: 1 }, arr: [ { id: 1 } ] });
 		expect(observe.getHistory(state)).toEqual([]);
 	});
+
+	test('mark: capture and undoSince marker reverts just the intended operations', () => {
+		const state = { a: 1, arr: [ 1 ] };
+		const observed = observe(state);
+
+		const m = observe.mark(state);
+		observed.a = 2;
+		observed.arr.push(2);
+		observe.undoSince(state, m);
+		expect(state).toEqual({ a: 1, arr: [ 1 ] });
+		expect(observe.getHistory(state)).toEqual([]);
+	});
+
+	test('transaction: commit leaves state, returned undo reverts; throws auto-rollback', () => {
+		const state = { user: { name: 'A' }, items: [ { id: 1 } ] };
+
+		// commit path
+		const { result, marker, undo } = observe.transaction(state, obs => {
+			obs.user.name = 'B';
+			obs.items.push({ id: 2 });
+
+			return obs.user.name;
+		});
+		expect(result).toBe('B');
+		expect(state).toEqual({ user: { name: 'B' }, items: [ { id: 1 }, { id: 2 } ] });
+		undo();
+		expect(state).toEqual({ user: { name: 'A' }, items: [ { id: 1 } ] });
+		expect(observe.getHistory(state).length).toBe(marker);
+
+		// rollback path
+		const m2 = observe.mark(state);
+		try {
+			observe.transaction(state, obs => {
+				obs.user.name = 'C';
+				obs.items.push({ id: 3 });
+				throw new Error('boom');
+			});
+			// should not get here
+			expect(false).toBe(true);
+		}
+		catch {
+			// rolled back automatically
+			expect(state).toEqual({ user: { name: 'A' }, items: [ { id: 1 } ] });
+			expect(observe.getHistory(state).length).toBe(m2);
+		}
+	});
 });
