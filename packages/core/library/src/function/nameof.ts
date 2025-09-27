@@ -25,3 +25,14 @@ export const nameof = <const T>(expression: (instance: T) => any): string => {
 
 	return propertyThatWasAccessed.join('.');
 };
+
+/**
+ * Returns a fresh array of path segments captured from the selector expression.
+ * The returned array is a new copy to avoid external mutations affecting internals.
+ */
+export const nameofSegments = <const T>(expression: (instance: T) => any): string[] => {
+	propertyThatWasAccessed.length = 0;
+	expression(proxy);
+
+	return propertyThatWasAccessed.slice();
+};

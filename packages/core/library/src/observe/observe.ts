@@ -1,4 +1,4 @@
-import { nameof } from '../function/nameof';
+import { nameofSegments } from '../function/nameof';
 
 type ChangeListener = (path: string[], newValue: any, oldValue: any) => void;
 
@@ -8,11 +8,14 @@ type PathMode = 'exact' | 'up' | 'down';
 
 interface ListenerBucket {
 	global: Set<ChangeListener>;
-	paths:  Map<string, Map<PathMode, Set<ChangeListener>>>;
+	// Keyed by a stable stringified representation of the path segments
+	// Value stores the original segments and the mode->listeners map
+	paths:  Map<string, { segs: string[]; modes: Map<PathMode, Set<ChangeListener>>; }>;
 }
 
 const listenerCache: WeakMap<object, ListenerBucket> = new WeakMap();
 const proxyToRoot: WeakMap<object, object> = new WeakMap();
+
 // --- Change history (for undo/diff) ---
 type ChangeType = 'set' | 'delete';
 interface ChangeRecord {
@@ -153,7 +156,7 @@ const ensureListenerBucket = (root: object): ListenerBucket => {
 	if (!bucket) {
 		bucket = {
 			global: new Set<ChangeListener>(),
-			paths:  new Map<string, Map<PathMode, Set<ChangeListener>>>(),
+			paths:  new Map<string, { segs: string[]; modes: Map<PathMode, Set<ChangeListener>>; }>(),
 		};
 		listenerCache.set(root, bucket);
 	}
@@ -164,6 +167,37 @@ const ensureListenerBucket = (root: object): ListenerBucket => {
 const cleanupListenerBucket = (root: object, bucket: ListenerBucket) => {
 	if (bucket.global.size === 0 && bucket.paths.size === 0)
 		listenerCache.delete(root);
+};
+
+// --- Path helpers (segment-based matching) ---
+type Path = string[];
+
+// stable key for segment arrays without ambiguity from '.' in segment text
+const keyFromSegments = (segs: Path): string => JSON.stringify(segs);
+
+const pathEquals = (a: Path, b: Path): boolean => {
+	if (a.length !== b.length)
+		return false;
+
+	for (let i = 0; i < a.length; i++) {
+		if (a[i] !== b[i])
+			return false;
+	}
+
+	return true;
+};
+
+// prefix is a prefix of full (or equal)
+const isPrefix = (prefix: Path, full: Path): boolean => {
+	if (prefix.length > full.length)
+		return false;
+
+	for (let i = 0; i < prefix.length; i++) {
+		if (prefix[i] !== full[i])
+			return false;
+	}
+
+	return true;
 };
 
 /* eslint-disable key-spacing */
@@ -231,7 +265,6 @@ export const observe: (<T extends object>(object: T) => T) & {
 				}
 
 				const result = Reflect.set(target, prop, value);
-				const pathKey = currentPath.join('.');
 				const bucket = listenerCache.get(rootObject);
 				const batchFrames = batchStack.get(rootObject);
 				let activeGroupId: string;
@@ -315,18 +348,19 @@ export const observe: (<T extends object>(object: T) => T) & {
 					bucket.global.forEach(listener => affectedListeners.add(listener));
 
 					if (bucket.paths.size > 0) {
-						bucket.paths.forEach((modeMap, watchedPath) => {
-							const exact = modeMap.get('exact');
-							if (exact && pathKey === watchedPath)
-								exact.forEach(l => affectedListeners.add(l));
+						bucket.paths.forEach(entry => {
+							const watchedSegs = entry.segs;
+							const exact = entry.modes.get('exact');
+							if (exact && pathEquals(currentPath, watchedSegs))
+								exact.forEach((l: ChangeListener) => affectedListeners.add(l));
 
-							const down = modeMap.get('down');
-							if (down && (pathKey === watchedPath || pathKey.startsWith(`${ watchedPath }.`)))
-								down.forEach(l => affectedListeners.add(l));
+							const down = entry.modes.get('down');
+							if (down && isPrefix(watchedSegs, currentPath))
+								down.forEach((l: ChangeListener) => affectedListeners.add(l));
 
-							const up = modeMap.get('up');
-							if (up && (watchedPath === pathKey || watchedPath.startsWith(`${ pathKey }.`)))
-								up.forEach(l => affectedListeners.add(l));
+							const up = entry.modes.get('up');
+							if (up && isPrefix(currentPath, watchedSegs) && currentPath.length < watchedSegs.length)
+								up.forEach((l: ChangeListener) => affectedListeners.add(l));
 						});
 					}
 
@@ -384,19 +418,19 @@ export const observe: (<T extends object>(object: T) => T) & {
 					const affectedListeners: Set<ChangeListener> = new Set();
 					bucket.global.forEach(listener => affectedListeners.add(listener));
 					if (bucket.paths.size > 0) {
-						const pathKey = currentPath.join('.');
-						bucket.paths.forEach((modeMap, watchedPath) => {
-							const exact = modeMap.get('exact');
-							if (exact && pathKey === watchedPath)
-								exact.forEach(l => affectedListeners.add(l));
+						bucket.paths.forEach(entry => {
+							const watchedSegs = entry.segs;
+							const exact = entry.modes.get('exact');
+							if (exact && pathEquals(currentPath, watchedSegs))
+								exact.forEach((l: ChangeListener) => affectedListeners.add(l));
 
-							const down = modeMap.get('down');
-							if (down && (pathKey === watchedPath || pathKey.startsWith(`${ watchedPath }.`)))
-								down.forEach(l => affectedListeners.add(l));
+							const down = entry.modes.get('down');
+							if (down && isPrefix(watchedSegs, currentPath))
+								down.forEach((l: ChangeListener) => affectedListeners.add(l));
 
-							const up = modeMap.get('up');
-							if (up && (watchedPath === pathKey || watchedPath.startsWith(`${ pathKey }.`)))
-								up.forEach(l => affectedListeners.add(l));
+							const up = entry.modes.get('up');
+							if (up && isPrefix(currentPath, watchedSegs) && currentPath.length < watchedSegs.length)
+								up.forEach((l: ChangeListener) => affectedListeners.add(l));
 						});
 					}
 
@@ -422,11 +456,12 @@ observe.listen = <T extends object>(
 	listener: ChangeListener,
 	mode: PathMode = 'down',
 ) => {
-	const path = nameof(selector);
+	const segs = nameofSegments(selector);
 	const root = proxyToRoot.get(object as object) ?? (object as object);
 	const bucket = ensureListenerBucket(root);
+	const key = keyFromSegments(segs);
 
-	if (path.length === 0) {
+	if (segs.length === 0) {
 		bucket.global.add(listener);
 
 		return () => {
@@ -435,18 +470,22 @@ observe.listen = <T extends object>(
 		};
 	}
 
-	const modeMap = bucket.paths.get(path) ?? new Map<PathMode, Set<ChangeListener>>();
-	const set = modeMap.get(mode) ?? new Set<ChangeListener>();
+	let entry = bucket.paths.get(key);
+	if (!entry) {
+		entry = { segs: segs.slice(), modes: new Map<PathMode, Set<ChangeListener>>() };
+		bucket.paths.set(key, entry);
+	}
+
+	const set = entry.modes.get(mode) ?? new Set<ChangeListener>();
 	set.add(listener);
-	modeMap.set(mode, set);
-	bucket.paths.set(path, modeMap);
+	entry.modes.set(mode, set);
 
 	return () => {
 		set.delete(listener);
 		if (set.size === 0) {
-			modeMap.delete(mode);
-			if (modeMap.size === 0)
-				bucket.paths.delete(path);
+			entry!.modes.delete(mode);
+			if (entry!.modes.size === 0)
+				bucket.paths.delete(key);
 		}
 
 		cleanupListenerBucket(root, bucket);

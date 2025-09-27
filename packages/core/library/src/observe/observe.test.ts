@@ -425,6 +425,46 @@ describe('observe', () => {
 		expect(observe.getHistory(observed)).toEqual([]);
 	});
 
+	test('bracket keys with dots are a single segment and match exact/up/down modes', () => {
+		const dotKey = 'first.last';
+		const state: { user: Record<string, any>; } = { user: { [dotKey]: 1, plain: 0 } };
+		const observed = observe(state);
+
+		const exact = vi.fn();
+		const down = vi.fn();
+		const up = vi.fn();
+
+		const stopExact = observe.listen(
+			observed,
+			o => o.user[dotKey],
+			(p, nv, ov) => exact(p.join('.'), nv, ov),
+			'exact',
+		);
+		const stopDown = observe.listen(observed, o => o.user, (p, nv, ov) => down(p.join('.'), nv, ov), 'down');
+		const stopUp = observe.listen(observed, o => o.user[dotKey], (p, nv, ov) => up(p.join('.'), nv, ov), 'up');
+
+		// change the bracket key
+		observed.user[dotKey] = 2;
+
+		expect(exact).toHaveBeenCalledTimes(1);
+		expect(exact).toHaveBeenLastCalledWith(`user.${ dotKey }`, 2, 1);
+		expect(down).toHaveBeenCalledTimes(1);
+		expect(down).toHaveBeenLastCalledWith(`user.${ dotKey }`, 2, 1);
+		expect(up).toHaveBeenCalledTimes(0);
+
+		// replace the parent object; up and down should fire for 'user'
+		observed.user = { [dotKey]: 3, plain: 0 };
+
+		expect(down).toHaveBeenCalledTimes(2);
+		expect(down.mock.calls[1][0]).toBe('user');
+		expect(up).toHaveBeenCalledTimes(1);
+		expect(up.mock.calls[0][0]).toBe('user');
+
+		stopExact();
+		stopDown();
+		stopUp();
+	});
+
 	test('mark: capture and undoSince marker reverts just the intended operations', () => {
 		const state = { a: 1, arr: [ 1 ] };
 		const observed = observe(state);
