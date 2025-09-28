@@ -58,7 +58,7 @@ This document tracks planned features, status, and design notes for the native W
 
 ### 4) Nested subgrids by modifier + selection
 
-- Status: Planned
+- Status: Done
 - Summary: Holding a modifier while picking a cell splits that cell into its own n×n subgrid. Repeat as needed.
 - Requirements:
   - Subgrid is conceptually a child node; the original grid remains the “active” key map so we can reuse shortcuts.
@@ -135,8 +135,8 @@ This document tracks planned features, status, and design notes for the native W
   - [x] Keyboard input capture to select cells (polling-based)
   - [x] Move mouse to center on confirm
 - M3 (Nested grids):
-  - [ ] Modifier-based split into subgrids
-  - [ ] Minimum cell size
+  - [x] Modifier-based split into subgrids (hold Shift + key to refine)
+  - [x] Minimum cell size enforcement (currently 16 px)
 - M4 (Platform polish):
   - [ ] Multi-monitor support
   - [ ] DPI awareness
@@ -151,7 +151,7 @@ This document tracks planned features, status, and design notes for the native W
 
 ## Next steps
 
-- Implement nested subgrids on modifier + key (e.g., Shift + key) and redraw.
-- Enforce a configurable minimum cell size before stopping further splits.
+- Multi-monitor support and DPI awareness for crisp lines and accurate coordinates.
+- Make minimum cell size and split modifier configurable.
 - Optional: replace polling with a low-level keyboard hook if needed.
-- Add small config options: key mapping scheme and split modifier.
+- Add alternate key mapping schemes (QWER/ASDF, etc.) and simple theming.

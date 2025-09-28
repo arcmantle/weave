@@ -7,6 +7,7 @@ import (
 	"log"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 	"unsafe"
@@ -43,6 +44,7 @@ var (
 	procPostMessageW         = user32.NewProc("PostMessageW")
 	procDrawTextW            = user32.NewProc("DrawTextW")
 	procSetCursorPos         = user32.NewProc("SetCursorPos")
+	procInvalidateRect       = user32.NewProc("InvalidateRect")
 
 	procCreateSolidBrush     = gdi32.NewProc("CreateSolidBrush")
 	procDeleteObject         = gdi32.NewProc("DeleteObject")
@@ -115,9 +117,11 @@ const (
 	DT_CENTER         = 0x00000001
 	DT_VCENTER        = 0x00000004
 	DT_SINGLELINE     = 0x00000020
+	DT_CALCRECT       = 0x00000400
 	// Background mode
 	TRANSPARENT       = 1
 	// Keyboard polling uses GetAsyncKeyState (no hook needed)
+	MIN_CELL_SIZE     = 16
 )
 
 // Overlay state
@@ -129,6 +133,10 @@ var overlay struct {
 
 // Reusable font for labels (created on first paint, destroyed on WM_DESTROY)
 var overlayFont uintptr
+var overlayFontHeight int
+
+// Path of selected indices for nested grids (1-based per depth)
+var overlayPath []int
 
 // Key mapping: for startGridN up to 3, map 1..9 row-major
 func keyToCellIndex(vk int) (idx int, ok bool) {
@@ -151,32 +159,7 @@ func keyToCellIndex(vk int) (idx int, ok bool) {
 	return 0, false
 }
 
-// Compute center of a cell index (1-based) within current overlay window
-func cellIndexToCenter(idx int) (x, y int, ok bool) {
-	overlay.mu.Lock()
-	hwnd := overlay.hwnd
-	overlay.mu.Unlock()
-	if hwnd == 0 || startGridN <= 0 { return 0, 0, false }
-	var rc RECT
-	procGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&rc)))
-	w := int(rc.right - rc.left)
-	h := int(rc.bottom - rc.top)
-	cellW := w / startGridN
-	cellH := h / startGridN
-	idx--
-	row := idx / startGridN
-	col := idx % startGridN
-	left := col * cellW
-	top := row * cellH
-	// Last row/col take remainder
-	right := (col + 1) * cellW
-	bottom := (row + 1) * cellH
-	if col == startGridN-1 { right = w }
-	if row == startGridN-1 { bottom = h }
-	cx := left + (right-left)/2
-	cy := top + (bottom-top)/2
-	return cx, cy, true
-}
+// (removed) cellIndexToCenter: superseded by nestedCellCenter
 
 // Keyboard polling loop: monitors 1..9 while overlay is visible
 func startKeyPolling(stop <-chan struct{}) {
@@ -198,12 +181,38 @@ func startKeyPolling(stop <-chan struct{}) {
 			if down && !was {
 				if idx, ok := keyToCellIndex(vk); ok {
 					// Shift modifier?
-					shift, _, _ := procGetAsyncKeyState.Call(0x10)
+					shift, _, _ := procGetAsyncKeyState.Call(0x10) // VK_SHIFT
 					if int16(shift)>>15 != 0 {
-						// TODO: implement subgrid split; for now, ignore
+						// Refine into nested grid if current cell size allows
+						overlay.mu.Lock()
+						hwnd := overlay.hwnd
+						pathCopy := make([]int, len(overlayPath))
+						copy(pathCopy, overlayPath)
+						overlay.mu.Unlock()
+						if hwnd == 0 {
+							return true
+						}
+						var rc RECT
+						procGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&rc)))
+						// descend to deepest rect
+						cur := rc
+						for _, p := range pathCopy {
+							cur = cellRectForWindow(cur, startGridN, p)
+						}
+						w := int(cur.right - cur.left)
+						h := int(cur.bottom - cur.top)
+						if w/startGridN < MIN_CELL_SIZE || h/startGridN < MIN_CELL_SIZE {
+							// too small to refine; flash repaint
+							procInvalidateRect.Call(hwnd, 0, 1)
+							return true
+						}
+						overlay.mu.Lock()
+						overlayPath = append(overlayPath, idx)
+						overlay.mu.Unlock()
+						procInvalidateRect.Call(hwnd, 0, 1)
 						return true
 					}
-					if x, y, ok2 := cellIndexToCenter(idx); ok2 {
+					if x, y, ok2 := nestedCellCenter(idx); ok2 {
 						procSetCursorPos.Call(uintptr(x), uintptr(y))
 						hideOverlay()
 						return true
@@ -236,107 +245,172 @@ func overlayWindowProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr
 		var ps PAINTSTRUCT
 		hdc, _, _ := procBeginPaint.Call(hwnd, uintptr(unsafe.Pointer(&ps)))
 		if hdc != 0 {
-			var rc RECT
-			procGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&rc)))
+			var rcClient RECT
+			procGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&rcClient)))
 			blackBrush, _, _ := procCreateSolidBrush.Call(0x000000)
-			procFillRect.Call(hdc, uintptr(unsafe.Pointer(&rc)), blackBrush)
+			procFillRect.Call(hdc, uintptr(unsafe.Pointer(&rcClient)), blackBrush)
 			procDeleteObject.Call(blackBrush)
 
-				// Draw grid lines based on startGridN (n x n grid)
-				magenta := uintptr(0x00FF00FF)
-				pen, _, _ := procCreatePen.Call(PS_SOLID, uintptr(lineWidth), magenta)
-				oldPen, _, _ := procSelectObject.Call(hdc, pen)
+			// Pen for grid lines
+			magenta := uintptr(0x00FF00FF)
+			pen, _, _ := procCreatePen.Call(PS_SOLID, uintptr(lineWidth), magenta)
+			oldPen, _, _ := procSelectObject.Call(hdc, pen)
 
-				w := int(rc.right - rc.left)
-				h := int(rc.bottom - rc.top)
-				if startGridN < 1 {
-					startGridN = 1
+			// Helper to draw grid lines within a rect
+			drawGrid := func(r RECT, n int) {
+				if n < 1 { n = 1 }
+				w := int(r.right - r.left)
+				h := int(r.bottom - r.top)
+				if w <= 0 || h <= 0 { return }
+				cellW := w / n
+				cellH := h / n
+				for i := 1; i < n; i++ {
+					x := int(r.left) + i*cellW
+					procMoveToEx.Call(hdc, uintptr(x), uintptr(r.top), 0)
+					procLineTo.Call(hdc, uintptr(x), uintptr(r.bottom))
 				}
-				cellW := w / startGridN
-				cellH := h / startGridN
-				// Vertical lines
-				for i := 1; i < startGridN; i++ {
-					x := i * cellW
-					procMoveToEx.Call(hdc, uintptr(x), 0, 0)
-					procLineTo.Call(hdc, uintptr(x), uintptr(h))
+				for i := 1; i < n; i++ {
+					y := int(r.top) + i*cellH
+					procMoveToEx.Call(hdc, uintptr(r.left), uintptr(y), 0)
+					procLineTo.Call(hdc, uintptr(r.right), uintptr(y))
 				}
-				// Horizontal lines
-				for i := 1; i < startGridN; i++ {
-					y := i * cellH
-					procMoveToEx.Call(hdc, 0, uintptr(y), 0)
-					procLineTo.Call(hdc, uintptr(w), uintptr(y))
-				}
+			}
 
-				// Prepare font and text settings (create font once)
-				if overlayFont == 0 {
-					// Choose font height ~40% of cell height, minimum 14
-					base := cellH
-					if cellW < base {
-						base = cellW
-					}
-					height := base * 2 / 5
-					if height < 14 {
-						height = 14
-					}
-					// Negative height to specify character height in pixels
-					hgt := int32(-height)
-					face, _ := windows.UTF16PtrFromString("Segoe UI")
-					f, _, _ := procCreateFontW.Call(
-						uintptr(hgt), 0, 0, 0,
-						400, // FW_NORMAL
-						0, 0, 0,
-						0, // DEFAULT_CHARSET
-						0, // OUT_DEFAULT_PRECIS
-						0, // CLIP_DEFAULT_PRECIS
-						0, // DEFAULT_QUALITY
-						0, // DEFAULT_PITCH | FF_DONTCARE
-						uintptr(unsafe.Pointer(face)),
-					)
-					overlayFont = f
+			// Helper to get child cell rect given 1-based index
+			cellRect := func(r RECT, n, idx int) RECT {
+				if n < 1 { n = 1 }
+				w := int(r.right - r.left)
+				h := int(r.bottom - r.top)
+				cellW := w / n
+				cellH := h / n
+				idx--
+				row := idx / n
+				col := idx % n
+				left := int(r.left) + col*cellW
+				top := int(r.top) + row*cellH
+				right := int(r.left) + (col+1)*cellW
+				bottom := int(r.top) + (row+1)*cellH
+				if col == n-1 { right = int(r.right) }
+				if row == n-1 { bottom = int(r.bottom) }
+				return RECT{left: int32(left), top: int32(top), right: int32(right), bottom: int32(bottom)}
+			}
+
+			// Draw root grid, then nested grids along overlayPath
+			drawGrid(rcClient, startGridN)
+			overlay.mu.Lock()
+			pathCopy := make([]int, len(overlayPath))
+			copy(pathCopy, overlayPath)
+			overlay.mu.Unlock()
+			curRect := rcClient
+			for _, idx := range pathCopy {
+				curRect = cellRect(curRect, startGridN, idx)
+				drawGrid(curRect, startGridN)
+			}
+
+			// Prepare font sized to fit within a cell of the deepest rect
+			w := int(curRect.right - curRect.left)
+			h := int(curRect.bottom - curRect.top)
+			cellW := w / startGridN
+			cellH := h / startGridN
+			if cellW < 1 { cellW = 1 }
+			if cellH < 1 { cellH = 1 }
+			// Worst-case label width uses max digit count among 1..n^2 (string of '8's)
+			maxLabelDigits := len(strconv.Itoa(startGridN*startGridN))
+			if maxLabelDigits < 1 { maxLabelDigits = 1 }
+			testStr := strings.Repeat("8", maxLabelDigits)
+			testLP, _ := windows.UTF16PtrFromString(testStr)
+			// Available area inside the cell (padding ~10%)
+			pad := cellW
+			if cellH < pad { pad = cellH }
+			pad = pad / 10
+			if pad < 2 { pad = 2 }
+			availW := cellW - 2*pad
+			availH := cellH - 2*pad
+			if availW < 1 { availW = 1 }
+			if availH < 1 { availH = 1 }
+			// Find a font height that fits testStr within availW x availH
+			// Always start from the maximum cell dimension to allow growth after deep splits.
+			maxStart := cellW
+			if cellH < maxStart { maxStart = cellH }
+			desired := maxStart
+			// Iterate down until fits
+			fitHeight := 0
+			face, _ := windows.UTF16PtrFromString("Segoe UI")
+			for hgt := desired; hgt >= 8; hgt-- {
+				// Negative height to specify pixel character height
+				f, _, _ := procCreateFontW.Call(
+					uintptr(int32(-hgt)), 0, 0, 0,
+					400,
+					0, 0, 0,
+					0, 0, 0, 0, 0,
+					uintptr(unsafe.Pointer(face)),
+				)
+				of, _, _ := procSelectObject.Call(hdc, f)
+				// Measure text
+				r := RECT{}
+				procDrawTextW.Call(
+					hdc,
+					uintptr(unsafe.Pointer(testLP)),
+					^uintptr(0),
+					uintptr(unsafe.Pointer(&r)),
+					DT_CALCRECT|DT_SINGLELINE,
+				)
+				// Restore and delete temp font
+				procSelectObject.Call(hdc, of)
+				width := int(r.right - r.left)
+				heightPx := int(r.bottom - r.top)
+				if width <= availW && heightPx <= availH {
+					fitHeight = hgt
+					procDeleteObject.Call(f)
+					break
 				}
-				var oldFont uintptr
+				procDeleteObject.Call(f)
+			}
+			if fitHeight == 0 { fitHeight = 8 }
+			// Recreate cached font if needed
+			if overlayFont == 0 || overlayFontHeight != fitHeight {
 				if overlayFont != 0 {
-					of, _, _ := procSelectObject.Call(hdc, overlayFont)
-					oldFont = of
+					procDeleteObject.Call(overlayFont)
 				}
-				// Transparent background for text; white color
-				procSetBkMode.Call(hdc, TRANSPARENT)
-				procSetTextColor.Call(hdc, 0x00FFFFFF)
+				f, _, _ := procCreateFontW.Call(
+					uintptr(int32(-fitHeight)), 0, 0, 0,
+					400,
+					0, 0, 0,
+					0, 0, 0, 0, 0,
+					uintptr(unsafe.Pointer(face)),
+				)
+				overlayFont = f
+				overlayFontHeight = fitHeight
+			}
+			var oldFont uintptr
+			if overlayFont != 0 {
+				of, _, _ := procSelectObject.Call(hdc, overlayFont)
+				oldFont = of
+			}
+			procSetBkMode.Call(hdc, TRANSPARENT)
+			procSetTextColor.Call(hdc, 0x00FFFFFF)
 
-				// Draw labels in each cell (1..n*n)
-				idx := 1
-				for row := 0; row < startGridN; row++ {
-					for col := 0; col < startGridN; col++ {
-						// Cell rect
-						left := int32(col * cellW)
-						top := int32(row * cellH)
-						right := int32((col + 1) * cellW)
-						bottom := int32((row + 1) * cellH)
-						if col == startGridN-1 {
-							right = int32(w)
-						}
-						if row == startGridN-1 {
-							bottom = int32(h)
-						}
-						cell := RECT{left: left, top: top, right: right, bottom: bottom}
-						label := strconv.Itoa(idx)
-						idx++
-						lp, _ := windows.UTF16PtrFromString(label)
-						procDrawTextW.Call(
-							hdc,
-							uintptr(unsafe.Pointer(lp)),
-							^uintptr(0), // -1 for null-terminated string
-							uintptr(unsafe.Pointer(&cell)),
-							DT_CENTER|DT_VCENTER|DT_SINGLELINE,
-						)
-					}
+			// Draw labels in deepest grid
+			idx := 1
+			for row := 0; row < startGridN; row++ {
+				for col := 0; col < startGridN; col++ {
+					r := cellRect(curRect, startGridN, idx)
+					label := strconv.Itoa(idx)
+					lp, _ := windows.UTF16PtrFromString(label)
+					procDrawTextW.Call(
+						hdc,
+						uintptr(unsafe.Pointer(lp)),
+						^uintptr(0),
+						uintptr(unsafe.Pointer(&r)),
+						DT_CENTER|DT_VCENTER|DT_SINGLELINE,
+					)
+					idx++
 				}
+			}
 
-				if oldFont != 0 {
-					procSelectObject.Call(hdc, oldFont)
-				}
-				procSelectObject.Call(hdc, oldPen)
-				procDeleteObject.Call(pen)
+			if oldFont != 0 { procSelectObject.Call(hdc, oldFont) }
+			procSelectObject.Call(hdc, oldPen)
+			procDeleteObject.Call(pen)
 		}
 		procEndPaint.Call(hwnd, uintptr(unsafe.Pointer(&ps)))
 		return 0
@@ -345,6 +419,9 @@ func overlayWindowProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr
 				procDeleteObject.Call(overlayFont)
 				overlayFont = 0
 			}
+			overlay.mu.Lock()
+			overlayPath = nil
+			overlay.mu.Unlock()
 		procPostQuitMessage.Call(0)
 		return 0
 	}
@@ -468,6 +545,7 @@ func showOverlay() error {
 	}
 
 	overlay.doneCh = make(chan struct{})
+	overlayPath = nil
 	go func() {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
@@ -552,6 +630,9 @@ func hideOverlay() error {
 			log.Println("hideOverlay: timeout waiting for window to close")
 		}
 	}
+	overlay.mu.Lock()
+	overlayPath = nil
+	overlay.mu.Unlock()
 	return nil
 }
 
@@ -560,4 +641,58 @@ func isOverlayVisible() bool {
 	overlay.mu.Lock()
 	defer overlay.mu.Unlock()
 	return overlay.hwnd != 0
+}
+
+// Helper: compute child rect within r for a 1-based index in an n x n grid.
+func cellRectForWindow(r RECT, n, idx int) RECT {
+	if n < 1 { n = 1 }
+	w := int(r.right - r.left)
+	h := int(r.bottom - r.top)
+	if w <= 0 || h <= 0 { return r }
+	cellW := w / n
+	cellH := h / n
+	i := idx - 1
+	row := i / n
+	col := i % n
+	left := int(r.left) + col*cellW
+	top := int(r.top) + row*cellH
+	right := int(r.left) + (col+1)*cellW
+	bottom := int(r.top) + (row+1)*cellH
+	if col == n-1 { right = int(r.right) }
+	if row == n-1 { bottom = int(r.bottom) }
+	return RECT{left: int32(left), top: int32(top), right: int32(right), bottom: int32(bottom)}
+}
+
+// Helper: compute center of idx within deepest refined rect; returns screen coords relative to the overlay client area.
+func nestedCellCenter(idx int) (int, int, bool) {
+	overlay.mu.Lock()
+	hwnd := overlay.hwnd
+	pathCopy := make([]int, len(overlayPath))
+	copy(pathCopy, overlayPath)
+	overlay.mu.Unlock()
+	if hwnd == 0 || startGridN <= 0 { return 0, 0, false }
+	var rc RECT
+	procGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&rc)))
+	cur := rc
+	for _, p := range pathCopy {
+		cur = cellRectForWindow(cur, startGridN, p)
+	}
+	// now center within cur for idx
+	w := int(cur.right - cur.left)
+	h := int(cur.bottom - cur.top)
+	if w <= 0 || h <= 0 { return 0, 0, false }
+	cellW := w / startGridN
+	cellH := h / startGridN
+	i := idx - 1
+	row := i / startGridN
+	col := i % startGridN
+	left := int(cur.left) + col*cellW
+	top := int(cur.top) + row*cellH
+	right := int(cur.left) + (col+1)*cellW
+	bottom := int(cur.top) + (row+1)*cellH
+	if col == startGridN-1 { right = int(cur.right) }
+	if row == startGridN-1 { bottom = int(cur.bottom) }
+	cx := left + (right-left)/2
+	cy := top + (bottom-top)/2
+	return cx, cy, true
 }
