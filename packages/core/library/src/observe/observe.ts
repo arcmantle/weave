@@ -3,6 +3,7 @@ import { clearLastUngrouped, ensureHistory, getLastUngrouped, getOptions, histor
 import { addListenerToTrie, cleanupListenerBucket, ensureListenerBucket, getListenerBucket, getNode, removeListenerFromTrie } from './listener-trie.ts';
 import { deleteAtPath, ensureParents, getParentAndKey, isArrayIndexKey, normalizeKey, setAtPath } from './path.ts';
 import { buildEffectiveListener, flush as scheduleFlush, notifyListeners, pause as schedulePause, resume as scheduleResume } from './schedule-queue.ts';
+import { cloneWithOptions, diffValues, originalSnapshotCache } from './snapshot-diff.ts';
 import type { ChangeListener, ChangeMeta, ChangeRecord, DiffRecord, ListenerOptions, PathMode, PathSelector, PathTrieNode } from './types.ts';
 
 const proxyToRoot: WeakMap<object, object> = new WeakMap();
@@ -23,20 +24,8 @@ const resumeWrites = (root: object) => {
 		suspendWriteCounter.set(root, n);
 };
 
-// Original snapshot for diff/isPristine
-const originalSnapshotCache: WeakMap<object, any> = new WeakMap();
 // Per-root proxy cache: Map<pathKey, proxy>
 const proxyCache: WeakMap<object, Map<string, any>> = new WeakMap();
-
-// Deep clone utility for snapshotting (structuredClone-first; fallback to identity)
-const deepClone = <T>(v: T): T => {
-	try {
-		return structuredClone(v) as T;
-	}
-	catch { /* ignore */ }
-
-	return v;
-};
 
 const getRedo = (root: object): ChangeRecord[] => {
 	let r = redoCache.get(root);
@@ -48,17 +37,6 @@ const getRedo = (root: object): ChangeRecord[] => {
 	return r;
 };
 const clearRedoInternal = (root: object) => redoCache.delete(root);
-const cloneWithOptions = <T>(root: object, v: T): T => {
-	const opts = getOptions(root);
-	if (opts.clone) {
-		try {
-			return opts.clone(v);
-		}
-		catch { /* fall through to default deepClone */ }
-	}
-
-	return deepClone(v);
-};
 
 // --- Path helpers (segment-based matching) ---
 
@@ -1001,64 +979,6 @@ observe.undoSince = (obj: object, historyLengthBefore: number) => {
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 
-const diffValues = (
-	a: any,
-	b: any,
-	path: string[],
-	out: DiffRecord[],
-	root: object,
-	seen = new WeakMap<object, object>(),
-) => {
-	const opts = getOptions(root);
-	const equal = opts.compare ?? ((x: any, y: any) => Object.is(x, y));
-	const filter = opts.diffFilter;
-
-	const f = filter ? filter(path) : true;
-	if (f === false)
-		return; // skip subtree
-	if (f === 'shallow') {
-		if (!equal(a, b, path))
-			out.push({ path: path.slice(), kind: 'changed', oldValue: a, newValue: b });
-
-		return;
-	}
-
-	if (equal(a, b, path))
-		return;
-
-	if (isObject(a) && isObject(b)) {
-		if (seen.get(a as object) === (b as object))
-			return;
-
-		seen.set(a as object, b as object);
-
-		const aKeyMap: Map<string, PropertyKey> = new Map();
-		for (const k of Reflect.ownKeys(a))
-			aKeyMap.set(normalizeKey(k), k);
-		const bKeyMap: Map<string, PropertyKey> = new Map();
-		for (const k of Reflect.ownKeys(b))
-			bKeyMap.set(normalizeKey(k), k);
-
-		const aKeys = new Set(aKeyMap.keys());
-		const bKeys = new Set(bKeyMap.keys());
-
-		for (const nk of aKeys) {
-			const nextPath = [ ...path, nk ];
-			if (!bKeys.has(nk))
-				out.push({ path: nextPath, kind: 'removed', oldValue: (a as any)[aKeyMap.get(nk)!] });
-			else
-				diffValues((a as any)[aKeyMap.get(nk)!], (b as any)[bKeyMap.get(nk)!], nextPath, out, root, seen);
-		}
-		for (const nk of bKeys) {
-			if (!aKeys.has(nk))
-				out.push({ path: [ ...path, nk ], kind: 'added', newValue: (b as any)[bKeyMap.get(nk)!] });
-		}
-
-		return;
-	}
-
-	out.push({ path: path.slice(), kind: 'changed', oldValue: a, newValue: b });
-};
 
 observe.diff = (obj: object) => {
 	const root = proxyToRoot.get(obj) ?? obj;

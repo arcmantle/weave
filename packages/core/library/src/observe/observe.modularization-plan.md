@@ -201,13 +201,13 @@ We’ll split into small PR-sized steps, running the full test suite after each 
 
 ## Next steps
 
-- Proceed with Step 5: Extract `snapshot-diff.ts`.
-  - Move pristine snapshot cache and deep clone wrapper (honoring `options.clone`).
-  - Move `diffValues` (honoring `options.compare`/`diffFilter`, using `Reflect.ownKeys` and symbol keys).
-  - Move `markPristine`, `isPristine`, `diff`, and the `reset` deep overwrite helper.
-  - Refactor `observe.ts` to import from `snapshot-diff.ts` and remove local snapshot/diff helpers.
-  - Ensure proxy cache is cleared on `markPristine`/`reset` (behavior parity with current tests).
-  - Run the observe tests (diff/pristine/reset and related suites) to verify no behavior changes.
+- Proceed with Step 6: Extract `undo-redo.ts`.
+  - Move redo cache and `clearRedo` helpers.
+  - Move `applyForward`/`applyBackward` logic with collection awareness (Map/Set/array splice semantics).
+  - Move public APIs: `undo`, `redo`, `undoGroups`, `redoGroups`, `canUndo`, `canRedo`.
+  - Co-locate suspend/resume write counter utilities used during apply to avoid recording.
+  - Refactor `observe.ts` to import from `undo-redo.ts` and remove local implementations.
+  - Run the observe tests (undo/redo, groups, map/set) to verify no behavior changes.
 
 ## Completed steps
 
@@ -229,3 +229,8 @@ We’ll split into small PR-sized steps, running the full test suite after each 
   - Moved history cache, group counters, lastUngrouped window, options store, and group-trim helper into `history.ts`.
   - Updated write paths (set/delete and Map/Set adapters), batch/transaction, undo/redo groups, and configure() to use the new helpers.
   - Fixed minor lint in `history.ts` (explicit return type) and ensured no behavior changes: all observe tests passed.
+
+- 2025-09-28 — Step 5: Extracted `snapshot-diff.ts` and refactored `observe.ts` to use it.
+  - Moved pristine snapshot cache, deep clone wrapper (with `options.clone`), and `diffValues` (with `options.compare`/`diffFilter`).
+  - Kept `markPristine`/`reset` behavior in `observe.ts` but redirected to new helpers; ensured proxy cache clearing remains.
+  - Verified no behavior changes: diff/pristine/reset and full observe tests passed.
