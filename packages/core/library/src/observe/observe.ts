@@ -1,10 +1,10 @@
 import { nameofSegments } from '../function/nameof';
+import { addListenerToTrie, cleanupListenerBucket, ensureListenerBucket, getListenerBucket, getNode, removeListenerFromTrie } from './listener-trie.ts';
 import { deleteAtPath, ensureParents, getParentAndKey, isArrayIndexKey, normalizeKey, setAtPath } from './path.ts';
 import type { ChangeListener, ChangeMeta, ChangeRecord, DiffRecord, ListenerBucket, ListenerOptions, PathMode, PathSelector, PathTrieNode, QueuedCall } from './types.ts';
 
 // types imported from './types.ts'
 
-const listenerCache: WeakMap<object, ListenerBucket> = new WeakMap();
 const proxyToRoot: WeakMap<object, object> = new WeakMap();
 // QueuedCall imported from './types.ts'
 const pauseState: WeakMap<object, { paused: boolean; queue: QueuedCall[]; }> = new WeakMap();
@@ -124,102 +124,7 @@ const cloneWithOptions = <T>(root: object, v: T): T => {
 	return deepClone(v);
 };
 
-const ensureListenerBucket = (root: object): ListenerBucket => {
-	let bucket = listenerCache.get(root);
-
-	if (!bucket) {
-		bucket = {
-			global: new Set<ChangeListener>(),
-			trie:   { children: new Map<string, PathTrieNode>(), modes: new Map<PathMode, Set<ChangeListener>>() },
-		};
-		listenerCache.set(root, bucket);
-	}
-
-	return bucket;
-};
-
-const isNodeEmpty = (node: PathTrieNode): boolean => node.children.size === 0 && (node.modes.size === 0);
-
-const cleanupListenerBucket = (root: object, bucket: ListenerBucket) => {
-	if (bucket.global.size === 0 && isNodeEmpty(bucket.trie))
-		listenerCache.delete(root);
-};
-
-const getOrCreateNode = (root: PathTrieNode, segs: string[]): PathTrieNode => {
-	let node = root;
-	for (const s of segs) {
-		let next = node.children.get(s);
-		if (!next) {
-			next = { children: new Map<string, PathTrieNode>(), modes: new Map<PathMode, Set<ChangeListener>>() };
-			node.children.set(s, next);
-		}
-
-		node = next;
-	}
-
-	return node;
-};
-
-const getNode = (root: PathTrieNode, segs: string[]): PathTrieNode | undefined => {
-	let node: PathTrieNode | undefined = root;
-	for (const s of segs) {
-		node = node?.children.get(s);
-		if (!node)
-			return undefined;
-	}
-
-	return node;
-};
-
-const prunePathIfEmpty = (root: PathTrieNode, segs: string[]) => {
-	const stack: { seg: string; node: PathTrieNode; }[] = [];
-	let node: PathTrieNode | undefined = root;
-	for (const s of segs) {
-		if (!node)
-			return;
-
-		stack.push({ seg: s, node });
-		node = node.children.get(s);
-	}
-	// node is the target node
-	if (!node)
-		return;
-
-	// Walk back up pruning empty nodes
-	for (let i = segs.length - 1; i >= 0; i--) {
-		const parent = stack[i]!.node;
-		const seg = stack[i]!.seg;
-		const child = parent.children.get(seg)!;
-		if (child.children.size === 0 && child.modes.size === 0)
-			parent.children.delete(seg);
-		else
-			break;
-	}
-};
-
-const _addListenerToTrie = (root: PathTrieNode, segs: string[], mode: PathMode, listener: ChangeListener): PathTrieNode => {
-	const node = getOrCreateNode(root, segs);
-	const set = node.modes.get(mode) ?? new Set<ChangeListener>();
-	set.add(listener);
-	node.modes.set(mode, set);
-
-	return node;
-};
-
-const _removeListenerFromTrie = (root: PathTrieNode, segs: string[], mode: PathMode, listener: ChangeListener) => {
-	const node = getNode(root, segs);
-	if (!node)
-		return;
-
-	const set = node.modes.get(mode);
-	if (set) {
-		set.delete(listener);
-		if (set.size === 0)
-			node.modes.delete(mode);
-	}
-
-	prunePathIfEmpty(root, segs);
-};
+// listener-trie: ensure/cleanup/getNode helpers are imported
 
 // --- Path helpers (segment-based matching) ---
 
@@ -402,14 +307,14 @@ export const observe: (<T extends object>(object: T) => T) & {
 								trimHistoryByGroups(history, cfg.maxHistory);
 						}
 
-						const bucket = listenerCache.get(rootObject);
+						const bucket = getListenerBucket(rootObject);
 						if (bucket) {
 							const affected: Set<ChangeListener> = new Set();
 							bucket.global.forEach(l => affected.add(l));
 							// Down listeners on ancestors
 							{
 								let node: PathTrieNode | undefined = bucket.trie;
-								if (node.modes.size > 0)
+								if (node && node.modes.size > 0)
 									node.modes.get('down')?.forEach(l => affected.add(l));
 
 								for (const s of currentPath) {
@@ -615,7 +520,7 @@ export const observe: (<T extends object>(object: T) => T) & {
 				}
 
 				const result = Reflect.set(target, prop, value);
-				const bucket = listenerCache.get(rootObject);
+				const bucket = getListenerBucket(rootObject);
 				const batchFrames = batchStack.get(rootObject);
 				let activeGroupId: string;
 				if (batchFrames && batchFrames.length > 0) {
@@ -720,10 +625,10 @@ export const observe: (<T extends object>(object: T) => T) & {
 					// collect down listeners from all ancestor nodes along currentPath
 					{
 						let node: PathTrieNode | undefined = root;
-						if (node.modes.size > 0) {
+						if (node && node.modes.size > 0) {
 							const down = node.modes.get('down');
 							if (down)
-								down.forEach((l: ChangeListener) => affectedListeners.add(l));
+								down.forEach(l => affectedListeners.add(l));
 						}
 
 						for (const s of currentPath) {
@@ -731,7 +636,7 @@ export const observe: (<T extends object>(object: T) => T) & {
 							if (!node)
 								break;
 
-							node.modes.get('down')?.forEach((l: ChangeListener) => affectedListeners.add(l));
+							node.modes.get('down')?.forEach(l => affectedListeners.add(l));
 						}
 					}
 					// exact listeners at the leaf node
@@ -740,7 +645,7 @@ export const observe: (<T extends object>(object: T) => T) & {
 						if (node) {
 							const exact = node.modes.get('exact');
 							if (exact)
-								exact.forEach((l: ChangeListener) => affectedListeners.add(l));
+								exact.forEach(l => affectedListeners.add(l));
 						}
 					}
 					// up listeners on descendants (strictly deeper than currentPath)
@@ -756,7 +661,7 @@ export const observe: (<T extends object>(object: T) => T) & {
 								const { node } = stack.pop()!;
 								const up = node.modes.get('up');
 								if (up)
-									up.forEach((l: ChangeListener) => affectedListeners.add(l));
+									up.forEach(l => affectedListeners.add(l));
 
 								for (const child of node.children.values())
 									stack.push({ node: child, depth: 1 });
@@ -794,7 +699,7 @@ export const observe: (<T extends object>(object: T) => T) & {
 					result = Reflect.deleteProperty(target, prop);
 				}
 
-				const bucket = listenerCache.get(rootObject);
+				const bucket = getListenerBucket(rootObject);
 				const batchFrames = batchStack.get(rootObject);
 				let activeGroupId: string;
 				if (batchFrames && batchFrames.length > 0) {
@@ -849,16 +754,16 @@ export const observe: (<T extends object>(object: T) => T) & {
 				// Notify listeners (deletes affect exact path only and descendants no longer exist)
 				if (bucket) {
 					const affectedListeners: Set<ChangeListener> = new Set();
-					bucket.global.forEach(listener => affectedListeners.add(listener));
+					bucket.global.forEach(l => affectedListeners.add(l));
 					// Trie-based dispatch
 					const root = bucket.trie;
 					// collect down listeners from all ancestor nodes along currentPath
 					{
 						let node: PathTrieNode | undefined = root;
-						if (node.modes.size > 0) {
+						if (node && node.modes.size > 0) {
 							const down = node.modes.get('down');
 							if (down)
-								down.forEach((l: ChangeListener) => affectedListeners.add(l));
+								down.forEach(l => affectedListeners.add(l));
 						}
 
 						for (const s of currentPath) {
@@ -866,7 +771,7 @@ export const observe: (<T extends object>(object: T) => T) & {
 							if (!node)
 								break;
 
-							node.modes.get('down')?.forEach((l: ChangeListener) => affectedListeners.add(l));
+							node.modes.get('down')?.forEach(l => affectedListeners.add(l));
 						}
 					}
 					// exact listeners at the leaf node
@@ -936,11 +841,11 @@ observe.listen = <T extends object>(
 	let mode: PathMode = 'down';
 	let options: ListenerOptions | undefined;
 	if (typeof modeOrOptions === 'string') {
-		mode = modeOrOptions as PathMode;
+		mode = modeOrOptions;
 		options = maybeOptions;
 	}
 	else {
-		options = modeOrOptions as ListenerOptions | undefined;
+		options = modeOrOptions;
 	}
 
 	// Wrap the listener with scheduling and QoL options
@@ -1027,10 +932,10 @@ observe.listen = <T extends object>(
 		return unsubscribe;
 	}
 
-	_addListenerToTrie(bucket.trie, segs, mode, effectiveListener);
+	addListenerToTrie(bucket.trie, segs, mode, effectiveListener);
 
 	unsubscribe = () => {
-		_removeListenerFromTrie(bucket.trie, segs, mode, effectiveListener);
+		removeListenerFromTrie(bucket.trie, segs, mode, effectiveListener);
 		cleanupListenerBucket(root, bucket);
 	};
 
