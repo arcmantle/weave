@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { observe } from './observe.ts';
+import { observe } from '../observe.ts';
 
 describe('observe - symbol identity', () => {
 	test('two symbols with same description do not collide in paths', () => {

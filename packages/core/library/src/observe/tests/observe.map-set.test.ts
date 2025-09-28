@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { observe } from './observe.ts';
+import { observe } from '../observe.ts';
 
 describe('observe - Map/Set adapters', () => {
 	test('Map set/delete/clear are recorded, notify listeners, and undoable', () => {

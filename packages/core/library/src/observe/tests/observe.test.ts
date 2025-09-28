@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { observe } from './observe.ts';
+import { observe } from '../observe.ts';
 
 // Smoke tests that cover end-to-end basics; detailed cases live in split files.
 describe('observe (smoke)', () => {

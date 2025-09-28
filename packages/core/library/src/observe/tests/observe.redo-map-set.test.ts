@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { observe } from './observe.ts';
+import { observe } from '../observe.ts';
 
 describe('observe.redo - Map/Set collections', () => {
 	test('Map: batch set + delete + clear undo/redo', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { observe } from './observe.ts';
+import { observe } from '../observe.ts';
 
 describe('observe - array operations', () => {
 	test('array push: index listener, history, and diff reflect new element', () => {

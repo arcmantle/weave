@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { observe } from './observe.ts';
+import { observe } from '../observe.ts';
 
 describe('observe.redo - basic object/array', () => {
 	test('redoGroups restores a batch of object sets', () => {

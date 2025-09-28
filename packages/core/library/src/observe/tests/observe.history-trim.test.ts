@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { observe } from './observe.ts';
+import { observe } from '../observe.ts';
 
 describe('observe - group-aware history trimming', () => {
 	test('maxHistory trims by whole groups from the front', () => {

@@ -2,6 +2,7 @@ import type { ProxyFactory } from './proxy-factory.ts';
 import { createProxyFactory } from './proxy-factory.ts';
 import { cloneWithOptions, originalSnapshotCache } from './snapshot-diff.ts';
 
+
 export interface ObserveCoreDeps {
 	getBatchFrames: (root: object) => { marker: number; id: string; }[] | undefined;
 }
@@ -11,23 +12,28 @@ export interface ObserveCore {
 	getRoot: (obj: object) => object;
 }
 
+
 export const createObserveCore = (deps: ObserveCoreDeps): ObserveCore => {
 	const proxyToRoot: WeakMap<object, object> = new WeakMap();
 	let proxyFactory: ProxyFactory | undefined;
 
-	const observe = ((object: any) => {
-		const existingRoot = proxyToRoot.get(object as object);
+	const observe = (object => {
+		const existingRoot = proxyToRoot.get(object);
 		if (!proxyFactory) {
 			proxyFactory = createProxyFactory({
-				getBatchFrames: (r: object) => deps.getBatchFrames(r),
-				setProxyRoot:   (proxy: object, r: object) => proxyToRoot.set(proxy, r),
+				getBatchFrames: (r) => deps.getBatchFrames(r),
+				setProxyRoot:   (proxy, r) => proxyToRoot.set(proxy, r),
 			});
 		}
 
 		// If called on an already observed proxy, return it to avoid double-proxying
 		if (existingRoot) {
-			if (!originalSnapshotCache.has(existingRoot))
-				originalSnapshotCache.set(existingRoot, cloneWithOptions(existingRoot, existingRoot));
+			if (!originalSnapshotCache.has(existingRoot)) {
+				originalSnapshotCache.set(
+					existingRoot,
+					cloneWithOptions(existingRoot, existingRoot),
+				);
+			}
 
 			return object;
 		}

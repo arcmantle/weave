@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { observe } from './observe.ts';
+import { observe } from '../observe.ts';
 
 describe('observe - history, undo, diff, pristine', () => {
 	test('history records set and delete, and undo reverts to original', () => {

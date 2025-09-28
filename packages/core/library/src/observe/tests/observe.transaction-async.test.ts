@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { observe } from './observe.ts';
+import { observe } from '../observe.ts';
 
 describe('observe.transactionAsync', () => {
 	test('resolves: commits as one group and undo reverts', async () => {

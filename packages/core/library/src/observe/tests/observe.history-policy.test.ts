@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { observe } from './observe.ts';
+import { observe } from '../observe.ts';
 
 describe('observe - history policy controls', () => {
 	test('maxHistory: keeps only the most recent N records (ring buffer)', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { observe } from './observe.ts';
+import { observe } from '../observe.ts';
 
 describe('observe - proxy caching (opt-in)', () => {
 	test('default is off: repeated access yields distinct proxies for nested objects', () => {

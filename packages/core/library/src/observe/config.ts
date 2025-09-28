@@ -1,5 +1,6 @@
 import { clearLastUngrouped, getOptions, setOptions as setObserveOptions } from './history.ts';
 
+
 export interface ConfigureOptions {
 	mergeUngrouped?:             boolean;
 	mergeWindowMs?:              number;
@@ -12,7 +13,10 @@ export interface ConfigureOptions {
 	cacheProxies?:               boolean;
 }
 
-// Configure per-root observe behavior by merging options and managing mergeUngrouped window reset.
+
+/**
+ * Configure per-root observe behavior by merging options and managing mergeUngrouped window reset.
+ */
 export const configureRoot = (root: object, options: ConfigureOptions): void => {
 	const prev = getOptions(root) ?? {};
 	setObserveOptions(root, { ...prev, ...options });

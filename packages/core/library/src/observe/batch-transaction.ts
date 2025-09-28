@@ -1,14 +1,14 @@
+import type { ObserveCore } from './api.ts';
 import { clearLastUngrouped, ensureHistory, historyGet, nextGroupId } from './history.ts';
-import { undoGroups as coreUndoGroups, undoSince as coreUndoSince } from './undo-redo.ts';
+import { undoGroups, undoSince } from './undo-redo.ts';
 
-export interface BatchDeps {
-	observe: <T extends object>(object: T) => T;
-	getRoot: (obj: object) => object;
-}
-
-export interface BatchFrame { marker: number; id: string; }
 
 const batchStack: WeakMap<object, BatchFrame[]> = new WeakMap();
+
+
+export type BatchDeps = Pick<ObserveCore, 'observe' | 'getRoot'>;
+
+export interface BatchFrame { marker: number; id: string; }
 
 export interface BatchAPI {
 	getBatchFrames: (root: object) => BatchFrame[] | undefined;
@@ -16,20 +16,17 @@ export interface BatchAPI {
 	commitBatch:    (obj: object) => void;
 	rollbackBatch:  (obj: object) => void;
 	batch:          <T extends object, R>(object: T, action: (observed: T) => R) => R;
-	transaction: <T extends object, R>(
-		object: T,
-		action: (observed: T) => R
-	) => { result: R; marker: number; undo: () => void; };
-	transactionAsync: <T extends object, R>(
-        object: T,
-        action: (observed: T) => Promise<R>,
-    ) => Promise<{ result: R; marker: number; undo: () => void; }>;
+	transaction: <T extends object, R>(object: T, action: (observed: T) => R) =>
+	{ result: R; marker: number; undo: () => void; };
+	transactionAsync: <T extends object, R>(object: T, action: (observed: T) => Promise<R>) =>
+	Promise<{ result: R; marker: number; undo: () => void; }>;
 }
 
-export const createBatchTransaction = (deps: BatchDeps): BatchAPI => {
-	const getBatchFrames = (root: object): BatchFrame[] | undefined => batchStack.get(root);
 
-	const beginBatch = (obj: object): void => {
+export const createBatchTransaction = (deps: BatchDeps): BatchAPI => {
+	const getBatchFrames: BatchAPI['getBatchFrames'] = (root) => batchStack.get(root);
+
+	const beginBatch: BatchAPI['beginBatch'] = (obj) => {
 		const root = deps.getRoot(obj);
 		const history = ensureHistory(root);
 		const frames = batchStack.get(root) ?? [];
@@ -39,7 +36,7 @@ export const createBatchTransaction = (deps: BatchDeps): BatchAPI => {
 		clearLastUngrouped(root);
 	};
 
-	const commitBatch = (obj: object): void => {
+	const commitBatch: BatchAPI['commitBatch'] = (obj) => {
 		const root = deps.getRoot(obj);
 		const frames = batchStack.get(root);
 		if (!frames || frames.length === 0)
@@ -52,21 +49,21 @@ export const createBatchTransaction = (deps: BatchDeps): BatchAPI => {
 		clearLastUngrouped(root);
 	};
 
-	const rollbackBatch = (obj: object): void => {
+	const rollbackBatch: BatchAPI['rollbackBatch'] = (obj) => {
 		const root = deps.getRoot(obj);
 		const frames = batchStack.get(root);
 		if (!frames || frames.length === 0)
 			return;
 
 		const frame = frames.pop()!;
-		coreUndoSince(root, frame.marker);
+		undoSince(root, frame.marker);
 		if (frames.length === 0)
 			batchStack.delete(root);
 
 		clearLastUngrouped(root);
 	};
 
-	const batch = <T extends object, R>(object: T, action: (observed: T) => R): R => {
+	const batch: BatchAPI['batch'] = (object, action) => {
 		const root = deps.getRoot(object as unknown as object);
 		beginBatch(root);
 		const observed = deps.observe(object);
@@ -82,11 +79,7 @@ export const createBatchTransaction = (deps: BatchDeps): BatchAPI => {
 		}
 	};
 
-	const transaction = <T extends object, R>(object: T, action: (observed: T) => R): {
-		result: R;
-		marker: number;
-		undo:   () => void;
-	} => {
+	const transaction: BatchAPI['transaction'] = (object, action) => {
 		const root = deps.getRoot(object as unknown as object);
 		const marker = (historyGet(root) ?? []).length;
 
@@ -112,13 +105,13 @@ export const createBatchTransaction = (deps: BatchDeps): BatchAPI => {
 					if (groupId && h && h.length > 0) {
 						const topGroup = h[h.length - 1]!.groupId ?? `__g#${ h.length - 1 }`;
 						if (topGroup === groupId) {
-							coreUndoGroups(root, 1);
+							undoGroups(root, 1);
 
 							return;
 						}
 					}
 
-					coreUndoSince(root, marker);
+					undoSince(root, marker);
 				},
 			};
 		}
@@ -126,16 +119,13 @@ export const createBatchTransaction = (deps: BatchDeps): BatchAPI => {
 			if (isTopLevel)
 				rollbackBatch(root);
 			else
-				coreUndoSince(root, marker);
+				undoSince(root, marker);
 
 			throw err;
 		}
 	};
 
-	const transactionAsync = async <T extends object, R>(
-		object: T,
-		action: (observed: T) => Promise<R>,
-	): Promise<{ result: R; marker: number; undo: () => void; }> => {
+	const transactionAsync: BatchAPI['transactionAsync'] = async (object, action) => {
 		const root = deps.getRoot(object as unknown as object);
 		const marker = (historyGet(root) ?? []).length;
 
@@ -161,13 +151,13 @@ export const createBatchTransaction = (deps: BatchDeps): BatchAPI => {
 					if (groupId && h && h.length > 0) {
 						const topGroup = h[h.length - 1]!.groupId ?? `__g#${ h.length - 1 }`;
 						if (topGroup === groupId) {
-							coreUndoGroups(root, 1);
+							undoGroups(root, 1);
 
 							return;
 						}
 					}
 
-					coreUndoSince(root, marker);
+					undoSince(root, marker);
 				},
 			};
 		}
@@ -175,11 +165,19 @@ export const createBatchTransaction = (deps: BatchDeps): BatchAPI => {
 			if (isTopLevel)
 				rollbackBatch(root);
 			else
-				coreUndoSince(root, marker);
+				undoSince(root, marker);
 
 			throw err;
 		}
 	};
 
-	return { getBatchFrames, beginBatch, commitBatch, rollbackBatch, batch, transaction, transactionAsync };
+	return {
+		getBatchFrames,
+		beginBatch,
+		commitBatch,
+		rollbackBatch,
+		batch,
+		transaction,
+		transactionAsync,
+	};
 };

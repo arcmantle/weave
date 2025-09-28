@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { observe } from './observe.ts';
+import { observe } from '../observe.ts';
 
 describe('observe.transaction - nested coalescing', () => {
 	test('sync nested transactions coalesce under one group', () => {

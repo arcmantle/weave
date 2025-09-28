@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
 
-import { observe } from './observe.ts';
+import { observe } from '../observe.ts';
 
 describe('observe - batching and configuration', () => {
 	test('batch groups multiple changes into one undoGroups step', () => {

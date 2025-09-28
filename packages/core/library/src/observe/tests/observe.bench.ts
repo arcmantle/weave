@@ -1,6 +1,6 @@
 import { bench, describe } from 'vitest';
 
-import { observe } from './observe.ts';
+import { observe } from '../observe.ts';
 
 interface Obj { a: { b: { c: number; }; }; }
 

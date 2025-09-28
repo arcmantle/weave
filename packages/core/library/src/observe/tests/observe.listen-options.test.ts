@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
 
-import { observe } from './observe.ts';
+import { observe } from '../observe.ts';
 
 describe('observe.listen - options', () => {
 	test('once: listener called only once and auto-unsubscribes', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { observe } from './observe';
+import { observe } from '../observe.ts';
 
 describe('array delete trap smoothing', () => {
 	it('delete index uses splice (no holes) and undo restores', () => {
