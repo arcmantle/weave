@@ -216,7 +216,6 @@ const cloneWithOptions = <T>(root: object, v: T): T => {
 		}
 	}
 
-
 	return deepClone(v);
 };
 
@@ -1772,7 +1771,6 @@ observe.redoGroups = (obj: object, groups: number = 1) => {
 };
 
 // --- Options/configure API ---
-/* eslint-disable key-spacing */
 observe.configure = (
 	obj: object,
 	options: {
