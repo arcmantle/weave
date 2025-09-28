@@ -1,49 +1,16 @@
 import { nameofSegments } from '../function/nameof';
-import { normalizePropertyKey } from '../util/symbol-id.ts';
+import { deleteAtPath, ensureParents, getParentAndKey, isArrayIndexKey, normalizeKey, setAtPath } from './path.ts';
+import type { ChangeListener, ChangeMeta, ChangeRecord, DiffRecord, ListenerBucket, ListenerOptions, PathMode, PathSelector, PathTrieNode, QueuedCall } from './types.ts';
 
-interface ChangeMeta { type: 'set' | 'delete'; existedBefore?: boolean; groupId?: string; }
-type ChangeListener = (path: string[], newValue: any, oldValue: any, meta?: ChangeMeta) => void;
-
-type PathSelector<T> = (object: T) => any;
-
-type PathMode = 'exact' | 'up' | 'down';
-
-interface PathTrieNode {
-	children: Map<string, PathTrieNode>;
-	modes:    Map<PathMode, Set<ChangeListener>>;
-}
-
-interface ListenerBucket {
-	global: Set<ChangeListener>;
-	trie:   PathTrieNode;
-}
-
-interface ListenerOptions {
-	once?:       boolean;
-	debounceMs?: number;
-	throttleMs?: number;
-	schedule?:   'sync' | 'microtask';
-}
+// types imported from './types.ts'
 
 const listenerCache: WeakMap<object, ListenerBucket> = new WeakMap();
 const proxyToRoot: WeakMap<object, object> = new WeakMap();
-interface QueuedCall { listener: ChangeListener; args: [ string[], any, any, ChangeMeta | undefined ]; }
+// QueuedCall imported from './types.ts'
 const pauseState: WeakMap<object, { paused: boolean; queue: QueuedCall[]; }> = new WeakMap();
 
 // --- Change history (for undo/diff) ---
-type ChangeType = 'set' | 'delete';
-interface ChangeRecord {
-	path:           string[];
-	type:           ChangeType;
-	oldValue:       any;
-	newValue:       any;
-	timestamp:      number;
-	existedBefore?: boolean;
-	groupId?:       string;
-	// Collection metadata (for Map/Set adapters)
-	collection?:    'map' | 'set';
-	key?:           any; // Map key (or Set entry when needed)
-}
+// ChangeRecord/ChangeType imported from './types.ts'
 
 const historyCache: WeakMap<object, ChangeRecord[]> = new WeakMap();
 const redoCache:    WeakMap<object, ChangeRecord[]> = new WeakMap();
@@ -115,69 +82,7 @@ const resumeWrites = (root: object) => {
 		suspendWriteCounter.set(root, n);
 };
 
-const getParentAndKey = (root: any, path: string[]): [any, string] | null => {
-	if (path.length === 0)
-		return null;
-
-	let parent: any = root;
-	for (const seg of path.slice(0, -1)) {
-		if (parent == null)
-			return null;
-
-		parent = (parent as any)[seg as any];
-	}
-
-	const last = path[path.length - 1]!;
-
-	return [ parent, last ];
-};
-
-const setAtPath = (root: any, path: string[], value: any) => {
-	const res = getParentAndKey(root, path);
-	if (!res)
-		return;
-
-	const [ parent, key ] = res;
-	Reflect.set(parent, key, value);
-};
-
-const isArrayIndexKey = (k: string) => /^(?:0|[1-9]\d*)$/.test(k);
-
-const deleteAtPath = (root: any, path: string[]) => {
-	const res = getParentAndKey(root, path);
-	if (!res)
-		return;
-
-	const [ parent, key ] = res;
-	if (parent == null)
-		return;
-
-	// If deleting from an array, prefer splice to avoid holes and adjust length
-	if (Array.isArray(parent) && isArrayIndexKey(String(key))) {
-		const idx = Number(key);
-		if (Number.isInteger(idx))
-			parent.splice(idx, 1);
-
-		return;
-	}
-
-	Reflect.deleteProperty(parent, key as any);
-};
-
-const ensureParents = (root: any, path: string[]) => {
-	let node: any = root;
-	for (let i = 0; i < path.length - 1; i++) {
-		const seg = path[i]!;
-		let next = (node as any)[seg as any];
-		if (next == null) {
-			const following = path[i + 1]!;
-			next = /^(?:0|[1-9]\d*)$/.test(following) ? [] : {};
-			(node as any)[seg as any] = next;
-		}
-
-		node = next;
-	}
-};
+// path helpers imported from './path.ts'
 
 // Original snapshot for diff/isPristine
 const originalSnapshotCache: WeakMap<object, any> = new WeakMap();
@@ -318,8 +223,7 @@ const _removeListenerFromTrie = (root: PathTrieNode, segs: string[], mode: PathM
 
 // --- Path helpers (segment-based matching) ---
 
-// Normalize property key to a stable string segment (symbols -> sym#id)
-const normalizeKey = (prop: PropertyKey): string => normalizePropertyKey(prop);
+// normalizeKey imported from './path.ts'
 
 // (segment compare helpers removed; trie-based dispatch no longer uses them)
 
@@ -1366,13 +1270,6 @@ observe.undoSince = (obj: object, historyLengthBefore: number) => {
 };
 
 // --- Diff and pristine helpers ---
-type DiffKind = 'added' | 'removed' | 'changed';
-interface DiffRecord {
-	path:      string[];
-	kind:      DiffKind;
-	oldValue?: any;
-	newValue?: any;
-}
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 
@@ -1409,10 +1306,10 @@ const diffValues = (
 
 		const aKeyMap: Map<string, PropertyKey> = new Map();
 		for (const k of Reflect.ownKeys(a))
-			aKeyMap.set(normalizePropertyKey(k), k);
+			aKeyMap.set(normalizeKey(k), k);
 		const bKeyMap: Map<string, PropertyKey> = new Map();
 		for (const k of Reflect.ownKeys(b))
-			bKeyMap.set(normalizePropertyKey(k), k);
+			bKeyMap.set(normalizeKey(k), k);
 
 		const aKeys = new Set(aKeyMap.keys());
 		const bKeys = new Set(bKeyMap.keys());
