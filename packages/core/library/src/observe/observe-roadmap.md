@@ -176,21 +176,23 @@ This document tracks incremental improvements to the deep observe feature in `pa
   - `onAny` registers on the global bucket and receives all changes (objects/arrays/Map/Set) with meta.
 - Tests: Added coverage for onAny delivery and pause/resume/flush queuing semantics.
 
-### 13. Documentation and samples
+### 13. Proxy caching for nested objects (opt-in)
+
+- Status: Done
+- Goal: Stabilize identity and improve performance for repeated traversals.
+- API: `observe.configure(object, { cacheProxies?: boolean })`
+- Outcome:
+  - Added per-root proxy cache keyed by path segments; opt-in via `cacheProxies: true`.
+  - Read-through caching in proxy creator; identity is stable for the same path while enabled.
+  - Invalidation wired on set/delete, array index splice, and array length shrink; cache cleared on markPristine/reset.
+  - Behavior applies across objects, arrays, and collection adapters transparently.
+- Tests: Added identity stability and invalidation tests; default-off behavior verified.
+
+### 14. Documentation and samples
 
 - Status: Planned
 - Deliverables: Usage guide, gotchas, recipes (markers, transactions, batching, exact/up/down modes), performance tips, array caveats.
 - Include Map/Set usage: set/add/delete/clear semantics, batching/undo with groups, listener modes (exact/up/down on collection path), and notes on non-mutating method binding/brand checks.
-
-### 14. Proxy caching for nested objects (opt-in)
-
-- Status: Planned
-- Goal: Stabilize identity and improve performance for repeated traversals.
-- API: `observe.configure(object, { cacheProxies?: boolean })`
-- Plan:
-  - Cache proxies per (target, path) within a root; document identity and memory trade-offs.
-  - Ensure cache invalidation on delete/replace to avoid stale proxies.
-- Tests: Identity stability, cache effectiveness, memory/GC sanity; micro-bench comparisons.
 
 ---
 
@@ -203,8 +205,8 @@ This document tracks incremental improvements to the deep observe feature in `pa
 
 ### Suggested execution order (Planned tasks)
 
-1) Task 13 — Documentation and samples
-2) Task 14 — Proxy caching for nested objects (opt-in)
+1) Task 13 — Proxy caching for nested objects (opt-in)
+2) Task 14 — Documentation and samples
 
 Notes:
 
@@ -225,8 +227,8 @@ Notes:
 - [Done] (2025-09-28) Task 10: Listener QoL (once, debounce, throttle, schedule + meta)
 - [Done] (2025-09-28) Task 11: Transaction upgrades (async, nesting, redo)
 - [Done] (2025-09-28) Task 12: Observability surface (onAny, pause/resume/flush)
-- [Planned] Task 13: Docs and samples
-- [Planned] Task 14: Proxy caching for nested objects (opt-in)
+- [Done] (2025-09-28) Task 13: Proxy caching for nested objects (opt-in)
+- [Planned] Task 14: Docs and samples
 
 ## Polish items
 

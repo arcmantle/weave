@@ -59,6 +59,7 @@ const optionsCache: WeakMap<object, {
 	clone?:                      (value: any) => any;
 	compare?:                    (a: any, b: any, path: string[]) => boolean; // true => equal
 	diffFilter?:                 (path: string[]) => boolean | 'shallow';
+	cacheProxies?:               boolean;
 }> = new WeakMap();
 const lastUngrouped: WeakMap<object, { id: string; at: number; }> = new WeakMap();
 
@@ -180,6 +181,8 @@ const ensureParents = (root: any, path: string[]) => {
 
 // Original snapshot for diff/isPristine
 const originalSnapshotCache: WeakMap<object, any> = new WeakMap();
+// Per-root proxy cache: Map<pathKey, proxy>
+const proxyCache: WeakMap<object, Map<string, any>> = new WeakMap();
 
 // Deep clone utility for snapshotting (structuredClone-first; fallback to identity)
 const deepClone = <T>(v: T): T => {
@@ -321,7 +324,6 @@ const normalizeKey = (prop: PropertyKey): string => normalizePropertyKey(prop);
 
 // (segment compare helpers removed; trie-based dispatch no longer uses them)
 
-/* eslint-disable key-spacing */
 export const observe: (<T extends object>(object: T) => T) & {
 	listen: <T extends object>(
 		object: T,
@@ -374,9 +376,10 @@ export const observe: (<T extends object>(object: T) => T) & {
 			clone?:                      (value: any) => any;
 			compare?:                    (a: any, b: any, path: string[]) => boolean;
 			diffFilter?:                 (path: string[]) => boolean | 'shallow';
+			cacheProxies?:               boolean;
 		}
 	) => void;
-} /* eslint-enable key-spacing */ = object => {
+} = object => {
 	// Capture original snapshot once per root
 	if (!originalSnapshotCache.has(object))
 		originalSnapshotCache.set(object, cloneWithOptions(object, object));
@@ -390,6 +393,30 @@ export const observe: (<T extends object>(object: T) => T) & {
 		}
 
 		st.queue.push(call);
+	};
+	const pathKeyOf = (segs: string[]) => segs.join('\x1f');
+	const invalidateCacheAt = (root: object, basePath: string[], alsoParentArray?: boolean) => {
+		const opts = getOptions(root);
+		if (!opts.cacheProxies)
+			return;
+
+		const perRoot = proxyCache.get(root);
+		if (!perRoot)
+			return;
+
+		const base = pathKeyOf(basePath);
+		for (const k of Array.from(perRoot.keys())) {
+			if (k === base || k.startsWith(base + '\x1f'))
+				perRoot.delete(k);
+		}
+
+		if (alsoParentArray) {
+			const parentKey = pathKeyOf(basePath.slice(0, -1));
+			for (const k of Array.from(perRoot.keys())) {
+				if (k === parentKey || k.startsWith(parentKey + '\x1f'))
+					perRoot.delete(k);
+			}
+		}
 	};
 	const notifyListeners = (
 		root: object,
@@ -409,6 +436,20 @@ export const observe: (<T extends object>(object: T) => T) & {
 	};
 
 	const createProxy = <O extends object>(targetObject: O, path: string[] = [], rootObject: object = object) => {
+		const opts = getOptions(rootObject);
+		if (opts.cacheProxies) {
+			let perRoot = proxyCache.get(rootObject);
+			if (!perRoot) {
+				perRoot = new Map<string, any>();
+				proxyCache.set(rootObject, perRoot);
+			}
+
+			const pathKey = path.join('\x1f');
+			const cached = perRoot.get(pathKey);
+			if (cached)
+				return cached as O;
+		}
+
 		const proxy = new Proxy(targetObject, {
 			get(target, prop) {
 				const result = Reflect.get(target, prop);
@@ -757,6 +798,15 @@ export const observe: (<T extends object>(object: T) => T) & {
 						trimHistoryByGroups(history, cfg.maxHistory);
 				}
 
+				// Invalidate proxy cache for this path; if shrinking array length, also invalidate the array base
+				const shrinkingArray = Array.isArray(target)
+					&& normalizeKey(prop) === 'length'
+					&& typeof oldValue === 'number'
+					&& typeof value === 'number'
+					&& value < oldValue;
+
+				invalidateCacheAt(rootObject, currentPath, shrinkingArray);
+
 				if (bucket) {
 					const affectedListeners: Set<ChangeListener> = new Set();
 
@@ -889,6 +939,10 @@ export const observe: (<T extends object>(object: T) => T) & {
 						trimHistoryByGroups(history, opts.maxHistory);
 				}
 
+				// Invalidate proxy cache for this path and, for array index splice case, also for the array base
+				const isArrayIndex = Array.isArray(target) && /^(?:0|[1-9]\d*)$/.test(key);
+				invalidateCacheAt(rootObject, currentPath, isArrayIndex);
+
 				// Notify listeners (deletes affect exact path only and descendants no longer exist)
 				if (bucket) {
 					const affectedListeners: Set<ChangeListener> = new Set();
@@ -950,6 +1004,13 @@ export const observe: (<T extends object>(object: T) => T) & {
 		});
 
 		proxyToRoot.set(proxy, rootObject);
+
+		// Store in cache if enabled
+		if (opts.cacheProxies) {
+			const perRoot = proxyCache.get(rootObject)!;
+			const pathKey = path.join('\x1f');
+			perRoot.set(pathKey, proxy);
+		}
 
 		return proxy;
 	};
@@ -1202,6 +1263,11 @@ observe.markPristine = (obj: object) => {
 
 	lastUngrouped.delete(root);
 	clearRedoInternal(root);
+
+	// Clear proxy cache to avoid stale entries after marking pristine/reset
+	const perRoot = proxyCache.get(root);
+	if (perRoot)
+		perRoot.clear();
 };
 
 observe.undo = (obj: object, steps: number = Number.POSITIVE_INFINITY) => {
@@ -1718,6 +1784,7 @@ observe.configure = (
 		clone?:                      (value: any) => any;
 		compare?:                    (a: any, b: any, path: string[]) => boolean;
 		diffFilter?:                 (path: string[]) => boolean | 'shallow';
+		cacheProxies?:               boolean;
 	},
 ) => {
 	const root = proxyToRoot.get(obj) ?? obj;
