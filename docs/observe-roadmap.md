@@ -148,13 +148,20 @@ This document tracks incremental improvements to the deep observe feature in `pa
 
 ### 11. Transaction upgrades (async, nesting, redo)
 
-- Status: Planned
+- Status: Done
 - Goal: More robust multi-step operations.
-- API (proposed):
-  - `observe.transactionAsync(object, async observed => { ... })` with auto-rollback on rejection
-  - Nested transactions coalesce under the outermost batch
-  - Optional redo stack: `observe.redo(object)`
-- Tests: Async rollback integrity; nested transactions group changes; redo works after undo.
+- API:
+  - `observe.transactionAsync(object, async observed => { ... })` with auto-commit on resolve and auto-rollback on rejection
+  - Nested transactions coalesce under the outermost batch for both sync `transaction` and `transactionAsync`
+  - Redo stack and helpers:
+    - `observe.redo(object, steps = 1)` and `observe.redoGroups(object, groups = 1)`
+    - `observe.canUndo(object)`, `observe.canRedo(object)`, `observe.clearRedo(object)`
+- Outcome:
+  - Added `transactionAsync` mirroring sync semantics with automatic commit/rollback.
+  - Nested transactions (sync and async) coalesce into the outer batch, yielding a single undoable group.
+  - Introduced redo with per-root redo stacks. Redo is cleared on any forward change; redo applies changes as new groups with fresh `groupId`.
+  - Redo/Undo support objects, arrays, and Map/Set mutations (set/add/delete/clear) consistently.
+- Tests: Added coverage for async commit/rollback, nested coalescing, basic redo across objects/arrays, and Map/Set redo including clear semantics.
 
 ### 12. Observability surface
 
@@ -183,11 +190,8 @@ This document tracks incremental improvements to the deep observe feature in `pa
 
 ### Suggested execution order (Planned tasks)
 
-1) Task 9 — Map/Set adapters via proxy interception
-2) Task 10 — Listener QoL
-3) Task 11 — Transaction upgrades
-4) Task 12 — Observability surface
-5) Task 13 — Documentation and samples
+1) Task 12 — Observability surface
+2) Task 13 — Documentation and samples
 
 Notes:
 
@@ -206,7 +210,7 @@ Notes:
 - [Done] (2025-09-28) Task 8: Snapshot/diff/reset fidelity (structuredClone-first, Reflect.ownKeys, clone/compare/diffFilter)
 - [Done] (2025-09-28) Task 9: Map/Set adapters via proxy interception
 - [Done] (2025-09-28) Task 10: Listener QoL (once, debounce, throttle, schedule + meta)
-- [Planned] Task 11: Transaction upgrades
+- [Done] (2025-09-28) Task 11: Transaction upgrades (async, nesting, redo)
 - [Planned] Task 12: Observability surface
 - [Planned] Task 13: Docs and samples
 
