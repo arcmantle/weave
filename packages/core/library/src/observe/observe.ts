@@ -62,6 +62,31 @@ const ensureHistory = (root: object): ChangeRecord[] => {
 	return h;
 };
 
+// Trim history by removing whole groups from the front until length <= max.
+// This keeps undoGroups coherent and avoids splitting groups.
+const trimHistoryByGroups = (history: ChangeRecord[], max: number) => {
+	if (!(typeof max === 'number') || max < 0)
+		return;
+
+	if (history.length <= max)
+		return;
+
+	let removeCount = 0;
+	let i = 0;
+	while (history.length - removeCount > max && i < history.length) {
+		const gid = history[i]!.groupId ?? `__g#${ i }`;
+		let j = i;
+		while (j < history.length && (history[j]!.groupId ?? `__g#${ j }`) === gid)
+			j++;
+
+		removeCount += (j - i);
+		i = j;
+	}
+
+	if (removeCount > 0)
+		history.splice(0, removeCount);
+};
+
 const isSuspended = (root: object): boolean => (suspendWriteCounter.get(root) ?? 0) > 0;
 const suspendWrites = (root: object) => suspendWriteCounter.set(root, (suspendWriteCounter.get(root) ?? 0) + 1);
 const resumeWrites = (root: object) => {
@@ -406,12 +431,9 @@ export const observe: (<T extends object>(object: T) => T) & {
 						}
 					}
 
-					// Enforce maxHistory ring buffer if configured
-					if (cfg && typeof cfg.maxHistory === 'number' && cfg.maxHistory >= 0 && history.length > cfg.maxHistory) {
-						const overflow = history.length - cfg.maxHistory;
-						if (overflow > 0)
-							history.splice(0, overflow);
-					}
+					// Enforce maxHistory by trimming whole groups from the front
+					if (cfg && typeof cfg.maxHistory === 'number')
+						trimHistoryByGroups(history, cfg.maxHistory);
 				}
 
 				if (bucket) {
@@ -538,12 +560,9 @@ export const observe: (<T extends object>(object: T) => T) & {
 					if (!opts?.filter || opts.filter(delRec))
 						history.push(delRec);
 
-					// Enforce maxHistory ring buffer if configured
-					if (opts && typeof opts.maxHistory === 'number' && opts.maxHistory >= 0 && history.length > opts.maxHistory) {
-						const overflow = history.length - opts.maxHistory;
-						if (overflow > 0)
-							history.splice(0, overflow);
-					}
+					// Enforce maxHistory by trimming whole groups from the front
+					if (opts && typeof opts.maxHistory === 'number')
+						trimHistoryByGroups(history, opts.maxHistory);
 				}
 
 				// Notify listeners (deletes affect exact path only and descendants no longer exist)
