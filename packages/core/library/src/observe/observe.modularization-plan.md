@@ -5,7 +5,7 @@ This document proposes how we will split the current `observe.ts` into cohesive,
 ## Goals
 
 - Keep the public API stable: `observe()`, `observe.listen`, `onAny`, `pause/resume/flush`, history, undo/redo, transactions, batching, configure, diff/pristine.
--Improve code readability by isolating responsibilities and keeping files small and focused.
+- Improve code readability by isolating responsibilities and keeping files small and focused.
 - Enable targeted performance work (hot paths easy to reason about and micro-optimize).
 - Maintain 100% test compatibility; no behavior changes.
 
