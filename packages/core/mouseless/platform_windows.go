@@ -285,48 +285,83 @@ func moveOverlayToMonitor(idx int) {
 // Path of selected indices for nested grids (1-based per depth)
 var overlayPath []int
 
+// Effective grid dimensions based on key scheme and startGridN
+func gridDims() (cols, rows int) {
+	switch keyScheme {
+	case "qwe":
+		return 3, 3
+	case "qwer":
+		return 4, 3
+	default:
+		if startGridN < 1 { startGridN = 1 }
+		return startGridN, startGridN
+	}
+}
+
+// labelForIndex returns the display label for a cell index based on the active key scheme.
+func labelForIndex(idx int) string {
+	cols, rows := gridDims()
+	// qwe: 3x3 mapping QWE/ASD/ZXC
+	if keyScheme == "qwe" && cols == 3 && rows == 3 {
+		letters := []string{"Q", "W", "E", "A", "S", "D", "Z", "X", "C"}
+		if idx >= 1 && idx <= 9 { return letters[idx-1] }
+	}
+	// qwer: 4x3 mapping QWER/ASDF/ZXCV
+	if keyScheme == "qwer" && cols == 4 && rows == 3 {
+		letters := []string{"Q","W","E","R","A","S","D","F","Z","X","C","V"}
+		if idx >= 1 && idx <= 12 { return letters[idx-1] }
+	}
+	return strconv.Itoa(idx)
+}
+
 // Key mapping: supports "nums" (1..9) and "qwerty" (QWE/ASD/ZXC) for 3x3
 func keyToCellIndex(vk int) (idx int, ok bool) {
-	if startGridN <= 0 { return 0, false }
-	max := startGridN * startGridN
-	if keyScheme == "qwerty" && startGridN == 3 {
-		// Q W E / A S D / Z X C (use VK_* uppercase codes)
+	cols, rows := gridDims()
+	if cols <= 0 || rows <= 0 { return 0, false }
+	max := cols * rows
+	if keyScheme == "qwe" && cols == 3 && rows == 3 {
+		// Q W E / A S D / Z X C
 		switch vk {
-		case 0x51: // Q
-			return 1, true
-		case 0x57: // W
-			return 2, true
-		case 0x45: // E
-			return 3, true
-		case 0x41: // A
-			return 4, true
-		case 0x53: // S
-			return 5, true
-		case 0x44: // D
-			return 6, true
-		case 0x5A: // Z
-			return 7, true
-		case 0x58: // X
-			return 8, true
-		case 0x43: // C
-			return 9, true
+		case 0x51: return 1, true // Q
+		case 0x57: return 2, true // W
+		case 0x45: return 3, true // E
+		case 0x41: return 4, true // A
+		case 0x53: return 5, true // S
+		case 0x44: return 6, true // D
+		case 0x5A: return 7, true // Z
+		case 0x58: return 8, true // X
+		case 0x43: return 9, true // C
 		}
-	} else {
-		// Default numeric mapping
-		// Top-row numbers '1'..'9' VK codes: 0x31..0x39
-		if vk >= 0x31 && vk <= 0x39 {
-			n := vk - 0x30 // '1' -> 1
-			if n >= 1 && n <= max {
-				return n, true
-			}
+		return 0, false
+	}
+	if keyScheme == "qwer" && cols == 4 && rows == 3 {
+		// Q W E R / A S D F / Z X C V
+		switch vk {
+		case 0x51: return 1, true  // Q
+		case 0x57: return 2, true  // W
+		case 0x45: return 3, true  // E
+		case 0x52: return 4, true  // R
+		case 0x41: return 5, true  // A
+		case 0x53: return 6, true  // S
+		case 0x44: return 7, true  // D
+		case 0x46: return 8, true  // F
+		case 0x5A: return 9, true  // Z
+		case 0x58: return 10, true // X
+		case 0x43: return 11, true // C
+		case 0x56: return 12, true // V
 		}
-		// Numpad '1'..'9' VK codes: 0x61..0x69
-		if vk >= 0x61 && vk <= 0x69 {
-			n := vk - 0x60
-			if n >= 1 && n <= max {
-				return n, true
-			}
-		}
+		return 0, false
+	}
+	// Default numeric mapping
+	// Top-row numbers '1'..'9' VK codes: 0x31..0x39
+	if vk >= 0x31 && vk <= 0x39 {
+		n := vk - 0x30 // '1' -> 1
+		if n >= 1 && n <= max { return n, true }
+	}
+	// Numpad '1'..'9' VK codes: 0x61..0x69
+	if vk >= 0x61 && vk <= 0x69 {
+		n := vk - 0x60
+		if n >= 1 && n <= max { return n, true }
 	}
 	return 0, false
 }
@@ -404,12 +439,29 @@ func startKeyPolling(stop <-chan struct{}) {
 						procGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&rc)))
 						// descend to deepest rect
 						cur := rc
+						cols, rows := gridDims()
 						for _, p := range pathCopy {
-							cur = cellRectForWindow(cur, startGridN, p)
+							// use rectangular dims while refining
+							// local inline equivalent for cellRectForWindow with cols/rows
+							w := int(cur.right - cur.left)
+							h := int(cur.bottom - cur.top)
+							if w <= 0 || h <= 0 { break }
+							cellW := w / cols
+							cellH := h / rows
+							i := p - 1
+							r := i / cols
+							c := i % cols
+							left := int(cur.left) + c*cellW
+							top := int(cur.top) + r*cellH
+							right := int(cur.left) + (c+1)*cellW
+							bottom := int(cur.top) + (r+1)*cellH
+							if c == cols-1 { right = int(cur.right) }
+							if r == rows-1 { bottom = int(cur.bottom) }
+							cur = RECT{left: int32(left), top: int32(top), right: int32(right), bottom: int32(bottom)}
 						}
 						w := int(cur.right - cur.left)
 						h := int(cur.bottom - cur.top)
-						if w/startGridN < MIN_CELL_SIZE || h/startGridN < MIN_CELL_SIZE {
+						if w/cols < MIN_CELL_SIZE || h/rows < MIN_CELL_SIZE {
 							// too small to refine; flash repaint
 							procInvalidateRect.Call(hwnd, 0, 1)
 							return true
@@ -447,10 +499,9 @@ func startKeyPolling(stop <-chan struct{}) {
 				if handleKey(vk) { consumed = true; break }
 			}
 		}
-		// QWER/ASDF/ZXC mapping when enabled (3x3)
-		if !consumed && keyScheme == "qwerty" && startGridN == 3 {
-			letters := []int{0x51, 0x57, 0x45, 0x41, 0x53, 0x44, 0x5A, 0x58, 0x43}
-			for _, vk := range letters {
+		// Letter mapping when enabled: scan A..Z and let keyToCellIndex filter
+		if !consumed && (keyScheme == "qwe" || keyScheme == "qwer") {
+			for vk := 0x41; vk <= 0x5A; vk++ { // A..Z
 				if handleKey(vk) { break }
 			}
 		}
@@ -510,73 +561,80 @@ func overlayWindowProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr
 				pen := getCachedPen(lineWidth, magenta)
 				oldPen, _, _ := procSelectObject.Call(drawDC, pen)
 
-			// Helper to draw grid lines within a rect
-			drawGrid := func(r RECT, n int) {
-				if n < 1 { n = 1 }
+			// Helper to draw grid lines within a rect (nCols x nRows)
+			drawGrid := func(r RECT, nCols, nRows int) {
+				if nCols < 1 { nCols = 1 }
+				if nRows < 1 { nRows = 1 }
 				w := int(r.right - r.left)
 				h := int(r.bottom - r.top)
 				if w <= 0 || h <= 0 { return }
-				cellW := w / n
-				cellH := h / n
-				for i := 1; i < n; i++ {
+				cellW := w / nCols
+				cellH := h / nRows
+				for i := 1; i < nCols; i++ {
 					x := int(r.left) + i*cellW
 					procMoveToEx.Call(drawDC, uintptr(x), uintptr(r.top), 0)
 					procLineTo.Call(drawDC, uintptr(x), uintptr(r.bottom))
 				}
-				for i := 1; i < n; i++ {
+				for i := 1; i < nRows; i++ {
 					y := int(r.top) + i*cellH
 					procMoveToEx.Call(drawDC, uintptr(r.left), uintptr(y), 0)
 					procLineTo.Call(drawDC, uintptr(r.right), uintptr(y))
 				}
 			}
 
-			// Helper to get child cell rect given 1-based index
-			cellRect := func(r RECT, n, idx int) RECT {
-				if n < 1 { n = 1 }
+			// Helper to get child cell rect given 1-based index (nCols x nRows)
+			cellRect := func(r RECT, nCols, nRows, idx int) RECT {
+				if nCols < 1 { nCols = 1 }
+				if nRows < 1 { nRows = 1 }
 				w := int(r.right - r.left)
 				h := int(r.bottom - r.top)
-				cellW := w / n
-				cellH := h / n
+				cellW := w / nCols
+				cellH := h / nRows
 				idx--
-				row := idx / n
-				col := idx % n
+				row := idx / nCols
+				col := idx % nCols
 				left := int(r.left) + col*cellW
 				top := int(r.top) + row*cellH
 				right := int(r.left) + (col+1)*cellW
 				bottom := int(r.top) + (row+1)*cellH
-				if col == n-1 { right = int(r.right) }
-				if row == n-1 { bottom = int(r.bottom) }
+				if col == nCols-1 { right = int(r.right) }
+				if row == nRows-1 { bottom = int(r.bottom) }
 				return RECT{left: int32(left), top: int32(top), right: int32(right), bottom: int32(bottom)}
 			}
 
 			// Draw root grid, then nested grids along overlayPath
-			drawGrid(rcClient, startGridN)
+			cols, rows := gridDims()
+			drawGrid(rcClient, cols, rows)
 			overlay.mu.Lock()
 			pathCopy := make([]int, len(overlayPath))
 			copy(pathCopy, overlayPath)
 			overlay.mu.Unlock()
 			curRect := rcClient
 			for _, idx := range pathCopy {
-				curRect = cellRect(curRect, startGridN, idx)
-				drawGrid(curRect, startGridN)
+				curRect = cellRect(curRect, cols, rows, idx)
+				drawGrid(curRect, cols, rows)
 			}
 
 			// Prepare font sized to fit within a cell of the deepest rect (fast path)
 			deepW := int(curRect.right - curRect.left)
 			deepH := int(curRect.bottom - curRect.top)
-			cellW := deepW / startGridN
-			cellH := deepH / startGridN
+			cellW := deepW / cols
+			cellH := deepH / rows
 			if cellW < 1 { cellW = 1 }
 			if cellH < 1 { cellH = 1 }
 			// Estimate a safe font height without per-paint measurement:
 			// - Scale by cell min dimension for height constraint (~65%).
-			// - Also constrain by width divided by max digits (~90% of width budget).
-			maxDigits := len(strconv.Itoa(startGridN*startGridN))
-			if maxDigits < 1 { maxDigits = 1 }
+			// - Also constrain by width divided by max glyphs (~90% of width budget).
+			singleGlyph := (keyScheme == "qwe" && cols == 3 && rows == 3) || (keyScheme == "qwer" && cols == 4 && rows == 3)
+			maxGlyphs := 1
+			if !singleGlyph {
+				maxGlyphs = len(strconv.Itoa(cols*rows))
+				if maxGlyphs < 1 { maxGlyphs = 1 }
+			}
 			minDim := cellW
 			if cellH < minDim { minDim = cellH }
 			hByHeight := int(float64(minDim) * 0.65)
-			hByWidth := int(float64(cellW) * 0.9 / float64(maxDigits))
+			hByWidth := int(float64(cellW) * 0.9 / float64(maxGlyphs))
 			fitHeight := hByHeight
 			if hByWidth < fitHeight { fitHeight = hByWidth }
 			if fitHeight < 10 { fitHeight = 10 }
@@ -591,10 +649,10 @@ func overlayWindowProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr
 
 			// Draw labels in deepest grid
 			idx := 1
-			for row := 0; row < startGridN; row++ {
-				for col := 0; col < startGridN; col++ {
-					r := cellRect(curRect, startGridN, idx)
-					label := strconv.Itoa(idx)
+			for row := 0; row < rows; row++ {
+				for col := 0; col < cols; col++ {
+					r := cellRect(curRect, cols, rows, idx)
+					label := labelForIndex(idx)
 					lp, _ := windows.UTF16PtrFromString(label)
 					procDrawTextW.Call(
 						drawDC,
@@ -892,25 +950,6 @@ func isOverlayVisible() bool {
 }
 
 // Helper: compute child rect within r for a 1-based index in an n x n grid.
-func cellRectForWindow(r RECT, n, idx int) RECT {
-	if n < 1 { n = 1 }
-	w := int(r.right - r.left)
-	h := int(r.bottom - r.top)
-	if w <= 0 || h <= 0 { return r }
-	cellW := w / n
-	cellH := h / n
-	i := idx - 1
-	row := i / n
-	col := i % n
-	left := int(r.left) + col*cellW
-	top := int(r.top) + row*cellH
-	right := int(r.left) + (col+1)*cellW
-	bottom := int(r.top) + (row+1)*cellH
-	if col == n-1 { right = int(r.right) }
-	if row == n-1 { bottom = int(r.bottom) }
-	return RECT{left: int32(left), top: int32(top), right: int32(right), bottom: int32(bottom)}
-}
-
 // Helper: compute center of idx within deepest refined rect; returns screen coords relative to the overlay client area.
 func nestedCellCenter(idx int) (int, int, bool) {
 	overlay.mu.Lock()
@@ -918,29 +957,51 @@ func nestedCellCenter(idx int) (int, int, bool) {
 	pathCopy := make([]int, len(overlayPath))
 	copy(pathCopy, overlayPath)
 	overlay.mu.Unlock()
-	if hwnd == 0 || startGridN <= 0 { return 0, 0, false }
+	cols, rows := gridDims()
+	if hwnd == 0 || cols <= 0 || rows <= 0 { return 0, 0, false }
 	var rc RECT
 	procGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&rc)))
 	cur := rc
 	for _, p := range pathCopy {
-		cur = cellRectForWindow(cur, startGridN, p)
+		cur = cellRectForWindowCR(cur, cols, rows, p)
 	}
 	// now center within cur for idx
 	w := int(cur.right - cur.left)
 	h := int(cur.bottom - cur.top)
 	if w <= 0 || h <= 0 { return 0, 0, false }
-	cellW := w / startGridN
-	cellH := h / startGridN
+	cellW := w / cols
+	cellH := h / rows
 	i := idx - 1
-	row := i / startGridN
-	col := i % startGridN
+	row := i / cols
+	col := i % cols
 	left := int(cur.left) + col*cellW
 	top := int(cur.top) + row*cellH
 	right := int(cur.left) + (col+1)*cellW
 	bottom := int(cur.top) + (row+1)*cellH
-	if col == startGridN-1 { right = int(cur.right) }
-	if row == startGridN-1 { bottom = int(cur.bottom) }
+	if col == cols-1 { right = int(cur.right) }
+	if row == rows-1 { bottom = int(cur.bottom) }
 	cx := left + (right-left)/2
 	cy := top + (bottom-top)/2
 	return cx, cy, true
+}
+
+// Helper: rectangular variant (cols x rows)
+func cellRectForWindowCR(r RECT, cols, rows, idx int) RECT {
+	if cols < 1 { cols = 1 }
+	if rows < 1 { rows = 1 }
+	w := int(r.right - r.left)
+	h := int(r.bottom - r.top)
+	if w <= 0 || h <= 0 { return r }
+	cellW := w / cols
+	cellH := h / rows
+	i := idx - 1
+	row := i / cols
+	col := i % cols
+	left := int(r.left) + col*cellW
+	top := int(r.top) + row*cellH
+	right := int(r.left) + (col+1)*cellW
+	bottom := int(r.top) + (row+1)*cellH
+	if col == cols-1 { right = int(r.right) }
+	if row == rows-1 { bottom = int(r.bottom) }
+	return RECT{left: int32(left), top: int32(top), right: int32(right), bottom: int32(bottom)}
 }
