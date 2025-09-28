@@ -177,6 +177,12 @@ func getCachedFont(height int) uintptr {
 	return f
 }
 
+func min(a, b int) int {
+	if a < b { return a }
+	return b
+}
+
+
 // Pen cache (by width + color)
 type penKey struct { width int; color uint32 }
 var penCache struct {
@@ -615,30 +621,22 @@ func overlayWindowProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr
 				drawGrid(curRect, cols, rows)
 			}
 
-			// Prepare font sized to fit within a cell of the deepest rect (fast path)
+			// Prepare a smaller font for top-left labels
 			deepW := int(curRect.right - curRect.left)
 			deepH := int(curRect.bottom - curRect.top)
 			cellW := deepW / cols
 			cellH := deepH / rows
 			if cellW < 1 { cellW = 1 }
 			if cellH < 1 { cellH = 1 }
-			// Estimate a safe font height without per-paint measurement:
-			// - Scale by cell min dimension for height constraint (~65%).
-			// - Also constrain by width divided by max glyphs (~90% of width budget).
-			singleGlyph := (keyScheme == "qwe" && cols == 3 && rows == 3) || (keyScheme == "qwer" && cols == 4 && rows == 3)
-			maxGlyphs := 1
-			if !singleGlyph {
-				maxGlyphs = len(strconv.Itoa(cols*rows))
-				if maxGlyphs < 1 { maxGlyphs = 1 }
-			}
 			minDim := cellW
 			if cellH < minDim { minDim = cellH }
-			hByHeight := int(float64(minDim) * 0.65)
-			hByWidth := int(float64(cellW) * 0.9 / float64(maxGlyphs))
-			fitHeight := hByHeight
-			if hByWidth < fitHeight { fitHeight = hByWidth }
-			if fitHeight < 10 { fitHeight = 10 }
-			font := getCachedFont(fitHeight)
+			singleGlyph := (keyScheme == "qwe" && cols == 3 && rows == 3) || (keyScheme == "qwer" && cols == 4 && rows == 3)
+			// Smaller proportions for corner labels
+			labelProp := 0.30
+			if !singleGlyph { labelProp = 0.25 }
+			labelHeight := int(float64(minDim) * labelProp)
+			if labelHeight < 12 { labelHeight = 12 } // slightly larger minimum
+			font := getCachedFont(labelHeight)
 			var oldFont uintptr
 			if font != 0 {
 				of, _, _ := procSelectObject.Call(drawDC, font)
@@ -647,20 +645,73 @@ func overlayWindowProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr
 			procSetBkMode.Call(drawDC, TRANSPARENT)
 			procSetTextColor.Call(drawDC, 0x00FFFFFF)
 
-			// Draw labels in deepest grid
+			// Draw labels (top-left) and crosshair at each cell center in deepest grid
 			idx := 1
 			for row := 0; row < rows; row++ {
 				for col := 0; col < cols; col++ {
 					r := cellRect(curRect, cols, rows, idx)
+					// Label in top-left with tighter padding and background
+					pad := labelHeight / 10
+					if pad < 1 { pad = 1 }
 					label := labelForIndex(idx)
 					lp, _ := windows.UTF16PtrFromString(label)
+					// Measure text using DT_CALCRECT with current font
+					measure := RECT{}
 					procDrawTextW.Call(
 						drawDC,
 						uintptr(unsafe.Pointer(lp)),
 						^uintptr(0),
-						uintptr(unsafe.Pointer(&r)),
+						uintptr(unsafe.Pointer(&measure)),
+						DT_SINGLELINE|DT_CALCRECT,
+					)
+					textW := int(measure.right - measure.left)
+					textH := int(measure.bottom - measure.top)
+					if textW < 0 { textW = 0 }
+					if textH < 0 { textH = labelHeight }
+					bgW := textW + pad*2
+					bgH := textH + pad*2
+					// Background rectangle flush with the cell's top-left corner
+					rBg := r
+					rBg.right = rBg.left + int32(bgW)
+					rBg.bottom = rBg.top + int32(bgH)
+					// Clamp within cell
+					if rBg.right > r.right { rBg.right = r.right }
+					if rBg.bottom > r.bottom { rBg.bottom = r.bottom }
+					bgBrush := getCachedBrush(0x00404040)
+					procFillRect.Call(drawDC, uintptr(unsafe.Pointer(&rBg)), bgBrush)
+					// Center text within background
+					rLabel := rBg
+					procDrawTextW.Call(
+						drawDC,
+						uintptr(unsafe.Pointer(lp)),
+						^uintptr(0),
+						uintptr(unsafe.Pointer(&rLabel)),
 						DT_CENTER|DT_VCENTER|DT_SINGLELINE,
 					)
+
+					// Crosshair at cell center to indicate exact click location
+					cx := int(r.left) + int(r.right-r.left)/2
+					cy := int(r.top) + int(r.bottom-r.top)/2
+					arm := int(float64(min(cellW, cellH)) * 0.12) // shorter arms (~12% of min dim)
+					if arm < 3 { arm = 3 }
+					// Clamp within cell bounds with a 1px margin
+					leftBound := int(r.left) + 1
+					rightBound := int(r.right) - 1
+					topBound := int(r.top) + 1
+					bottomBound := int(r.bottom) - 1
+					hx1 := cx - arm; if hx1 < leftBound { hx1 = leftBound }
+					hx2 := cx + arm; if hx2 > rightBound { hx2 = rightBound }
+					hy1 := cy - arm; if hy1 < topBound { hy1 = topBound }
+					hy2 := cy + arm; if hy2 > bottomBound { hy2 = bottomBound }
+					// Draw crosshair with a slightly thicker white pen
+					crossPen := getCachedPen(2, 0x00FFFFFF)
+					prevPen, _, _ := procSelectObject.Call(drawDC, crossPen)
+					procMoveToEx.Call(drawDC, uintptr(hx1), uintptr(cy), 0)
+					procLineTo.Call(drawDC, uintptr(hx2), uintptr(cy))
+					procMoveToEx.Call(drawDC, uintptr(cx), uintptr(hy1), 0)
+					procLineTo.Call(drawDC, uintptr(cx), uintptr(hy2))
+					// Restore grid pen
+					procSelectObject.Call(drawDC, prevPen)
 					idx++
 				}
 			}

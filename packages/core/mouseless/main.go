@@ -15,7 +15,7 @@ const (
 // Start grid configuration (n x n)
 var startGridN = 3
 
-// Key mapping scheme: "nums" (1..n^2), "qwe" (QWE/ASD/ZXC for 3x3), "qwer" (QWER/ASDF/ZXCV/TYUI for 4x4)
+// Key mapping scheme: "nums" (1..n^2), "qwe" (QWE/ASD/ZXC for 3x3), "qwer" (QWER/ASDF/ZXCV for 4x3)
 var keyScheme = "nums"
 
 // When true, selection only moves the cursor; pressing Enter performs the click.
@@ -27,7 +27,7 @@ var confirmWithEnter = false
 func main() {
 	// Flags
 	gridFlag := flag.Int("grid", 3, "Starting grid size (n for an n×n grid)")
-	keysFlag := flag.String("keys", "nums", "Key mapping scheme: 'nums', 'qwe' (3x3), or 'qwer' (4x4). 'qwerty' is an alias of 'qwe'.")
+	keysFlag := flag.String("keys", "nums", "Key mapping scheme: 'nums' (n×n), 'qwe' (3×3), or 'qwer' (4×3). 'qwerty' is an alias of 'qwe'.")
 	confirmFlag := flag.String("confirm", "auto", "Confirmation mode: 'auto' (click immediately) or 'enter' (press Enter to click)")
 	flag.Parse()
 	if gridFlag != nil && *gridFlag > 0 {
@@ -56,12 +56,12 @@ func main() {
 		}
 	}
 
-	// Friendly warnings for mismatched schemes and grid sizes
-	if keyScheme == "qwe" && startGridN != 3 {
-		log.Printf("Note: --keys qwe is designed for --grid 3; with grid %d, numeric labels/keys will be used.", startGridN)
+	// Friendly notes: letter modes use fixed layouts regardless of --grid
+	if keyScheme == "qwe" {
+		log.Printf("Note: --keys qwe uses a fixed 3×3 layout (ignores --grid).")
 	}
-	if keyScheme == "qwer" && startGridN != 4 {
-		log.Printf("Note: --keys qwer is designed for --grid 4; with grid %d, numeric labels/keys will be used.", startGridN)
+	if keyScheme == "qwer" {
+		log.Printf("Note: --keys qwer uses a fixed 4×3 layout (ignores --grid).")
 	}
 
 	mode := "auto"
