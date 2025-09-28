@@ -42,7 +42,7 @@ This document tracks planned features, status, and design notes for the native W
 
 ### 3) Keyboard combinations for cell selection
 
-- Status: Done (via polling)
+- Status: Done (via polling) + Added optional QWER/ASDF scheme for 3×3
 - Summary: Press keys corresponding to a cell to select it and move the mouse to the cell center.
 - Acceptance criteria:
   - While overlay is active, typing the mapped key selects the cell.
@@ -54,6 +54,9 @@ This document tracks planned features, status, and design notes for the native W
     - Register a set of system hotkeys for each cell (limited and clunky).
     - Or install a low-level keyboard hook (WH_KEYBOARD_LL) to capture keys while overlay is visible.
   - Implemented initially with GetAsyncKeyState polling while overlay is visible for simplicity and stability.
+  - Key mapping schemes supported:
+    - nums: 1..9 (top row or numpad)
+    - qwerty: QWE / ASD / ZXC (case-insensitive) for 3×3
   - Low-level hook (WH_KEYBOARD_LL) remains an option if we need more nuance later.
 
 ### 4) Nested subgrids by modifier + selection
@@ -100,6 +103,38 @@ This document tracks planned features, status, and design notes for the native W
   - Theme (colors, line width, font size).
   - Optional: audible feedback.
 
+### 8) Click after move
+
+- Status: Done
+- Summary: After moving the cursor to the cell center, synthesize a primary-click.
+- Acceptance criteria:
+  - A single left-click is issued at the target point reliably.
+  - Avoids unintended double-clicks; works with typical targets (buttons, links).
+- Notes: Implemented with mouse_event for now; may move to SendInput later.
+
+### 9) Performance improvements for grid rendering
+
+- Status: Planned
+- Summary: Reduce sluggishness when rendering text.
+- Ideas:
+  - Cache and reuse a small set of fonts per reasonable size instead of creating/disposing many.
+  - Avoid repeated DT_CALCRECT measurements by estimating and only validating occasionally.
+  - Double-buffer the paint (memory DC + BitBlt) to prevent flicker and reduce overdraw.
+  - Consider switching to DirectWrite/Direct2D for text rendering.
+
+### 10) Click modifiers (left/right and double-click)
+
+- Status: Planned
+- Summary: Allow holding a modifier to choose the click type when confirming a selection.
+- Goals:
+  - Modifier to switch between left-click and right-click.
+  - Modifier to trigger a double-click (for the chosen button) instead of single click.
+  - Works in both confirmation modes (auto and enter) and with both key schemes.
+- Acceptance criteria:
+  - Configurable mapping for modifiers (e.g., Ctrl/Alt, or user-defined) without interfering with the split modifier (Shift).
+  - Reliable synthesis using SendInput (preferred) with proper down/up ordering and timing.
+  - Safe-guards to avoid accidental double activation.
+
 ## Proposed key mapping schemes
 
 - 2×2: Q W / A S or 1 2 / 3 4.
@@ -141,6 +176,17 @@ This document tracks planned features, status, and design notes for the native W
   - [ ] Multi-monitor support
   - [ ] DPI awareness
   - [ ] Config (flags or file)
+  - [x] Click after move
+  - [ ] Text rendering performance improvements
+  - [ ] Click modifiers (left/right and double-click)
+
+## Next steps
+
+- Multi-monitor support and DPI awareness for crisp lines and accurate coordinates.
+- Make minimum cell size and the split modifier configurable.
+- Optional: replace polling with a low-level keyboard hook if needed.
+- Add alternate key mapping schemes (QWER/ASDF, etc.) and simple theming.
+- Design and implement click modifiers (left/right and double-click) with configurable bindings.
 
 ## Risks and considerations
 
@@ -148,10 +194,3 @@ This document tracks planned features, status, and design notes for the native W
 - Input conflicts: Reserve simple hotkeys; avoid clashing with common shortcuts.
 - GDI text quality: May consider DirectWrite/Direct2D later for sharper text/lines.
 - Performance: Keep WM_PAINT minimal; cache pens/brushes/fonts.
-
-## Next steps
-
-- Multi-monitor support and DPI awareness for crisp lines and accurate coordinates.
-- Make minimum cell size and split modifier configurable.
-- Optional: replace polling with a low-level keyboard hook if needed.
-- Add alternate key mapping schemes (QWER/ASDF, etc.) and simple theming.

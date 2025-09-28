@@ -45,6 +45,7 @@ var (
 	procDrawTextW            = user32.NewProc("DrawTextW")
 	procSetCursorPos         = user32.NewProc("SetCursorPos")
 	procInvalidateRect       = user32.NewProc("InvalidateRect")
+	procmouse_event          = user32.NewProc("mouse_event")
 
 	procCreateSolidBrush     = gdi32.NewProc("CreateSolidBrush")
 	procDeleteObject         = gdi32.NewProc("DeleteObject")
@@ -122,6 +123,9 @@ const (
 	TRANSPARENT       = 1
 	// Keyboard polling uses GetAsyncKeyState (no hook needed)
 	MIN_CELL_SIZE     = 16
+	// mouse_event flags
+	MOUSEEVENTF_LEFTDOWN = 0x0002
+	MOUSEEVENTF_LEFTUP   = 0x0004
 )
 
 // Overlay state
@@ -138,22 +142,47 @@ var overlayFontHeight int
 // Path of selected indices for nested grids (1-based per depth)
 var overlayPath []int
 
-// Key mapping: for startGridN up to 3, map 1..9 row-major
+// Key mapping: supports "nums" (1..9) and "qwerty" (QWE/ASD/ZXC) for 3x3
 func keyToCellIndex(vk int) (idx int, ok bool) {
 	if startGridN <= 0 { return 0, false }
 	max := startGridN * startGridN
-	// Top-row numbers '1'..'9' VK codes: 0x31..0x39
-	if vk >= 0x31 && vk <= 0x39 {
-		n := vk - 0x30 // '1' -> 1
-		if n >= 1 && n <= max {
-			return n, true
+	if keyScheme == "qwerty" && startGridN == 3 {
+		// Q W E / A S D / Z X C (use VK_* uppercase codes)
+		switch vk {
+		case 0x51: // Q
+			return 1, true
+		case 0x57: // W
+			return 2, true
+		case 0x45: // E
+			return 3, true
+		case 0x41: // A
+			return 4, true
+		case 0x53: // S
+			return 5, true
+		case 0x44: // D
+			return 6, true
+		case 0x5A: // Z
+			return 7, true
+		case 0x58: // X
+			return 8, true
+		case 0x43: // C
+			return 9, true
 		}
-	}
-	// Numpad '1'..'9' VK codes: 0x61..0x69
-	if vk >= 0x61 && vk <= 0x69 {
-		n := vk - 0x60
-		if n >= 1 && n <= max {
-			return n, true
+	} else {
+		// Default numeric mapping
+		// Top-row numbers '1'..'9' VK codes: 0x31..0x39
+		if vk >= 0x31 && vk <= 0x39 {
+			n := vk - 0x30 // '1' -> 1
+			if n >= 1 && n <= max {
+				return n, true
+			}
+		}
+		// Numpad '1'..'9' VK codes: 0x61..0x69
+		if vk >= 0x61 && vk <= 0x69 {
+			n := vk - 0x60
+			if n >= 1 && n <= max {
+				return n, true
+			}
 		}
 	}
 	return 0, false
@@ -171,6 +200,17 @@ func startKeyPolling(stop <-chan struct{}) {
 		case <-stop:
 			return
 		default:
+		}
+		// ESC closes the overlay
+		{
+			st, _, _ := procGetAsyncKeyState.Call(0x1B) // VK_ESCAPE
+			down := int16(st)>>15 != 0
+			was := prev[0x1B]
+			prev[0x1B] = down
+			if down && !was {
+				hideOverlay()
+				return
+			}
 		}
 		// Check top row 1..9 and numpad 1..9
 		var handleKey = func(vk int) bool {
@@ -214,6 +254,13 @@ func startKeyPolling(stop <-chan struct{}) {
 					}
 					if x, y, ok2 := nestedCellCenter(idx); ok2 {
 						procSetCursorPos.Call(uintptr(x), uintptr(y))
+						if confirmWithEnter {
+							// Move only; wait for Enter to click
+							return true
+						}
+						// Auto-click immediately
+						procmouse_event.Call(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+						procmouse_event.Call(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
 						hideOverlay()
 						return true
 					}
@@ -222,12 +269,35 @@ func startKeyPolling(stop <-chan struct{}) {
 			return false
 		}
 		consumed := false
-		for vk := 0x31; vk <= 0x39; vk++ { // '1'..'9'
+		// Numeric row 1..9
+		for vk := 0x31; vk <= 0x39; vk++ {
 			if handleKey(vk) { consumed = true; break }
 		}
+		// Numpad 1..9
 		if !consumed {
-			for vk := 0x61; vk <= 0x69; vk++ { // Numpad 1..9
+			for vk := 0x61; vk <= 0x69; vk++ {
+				if handleKey(vk) { consumed = true; break }
+			}
+		}
+		// QWER/ASDF/ZXC mapping when enabled (3x3)
+		if !consumed && keyScheme == "qwerty" && startGridN == 3 {
+			letters := []int{0x51, 0x57, 0x45, 0x41, 0x53, 0x44, 0x5A, 0x58, 0x43}
+			for _, vk := range letters {
 				if handleKey(vk) { break }
+			}
+		}
+		// Enter key confirms (click) if confirmWithEnter is enabled
+		if confirmWithEnter {
+			st, _, _ := procGetAsyncKeyState.Call(0x0D) // VK_RETURN
+			down := int16(st)>>15 != 0
+			was := prev[0x0D]
+			prev[0x0D] = down
+			if down && !was {
+				// Click at current cursor position
+				procmouse_event.Call(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+				procmouse_event.Call(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+				hideOverlay()
+				// continue; overlay exits on hide
 			}
 		}
 		time.Sleep(10 * time.Millisecond)
