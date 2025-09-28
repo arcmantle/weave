@@ -7,7 +7,6 @@ import (
 	"log"
 	"runtime"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 	"unsafe"
@@ -56,6 +55,10 @@ var (
 	procCreateFontW          = gdi32.NewProc("CreateFontW")
 	procSetBkMode            = gdi32.NewProc("SetBkMode")
 	procSetTextColor         = gdi32.NewProc("SetTextColor")
+	procCreateCompatibleDC   = gdi32.NewProc("CreateCompatibleDC")
+	procCreateCompatibleBitmap = gdi32.NewProc("CreateCompatibleBitmap")
+	procBitBlt               = gdi32.NewProc("BitBlt")
+	procDeleteDC             = gdi32.NewProc("DeleteDC")
 )
 
 // Windowing types
@@ -126,6 +129,8 @@ const (
 	// mouse_event flags
 	MOUSEEVENTF_LEFTDOWN = 0x0002
 	MOUSEEVENTF_LEFTUP   = 0x0004
+	// BitBlt ROP code
+	SRCCOPY           = 0x00CC0020
 )
 
 // Overlay state
@@ -135,9 +140,33 @@ var overlay struct {
 	doneCh chan struct{}
 }
 
-// Reusable font for labels (created on first paint, destroyed on WM_DESTROY)
-var overlayFont uintptr
-var overlayFontHeight int
+// Font cache by pixel height to avoid repeated CreateFont calls
+var fontCache struct {
+	mu    sync.Mutex
+	fonts map[int]uintptr
+}
+
+func getCachedFont(height int) uintptr {
+	if height < 1 { height = 10 }
+	fontCache.mu.Lock()
+	defer fontCache.mu.Unlock()
+	if fontCache.fonts == nil {
+		fontCache.fonts = make(map[int]uintptr)
+	}
+	if f, ok := fontCache.fonts[height]; ok && f != 0 {
+		return f
+	}
+	face, _ := windows.UTF16PtrFromString("Segoe UI")
+	f, _, _ := procCreateFontW.Call(
+		uintptr(int32(-height)), 0, 0, 0,
+		400,
+		0, 0, 0,
+		0, 0, 0, 0, 0,
+		uintptr(unsafe.Pointer(face)),
+	)
+	fontCache.fonts[height] = f
+	return f
+}
 
 // Path of selected indices for nested grids (1-based per depth)
 var overlayPath []int
@@ -313,18 +342,34 @@ func overlayWindowProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr
 		return 1
 	case WM_PAINT:
 		var ps PAINTSTRUCT
-		hdc, _, _ := procBeginPaint.Call(hwnd, uintptr(unsafe.Pointer(&ps)))
+			hdc, _, _ := procBeginPaint.Call(hwnd, uintptr(unsafe.Pointer(&ps)))
 		if hdc != 0 {
-			var rcClient RECT
-			procGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&rcClient)))
-			blackBrush, _, _ := procCreateSolidBrush.Call(0x000000)
-			procFillRect.Call(hdc, uintptr(unsafe.Pointer(&rcClient)), blackBrush)
-			procDeleteObject.Call(blackBrush)
+				var rcClient RECT
+				procGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&rcClient)))
+				clientW := int(rcClient.right - rcClient.left)
+				clientH := int(rcClient.bottom - rcClient.top)
+				if clientW <= 0 || clientH <= 0 {
+					procEndPaint.Call(hwnd, uintptr(unsafe.Pointer(&ps)))
+					return 0
+				}
+				// Double-buffer: draw to a memory DC, then BitBlt to screen
+				memDC, _, _ := procCreateCompatibleDC.Call(hdc)
+				if memDC == 0 { memDC = hdc }
+				var bmp, oldBmp uintptr
+				if memDC != hdc {
+					bmp, _, _ = procCreateCompatibleBitmap.Call(hdc, uintptr(clientW), uintptr(clientH))
+					oldBmp, _, _ = procSelectObject.Call(memDC, bmp)
+				}
+				drawDC := memDC
+				// Fill background on buffer
+				blackBrush, _, _ := procCreateSolidBrush.Call(0x000000)
+				procFillRect.Call(drawDC, uintptr(unsafe.Pointer(&rcClient)), blackBrush)
+				procDeleteObject.Call(blackBrush)
 
-			// Pen for grid lines
-			magenta := uintptr(0x00FF00FF)
-			pen, _, _ := procCreatePen.Call(PS_SOLID, uintptr(lineWidth), magenta)
-			oldPen, _, _ := procSelectObject.Call(hdc, pen)
+				// Pen for grid lines
+				magenta := uintptr(0x00FF00FF)
+				pen, _, _ := procCreatePen.Call(PS_SOLID, uintptr(lineWidth), magenta)
+				oldPen, _, _ := procSelectObject.Call(drawDC, pen)
 
 			// Helper to draw grid lines within a rect
 			drawGrid := func(r RECT, n int) {
@@ -336,13 +381,13 @@ func overlayWindowProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr
 				cellH := h / n
 				for i := 1; i < n; i++ {
 					x := int(r.left) + i*cellW
-					procMoveToEx.Call(hdc, uintptr(x), uintptr(r.top), 0)
-					procLineTo.Call(hdc, uintptr(x), uintptr(r.bottom))
+					procMoveToEx.Call(drawDC, uintptr(x), uintptr(r.top), 0)
+					procLineTo.Call(drawDC, uintptr(x), uintptr(r.bottom))
 				}
 				for i := 1; i < n; i++ {
 					y := int(r.top) + i*cellH
-					procMoveToEx.Call(hdc, uintptr(r.left), uintptr(y), 0)
-					procLineTo.Call(hdc, uintptr(r.right), uintptr(y))
+					procMoveToEx.Call(drawDC, uintptr(r.left), uintptr(y), 0)
+					procLineTo.Call(drawDC, uintptr(r.right), uintptr(y))
 				}
 			}
 
@@ -377,88 +422,33 @@ func overlayWindowProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr
 				drawGrid(curRect, startGridN)
 			}
 
-			// Prepare font sized to fit within a cell of the deepest rect
-			w := int(curRect.right - curRect.left)
-			h := int(curRect.bottom - curRect.top)
-			cellW := w / startGridN
-			cellH := h / startGridN
+			// Prepare font sized to fit within a cell of the deepest rect (fast path)
+			deepW := int(curRect.right - curRect.left)
+			deepH := int(curRect.bottom - curRect.top)
+			cellW := deepW / startGridN
+			cellH := deepH / startGridN
 			if cellW < 1 { cellW = 1 }
 			if cellH < 1 { cellH = 1 }
-			// Worst-case label width uses max digit count among 1..n^2 (string of '8's)
-			maxLabelDigits := len(strconv.Itoa(startGridN*startGridN))
-			if maxLabelDigits < 1 { maxLabelDigits = 1 }
-			testStr := strings.Repeat("8", maxLabelDigits)
-			testLP, _ := windows.UTF16PtrFromString(testStr)
-			// Available area inside the cell (padding ~10%)
-			pad := cellW
-			if cellH < pad { pad = cellH }
-			pad = pad / 10
-			if pad < 2 { pad = 2 }
-			availW := cellW - 2*pad
-			availH := cellH - 2*pad
-			if availW < 1 { availW = 1 }
-			if availH < 1 { availH = 1 }
-			// Find a font height that fits testStr within availW x availH
-			// Always start from the maximum cell dimension to allow growth after deep splits.
-			maxStart := cellW
-			if cellH < maxStart { maxStart = cellH }
-			desired := maxStart
-			// Iterate down until fits
-			fitHeight := 0
-			face, _ := windows.UTF16PtrFromString("Segoe UI")
-			for hgt := desired; hgt >= 8; hgt-- {
-				// Negative height to specify pixel character height
-				f, _, _ := procCreateFontW.Call(
-					uintptr(int32(-hgt)), 0, 0, 0,
-					400,
-					0, 0, 0,
-					0, 0, 0, 0, 0,
-					uintptr(unsafe.Pointer(face)),
-				)
-				of, _, _ := procSelectObject.Call(hdc, f)
-				// Measure text
-				r := RECT{}
-				procDrawTextW.Call(
-					hdc,
-					uintptr(unsafe.Pointer(testLP)),
-					^uintptr(0),
-					uintptr(unsafe.Pointer(&r)),
-					DT_CALCRECT|DT_SINGLELINE,
-				)
-				// Restore and delete temp font
-				procSelectObject.Call(hdc, of)
-				width := int(r.right - r.left)
-				heightPx := int(r.bottom - r.top)
-				if width <= availW && heightPx <= availH {
-					fitHeight = hgt
-					procDeleteObject.Call(f)
-					break
-				}
-				procDeleteObject.Call(f)
-			}
-			if fitHeight == 0 { fitHeight = 8 }
-			// Recreate cached font if needed
-			if overlayFont == 0 || overlayFontHeight != fitHeight {
-				if overlayFont != 0 {
-					procDeleteObject.Call(overlayFont)
-				}
-				f, _, _ := procCreateFontW.Call(
-					uintptr(int32(-fitHeight)), 0, 0, 0,
-					400,
-					0, 0, 0,
-					0, 0, 0, 0, 0,
-					uintptr(unsafe.Pointer(face)),
-				)
-				overlayFont = f
-				overlayFontHeight = fitHeight
-			}
+			// Estimate a safe font height without per-paint measurement:
+			// - Scale by cell min dimension for height constraint (~65%).
+			// - Also constrain by width divided by max digits (~90% of width budget).
+			maxDigits := len(strconv.Itoa(startGridN*startGridN))
+			if maxDigits < 1 { maxDigits = 1 }
+			minDim := cellW
+			if cellH < minDim { minDim = cellH }
+			hByHeight := int(float64(minDim) * 0.65)
+			hByWidth := int(float64(cellW) * 0.9 / float64(maxDigits))
+			fitHeight := hByHeight
+			if hByWidth < fitHeight { fitHeight = hByWidth }
+			if fitHeight < 10 { fitHeight = 10 }
+			font := getCachedFont(fitHeight)
 			var oldFont uintptr
-			if overlayFont != 0 {
-				of, _, _ := procSelectObject.Call(hdc, overlayFont)
+			if font != 0 {
+				of, _, _ := procSelectObject.Call(drawDC, font)
 				oldFont = of
 			}
-			procSetBkMode.Call(hdc, TRANSPARENT)
-			procSetTextColor.Call(hdc, 0x00FFFFFF)
+			procSetBkMode.Call(drawDC, TRANSPARENT)
+			procSetTextColor.Call(drawDC, 0x00FFFFFF)
 
 			// Draw labels in deepest grid
 			idx := 1
@@ -468,7 +458,7 @@ func overlayWindowProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr
 					label := strconv.Itoa(idx)
 					lp, _ := windows.UTF16PtrFromString(label)
 					procDrawTextW.Call(
-						hdc,
+						drawDC,
 						uintptr(unsafe.Pointer(lp)),
 						^uintptr(0),
 						uintptr(unsafe.Pointer(&r)),
@@ -478,17 +468,27 @@ func overlayWindowProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr
 				}
 			}
 
-			if oldFont != 0 { procSelectObject.Call(hdc, oldFont) }
-			procSelectObject.Call(hdc, oldPen)
+			if oldFont != 0 { procSelectObject.Call(drawDC, oldFont) }
+			procSelectObject.Call(drawDC, oldPen)
 			procDeleteObject.Call(pen)
+			// Blit the buffer to the screen and cleanup
+			if memDC != hdc {
+				procBitBlt.Call(hdc, 0, 0, uintptr(clientW), uintptr(clientH), memDC, 0, 0, SRCCOPY)
+				if oldBmp != 0 { procSelectObject.Call(memDC, oldBmp) }
+				if bmp != 0 { procDeleteObject.Call(bmp) }
+				procDeleteDC.Call(memDC)
+			}
 		}
 		procEndPaint.Call(hwnd, uintptr(unsafe.Pointer(&ps)))
 		return 0
 	case WM_DESTROY:
-			if overlayFont != 0 {
-				procDeleteObject.Call(overlayFont)
-				overlayFont = 0
+			// Cleanup cached fonts
+			fontCache.mu.Lock()
+			for _, f := range fontCache.fonts {
+				if f != 0 { procDeleteObject.Call(f) }
 			}
+			fontCache.fonts = nil
+			fontCache.mu.Unlock()
 			overlay.mu.Lock()
 			overlayPath = nil
 			overlay.mu.Unlock()
