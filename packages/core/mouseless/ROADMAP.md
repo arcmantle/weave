@@ -20,7 +20,7 @@ This document tracks planned features, status, and design notes for the native W
 
 ### 1) Configurable starting grid (n×n)
 
-- Status: Planned
+- Status: Done
 - Summary: Allow starting the overlay with an arbitrary grid size (e.g., 2×2, 3×3, 4×4).
 - Acceptance criteria:
   - Can configure default grid size (via flag/config, e.g., `--grid=3`).
@@ -30,7 +30,7 @@ This document tracks planned features, status, and design notes for the native W
 
 ### 2) Per-cell text labels
 
-- Status: Planned
+- Status: Done
 - Summary: Render a short label in each cell (e.g., a key or sequence like 1..9 / QWER / HJKL).
 - Acceptance criteria:
   - Text is visible and centered in each cell.
@@ -42,7 +42,7 @@ This document tracks planned features, status, and design notes for the native W
 
 ### 3) Keyboard combinations for cell selection
 
-- Status: Planned
+- Status: Done (via polling)
 - Summary: Press keys corresponding to a cell to select it and move the mouse to the cell center.
 - Acceptance criteria:
   - While overlay is active, typing the mapped key selects the cell.
@@ -53,7 +53,8 @@ This document tracks planned features, status, and design notes for the native W
   - Options:
     - Register a set of system hotkeys for each cell (limited and clunky).
     - Or install a low-level keyboard hook (WH_KEYBOARD_LL) to capture keys while overlay is visible.
-  - We’ll prototype the low-level hook approach for a smooth experience.
+  - Implemented initially with GetAsyncKeyState polling while overlay is visible for simplicity and stability.
+  - Low-level hook (WH_KEYBOARD_LL) remains an option if we need more nuance later.
 
 ### 4) Nested subgrids by modifier + selection
 
@@ -72,7 +73,7 @@ This document tracks planned features, status, and design notes for the native W
 
 ### 5) Mouse movement to cell center
 
-- Status: Planned
+- Status: Done
 - Summary: On confirm (no modifier), move the mouse pointer to the selected cell’s center.
 - Acceptance criteria:
   - Cursor moves smoothly and accurately to the computed center.
@@ -128,11 +129,11 @@ This document tracks planned features, status, and design notes for the native W
 ## Milestones
 
 - M1 (MVP visuals):
-  - [ ] Configurable starting n×n grid
-  - [ ] Draw labels in cells
+  - [x] Configurable starting n×n grid
+  - [x] Draw labels in cells
 - M2 (Selection mechanics):
-  - [ ] Keyboard hook to capture cell selections
-  - [ ] Move mouse to center on confirm
+  - [x] Keyboard input capture to select cells (polling-based)
+  - [x] Move mouse to center on confirm
 - M3 (Nested grids):
   - [ ] Modifier-based split into subgrids
   - [ ] Minimum cell size
@@ -150,6 +151,7 @@ This document tracks planned features, status, and design notes for the native W
 
 ## Next steps
 
-- Implement label rendering in the current overlay using GDI.
-- Prototype keyboard hook for cell selection with a simple 3×3 numeric keypad mapping.
-- Add a minimal config (grid size, mapping scheme, split modifier).
+- Implement nested subgrids on modifier + key (e.g., Shift + key) and redraw.
+- Enforce a configurable minimum cell size before stopping further splits.
+- Optional: replace polling with a low-level keyboard hook if needed.
+- Add small config options: key mapping scheme and split modifier.

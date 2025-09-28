@@ -20,3 +20,7 @@ func showOverlay() error {
 func hideOverlay() error {
 	return nil
 }
+
+func isOverlayVisible() bool {
+	return false
+}

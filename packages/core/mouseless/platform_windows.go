@@ -42,6 +42,7 @@ var (
 	procSetWindowPos         = user32.NewProc("SetWindowPos")
 	procPostMessageW         = user32.NewProc("PostMessageW")
 	procDrawTextW            = user32.NewProc("DrawTextW")
+	procSetCursorPos         = user32.NewProc("SetCursorPos")
 
 	procCreateSolidBrush     = gdi32.NewProc("CreateSolidBrush")
 	procDeleteObject         = gdi32.NewProc("DeleteObject")
@@ -116,6 +117,7 @@ const (
 	DT_SINGLELINE     = 0x00000020
 	// Background mode
 	TRANSPARENT       = 1
+	// Keyboard polling uses GetAsyncKeyState (no hook needed)
 )
 
 // Overlay state
@@ -127,6 +129,101 @@ var overlay struct {
 
 // Reusable font for labels (created on first paint, destroyed on WM_DESTROY)
 var overlayFont uintptr
+
+// Key mapping: for startGridN up to 3, map 1..9 row-major
+func keyToCellIndex(vk int) (idx int, ok bool) {
+	if startGridN <= 0 { return 0, false }
+	max := startGridN * startGridN
+	// Top-row numbers '1'..'9' VK codes: 0x31..0x39
+	if vk >= 0x31 && vk <= 0x39 {
+		n := vk - 0x30 // '1' -> 1
+		if n >= 1 && n <= max {
+			return n, true
+		}
+	}
+	// Numpad '1'..'9' VK codes: 0x61..0x69
+	if vk >= 0x61 && vk <= 0x69 {
+		n := vk - 0x60
+		if n >= 1 && n <= max {
+			return n, true
+		}
+	}
+	return 0, false
+}
+
+// Compute center of a cell index (1-based) within current overlay window
+func cellIndexToCenter(idx int) (x, y int, ok bool) {
+	overlay.mu.Lock()
+	hwnd := overlay.hwnd
+	overlay.mu.Unlock()
+	if hwnd == 0 || startGridN <= 0 { return 0, 0, false }
+	var rc RECT
+	procGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&rc)))
+	w := int(rc.right - rc.left)
+	h := int(rc.bottom - rc.top)
+	cellW := w / startGridN
+	cellH := h / startGridN
+	idx--
+	row := idx / startGridN
+	col := idx % startGridN
+	left := col * cellW
+	top := row * cellH
+	// Last row/col take remainder
+	right := (col + 1) * cellW
+	bottom := (row + 1) * cellH
+	if col == startGridN-1 { right = w }
+	if row == startGridN-1 { bottom = h }
+	cx := left + (right-left)/2
+	cy := top + (bottom-top)/2
+	return cx, cy, true
+}
+
+// Keyboard polling loop: monitors 1..9 while overlay is visible
+func startKeyPolling(stop <-chan struct{}) {
+	// Track previous state to detect key down edges per key
+	prev := make(map[int]bool)
+	for i := 0; i < 10; i++ { prev[i] = false }
+	for {
+		select {
+		case <-stop:
+			return
+		default:
+		}
+		// Check top row 1..9 and numpad 1..9
+		var handleKey = func(vk int) bool {
+			st, _, _ := procGetAsyncKeyState.Call(uintptr(vk))
+			down := int16(st)>>15 != 0
+			was := prev[vk]
+			prev[vk] = down
+			if down && !was {
+				if idx, ok := keyToCellIndex(vk); ok {
+					// Shift modifier?
+					shift, _, _ := procGetAsyncKeyState.Call(0x10)
+					if int16(shift)>>15 != 0 {
+						// TODO: implement subgrid split; for now, ignore
+						return true
+					}
+					if x, y, ok2 := cellIndexToCenter(idx); ok2 {
+						procSetCursorPos.Call(uintptr(x), uintptr(y))
+						hideOverlay()
+						return true
+					}
+				}
+			}
+			return false
+		}
+		consumed := false
+		for vk := 0x31; vk <= 0x39; vk++ { // '1'..'9'
+			if handleKey(vk) { consumed = true; break }
+		}
+		if !consumed {
+			for vk := 0x61; vk <= 0x69; vk++ { // Numpad 1..9
+				if handleKey(vk) { break }
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
 
 // Stable, package-level window procedure
 func overlayWindowProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr {
@@ -413,6 +510,10 @@ func showOverlay() error {
 		procShowWindow.Call(hwnd, SW_SHOW)
 		procUpdateWindow.Call(hwnd)
 
+	// Start key polling while overlay is visible
+	pollStop := make(chan struct{})
+	go startKeyPolling(pollStop)
+
 		var msg MSG
 		for {
 			r, _, _ := procGetMessageW.Call(uintptr(unsafe.Pointer(&msg)), 0, 0, 0)
@@ -426,6 +527,8 @@ func showOverlay() error {
 		overlay.mu.Lock()
 		overlay.hwnd = 0
 		overlay.mu.Unlock()
+	// stop polling
+	close(pollStop)
 	}()
 
 	time.Sleep(150 * time.Millisecond)
@@ -450,4 +553,11 @@ func hideOverlay() error {
 		}
 	}
 	return nil
+}
+
+// isOverlayVisible reports whether the overlay window is currently shown.
+func isOverlayVisible() bool {
+	overlay.mu.Lock()
+	defer overlay.mu.Unlock()
+	return overlay.hwnd != 0
 }

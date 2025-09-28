@@ -28,23 +28,18 @@ func main() {
 
 	log.Printf("Starting grid size: %dx%d", startGridN, startGridN)
 	log.Println("Press Ctrl+Alt+C to toggle the grid overlay. Press Ctrl+C to exit.")
-	isOverlayRunning := false
 
 	stop, err := startHotkey(func() {
-		if !isOverlayRunning {
-			log.Println("Hotkey pressed! Starting overlay...")
-			if err := showOverlay(); err != nil {
-				log.Printf("Failed to show overlay: %v", err)
-				return
-			}
-			isOverlayRunning = true
-		} else {
+		if isOverlayVisible() {
 			log.Println("Hotkey pressed! Closing overlay...")
 			if err := hideOverlay(); err != nil {
 				log.Printf("Failed to hide overlay: %v", err)
-				return
 			}
-			isOverlayRunning = false
+			return
+		}
+		log.Println("Hotkey pressed! Starting overlay...")
+		if err := showOverlay(); err != nil {
+			log.Printf("Failed to show overlay: %v", err)
 		}
 	})
 	if err != nil {
