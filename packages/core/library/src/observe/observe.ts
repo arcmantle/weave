@@ -1,10 +1,11 @@
 import { nameofSegments } from '../function/nameof';
 import { addListenerToTrie, cleanupListenerBucket, ensureListenerBucket, getListenerBucket, getNode, removeListenerFromTrie } from './listener-trie.ts';
 import { deleteAtPath, ensureParents, getParentAndKey, isArrayIndexKey, normalizeKey, setAtPath } from './path.ts';
-import type { ChangeListener, ChangeMeta, ChangeRecord, DiffRecord, ListenerOptions, PathMode, PathSelector, PathTrieNode, QueuedCall } from './types.ts';
+import { buildEffectiveListener, flush as scheduleFlush, notifyListeners, pause as schedulePause, resume as scheduleResume } from './schedule-queue.ts';
+import type { ChangeListener, ChangeMeta, ChangeRecord, DiffRecord, ListenerOptions, PathMode, PathSelector, PathTrieNode } from './types.ts';
 
 const proxyToRoot: WeakMap<object, object> = new WeakMap();
-const pauseState: WeakMap<object, { paused: boolean; queue: QueuedCall[]; }> = new WeakMap();
+// pause/queue state is managed in schedule-queue.ts
 
 // --- Change history (for undo/diff) ---
 const historyCache: WeakMap<object, ChangeRecord[]> = new WeakMap();
@@ -177,16 +178,7 @@ export const observe: (<T extends object>(object: T) => T) & {
 	if (!originalSnapshotCache.has(object))
 		originalSnapshotCache.set(object, cloneWithOptions(object, object));
 
-	const isPaused = (root: object) => (pauseState.get(root)?.paused === true);
-	const enqueue = (root: object, call: QueuedCall) => {
-		let st = pauseState.get(root);
-		if (!st) {
-			st = { paused: true, queue: [] };
-			pauseState.set(root, st);
-		}
-
-		st.queue.push(call);
-	};
+	// pause/queue handled by schedule-queue
 	const pathKeyOf = (segs: string[]) => segs.join('\x1f');
 	const invalidateCacheAt = (root: object, basePath: string[], alsoParentArray?: boolean) => {
 		const opts = getOptions(root);
@@ -211,22 +203,7 @@ export const observe: (<T extends object>(object: T) => T) & {
 			}
 		}
 	};
-	const notifyListeners = (
-		root: object,
-		listeners: Set<ChangeListener>,
-		args: [ string[], any, any, ChangeMeta | undefined ],
-	) => {
-		if (listeners.size === 0)
-			return;
-
-		if (isPaused(root)) {
-			listeners.forEach(listener => enqueue(root, { listener, args }));
-
-			return;
-		}
-
-		listeners.forEach(listener => listener(...args));
-	};
+	// notification delegated to schedule-queue.notifyListeners
 
 	const createProxy = <O extends object>(targetObject: O, path: string[] = [], rootObject: object = object) => {
 		const opts = getOptions(rootObject);
@@ -833,78 +810,13 @@ observe.listen = <T extends object>(
 		options = modeOrOptions;
 	}
 
-	// Wrap the listener with scheduling and QoL options
+	// Wrap the listener with scheduling and QoL options (delegated)
 	let unsubscribe: (() => void) | undefined;
-	const opts = options ?? {};
-	const scheduleInvoke = (fn: () => void) => {
-		if (opts.schedule === 'microtask')
-			queueMicrotask(fn);
-		else
-			fn();
-	};
-
-	let calledOnce = false;
-	let debounceTimer: any = null;
-	let throttleTimer: any = null;
-	let nextAllowed = 0;
-	let pendingArgs: [string[], any, any, ChangeMeta | undefined] | null = null;
-
-	const invoke = (args: [string[], any, any, ChangeMeta | undefined]) => {
-		if (opts.once && calledOnce)
-			return;
-
-		scheduleInvoke(() => {
-			listener(...args);
-			if (opts.once) {
-				calledOnce = true;
-				// Proactively unsubscribe to release references
-				if (unsubscribe)
-					unsubscribe();
-			}
-		});
-	};
-
-	const effectiveListener: ChangeListener = (path, newValue, oldValue, meta) => {
-		const args: [string[], any, any, ChangeMeta | undefined] = [ path, newValue, oldValue, meta ];
-		if (opts.debounceMs != null && opts.debounceMs >= 0) {
-			pendingArgs = args;
-			if (debounceTimer)
-				clearTimeout(debounceTimer);
-
-			debounceTimer = setTimeout(() => {
-				const a = pendingArgs!;
-				pendingArgs = null;
-				invoke(a);
-			}, opts.debounceMs);
-
-			return;
-		}
-
-		if (opts.throttleMs != null && opts.throttleMs > 0) {
-			const now = Date.now();
-			if (now >= nextAllowed) {
-				nextAllowed = now + opts.throttleMs;
-				invoke(args);
-			}
-			else {
-				pendingArgs = args;
-				if (!throttleTimer) {
-					throttleTimer = setTimeout(() => {
-						throttleTimer = null;
-						const a = pendingArgs!;
-						pendingArgs = null;
-						nextAllowed = Date.now() + (opts.throttleMs ?? 0);
-						invoke(a);
-					}, Math.max(0, nextAllowed - now));
-				}
-			}
-
-			return;
-		}
-
-		// default immediate
-		invoke(args);
-	};
+	const { effective: effectiveListener, setUnsubscribe } = buildEffectiveListener(listener, options);
+	setUnsubscribe(() => {
+		if (unsubscribe)
+			unsubscribe();
+	});
 
 	if (segs.length === 0) {
 		bucket.global.add(effectiveListener);
@@ -935,35 +847,17 @@ observe.onAny = (obj: object, listener: ChangeListener, options?: ListenerOption
 
 observe.pause = (obj: object) => {
 	const root = proxyToRoot.get(obj) ?? obj;
-	const st = pauseState.get(root);
-	if (st)
-		st.paused = true;
-	else
-		pauseState.set(root, { paused: true, queue: [] });
+	schedulePause(root);
 };
 
 observe.resume = (obj: object) => {
 	const root = proxyToRoot.get(obj) ?? obj;
-	const st = pauseState.get(root);
-	if (!st)
-		return;
-
-	// Deliver queued notifications in FIFO order
-	const q = st.queue.splice(0, st.queue.length);
-	st.paused = false;
-	for (const { listener, args } of q)
-		listener(...args);
+	scheduleResume(root);
 };
 
 observe.flush = (obj: object) => {
 	const root = proxyToRoot.get(obj) ?? obj;
-	const st = pauseState.get(root);
-	if (!st || st.queue.length === 0)
-		return;
-
-	const q = st.queue.splice(0, st.queue.length);
-	for (const { listener, args } of q)
-		listener(...args);
+	scheduleFlush(root);
 };
 
 // --- Public history APIs ---

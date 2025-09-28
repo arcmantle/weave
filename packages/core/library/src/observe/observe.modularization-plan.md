@@ -201,8 +201,10 @@ We’ll split into small PR-sized steps, running the full test suite after each 
 
 ## Next steps
 
-- Begin with Step 1 (types.ts + path.ts extraction) and keep PRs atomic.
-- I’ll proceed to create scaffolds for the first two modules and wire minimal imports, then run tests to verify no behavior changes.
+- Proceed with Step 4: Extract `history.ts` (without snapshot yet).
+  - Move history caches, group trimming, merge/compaction, and filter logic.
+  - Keep `markPristine`/`reset` temporarily in `observe.ts` until Step 5.
+  - Run the observe tests to verify behavior remains unchanged.
 
 ## Completed steps
 
@@ -214,3 +216,8 @@ We’ll split into small PR-sized steps, running the full test suite after each 
   - Replaced in-file trie/registry helpers with `ensureListenerBucket`, `getListenerBucket`, `addListenerToTrie`, `removeListenerFromTrie`, and `getNode` from the new module.
   - Kept public API stable; listener dispatch unchanged (global, exact, down, up).
   - Verified no behavior changes: all observe tests passed. Minor lint/import-order warnings intentionally left as-is per repo guidance.
+
+- 2025-09-28 — Step 3: Extracted `schedule-queue.ts` and refactored `observe.ts` to use it.
+  - Moved pause/resume/flush queue management and notification delivery into `schedule-queue.ts`.
+  - `observe.listen` now uses `buildEffectiveListener` (once/debounce/throttle/microtask); `observe.pause/resume/flush` delegate to the new module; notifications use `notifyListeners`.
+  - Verified no behavior changes: all observe tests passed; public API unchanged.
