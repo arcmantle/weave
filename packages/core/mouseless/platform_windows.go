@@ -6,6 +6,7 @@ package main
 import (
 	"log"
 	"runtime"
+	"strconv"
 	"sync"
 	"time"
 	"unsafe"
@@ -40,6 +41,7 @@ var (
 	procFillRect             = user32.NewProc("FillRect")
 	procSetWindowPos         = user32.NewProc("SetWindowPos")
 	procPostMessageW         = user32.NewProc("PostMessageW")
+	procDrawTextW            = user32.NewProc("DrawTextW")
 
 	procCreateSolidBrush     = gdi32.NewProc("CreateSolidBrush")
 	procDeleteObject         = gdi32.NewProc("DeleteObject")
@@ -47,6 +49,9 @@ var (
 	procSelectObject         = gdi32.NewProc("SelectObject")
 	procMoveToEx             = gdi32.NewProc("MoveToEx")
 	procLineTo               = gdi32.NewProc("LineTo")
+	procCreateFontW          = gdi32.NewProc("CreateFontW")
+	procSetBkMode            = gdi32.NewProc("SetBkMode")
+	procSetTextColor         = gdi32.NewProc("SetTextColor")
 )
 
 // Windowing types
@@ -105,6 +110,12 @@ const (
 	SWP_NOSIZE        = 0x0001
 	SWP_NOMOVE        = 0x0002
 	SWP_SHOWWINDOW    = 0x0040
+	// Text formatting (DrawText)
+	DT_CENTER         = 0x00000001
+	DT_VCENTER        = 0x00000004
+	DT_SINGLELINE     = 0x00000020
+	// Background mode
+	TRANSPARENT       = 1
 )
 
 // Overlay state
@@ -113,6 +124,9 @@ var overlay struct {
 	hwnd   uintptr
 	doneCh chan struct{}
 }
+
+// Reusable font for labels (created on first paint, destroyed on WM_DESTROY)
+var overlayFont uintptr
 
 // Stable, package-level window procedure
 func overlayWindowProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr {
@@ -131,27 +145,109 @@ func overlayWindowProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr
 			procFillRect.Call(hdc, uintptr(unsafe.Pointer(&rc)), blackBrush)
 			procDeleteObject.Call(blackBrush)
 
-			magenta := uintptr(0x00FF00FF)
-			pen, _, _ := procCreatePen.Call(PS_SOLID, uintptr(lineWidth), magenta)
-			oldPen, _, _ := procSelectObject.Call(hdc, pen)
+				// Draw grid lines based on startGridN (n x n grid)
+				magenta := uintptr(0x00FF00FF)
+				pen, _, _ := procCreatePen.Call(PS_SOLID, uintptr(lineWidth), magenta)
+				oldPen, _, _ := procSelectObject.Call(hdc, pen)
 
-			w := int(rc.right - rc.left)
-			h := int(rc.bottom - rc.top)
-			for x := 0; x <= w; x += gridSize {
-				procMoveToEx.Call(hdc, uintptr(x), 0, 0)
-				procLineTo.Call(hdc, uintptr(x), uintptr(h))
-			}
-			for y := 0; y <= h; y += gridSize {
-				procMoveToEx.Call(hdc, 0, uintptr(y), 0)
-				procLineTo.Call(hdc, uintptr(w), uintptr(y))
-			}
+				w := int(rc.right - rc.left)
+				h := int(rc.bottom - rc.top)
+				if startGridN < 1 {
+					startGridN = 1
+				}
+				cellW := w / startGridN
+				cellH := h / startGridN
+				// Vertical lines
+				for i := 1; i < startGridN; i++ {
+					x := i * cellW
+					procMoveToEx.Call(hdc, uintptr(x), 0, 0)
+					procLineTo.Call(hdc, uintptr(x), uintptr(h))
+				}
+				// Horizontal lines
+				for i := 1; i < startGridN; i++ {
+					y := i * cellH
+					procMoveToEx.Call(hdc, 0, uintptr(y), 0)
+					procLineTo.Call(hdc, uintptr(w), uintptr(y))
+				}
 
-			procSelectObject.Call(hdc, oldPen)
-			procDeleteObject.Call(pen)
+				// Prepare font and text settings (create font once)
+				if overlayFont == 0 {
+					// Choose font height ~40% of cell height, minimum 14
+					base := cellH
+					if cellW < base {
+						base = cellW
+					}
+					height := base * 2 / 5
+					if height < 14 {
+						height = 14
+					}
+					// Negative height to specify character height in pixels
+					hgt := int32(-height)
+					face, _ := windows.UTF16PtrFromString("Segoe UI")
+					f, _, _ := procCreateFontW.Call(
+						uintptr(hgt), 0, 0, 0,
+						400, // FW_NORMAL
+						0, 0, 0,
+						0, // DEFAULT_CHARSET
+						0, // OUT_DEFAULT_PRECIS
+						0, // CLIP_DEFAULT_PRECIS
+						0, // DEFAULT_QUALITY
+						0, // DEFAULT_PITCH | FF_DONTCARE
+						uintptr(unsafe.Pointer(face)),
+					)
+					overlayFont = f
+				}
+				var oldFont uintptr
+				if overlayFont != 0 {
+					of, _, _ := procSelectObject.Call(hdc, overlayFont)
+					oldFont = of
+				}
+				// Transparent background for text; white color
+				procSetBkMode.Call(hdc, TRANSPARENT)
+				procSetTextColor.Call(hdc, 0x00FFFFFF)
+
+				// Draw labels in each cell (1..n*n)
+				idx := 1
+				for row := 0; row < startGridN; row++ {
+					for col := 0; col < startGridN; col++ {
+						// Cell rect
+						left := int32(col * cellW)
+						top := int32(row * cellH)
+						right := int32((col + 1) * cellW)
+						bottom := int32((row + 1) * cellH)
+						if col == startGridN-1 {
+							right = int32(w)
+						}
+						if row == startGridN-1 {
+							bottom = int32(h)
+						}
+						cell := RECT{left: left, top: top, right: right, bottom: bottom}
+						label := strconv.Itoa(idx)
+						idx++
+						lp, _ := windows.UTF16PtrFromString(label)
+						procDrawTextW.Call(
+							hdc,
+							uintptr(unsafe.Pointer(lp)),
+							^uintptr(0), // -1 for null-terminated string
+							uintptr(unsafe.Pointer(&cell)),
+							DT_CENTER|DT_VCENTER|DT_SINGLELINE,
+						)
+					}
+				}
+
+				if oldFont != 0 {
+					procSelectObject.Call(hdc, oldFont)
+				}
+				procSelectObject.Call(hdc, oldPen)
+				procDeleteObject.Call(pen)
 		}
 		procEndPaint.Call(hwnd, uintptr(unsafe.Pointer(&ps)))
 		return 0
 	case WM_DESTROY:
+			if overlayFont != 0 {
+				procDeleteObject.Call(overlayFont)
+				overlayFont = 0
+			}
 		procPostQuitMessage.Call(0)
 		return 0
 	}
