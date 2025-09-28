@@ -6,6 +6,7 @@ package main
 import (
 	"log"
 	"runtime"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -43,8 +44,13 @@ var (
 	procPostMessageW         = user32.NewProc("PostMessageW")
 	procDrawTextW            = user32.NewProc("DrawTextW")
 	procSetCursorPos         = user32.NewProc("SetCursorPos")
+	procGetCursorPos         = user32.NewProc("GetCursorPos")
 	procInvalidateRect       = user32.NewProc("InvalidateRect")
 	procmouse_event          = user32.NewProc("mouse_event")
+	procEnumDisplayMonitors  = user32.NewProc("EnumDisplayMonitors")
+	procGetMonitorInfoW      = user32.NewProc("GetMonitorInfoW")
+	procSetProcessDPIAware   = user32.NewProc("SetProcessDPIAware")
+	procSetProcessDpiAwarenessContext = user32.NewProc("SetProcessDpiAwarenessContext")
 
 	procCreateSolidBrush     = gdi32.NewProc("CreateSolidBrush")
 	procDeleteObject         = gdi32.NewProc("DeleteObject")
@@ -64,6 +70,7 @@ var (
 // Windowing types
 type (
 	RECT struct{ left, top, right, bottom int32 }
+	POINT struct{ x, y int32 }
 	PAINTSTRUCT struct {
 		hdc         uintptr
 		fErase      int32
@@ -138,6 +145,8 @@ var overlay struct {
 	mu     sync.Mutex
 	hwnd   uintptr
 	doneCh chan struct{}
+	monitors []RECT
+	monIdx   int
 }
 
 // Font cache by pixel height to avoid repeated CreateFont calls
@@ -166,6 +175,111 @@ func getCachedFont(height int) uintptr {
 	)
 	fontCache.fonts[height] = f
 	return f
+}
+
+// Pen cache (by width + color)
+type penKey struct { width int; color uint32 }
+var penCache struct {
+	mu   sync.Mutex
+	pens map[penKey]uintptr
+}
+
+func getCachedPen(width int, color uint32) uintptr {
+	if width < 1 { width = 1 }
+	k := penKey{width: width, color: color}
+	penCache.mu.Lock()
+	defer penCache.mu.Unlock()
+	if penCache.pens == nil { penCache.pens = make(map[penKey]uintptr) }
+	if p := penCache.pens[k]; p != 0 { return p }
+	p, _, _ := procCreatePen.Call(PS_SOLID, uintptr(width), uintptr(color))
+	penCache.pens[k] = p
+	return p
+}
+
+// Brush cache (by color)
+var brushCache struct {
+	mu      sync.Mutex
+	brushes map[uint32]uintptr
+}
+
+func getCachedBrush(color uint32) uintptr {
+	brushCache.mu.Lock()
+	defer brushCache.mu.Unlock()
+	if brushCache.brushes == nil { brushCache.brushes = make(map[uint32]uintptr) }
+	if b := brushCache.brushes[color]; b != 0 { return b }
+	b, _, _ := procCreateSolidBrush.Call(uintptr(color))
+	brushCache.brushes[color] = b
+	return b
+}
+
+// DPI awareness
+const (
+	// -4 cast to HANDLE
+	DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = uintptr(^uint32(3))
+)
+
+func setDPIAwareness() {
+	// Try Per-Monitor v2; fallback to ProcessDPIAware
+	if procSetProcessDpiAwarenessContext.Find() == nil {
+		if r, _, _ := procSetProcessDpiAwarenessContext.Call(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2); r != 0 {
+			return
+		}
+	}
+	// Fallback (system aware)
+	if procSetProcessDPIAware.Find() == nil {
+		procSetProcessDPIAware.Call()
+	}
+}
+
+// Monitor enumeration
+type MONITORINFO struct {
+	cbSize  uint32
+	rcMonitor RECT
+	rcWork    RECT
+	dwFlags uint32
+}
+
+const MONITORINFOF_PRIMARY = 0x00000001
+
+func enumerateMonitors() []RECT {
+	monitors := make([]RECT, 0, 4)
+	cb := windows.NewCallback(func(hMon uintptr, hdc uintptr, lprc uintptr, lparam uintptr) uintptr {
+		var mi MONITORINFO
+		mi.cbSize = uint32(unsafe.Sizeof(mi))
+		if r, _, _ := procGetMonitorInfoW.Call(hMon, uintptr(unsafe.Pointer(&mi))); r != 0 {
+			monitors = append(monitors, mi.rcMonitor)
+		}
+		return 1 // continue
+	})
+	procEnumDisplayMonitors.Call(0, 0, cb, 0)
+	// Sort monitors by left, then top for stable navigation order
+	sort.Slice(monitors, func(i, j int) bool {
+		if monitors[i].left == monitors[j].left {
+			return monitors[i].top < monitors[j].top
+		}
+		return monitors[i].left < monitors[j].left
+	})
+	return monitors
+}
+
+func moveOverlayToMonitor(idx int) {
+	overlay.mu.Lock()
+	hwnd := overlay.hwnd
+	monitors := overlay.monitors
+	overlay.mu.Unlock()
+	if hwnd == 0 || idx < 0 || idx >= len(monitors) {
+		return
+	}
+	r := monitors[idx]
+	w := int(r.right - r.left)
+	h := int(r.bottom - r.top)
+	if w <= 0 || h <= 0 { return }
+	procSetWindowPos.Call(hwnd, ^uintptr(0), uintptr(int32(r.left)), uintptr(int32(r.top)), uintptr(w), uintptr(h), 0)
+	procInvalidateRect.Call(hwnd, 0, 1)
+	overlay.mu.Lock()
+	overlay.monIdx = idx
+	overlayPath = nil // reset nested selection when switching monitors
+	overlay.mu.Unlock()
 }
 
 // Path of selected indices for nested grids (1-based per depth)
@@ -241,6 +355,31 @@ func startKeyPolling(stop <-chan struct{}) {
 				return
 			}
 		}
+		// Arrow keys to move overlay across monitors
+		for _, vk := range []int{0x25, 0x26, 0x27, 0x28} { // LEFT, UP, RIGHT, DOWN
+			st, _, _ := procGetAsyncKeyState.Call(uintptr(vk))
+			down := int16(st)>>15 != 0
+			was := prev[vk]
+			prev[vk] = down
+			if down && !was {
+				overlay.mu.Lock()
+				cur := overlay.monIdx
+				total := len(overlay.monitors)
+				overlay.mu.Unlock()
+				if total > 0 {
+					next := cur
+					if vk == 0x25 || vk == 0x26 { // LEFT or UP
+						if cur > 0 { next = cur - 1 }
+					} else { // RIGHT or DOWN
+						if cur < total-1 { next = cur + 1 }
+					}
+					if next != cur {
+						moveOverlayToMonitor(next)
+					}
+				}
+			}
+		}
+
 		// Check top row 1..9 and numpad 1..9
 		var handleKey = func(vk int) bool {
 			st, _, _ := procGetAsyncKeyState.Call(uintptr(vk))
@@ -361,14 +500,14 @@ func overlayWindowProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr
 					oldBmp, _, _ = procSelectObject.Call(memDC, bmp)
 				}
 				drawDC := memDC
-				// Fill background on buffer
-				blackBrush, _, _ := procCreateSolidBrush.Call(0x000000)
+
+				// Fill background on buffer (black is the transparent colorkey)
+				blackBrush := getCachedBrush(0x000000)
 				procFillRect.Call(drawDC, uintptr(unsafe.Pointer(&rcClient)), blackBrush)
-				procDeleteObject.Call(blackBrush)
 
 				// Pen for grid lines
-				magenta := uintptr(0x00FF00FF)
-				pen, _, _ := procCreatePen.Call(PS_SOLID, uintptr(lineWidth), magenta)
+				magenta := uint32(0x00FF00FF)
+				pen := getCachedPen(lineWidth, magenta)
 				oldPen, _, _ := procSelectObject.Call(drawDC, pen)
 
 			// Helper to draw grid lines within a rect
@@ -470,7 +609,6 @@ func overlayWindowProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr
 
 			if oldFont != 0 { procSelectObject.Call(drawDC, oldFont) }
 			procSelectObject.Call(drawDC, oldPen)
-			procDeleteObject.Call(pen)
 			// Blit the buffer to the screen and cleanup
 			if memDC != hdc {
 				procBitBlt.Call(hdc, 0, 0, uintptr(clientW), uintptr(clientH), memDC, 0, 0, SRCCOPY)
@@ -489,6 +627,20 @@ func overlayWindowProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr
 			}
 			fontCache.fonts = nil
 			fontCache.mu.Unlock()
+			// Cleanup cached pens
+			penCache.mu.Lock()
+			for _, p := range penCache.pens {
+				if p != 0 { procDeleteObject.Call(p) }
+			}
+			penCache.pens = nil
+			penCache.mu.Unlock()
+			// Cleanup cached brushes
+			brushCache.mu.Lock()
+			for _, b := range brushCache.brushes {
+				if b != 0 { procDeleteObject.Call(b) }
+			}
+			brushCache.brushes = nil
+			brushCache.mu.Unlock()
 			overlay.mu.Lock()
 			overlayPath = nil
 			overlay.mu.Unlock()
@@ -621,14 +773,38 @@ func showOverlay() error {
 		defer runtime.UnlockOSThread()
 		defer close(overlay.doneCh)
 
+		// Ensure DPI awareness for crisp rendering across monitors
+		setDPIAwareness()
+
 		// Ensure class registered once per process
 		if err := ensureOverlayClass(); err != nil {
 			log.Printf("RegisterClassW failed: %v", err)
 			return
 		}
 
-		cx, _, _ := procGetSystemMetrics.Call(SM_CXSCREEN)
-		cy, _, _ := procGetSystemMetrics.Call(SM_CYSCREEN)
+		// Initialize monitors and choose initial one by cursor position
+		mons := enumerateMonitors()
+		idx := 0
+		var pt POINT
+		if r, _, _ := procGetCursorPos.Call(uintptr(unsafe.Pointer(&pt))); r != 0 && len(mons) > 0 {
+			for i, m := range mons {
+				if pt.x >= m.left && pt.x < m.right && pt.y >= m.top && pt.y < m.bottom {
+					idx = i
+					break
+				}
+			}
+		}
+		var m RECT
+		if len(mons) > 0 {
+			m = mons[idx]
+		} else {
+			// Fallback: primary screen size
+			cx, _, _ := procGetSystemMetrics.Call(SM_CXSCREEN)
+			cy, _, _ := procGetSystemMetrics.Call(SM_CYSCREEN)
+			m = RECT{left: 0, top: 0, right: int32(cx), bottom: int32(cy)}
+		}
+		w := uintptr(int(m.right - m.left))
+		h := uintptr(int(m.bottom - m.top))
 
 		exStyle := uintptr(WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_NOACTIVATE)
 		style := uintptr(WS_POPUP)
@@ -637,8 +813,8 @@ func showOverlay() error {
 			uintptr(unsafe.Pointer(overlayClassNamePtr)),
 			0,
 			style,
-			0, 0,
-			cx, cy,
+			uintptr(m.left), uintptr(m.top),
+			w, h,
 			0, 0, 0, 0,
 		)
 		if hwnd == 0 {
@@ -648,13 +824,15 @@ func showOverlay() error {
 
 		overlay.mu.Lock()
 		overlay.hwnd = hwnd
+		overlay.monitors = mons
+		overlay.monIdx = idx
 		overlay.mu.Unlock()
 
 		if r, _, err := procSetLayeredWindowAttr.Call(hwnd, 0x000000, 0, LWA_COLORKEY); r == 0 {
 			log.Printf("SetLayeredWindowAttributes failed: %v", err)
 		}
 
-		procSetWindowPos.Call(hwnd, ^uintptr(0), 0, 0, 0, 0, SWP_NOMOVE|SWP_NOSIZE|SWP_SHOWWINDOW)
+	procSetWindowPos.Call(hwnd, ^uintptr(0), 0, 0, 0, 0, SWP_NOMOVE|SWP_NOSIZE|SWP_SHOWWINDOW)
 		procShowWindow.Call(hwnd, SW_SHOW)
 		procUpdateWindow.Call(hwnd)
 
