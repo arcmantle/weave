@@ -1,17 +1,12 @@
 import { nameofSegments } from '../function/nameof';
 import { addListenerToTrie, cleanupListenerBucket, ensureListenerBucket, getListenerBucket, getNode, removeListenerFromTrie } from './listener-trie.ts';
 import { deleteAtPath, ensureParents, getParentAndKey, isArrayIndexKey, normalizeKey, setAtPath } from './path.ts';
-import type { ChangeListener, ChangeMeta, ChangeRecord, DiffRecord, ListenerBucket, ListenerOptions, PathMode, PathSelector, PathTrieNode, QueuedCall } from './types.ts';
-
-// types imported from './types.ts'
+import type { ChangeListener, ChangeMeta, ChangeRecord, DiffRecord, ListenerOptions, PathMode, PathSelector, PathTrieNode, QueuedCall } from './types.ts';
 
 const proxyToRoot: WeakMap<object, object> = new WeakMap();
-// QueuedCall imported from './types.ts'
 const pauseState: WeakMap<object, { paused: boolean; queue: QueuedCall[]; }> = new WeakMap();
 
 // --- Change history (for undo/diff) ---
-// ChangeRecord/ChangeType imported from './types.ts'
-
 const historyCache: WeakMap<object, ChangeRecord[]> = new WeakMap();
 const redoCache:    WeakMap<object, ChangeRecord[]> = new WeakMap();
 const suspendWriteCounter: WeakMap<object, number> = new WeakMap();
@@ -82,8 +77,6 @@ const resumeWrites = (root: object) => {
 		suspendWriteCounter.set(root, n);
 };
 
-// path helpers imported from './path.ts'
-
 // Original snapshot for diff/isPristine
 const originalSnapshotCache: WeakMap<object, any> = new WeakMap();
 // Per-root proxy cache: Map<pathKey, proxy>
@@ -116,21 +109,13 @@ const cloneWithOptions = <T>(root: object, v: T): T => {
 		try {
 			return opts.clone(v);
 		}
-		catch {
-			// fall through to default deepClone
-		}
+		catch { /* fall through to default deepClone */ }
 	}
 
 	return deepClone(v);
 };
 
-// listener-trie: ensure/cleanup/getNode helpers are imported
-
 // --- Path helpers (segment-based matching) ---
-
-// normalizeKey imported from './path.ts'
-
-// (segment compare helpers removed; trie-based dispatch no longer uses them)
 
 export const observe: (<T extends object>(object: T) => T) & {
 	listen: <T extends object>(

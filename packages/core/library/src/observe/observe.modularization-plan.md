@@ -203,3 +203,14 @@ We’ll split into small PR-sized steps, running the full test suite after each 
 
 - Begin with Step 1 (types.ts + path.ts extraction) and keep PRs atomic.
 - I’ll proceed to create scaffolds for the first two modules and wire minimal imports, then run tests to verify no behavior changes.
+
+## Completed steps
+
+- 2025-09-28 — Step 1: Extracted `types.ts` and `path.ts`.
+  - Updated `observe.ts` to import shared types and path helpers.
+  - Verified no behavior changes: all observe tests passed.
+
+- 2025-09-28 — Step 2: Extracted `listener-trie.ts` and fully wired `observe.ts` to use it.
+  - Replaced in-file trie/registry helpers with `ensureListenerBucket`, `getListenerBucket`, `addListenerToTrie`, `removeListenerFromTrie`, and `getNode` from the new module.
+  - Kept public API stable; listener dispatch unchanged (global, exact, down, up).
+  - Verified no behavior changes: all observe tests passed. Minor lint/import-order warnings intentionally left as-is per repo guidance.
