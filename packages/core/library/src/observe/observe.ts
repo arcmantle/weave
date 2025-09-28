@@ -42,6 +42,9 @@ const optionsCache: WeakMap<object, {
 	compactConsecutiveSamePath?: boolean;
 	maxHistory?:                 number;
 	filter?:                     (record: ChangeRecord) => boolean;
+	clone?:                      (value: any) => any;
+	compare?:                    (a: any, b: any, path: string[]) => boolean; // true => equal
+	diffFilter?:                 (path: string[]) => boolean | 'shallow';
 }> = new WeakMap();
 const lastUngrouped: WeakMap<object, { id: string; at: number; }> = new WeakMap();
 
@@ -164,19 +167,30 @@ const ensureParents = (root: any, path: string[]) => {
 // Original snapshot for diff/isPristine
 const originalSnapshotCache: WeakMap<object, any> = new WeakMap();
 
-// Deep clone utility for snapshotting
+// Deep clone utility for snapshotting (structuredClone-first; fallback to identity)
 const deepClone = <T>(v: T): T => {
 	try {
 		return structuredClone(v) as T;
 	}
 	catch { /* ignore */ }
 
-	try {
-		return JSON.parse(JSON.stringify(v)) as T;
+	return v;
+};
+
+const getOptions = (root: object) => optionsCache.get(root) ?? {};
+const cloneWithOptions = <T>(root: object, v: T): T => {
+	const opts = getOptions(root);
+	if (opts.clone) {
+		try {
+			return opts.clone(v);
+		}
+		catch {
+			// fall through to default deepClone
+		}
 	}
-	catch {
-		return v;
-	}
+
+
+	return deepClone(v);
 };
 
 const ensureListenerBucket = (root: object): ListenerBucket => {
@@ -314,12 +328,15 @@ export const observe: (<T extends object>(object: T) => T) & {
 			compactConsecutiveSamePath?: boolean;
 			maxHistory?:                 number;
 			filter?:                     (record: ChangeRecord) => boolean;
+			clone?:                      (value: any) => any;
+			compare?:                    (a: any, b: any, path: string[]) => boolean;
+			diffFilter?:                 (path: string[]) => boolean | 'shallow';
 		}
 	) => void;
 } /* eslint-enable key-spacing */ = object => {
 	// Capture original snapshot once per root
-	if (!originalSnapshotCache.has(object as object))
-		originalSnapshotCache.set(object as object, deepClone(object));
+	if (!originalSnapshotCache.has(object))
+		originalSnapshotCache.set(object, cloneWithOptions(object, object));
 
 	const createProxy = <O extends object>(targetObject: O, path: string[] = [], rootObject: object = object) => {
 		const proxy = new Proxy(targetObject, {
@@ -692,43 +709,42 @@ observe.reset = (obj: object) => {
 		if (Array.isArray(target) && Array.isArray(source)) {
 			target.length = source.length;
 			for (let i = 0; i < source.length; i++)
-				target[i] = deepClone(source[i]);
+				target[i] = cloneWithOptions(root, source[i]);
 
 			return;
 		}
 
 		// Plain objects
-		if (isObject(target) && isObject(source) && !Array.isArray(target) && !Array.isArray(source)) {
-			// delete keys not in source
-			for (const k of Object.keys(target)) {
+		const isPlainObject = (v: any) => Object.prototype.toString.call(v) === '[object Object]';
+		if (isObject(target) && isObject(source) && isPlainObject(target) && isPlainObject(source)) {
+			// delete keys not in source (include symbol keys)
+			for (const k of Reflect.ownKeys(target)) {
 				if (!Object.prototype.hasOwnProperty.call(source, k))
 					// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-					delete (target as any)[k];
+					delete (target as any)[k as any];
 			}
-			// set/overwrite from source
-			for (const k of Object.keys(source)) {
-				const sv = (source as any)[k];
-				const tv = (target as any)[k];
+			// set/overwrite from source (include symbol keys)
+			for (const k of Reflect.ownKeys(source)) {
+				const sv = (source as any)[k as any];
+				const tv = (target as any)[k as any];
 				const bothArrays = Array.isArray(sv) && Array.isArray(tv);
-				const bothObjects = isObject(sv) && isObject(tv) && !Array.isArray(sv) && !Array.isArray(tv);
+				const bothObjects = isObject(sv) && isObject(tv) && isPlainObject(sv) && isPlainObject(tv);
 				if (bothArrays || bothObjects)
 					overwriteDeep(tv, sv);
 				else
-					(target as any)[k] = deepClone(sv);
+					(target as any)[k as any] = cloneWithOptions(root, sv);
 			}
 
 			return;
 		}
 
 		// Fallback: replace by shallow reassign of enumerable props
-		for (const k of Object.keys(target)) {
+		for (const k of Reflect.ownKeys(target)) {
 			// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
 			delete (target as any)[k];
 		}
-		if (isObject(source)) {
-			for (const k of Object.keys(source))
-				(target as any)[k] = deepClone((source as any)[k]);
-		}
+		for (const k of Reflect.ownKeys(source))
+			(target as any)[k] = cloneWithOptions(root, (source as any)[k]);
 	};
 
 	suspendWrites(root);
@@ -745,7 +761,7 @@ observe.reset = (obj: object) => {
 
 observe.markPristine = (obj: object) => {
 	const root = proxyToRoot.get(obj) ?? obj;
-	originalSnapshotCache.set(root, deepClone(root as any));
+	originalSnapshotCache.set(root, cloneWithOptions(root, root));
 	historyCache.delete(root);
 
 	lastUngrouped.delete(root);
@@ -814,8 +830,29 @@ interface DiffRecord {
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 
-const diffValues = (a: any, b: any, path: string[], out: DiffRecord[], seen = new WeakMap<object, object>()) => {
-	if (Object.is(a, b))
+const diffValues = (
+	a: any,
+	b: any,
+	path: string[],
+	out: DiffRecord[],
+	root: object,
+	seen = new WeakMap<object, object>(),
+) => {
+	const opts = getOptions(root);
+	const equal = opts.compare ?? ((x: any, y: any) => Object.is(x, y));
+	const filter = opts.diffFilter;
+
+	const f = filter ? filter(path) : true;
+	if (f === false)
+		return; // skip subtree
+	if (f === 'shallow') {
+		if (!equal(a, b, path))
+			out.push({ path: path.slice(), kind: 'changed', oldValue: a, newValue: b });
+
+		return;
+	}
+
+	if (equal(a, b, path))
 		return;
 
 	if (isObject(a) && isObject(b)) {
@@ -824,32 +861,39 @@ const diffValues = (a: any, b: any, path: string[], out: DiffRecord[], seen = ne
 
 		seen.set(a as object, b as object);
 
-		const aKeys = new Set(Object.keys(a));
-		const bKeys = new Set(Object.keys(b));
-		for (const k of aKeys) {
-			const nextPath = [ ...path, k ];
-			if (!bKeys.has(k))
-				out.push({ path: nextPath, kind: 'removed', oldValue: (a as any)[k] });
+		const aKeyMap: Map<string, PropertyKey> = new Map();
+		for (const k of Reflect.ownKeys(a))
+			aKeyMap.set(normalizePropertyKey(k), k);
+		const bKeyMap: Map<string, PropertyKey> = new Map();
+		for (const k of Reflect.ownKeys(b))
+			bKeyMap.set(normalizePropertyKey(k), k);
+
+		const aKeys = new Set(aKeyMap.keys());
+		const bKeys = new Set(bKeyMap.keys());
+
+		for (const nk of aKeys) {
+			const nextPath = [ ...path, nk ];
+			if (!bKeys.has(nk))
+				out.push({ path: nextPath, kind: 'removed', oldValue: (a as any)[aKeyMap.get(nk)!] });
 			else
-				diffValues((a as any)[k], (b as any)[k], nextPath, out, seen);
+				diffValues((a as any)[aKeyMap.get(nk)!], (b as any)[bKeyMap.get(nk)!], nextPath, out, root, seen);
 		}
-		for (const k of bKeys) {
-			if (!aKeys.has(k))
-				out.push({ path: [ ...path, k ], kind: 'added', newValue: (b as any)[k] });
+		for (const nk of bKeys) {
+			if (!aKeys.has(nk))
+				out.push({ path: [ ...path, nk ], kind: 'added', newValue: (b as any)[bKeyMap.get(nk)!] });
 		}
 
 		return;
 	}
 
-	// primitives or different types
 	out.push({ path: path.slice(), kind: 'changed', oldValue: a, newValue: b });
 };
 
 observe.diff = (obj: object) => {
 	const root = proxyToRoot.get(obj) ?? obj;
-	const original = originalSnapshotCache.get(root) ?? deepClone(root as any);
+	const original = originalSnapshotCache.get(root) ?? cloneWithOptions(root, root as any);
 	const out: DiffRecord[] = [];
-	diffValues(original, root, [], out);
+	diffValues(original, root, [], out, root);
 
 	return out;
 };
@@ -1002,6 +1046,9 @@ observe.configure = (
 		compactConsecutiveSamePath?: boolean;
 		maxHistory?:                 number;
 		filter?:                     (record: ChangeRecord) => boolean;
+		clone?:                      (value: any) => any;
+		compare?:                    (a: any, b: any, path: string[]) => boolean;
+		diffFilter?:                 (path: string[]) => boolean | 'shallow';
 	},
 ) => {
 	const root = proxyToRoot.get(obj) ?? obj;
