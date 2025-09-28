@@ -201,9 +201,10 @@ We’ll split into small PR-sized steps, running the full test suite after each 
 
 ## Next steps
 
-- Proceed with Step 10: API wiring cleanup.
-  - Optionally move the public `observe()` implementation to `api.ts` and keep `observe.ts` as a barrel re-export to minimize import churn.
-  - No behavior changes; validate with the full observe test suite.
+- Modularization complete for observe. Suggested follow-ups (separate tasks):
+  - Add short README/guide for the observe modules (see roadmap Task 14).
+  - Consider micro-benchmarks for proxy-factory and listener dispatch hot paths.
+  - Optional: tighten types/docs on public API surfaces.
 
 ## Completed steps
 
@@ -253,3 +254,9 @@ We’ll split into small PR-sized steps, running the full test suite after each 
   - Moved `observe.configure` into `config.ts` with `configureRoot`, delegating from `observe.ts`.
   - Preserved options merge behavior and `lastUngrouped` reset semantics; public API unchanged.
   - Verified with the full observe test suite: all tests passing.
+
+- 2025-09-28 — Step 10: API wiring cleanup and finalize barrel.
+  - Introduced `api.ts` (`createObserveCore`) hosting the core `observe()` and `getRoot` implementation and proxy root mapping.
+  - Refactored `observe.ts` into a thin wiring barrel: imports `createObserveCore`, initializes batch/transactions with `core.observe`/`core.getRoot`, and assigns all public methods from `api-methods.ts`.
+  - Ensured `configure` delegates via `configureRoot` using `core.getRoot`; batch helpers now resolve roots via `core.getRoot`.
+  - Public API unchanged; full observe test suite passing.
