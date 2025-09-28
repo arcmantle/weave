@@ -1,5 +1,7 @@
 import { nameofSegments } from '../function/nameof';
-import { clearLastUngrouped, ensureHistory, getOptions, historyDelete, historyGet, nextGroupId, setOptions as setObserveOptions } from './history.ts';
+import type { BatchAPI } from './batch-transaction.ts';
+import { createBatchTransaction } from './batch-transaction.ts';
+import { clearLastUngrouped, getOptions, historyDelete, historyGet, setOptions as setObserveOptions } from './history.ts';
 import { addListenerToTrie, cleanupListenerBucket, ensureListenerBucket, removeListenerFromTrie } from './listener-trie.ts';
 import type { ProxyFactory } from './proxy-factory.ts';
 import { clearProxyCache as pfClearProxyCache, createProxyFactory } from './proxy-factory.ts';
@@ -11,8 +13,8 @@ import { canRedo as coreCanRedo, canUndo as coreCanUndo, clearRedoCache, redo as
 const proxyToRoot: WeakMap<object, object> = new WeakMap();
 // pause/queue state is managed in schedule-queue.ts
 
-// --- Change history (for undo/diff) ---
-const batchStack: WeakMap<object, { marker: number; id: string; }[]> = new WeakMap();
+// --- Batching/transactions (extracted module) ---
+let batchApi: BatchAPI | undefined;
 
 // Proxy creation and cache handled by proxy-factory
 let proxyFactory: ProxyFactory | undefined;
@@ -78,7 +80,7 @@ export const observe: Observe = ((object: any) => {
 	const existingRoot = proxyToRoot.get(object as object);
 	if (!proxyFactory) {
 		proxyFactory = createProxyFactory({
-			getBatchFrames: (r: object) => batchStack.get(r),
+			getBatchFrames: (r: object) => batchApi?.getBatchFrames(r),
 			setProxyRoot:   (proxy: object, r: object) => proxyToRoot.set(proxy, r),
 		});
 	}
@@ -99,6 +101,12 @@ export const observe: Observe = ((object: any) => {
 
 	return createProxy(root as object, [], root);
 }) as unknown as Observe;
+
+// Initialize batch/transaction API now that observe is defined
+batchApi = createBatchTransaction({
+	observe: ((o: any) => observe(o)) as any,
+	getRoot: (o: object) => proxyToRoot.get(o) ?? o,
+});
 
 
 observe.listen = <T extends object>(
@@ -307,154 +315,18 @@ observe.mark = (obj: object) => {
 	return history ? history.length : 0;
 };
 
-observe.transaction = <T extends object, R>(object: T, action: (observed: T) => R) => {
-	const root = (proxyToRoot.get(object as object) ?? (object as object));
-	const marker = observe.mark(root);
+observe.transaction = <T extends object, R>(object: T, action: (observed: T) => R) => batchApi!.transaction(object, action);
 
-	const framesBefore = (batchStack.get(root) ?? []).length;
-	const isTopLevel = framesBefore === 0;
-	if (isTopLevel)
-		observe.beginBatch(root);
-
-	const observed = observe(object);
-	let groupId: string | undefined;
-	try {
-		const result = action(observed);
-		const frames = (batchStack.get(root) ?? []);
-		groupId = frames.length > 0 ? frames[frames.length - 1]!.id : undefined;
-		if (isTopLevel)
-			observe.commitBatch(root);
-
-		return {
-			result,
-			marker,
-			undo: () => {
-				const h = historyGet(root);
-				if (groupId && h && h.length > 0) {
-					const topGroup = h[h.length - 1]!.groupId ?? `__g#${ h.length - 1 }`;
-					if (topGroup === groupId) {
-						observe.undoGroups(root, 1);
-
-						return;
-					}
-				}
-
-				observe.undoSince(root, marker);
-			},
-		};
-	}
-	catch (err) {
-		if (isTopLevel)
-			observe.rollbackBatch(root);
-		else
-			observe.undoSince(root, marker);
-
-		throw err;
-	}
-};
-
-observe.transactionAsync = async <T extends object, R>(
-	object: T,
-	action: (observed: T) => Promise<R>,
-) => {
-	const root = (proxyToRoot.get(object as object) ?? (object as object));
-	const marker = observe.mark(root);
-
-	const framesBefore = (batchStack.get(root) ?? []).length;
-	const isTopLevel = framesBefore === 0;
-	if (isTopLevel)
-		observe.beginBatch(root);
-
-	const observed = observe(object);
-	let groupId: string | undefined;
-	try {
-		const result = await action(observed);
-		const frames = (batchStack.get(root) ?? []);
-		groupId = frames.length > 0 ? frames[frames.length - 1]!.id : undefined;
-		if (isTopLevel)
-			observe.commitBatch(root);
-
-		return {
-			result,
-			marker,
-			undo: () => {
-				const h = historyGet(root);
-				if (groupId && h && h.length > 0) {
-					const topGroup = h[h.length - 1]!.groupId ?? `__g#${ h.length - 1 }`;
-					if (topGroup === groupId) {
-						observe.undoGroups(root, 1);
-
-						return;
-					}
-				}
-
-				observe.undoSince(root, marker);
-			},
-		};
-	}
-	catch (err) {
-		if (isTopLevel)
-			observe.rollbackBatch(root);
-		else
-			observe.undoSince(root, marker);
-
-		throw err;
-	}
-};
+observe.transactionAsync = async <T extends object, R>(object: T, action: (observed: T) => Promise<R>) => batchApi!.transactionAsync(object, action);
 
 // --- Batching APIs ---
-observe.beginBatch = (obj: object) => {
-	const root = proxyToRoot.get(obj) ?? obj;
-	const history = ensureHistory(root);
-	const frames = batchStack.get(root) ?? [];
-	const id = nextGroupId(root);
-	frames.push({ marker: history.length, id });
-	batchStack.set(root, frames);
-	clearLastUngrouped(root);
-};
+observe.beginBatch = (obj: object) => batchApi.beginBatch(proxyToRoot.get(obj) ?? obj);
 
-observe.commitBatch = (obj: object) => {
-	const root = proxyToRoot.get(obj) ?? obj;
-	const frames = batchStack.get(root);
-	if (!frames || frames.length === 0)
-		return;
+observe.commitBatch = (obj: object) => batchApi.commitBatch(proxyToRoot.get(obj) ?? obj);
 
-	frames.pop();
-	if (frames.length === 0)
-		batchStack.delete(root);
+observe.rollbackBatch = (obj: object) => batchApi.rollbackBatch(proxyToRoot.get(obj) ?? obj);
 
-	clearLastUngrouped(root);
-};
-
-observe.rollbackBatch = (obj: object) => {
-	const root = proxyToRoot.get(obj) ?? obj;
-	const frames = batchStack.get(root);
-	if (!frames || frames.length === 0)
-		return;
-
-	const frame = frames.pop()!;
-	observe.undoSince(root, frame.marker);
-	if (frames.length === 0)
-		batchStack.delete(root);
-
-	clearLastUngrouped(root);
-};
-
-observe.batch = <T extends object, R>(object: T, action: (observed: T) => R) => {
-	const root = (proxyToRoot.get(object as object) ?? (object as object));
-	observe.beginBatch(root);
-	const observed = observe(object);
-	try {
-		const result = action(observed);
-		observe.commitBatch(root);
-
-		return result;
-	}
-	catch (err) {
-		observe.rollbackBatch(root);
-		throw err;
-	}
-};
+observe.batch = <T extends object, R>(object: T, action: (observed: T) => R) => batchApi!.batch(object, action);
 
 // Undo by operation groups (batch groups)
 observe.undoGroups = (obj: object, groups: number = 1) => {

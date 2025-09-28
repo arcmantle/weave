@@ -201,10 +201,9 @@ We’ll split into small PR-sized steps, running the full test suite after each 
 
 ## Next steps
 
-- Proceed with Step 8: Extract `batch-transaction.ts`.
-  - Move `beginBatch`, `commitBatch`, `rollbackBatch`, `batch`, and `transaction`/`transactionAsync` from `observe.ts` into a dedicated module.
-  - Keep group ID assignment and `lastUngrouped` clearing semantics identical; integrate with `history` and `undo-redo` as today.
-  - Ensure nested sync/async transactions coalesce into outer batch (existing tests cover this). No public API changes.
+- Proceed with Step 9: Extract `config.ts`.
+  - Move `observe.configure` into a dedicated module and wire options merging plus `lastUngrouped` reset per current behavior.
+  - Keep the public API unchanged; ensure options read points (history/snapshot/proxy factory) continue to function.
 
 ## Completed steps
 
@@ -243,3 +242,9 @@ We’ll split into small PR-sized steps, running the full test suite after each 
   - Implemented opt-in proxy caching with precise invalidation; `observe.markPristine/reset` clear the cache via the factory.
   - Updated `observe()` to initialize the pristine snapshot per root and avoid double-proxying by returning already observed proxies.
   - Verified behavior parity with tests: arrays, array-delete, map/set, proxy-cache, listeners, redo basics, transactions, and batching.
+
+- 2025-09-28 — Step 8: Extracted `batch-transaction.ts` and integrated.
+  - Moved `beginBatch`, `commitBatch`, `rollbackBatch`, `batch`, `transaction`, and `transactionAsync` into a new module.
+  - Wired `observe.ts` to delegate batching/transactions to the module and passed `getBatchFrames` into `proxy-factory` for group ID selection.
+  - Preserved nested sync/async coalescing behavior and group semantics; public API unchanged.
+  - Validated with the full observe test suite: all tests passing. Styling/lint items are intentionally deferred per repo guidance.
