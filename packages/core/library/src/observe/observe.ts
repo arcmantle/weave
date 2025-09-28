@@ -27,6 +27,8 @@ interface ListenerOptions {
 
 const listenerCache: WeakMap<object, ListenerBucket> = new WeakMap();
 const proxyToRoot: WeakMap<object, object> = new WeakMap();
+interface QueuedCall { listener: ChangeListener; args: [ string[], any, any, ChangeMeta | undefined ]; }
+const pauseState: WeakMap<object, { paused: boolean; queue: QueuedCall[]; }> = new WeakMap();
 
 // --- Change history (for undo/diff) ---
 type ChangeType = 'set' | 'delete';
@@ -44,6 +46,7 @@ interface ChangeRecord {
 }
 
 const historyCache: WeakMap<object, ChangeRecord[]> = new WeakMap();
+const redoCache:    WeakMap<object, ChangeRecord[]> = new WeakMap();
 const suspendWriteCounter: WeakMap<object, number> = new WeakMap();
 const batchStack: WeakMap<object, { marker: number; id: string; }[]> = new WeakMap();
 const groupCounter: WeakMap<object, number> = new WeakMap();
@@ -189,6 +192,16 @@ const deepClone = <T>(v: T): T => {
 };
 
 const getOptions = (root: object) => optionsCache.get(root) ?? {};
+const getRedo = (root: object): ChangeRecord[] => {
+	let r = redoCache.get(root);
+	if (!r) {
+		r = [];
+		redoCache.set(root, r);
+	}
+
+	return r;
+};
+const clearRedoInternal = (root: object) => redoCache.delete(root);
 const cloneWithOptions = <T>(root: object, v: T): T => {
 	const opts = getOptions(root);
 	if (opts.clone) {
@@ -318,12 +331,22 @@ export const observe: (<T extends object>(object: T) => T) & {
 		maybeOptions?: ListenerOptions,
 	) => () => void;
 } & {
+	onAny:  (object: object, listener: ChangeListener, options?: ListenerOptions) => () => void;
+	pause:  (object: object) => void;
+	resume: (object: object) => void;
+	flush:  (object: object) => void;
+} & {
 	getHistory:   (object: object) => readonly ChangeRecord[];
 	clearHistory: (object: object) => void;
 	reset:        (object: object) => void;
 	undo:         (object: object, steps?: number) => void;
 	undoSince:    (object: object, historyLengthBefore: number) => void;
 	undoGroups:   (object: object, groups?: number) => void;
+	redo:         (object: object, steps?: number) => void;
+	redoGroups:   (object: object, groups?: number) => void;
+	canUndo:      (object: object) => boolean;
+	canRedo:      (object: object) => boolean;
+	clearRedo:    (object: object) => void;
 	diff:         (object: object) => readonly DiffRecord[];
 	isPristine:   (object: object) => boolean;
 	markPristine: (object: object) => void;
@@ -359,6 +382,33 @@ export const observe: (<T extends object>(object: T) => T) & {
 	// Capture original snapshot once per root
 	if (!originalSnapshotCache.has(object))
 		originalSnapshotCache.set(object, cloneWithOptions(object, object));
+
+	const isPaused = (root: object) => (pauseState.get(root)?.paused === true);
+	const enqueue = (root: object, call: QueuedCall) => {
+		let st = pauseState.get(root);
+		if (!st) {
+			st = { paused: true, queue: [] };
+			pauseState.set(root, st);
+		}
+
+		st.queue.push(call);
+	};
+	const notifyListeners = (
+		root: object,
+		listeners: Set<ChangeListener>,
+		args: [ string[], any, any, ChangeMeta | undefined ],
+	) => {
+		if (listeners.size === 0)
+			return;
+
+		if (isPaused(root)) {
+			listeners.forEach(listener => enqueue(root, { listener, args }));
+
+			return;
+		}
+
+		listeners.forEach(listener => listener(...args));
+	};
 
 	const createProxy = <O extends object>(targetObject: O, path: string[] = [], rootObject: object = object) => {
 		const proxy = new Proxy(targetObject, {
@@ -402,6 +452,7 @@ export const observe: (<T extends object>(object: T) => T) & {
 					const recordHistoryAndNotify = (rec: ChangeRecord, newValForListener: any, oldValForListener: any) => {
 						if (!isSuspended(rootObject)) {
 							const history = ensureHistory(rootObject);
+							clearRedoInternal(rootObject);
 							const cfg = optionsCache.get(rootObject);
 							if (!cfg?.filter || cfg.filter(rec))
 								history.push(rec);
@@ -450,7 +501,7 @@ export const observe: (<T extends object>(object: T) => T) & {
 							}
 
 							const meta: ChangeMeta = { type: rec.type, existedBefore: rec.existedBefore, groupId: rec.groupId };
-							affected.forEach(l => l(currentPath, newValForListener, oldValForListener, meta));
+							notifyListeners(rootObject, affected, [ currentPath, newValForListener, oldValForListener, meta ]);
 						}
 					};
 
@@ -653,6 +704,7 @@ export const observe: (<T extends object>(object: T) => T) & {
 				// Record change in history unless suspended
 				if (!isSuspended(rootObject)) {
 					const history = ensureHistory(rootObject);
+					clearRedoInternal(rootObject);
 					const cfg = optionsCache.get(rootObject);
 					const baseRecord: ChangeRecord = {
 						path:          currentPath.slice(),
@@ -762,7 +814,7 @@ export const observe: (<T extends object>(object: T) => T) & {
 					}
 
 					const meta: ChangeMeta = { type: 'set', existedBefore: hadBefore, groupId: activeGroupId };
-					affectedListeners.forEach(listener => listener(currentPath, value, oldValue, meta));
+					notifyListeners(rootObject, affectedListeners, [ currentPath, value, oldValue, meta ]);
 				}
 
 				return result;
@@ -821,6 +873,7 @@ export const observe: (<T extends object>(object: T) => T) & {
 
 				if (!isSuspended(rootObject)) {
 					const history = ensureHistory(rootObject);
+					clearRedoInternal(rootObject);
 					const opts = optionsCache.get(rootObject);
 					const delRec: ChangeRecord = {
 						path:      currentPath.slice(),
@@ -891,7 +944,7 @@ export const observe: (<T extends object>(object: T) => T) & {
 					}
 
 					const meta: ChangeMeta = { type: 'delete', existedBefore: hadBefore, groupId: activeGroupId };
-					affectedListeners.forEach(listener => listener(currentPath, undefined, oldValue, meta));
+					notifyListeners(rootObject, affectedListeners, [ currentPath, undefined, oldValue, meta ]);
 				}
 
 				return result;
@@ -1022,6 +1075,45 @@ observe.listen = <T extends object>(
 	return unsubscribe;
 };
 
+// --- Observability surface ---
+observe.onAny = (obj: object, listener: ChangeListener, options?: ListenerOptions) => {
+	// Use an identity selector to target the root (global bucket)
+	return observe.listen(obj as any, s => s as any, listener, options);
+};
+
+observe.pause = (obj: object) => {
+	const root = proxyToRoot.get(obj) ?? obj;
+	const st = pauseState.get(root);
+	if (st)
+		st.paused = true;
+	else
+		pauseState.set(root, { paused: true, queue: [] });
+};
+
+observe.resume = (obj: object) => {
+	const root = proxyToRoot.get(obj) ?? obj;
+	const st = pauseState.get(root);
+	if (!st)
+		return;
+
+	// Deliver queued notifications in FIFO order
+	const q = st.queue.splice(0, st.queue.length);
+	st.paused = false;
+	for (const { listener, args } of q)
+		listener(...args);
+};
+
+observe.flush = (obj: object) => {
+	const root = proxyToRoot.get(obj) ?? obj;
+	const st = pauseState.get(root);
+	if (!st || st.queue.length === 0)
+		return;
+
+	const q = st.queue.splice(0, st.queue.length);
+	for (const { listener, args } of q)
+		listener(...args);
+};
+
 // --- Public history APIs ---
 observe.getHistory = (obj: object) => {
 	const root = proxyToRoot.get(obj) ?? obj;
@@ -1034,6 +1126,7 @@ observe.clearHistory = (obj: object) => {
 	historyCache.delete(root);
 
 	lastUngrouped.delete(root);
+	clearRedoInternal(root);
 };
 
 // Reset the observed object back to its pristine snapshot, regardless of history size.
@@ -1101,6 +1194,7 @@ observe.reset = (obj: object) => {
 
 	// Clear history and update the pristine snapshot to the new state
 	observe.markPristine(root);
+	clearRedoInternal(root);
 };
 
 observe.markPristine = (obj: object) => {
@@ -1109,6 +1203,7 @@ observe.markPristine = (obj: object) => {
 	historyCache.delete(root);
 
 	lastUngrouped.delete(root);
+	clearRedoInternal(root);
 };
 
 observe.undo = (obj: object, steps: number = Number.POSITIVE_INFINITY) => {
@@ -1120,6 +1215,7 @@ observe.undo = (obj: object, steps: number = Number.POSITIVE_INFINITY) => {
 	suspendWrites(root);
 	try {
 		let remaining = steps;
+		const undone: ChangeRecord[] = [];
 		while (history.length > 0 && remaining > 0) {
 			const rec = history.pop()!;
 
@@ -1182,7 +1278,10 @@ observe.undo = (obj: object, steps: number = Number.POSITIVE_INFINITY) => {
 			}
 
 			remaining--;
+			undone.push(rec);
 		}
+		if (undone.length > 0)
+			getRedo(root).push(...undone);
 	}
 	finally {
 		resumeWrites(root);
@@ -1469,6 +1568,141 @@ observe.undoGroups = (obj: object, groups: number = 1) => {
 
 	if (steps > 0)
 		observe.undo(root, steps);
+
+	lastUngrouped.delete(root);
+};
+
+// --- Redo APIs ---
+observe.canUndo = (obj: object) => {
+	const root = proxyToRoot.get(obj) ?? obj;
+
+	return (historyCache.get(root) ?? []).length > 0;
+};
+
+observe.canRedo = (obj: object) => {
+	const root = proxyToRoot.get(obj) ?? obj;
+
+	return (redoCache.get(root) ?? []).length > 0;
+};
+
+observe.clearRedo = (obj: object) => {
+	const root = proxyToRoot.get(obj) ?? obj;
+	clearRedoInternal(root);
+};
+
+// Apply a change record forward (redo side) without emitting notifications
+const applyForward = (root: any, rec: ChangeRecord) => {
+	const getAtPath = (rootNode: any, p: string[]) => {
+		let node = rootNode;
+		for (const seg of p) {
+			if (node == null)
+				return undefined;
+
+			node = node[seg as any];
+		}
+
+		return node;
+	};
+
+	if (rec.collection === 'map') {
+		const m: Map<any, any> | undefined = getAtPath(root, rec.path);
+		if (m && m instanceof Map) {
+			if (rec.type === 'set')
+				m.set(rec.key, rec.newValue);
+			else if (rec.type === 'delete')
+				m.delete(rec.key);
+		}
+
+		return;
+	}
+
+	if (rec.collection === 'set') {
+		const s: Set<any> | undefined = getAtPath(root, rec.path);
+		if (s && s instanceof Set) {
+			if (rec.type === 'set')
+				s.add(rec.key);
+			else if (rec.type === 'delete')
+				s.delete(rec.key);
+		}
+
+		return;
+	}
+
+	if (rec.type === 'set') {
+		setAtPath(root, rec.path, rec.newValue);
+	}
+	else if (rec.type === 'delete') {
+		const parentAndKey = getParentAndKey(root, rec.path);
+		if (parentAndKey) {
+			const [ parent, key ] = parentAndKey;
+			if (Array.isArray(parent) && isArrayIndexKey(String(key)))
+				(parent as any).splice(Number(key), 1);
+			else
+				Reflect.deleteProperty(parent, key as any);
+		}
+	}
+};
+
+observe.redo = (obj: object, steps: number = Number.POSITIVE_INFINITY) => {
+	const root = proxyToRoot.get(obj) ?? obj;
+	const redo = redoCache.get(root);
+	if (!redo || redo.length === 0)
+		return;
+
+	suspendWrites(root);
+	try {
+		let remaining = steps;
+		const gid = nextGroupId(root);
+		while (redo.length > 0 && remaining > 0) {
+			const rec = redo.pop()!; // get earliest undone first due to push order
+			applyForward(root as any, rec);
+			const history = ensureHistory(root);
+			const copy: ChangeRecord = { ...rec, groupId: gid, timestamp: Date.now() };
+			history.push(copy);
+			remaining--;
+		}
+	}
+	finally {
+		resumeWrites(root);
+	}
+
+	lastUngrouped.delete(root);
+};
+
+observe.redoGroups = (obj: object, groups: number = 1) => {
+	const root = proxyToRoot.get(obj) ?? obj;
+	const redo = redoCache.get(root);
+	if (!redo || redo.length === 0)
+		return;
+
+	const toRedo = Math.max(0, groups | 0);
+	if (toRedo === 0)
+		return;
+
+	suspendWrites(root);
+	try {
+		let doneGroups = 0;
+		while (redo.length > 0 && doneGroups < toRedo) {
+			const lastGid = redo[redo.length - 1]!.groupId ?? `__g#${ redo.length - 1 }`;
+			const gidNew = nextGroupId(root);
+			// pop until group boundary changes
+			while (redo.length > 0) {
+				const rec = redo[redo.length - 1]!;
+				const recG = rec.groupId ?? `__g#${ redo.length - 1 }`;
+				if (recG !== lastGid)
+					break;
+
+				redo.pop();
+				applyForward(root as any, rec);
+				const history = ensureHistory(root);
+				history.push({ ...rec, groupId: gidNew, timestamp: Date.now() });
+			}
+			doneGroups++;
+		}
+	}
+	finally {
+		resumeWrites(root);
+	}
 
 	lastUngrouped.delete(root);
 };

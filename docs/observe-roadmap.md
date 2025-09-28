@@ -165,13 +165,16 @@ This document tracks incremental improvements to the deep observe feature in `pa
 
 ### 12. Observability surface
 
-- Status: Planned
+- Status: Done
 - Goal: Broader controls for consumers.
-- API (proposed):
-  - `observe.onAny(object, listener)` — same as global bucket, public
-  - `observe.pause(object)` / `observe.resume(object)` — temporarily queue or drop notifications
-  - Optional: `observe.flush(object)` to deliver queued notifications
-- Tests: Notifications pause/resume/flush work; `onAny` delivers all changes.
+- API:
+  - `observe.onAny(object, listener, options?)` — public global-listener alias; supports the same listener options (once, debounce, throttle, schedule)
+  - `observe.pause(object)` / `observe.resume(object)` — pause queues notifications per-root; resume delivers queued notifications FIFO
+  - `observe.flush(object)` — deliver queued notifications without resuming
+- Outcome:
+  - Introduced a per-root paused state with a FIFO delivery queue. All dispatch sites route through a notifier that enqueues while paused.
+  - `onAny` registers on the global bucket and receives all changes (objects/arrays/Map/Set) with meta.
+- Tests: Added coverage for onAny delivery and pause/resume/flush queuing semantics.
 
 ### 13. Documentation and samples
 
@@ -200,9 +203,8 @@ This document tracks incremental improvements to the deep observe feature in `pa
 
 ### Suggested execution order (Planned tasks)
 
-1) Task 12 — Observability surface
-2) Task 13 — Documentation and samples
-3) Task 14 — Proxy caching for nested objects (opt-in)
+1) Task 13 — Documentation and samples
+2) Task 14 — Proxy caching for nested objects (opt-in)
 
 Notes:
 
@@ -222,7 +224,7 @@ Notes:
 - [Done] (2025-09-28) Task 9: Map/Set adapters via proxy interception
 - [Done] (2025-09-28) Task 10: Listener QoL (once, debounce, throttle, schedule + meta)
 - [Done] (2025-09-28) Task 11: Transaction upgrades (async, nesting, redo)
-- [Planned] Task 12: Observability surface
+- [Done] (2025-09-28) Task 12: Observability surface (onAny, pause/resume/flush)
 - [Planned] Task 13: Docs and samples
 - [Planned] Task 14: Proxy caching for nested objects (opt-in)
 
