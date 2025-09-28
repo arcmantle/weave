@@ -121,21 +121,30 @@ This document tracks incremental improvements to the deep observe feature in `pa
 
 ### 9. Map/Set adapters via proxy interception
 
-- Status: Planned
+- Status: Done
 - Goal: Observe Map/Set mutations using the same proxy mechanics by intercepting method access.
-- Plan:
-  - In the get trap, wrap mutation methods (Map#set/delete/clear, Set#add/delete/clear) to record change records and dispatch listeners; emit synthetic records for size changes.
-  - Ensure batching/grouping semantics and undo support where feasible (e.g., emulate insert/delete via stored entries).
-- Tests: set/add/delete/clear produce history and notifications; undo/redo coverage; batch interactions.
+- Outcome:
+  - Wrapped Map#set/delete/clear and Set#add/delete/clear in the get trap.
+  - Each mutation records a change record at the collection path with collection metadata (map/set + key), participates in batching/grouping, and notifies listeners (global, exact at the collection, down/up per trie rules).
+  - Undo understands collection records: Map set/delete restored appropriately; Set add/delete toggled as expected; clear emits grouped delete records and undoes as a group.
+  - Non-mutating collection methods are bound to the raw target to satisfy brand checks.
+- Tests: `observe.map-set.test.ts` covers set/add/delete/clear, listener notifications, batch grouping, and undo/undoGroups.
 
 ### 10. Listener quality-of-life options
 
-- Status: Planned
+- Status: Done
 - Goal: Improve ergonomics and control.
-- API (proposed additions to listen):
+- API: `observe.listen(object, selector, listener, modeOrOptions?, maybeOptions?)`
   - options: `{ once?: boolean; debounceMs?: number; throttleMs?: number; schedule?: 'sync' | 'microtask'; }`
-  - Event payload: `{ type: 'set' | 'delete'; existedBefore?: boolean; groupId?: string }`
-- Tests: once triggers only once; debounced/throttled delivery order; microtask scheduling avoids reentrancy issues.
+  - Event payload to listener: `(path, newValue, oldValue, meta?)` where `meta = { type: 'set' | 'delete'; existedBefore?: boolean; groupId?: string }`
+- Outcome:
+  - Backward compatible: existing `(mode?)` call sites keep working. You can also pass only options, or both `(mode, options)`.
+  - once: auto-unsubscribes after first delivery.
+  - debounceMs: coalesces rapid changes; fires once after quiet period.
+  - throttleMs: immediate leading call, trailing call at window end.
+  - schedule: 'sync' (default) or 'microtask' to defer delivery.
+  - All dispatchers (object/array and Map/Set adapters) pass `meta` to listeners.
+- Tests: `observe.listen-options.test.ts` covers once, microtask schedule, debounce, and throttle.
 
 ### 11. Transaction upgrades (async, nesting, redo)
 
@@ -161,6 +170,7 @@ This document tracks incremental improvements to the deep observe feature in `pa
 
 - Status: Planned
 - Deliverables: Usage guide, gotchas, recipes (markers, transactions, batching, exact/up/down modes), performance tips, array caveats.
+- Include Map/Set usage: set/add/delete/clear semantics, batching/undo with groups, listener modes (exact/up/down on collection path), and notes on non-mutating method binding/brand checks.
 
 ---
 
@@ -180,9 +190,9 @@ This document tracks incremental improvements to the deep observe feature in `pa
 5) Task 13 — Documentation and samples
 
 Notes:
+
 - Earlier “Extensible snapshot/diff” and “Snapshot/diff/reset fidelity for special types” are merged into Task 8.
 - Map/Set interception builds on the same proxy mechanics by wrapping mutation methods in the get trap.
-
 
 ## Changelog (will be updated as we go)
 
@@ -194,8 +204,8 @@ Notes:
 - [Done] (2025-09-28) Task 6: Robust symbol path identity (stable symbol IDs across nameof and runtime)
 - [Done] (2025-09-28) Task 7: Group-aware history trimming (trim by whole groups; preserves undoGroups)
 - [Done] (2025-09-28) Task 8: Snapshot/diff/reset fidelity (structuredClone-first, Reflect.ownKeys, clone/compare/diffFilter)
-- [Planned] Task 9: Map/Set adapters via proxy interception
-- [Planned] Task 10: Listener QoL
+- [Done] (2025-09-28) Task 9: Map/Set adapters via proxy interception
+- [Done] (2025-09-28) Task 10: Listener QoL (once, debounce, throttle, schedule + meta)
 - [Planned] Task 11: Transaction upgrades
 - [Planned] Task 12: Observability surface
 - [Planned] Task 13: Docs and samples
@@ -239,3 +249,34 @@ Notes:
 - ensureParents: prefer choosing array vs object based on the actual parent slot type when known; only fall back to the following-segment heuristic when necessary.
 - Transactions: return groupId from `observe.transaction` and document LIFO semantics for the undo closure.
 - Diff: shallow mode and path filters now available via Task 8 (`diffFilter`); consider adding usage docs and targeted tests for large subtrees.
+
+---
+
+## Quick docs: Listener options and meta
+
+Use `observe.listen` with QoL options to control delivery and lifecycle. The listener can accept an optional `meta` with change info.
+
+- Signature (flexible):
+  - `observe.listen(obj, sel, listener)`
+  - `observe.listen(obj, sel, listener, mode)`
+  - `observe.listen(obj, sel, listener, options)`
+  - `observe.listen(obj, sel, listener, mode, options)`
+
+- Options:
+  - `once`: invoke once, then auto-unsubscribe
+  - `debounceMs`: coalesce bursts into a single call after the quiet period
+  - `throttleMs`: at most once per window (leading + trailing)
+  - `schedule`: 'sync' (default) or 'microtask' to defer delivery
+
+- Meta payload (4th arg): `{ type: 'set' | 'delete'; existedBefore?: boolean; groupId?: string }`
+
+Example:
+
+```ts
+const off = observe.listen(state, s => s.user.name, (path, newV, oldV, meta) => {
+  console.log('change at', path.join('.'), newV, oldV, meta?.type, meta?.groupId);
+}, 'exact', { debounceMs: 50, schedule: 'microtask' });
+
+// Later
+off();
+```

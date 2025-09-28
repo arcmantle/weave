@@ -1,7 +1,8 @@
 import { nameofSegments } from '../function/nameof';
 import { normalizePropertyKey } from '../util/symbol-id.ts';
 
-type ChangeListener = (path: string[], newValue: any, oldValue: any) => void;
+interface ChangeMeta { type: 'set' | 'delete'; existedBefore?: boolean; groupId?: string; }
+type ChangeListener = (path: string[], newValue: any, oldValue: any, meta?: ChangeMeta) => void;
 
 type PathSelector<T> = (object: T) => any;
 
@@ -17,6 +18,13 @@ interface ListenerBucket {
 	trie:   PathTrieNode;
 }
 
+interface ListenerOptions {
+	once?:       boolean;
+	debounceMs?: number;
+	throttleMs?: number;
+	schedule?:   'sync' | 'microtask';
+}
+
 const listenerCache: WeakMap<object, ListenerBucket> = new WeakMap();
 const proxyToRoot: WeakMap<object, object> = new WeakMap();
 
@@ -30,6 +38,9 @@ interface ChangeRecord {
 	timestamp:      number;
 	existedBefore?: boolean;
 	groupId?:       string;
+	// Collection metadata (for Map/Set adapters)
+	collection?:    'map' | 'set';
+	key?:           any; // Map key (or Set entry when needed)
 }
 
 const historyCache: WeakMap<object, ChangeRecord[]> = new WeakMap();
@@ -299,7 +310,13 @@ const normalizeKey = (prop: PropertyKey): string => normalizePropertyKey(prop);
 
 /* eslint-disable key-spacing */
 export const observe: (<T extends object>(object: T) => T) & {
-	listen: <T extends object>(object: T, selector: PathSelector<T>, listener: ChangeListener, mode?: PathMode) => () => void;
+	listen: <T extends object>(
+		object: T,
+		selector: PathSelector<T>,
+		listener: ChangeListener,
+		modeOrOptions?: PathMode | ListenerOptions,
+		maybeOptions?: ListenerOptions,
+	) => () => void;
 } & {
 	getHistory:   (object: object) => readonly ChangeRecord[];
 	clearHistory: (object: object) => void;
@@ -342,6 +359,238 @@ export const observe: (<T extends object>(object: T) => T) & {
 		const proxy = new Proxy(targetObject, {
 			get(target, prop) {
 				const result = Reflect.get(target, prop);
+
+				// Map/Set adapters: wrap mutating methods and bind non-mutators to raw target for brand checks
+				const isMap = target instanceof Map;
+				const isSet = target instanceof Set;
+				if ((isMap || isSet) && typeof result === 'function') {
+					const method = String(prop);
+					const currentPath = path.slice(); // collection lives at this path
+
+					const computeActiveGroupId = (): string => {
+						const batchFrames = batchStack.get(rootObject);
+						if (batchFrames && batchFrames.length > 0)
+							return batchFrames[batchFrames.length - 1]!.id;
+
+						const opts = optionsCache.get(rootObject);
+						if (opts && opts.mergeUngrouped) {
+							const now = Date.now();
+							const prev = lastUngrouped.get(rootObject);
+							const within = opts.mergeWindowMs == null || (prev ? (now - prev.at) <= opts.mergeWindowMs : false);
+							if (prev && within) {
+								lastUngrouped.set(rootObject, { id: prev.id, at: now });
+
+								return prev.id;
+							}
+
+							const gid = nextGroupId(rootObject);
+							lastUngrouped.set(rootObject, { id: gid, at: now });
+
+							return gid;
+						}
+
+						lastUngrouped.delete(rootObject);
+
+						return nextGroupId(rootObject);
+					};
+
+					const recordHistoryAndNotify = (rec: ChangeRecord, newValForListener: any, oldValForListener: any) => {
+						if (!isSuspended(rootObject)) {
+							const history = ensureHistory(rootObject);
+							const cfg = optionsCache.get(rootObject);
+							if (!cfg?.filter || cfg.filter(rec))
+								history.push(rec);
+							if (cfg && typeof cfg.maxHistory === 'number')
+								trimHistoryByGroups(history, cfg.maxHistory);
+						}
+
+						const bucket = listenerCache.get(rootObject);
+						if (bucket) {
+							const affected: Set<ChangeListener> = new Set();
+							bucket.global.forEach(l => affected.add(l));
+							// Down listeners on ancestors
+							{
+								let node: PathTrieNode | undefined = bucket.trie;
+								if (node.modes.size > 0)
+									node.modes.get('down')?.forEach(l => affected.add(l));
+
+								for (const s of currentPath) {
+									node = node?.children.get(s);
+									if (!node)
+										break;
+
+									node.modes.get('down')?.forEach(l => affected.add(l));
+								}
+							}
+							// Exact listeners at collection node
+							{
+								const node = getNode(bucket.trie, currentPath);
+								if (node)
+									node.modes.get('exact')?.forEach(l => affected.add(l));
+							}
+							// Up listeners on descendants
+							{
+								const start = getNode(bucket.trie, currentPath);
+								if (start) {
+									for (const child of start.children.values()) {
+										const stack: PathTrieNode[] = [ child ];
+										while (stack.length) {
+											const n = stack.pop()!;
+											n.modes.get('up')?.forEach(l => affected.add(l));
+											for (const c of n.children.values())
+												stack.push(c);
+										}
+									}
+								}
+							}
+
+							const meta: ChangeMeta = { type: rec.type, existedBefore: rec.existedBefore, groupId: rec.groupId };
+							affected.forEach(l => l(currentPath, newValForListener, oldValForListener, meta));
+						}
+					};
+
+					if (isMap) {
+						if (method === 'set') {
+							return function(this: any, key: any, value: any) {
+								const m = target as Map<any, any>;
+								const had = m.has(key);
+								const oldV = had ? m.get(key) : undefined;
+								m.set(key, value);
+
+								const rec: ChangeRecord = {
+									path:          currentPath.slice(),
+									type:          'set',
+									oldValue:      oldV,
+									newValue:      value,
+									timestamp:     Date.now(),
+									existedBefore: had,
+									groupId:       computeActiveGroupId(),
+									collection:    'map',
+									key,
+								};
+								recordHistoryAndNotify(rec, value, oldV);
+
+								return this;
+							};
+						}
+						if (method === 'delete') {
+							return function(this: any, key: any) {
+								const m = target as Map<any, any>;
+								const had = m.has(key);
+								const oldV = had ? m.get(key) : undefined;
+								const res = m.delete(key) as boolean;
+								if (had) {
+									const rec: ChangeRecord = {
+										path:       currentPath.slice(),
+										type:       'delete',
+										oldValue:   oldV,
+										newValue:   undefined,
+										timestamp:  Date.now(),
+										groupId:    computeActiveGroupId(),
+										collection: 'map',
+										key,
+									};
+									recordHistoryAndNotify(rec, undefined, oldV);
+								}
+
+								return res;
+							};
+						}
+						if (method === 'clear') {
+							return function(this: any) {
+								const m = target as Map<any, any>;
+								const entries = Array.from(m.entries()) as [ any, any ][];
+								const gid = computeActiveGroupId();
+								m.clear();
+								for (const [ k, v ] of entries) {
+									const rec: ChangeRecord = {
+										path:       currentPath.slice(),
+										type:       'delete',
+										oldValue:   v,
+										newValue:   undefined,
+										timestamp:  Date.now(),
+										groupId:    gid,
+										collection: 'map',
+										key:        k,
+									};
+									recordHistoryAndNotify(rec, undefined, v);
+								}
+							};
+						}
+					}
+
+					if (isSet) {
+						if (method === 'add') {
+							return function(this: any, value: any) {
+								const s = target as Set<any>;
+								const had = s.has(value);
+								s.add(value);
+								if (!had) {
+									const rec: ChangeRecord = {
+										path:          currentPath.slice(),
+										type:          'set',
+										oldValue:      undefined,
+										newValue:      value,
+										timestamp:     Date.now(),
+										existedBefore: false,
+										groupId:       computeActiveGroupId(),
+										collection:    'set',
+										key:           value,
+									};
+									recordHistoryAndNotify(rec, value, undefined);
+								}
+
+								return this; // chaining
+							};
+						}
+						if (method === 'delete') {
+							return function(this: any, value: any) {
+								const s = target as Set<any>;
+								const had = s.has(value);
+								const res = s.delete(value) as boolean;
+								if (had) {
+									const rec: ChangeRecord = {
+										path:       currentPath.slice(),
+										type:       'delete',
+										oldValue:   value,
+										newValue:   undefined,
+										timestamp:  Date.now(),
+										groupId:    computeActiveGroupId(),
+										collection: 'set',
+										key:        value,
+									};
+									recordHistoryAndNotify(rec, undefined, value);
+								}
+
+								return res; // boolean
+							};
+						}
+						if (method === 'clear') {
+							return function(this: any) {
+								const s = target as Set<any>;
+								const values = Array.from(s.values()) as any[];
+								const gid = computeActiveGroupId();
+								s.clear();
+								for (const v of values) {
+									const rec: ChangeRecord = {
+										path:       currentPath.slice(),
+										type:       'delete',
+										oldValue:   v,
+										newValue:   undefined,
+										timestamp:  Date.now(),
+										groupId:    gid,
+										collection: 'set',
+										key:        v,
+									};
+									recordHistoryAndNotify(rec, undefined, v);
+								}
+							};
+						}
+					}
+
+					// For other methods, bind to raw target to satisfy brand checks
+					return (result as (...args: any[]) => any).bind(target);
+				}
 				if (!result || typeof result !== 'object')
 					return result;
 
@@ -507,7 +756,8 @@ export const observe: (<T extends object>(object: T) => T) & {
 						}
 					}
 
-					affectedListeners.forEach(listener => listener(currentPath, value, oldValue));
+					const meta: ChangeMeta = { type: 'set', existedBefore: hadBefore, groupId: activeGroupId };
+					affectedListeners.forEach(listener => listener(currentPath, value, oldValue, meta));
 				}
 
 				return result;
@@ -516,6 +766,7 @@ export const observe: (<T extends object>(object: T) => T) & {
 				const key = normalizeKey(prop);
 				const currentPath = [ ...path, key ];
 				const oldValue = Reflect.get(target, prop);
+				const hadBefore = Reflect.has(target, prop);
 				let result: boolean;
 
 				// If deleting from an array by numeric index, use splice to avoid holes (parity with undo behavior)
@@ -634,7 +885,8 @@ export const observe: (<T extends object>(object: T) => T) & {
 						}
 					}
 
-					affectedListeners.forEach(listener => listener(currentPath, undefined, oldValue));
+					const meta: ChangeMeta = { type: 'delete', existedBefore: hadBefore, groupId: activeGroupId };
+					affectedListeners.forEach(listener => listener(currentPath, undefined, oldValue, meta));
 				}
 
 				return result;
@@ -654,28 +906,115 @@ observe.listen = <T extends object>(
 	object: T,
 	selector: PathSelector<T>,
 	listener: ChangeListener,
-	mode: PathMode = 'down',
+	modeOrOptions?: PathMode | ListenerOptions,
+	maybeOptions?: ListenerOptions,
 ) => {
 	const segs = nameofSegments(selector);
 	const root = proxyToRoot.get(object as object) ?? (object as object);
 	const bucket = ensureListenerBucket(root);
 
-	if (segs.length === 0) {
-		bucket.global.add(listener);
-
-		return () => {
-			bucket.global.delete(listener);
-			cleanupListenerBucket(root, bucket);
-		};
+	let mode: PathMode = 'down';
+	let options: ListenerOptions | undefined;
+	if (typeof modeOrOptions === 'string') {
+		mode = modeOrOptions as PathMode;
+		options = maybeOptions;
+	}
+	else {
+		options = modeOrOptions as ListenerOptions | undefined;
 	}
 
-	_addListenerToTrie(bucket.trie, segs, mode, listener);
+	// Wrap the listener with scheduling and QoL options
+	let unsubscribe: (() => void) | undefined;
+	const opts = options ?? {};
+	const scheduleInvoke = (fn: () => void) => {
+		if (opts.schedule === 'microtask')
+			queueMicrotask(fn);
+		else
+			fn();
+	};
 
-	return () => {
-		_removeListenerFromTrie(bucket.trie, segs, mode, listener);
+	let calledOnce = false;
+	let debounceTimer: any = null;
+	let throttleTimer: any = null;
+	let nextAllowed = 0;
+	let pendingArgs: [string[], any, any, ChangeMeta | undefined] | null = null;
 
+	const invoke = (args: [string[], any, any, ChangeMeta | undefined]) => {
+		if (opts.once && calledOnce)
+			return;
+
+		scheduleInvoke(() => {
+			listener(...args);
+			if (opts.once) {
+				calledOnce = true;
+				// Proactively unsubscribe to release references
+				if (unsubscribe)
+					unsubscribe();
+			}
+		});
+	};
+
+	const effectiveListener: ChangeListener = (path, newValue, oldValue, meta) => {
+		const args: [string[], any, any, ChangeMeta | undefined] = [ path, newValue, oldValue, meta ];
+		if (opts.debounceMs != null && opts.debounceMs >= 0) {
+			pendingArgs = args;
+			if (debounceTimer)
+				clearTimeout(debounceTimer);
+
+			debounceTimer = setTimeout(() => {
+				const a = pendingArgs!;
+				pendingArgs = null;
+				invoke(a);
+			}, opts.debounceMs);
+
+			return;
+		}
+
+		if (opts.throttleMs != null && opts.throttleMs > 0) {
+			const now = Date.now();
+			if (now >= nextAllowed) {
+				nextAllowed = now + opts.throttleMs;
+				invoke(args);
+			}
+			else {
+				pendingArgs = args;
+				if (!throttleTimer) {
+					throttleTimer = setTimeout(() => {
+						throttleTimer = null;
+						const a = pendingArgs!;
+						pendingArgs = null;
+						nextAllowed = Date.now() + (opts.throttleMs ?? 0);
+						invoke(a);
+					}, Math.max(0, nextAllowed - now));
+				}
+			}
+
+			return;
+		}
+
+		// default immediate
+		invoke(args);
+	};
+
+	if (segs.length === 0) {
+		bucket.global.add(effectiveListener);
+
+		unsubscribe = () => {
+			bucket.global.delete(effectiveListener);
+			cleanupListenerBucket(root, bucket);
+		};
+
+		return unsubscribe;
+	}
+
+	_addListenerToTrie(bucket.trie, segs, mode, effectiveListener);
+
+	unsubscribe = () => {
+		_removeListenerFromTrie(bucket.trie, segs, mode, effectiveListener);
 		cleanupListenerBucket(root, bucket);
 	};
+
+	return unsubscribe;
 };
 
 // --- Public history APIs ---
@@ -778,22 +1117,62 @@ observe.undo = (obj: object, steps: number = Number.POSITIVE_INFINITY) => {
 		let remaining = steps;
 		while (history.length > 0 && remaining > 0) {
 			const rec = history.pop()!;
-			ensureParents(root as any, rec.path);
-			if (rec.type === 'set') {
-				if (rec.existedBefore === false)
-					deleteAtPath(root as any, rec.path);
-				else
-					setAtPath(root as any, rec.path, rec.oldValue);
+
+			// Helper to traverse to node at path
+			const getAtPath = (rootNode: any, p: string[]) => {
+				let node = rootNode;
+				for (const seg of p) {
+					if (node == null)
+						return undefined;
+
+					node = node[seg as any];
+				}
+
+				return node;
+			};
+
+			// Collection-aware undo
+			if (rec.collection === 'map') {
+				const m: Map<any, any> | undefined = getAtPath(root as any, rec.path);
+				if (m && m instanceof Map) {
+					if (rec.type === 'set') {
+						if (rec.existedBefore === false)
+							m.delete(rec.key);
+						else
+							m.set(rec.key, rec.oldValue);
+					}
+					else if (rec.type === 'delete') {
+						m.set(rec.key, rec.oldValue);
+					}
+				}
 			}
-			else if (rec.type === 'delete') {
-				// If the path points into an array at a numeric index, use splice to re-insert
-				const parentAndKey = getParentAndKey(root as any, rec.path);
-				if (parentAndKey) {
-					const [ parent, key ] = parentAndKey;
-					if (Array.isArray(parent) && isArrayIndexKey(String(key)))
-						(parent as any).splice(Number(key), 0, rec.oldValue);
+			else if (rec.collection === 'set') {
+				const s: Set<any> | undefined = getAtPath(root as any, rec.path);
+				if (s && s instanceof Set) {
+					if (rec.type === 'set')
+						s.delete(rec.key);
+					else if (rec.type === 'delete')
+						s.add(rec.key);
+				}
+			}
+			else {
+				ensureParents(root as any, rec.path);
+				if (rec.type === 'set') {
+					if (rec.existedBefore === false)
+						deleteAtPath(root as any, rec.path);
 					else
 						setAtPath(root as any, rec.path, rec.oldValue);
+				}
+				else if (rec.type === 'delete') {
+					// If the path points into an array at a numeric index, use splice to re-insert
+					const parentAndKey = getParentAndKey(root as any, rec.path);
+					if (parentAndKey) {
+						const [ parent, key ] = parentAndKey;
+						if (Array.isArray(parent) && isArrayIndexKey(String(key)))
+							(parent as any).splice(Number(key), 0, rec.oldValue);
+						else
+							setAtPath(root as any, rec.path, rec.oldValue);
+					}
 				}
 			}
 
