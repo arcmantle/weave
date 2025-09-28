@@ -201,9 +201,9 @@ We’ll split into small PR-sized steps, running the full test suite after each 
 
 ## Next steps
 
-- Proceed with Step 9: Extract `config.ts`.
-  - Move `observe.configure` into a dedicated module and wire options merging plus `lastUngrouped` reset per current behavior.
-  - Keep the public API unchanged; ensure options read points (history/snapshot/proxy factory) continue to function.
+- Proceed with Step 10: API wiring cleanup.
+  - Optionally move the public `observe()` implementation to `api.ts` and keep `observe.ts` as a barrel re-export to minimize import churn.
+  - No behavior changes; validate with the full observe test suite.
 
 ## Completed steps
 
@@ -248,3 +248,8 @@ We’ll split into small PR-sized steps, running the full test suite after each 
   - Wired `observe.ts` to delegate batching/transactions to the module and passed `getBatchFrames` into `proxy-factory` for group ID selection.
   - Preserved nested sync/async coalescing behavior and group semantics; public API unchanged.
   - Validated with the full observe test suite: all tests passing. Styling/lint items are intentionally deferred per repo guidance.
+
+- 2025-09-28 — Step 9: Extracted `config.ts` and integrated.
+  - Moved `observe.configure` into `config.ts` with `configureRoot`, delegating from `observe.ts`.
+  - Preserved options merge behavior and `lastUngrouped` reset semantics; public API unchanged.
+  - Verified with the full observe test suite: all tests passing.

@@ -11,12 +11,15 @@ export interface BatchFrame { marker: number; id: string; }
 const batchStack: WeakMap<object, BatchFrame[]> = new WeakMap();
 
 export interface BatchAPI {
-	getBatchFrames:   (root: object) => BatchFrame[] | undefined;
-	beginBatch:       (obj: object) => void;
-	commitBatch:      (obj: object) => void;
-	rollbackBatch:    (obj: object) => void;
-	batch:            <T extends object, R>(object: T, action: (observed: T) => R) => R;
-	transaction:      <T extends object, R>(object: T, action: (observed: T) => R) => { result: R; marker: number; undo: () => void; };
+	getBatchFrames: (root: object) => BatchFrame[] | undefined;
+	beginBatch:     (obj: object) => void;
+	commitBatch:    (obj: object) => void;
+	rollbackBatch:  (obj: object) => void;
+	batch:          <T extends object, R>(object: T, action: (observed: T) => R) => R;
+	transaction: <T extends object, R>(
+		object: T,
+		action: (observed: T) => R
+	) => { result: R; marker: number; undo: () => void; };
 	transactionAsync: <T extends object, R>(
         object: T,
         action: (observed: T) => Promise<R>,
@@ -79,7 +82,11 @@ export const createBatchTransaction = (deps: BatchDeps): BatchAPI => {
 		}
 	};
 
-	const transaction = <T extends object, R>(object: T, action: (observed: T) => R): { result: R; marker: number; undo: () => void; } => {
+	const transaction = <T extends object, R>(object: T, action: (observed: T) => R): {
+		result: R;
+		marker: number;
+		undo:   () => void;
+	} => {
 		const root = deps.getRoot(object as unknown as object);
 		const marker = (historyGet(root) ?? []).length;
 

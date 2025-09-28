@@ -1,7 +1,8 @@
 import { nameofSegments } from '../function/nameof';
 import type { BatchAPI } from './batch-transaction.ts';
 import { createBatchTransaction } from './batch-transaction.ts';
-import { clearLastUngrouped, getOptions, historyDelete, historyGet, setOptions as setObserveOptions } from './history.ts';
+import { type ConfigureOptions, configureRoot } from './config.ts';
+import { clearLastUngrouped, historyDelete, historyGet } from './history.ts';
 import { addListenerToTrie, cleanupListenerBucket, ensureListenerBucket, removeListenerFromTrie } from './listener-trie.ts';
 import type { ProxyFactory } from './proxy-factory.ts';
 import { clearProxyCache as pfClearProxyCache, createProxyFactory } from './proxy-factory.ts';
@@ -62,17 +63,7 @@ export interface Observe {
 	redoGroups(obj: object, groups?: number): void;
 	configure(
 		obj: object,
-		options: {
-			mergeUngrouped?:             boolean;
-			mergeWindowMs?:              number;
-			compactConsecutiveSamePath?: boolean;
-			maxHistory?:                 number;
-			filter?:                     (record: ChangeRecord) => boolean;
-			clone?:                      (value: any) => any;
-			compare?:                    (a: any, b: any, path: string[]) => boolean;
-			diffFilter?:                 (path: string[]) => boolean | 'shallow';
-			cacheProxies?:               boolean;
-		},
+		options: ConfigureOptions,
 	): void;
 }
 
@@ -317,7 +308,10 @@ observe.mark = (obj: object) => {
 
 observe.transaction = <T extends object, R>(object: T, action: (observed: T) => R) => batchApi!.transaction(object, action);
 
-observe.transactionAsync = async <T extends object, R>(object: T, action: (observed: T) => Promise<R>) => batchApi!.transactionAsync(object, action);
+observe.transactionAsync = async <T extends object, R>(
+	object: T,
+	action: (observed: T) => Promise<R>,
+) => batchApi!.transactionAsync(object, action);
 
 // --- Batching APIs ---
 observe.beginBatch = (obj: object) => batchApi.beginBatch(proxyToRoot.get(obj) ?? obj);
@@ -369,24 +363,8 @@ observe.redoGroups = (obj: object, groups: number = 1) => {
 };
 
 // --- Options/configure API ---
-observe.configure = (
-	obj: object,
-	options: {
-		mergeUngrouped?:             boolean;
-		mergeWindowMs?:              number;
-		compactConsecutiveSamePath?: boolean;
-		maxHistory?:                 number;
-		filter?:                     (record: ChangeRecord) => boolean;
-		clone?:                      (value: any) => any;
-		compare?:                    (a: any, b: any, path: string[]) => boolean;
-		diffFilter?:                 (path: string[]) => boolean | 'shallow';
-		cacheProxies?:               boolean;
-	},
-) => {
+observe.configure = (obj: object, options: ConfigureOptions) => {
 	const root = proxyToRoot.get(obj) ?? obj;
-	const prev = getOptions(root) ?? {};
-	setObserveOptions(root, { ...prev, ...options });
-	if (!options.mergeUngrouped)
-		clearLastUngrouped(root);
+	configureRoot(root, options);
 };
 /* eslint-enable key-spacing */
