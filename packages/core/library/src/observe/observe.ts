@@ -333,6 +333,11 @@ export const observe: (<T extends object>(object: T) => T) & {
 		undo:   () => void;
 		marker: number;
 	};
+	transactionAsync: <T extends object, R>(object: T, action: (observed: T) => Promise<R>) => Promise<{
+		result: R;
+		undo:   () => void;
+		marker: number;
+	}>;
 	beginBatch:    (object: object) => void;
 	commitBatch:   (object: object) => void;
 	rollbackBatch: (object: object) => void;
@@ -1295,23 +1300,24 @@ observe.transaction = <T extends object, R>(object: T, action: (observed: T) => 
 	const root = (proxyToRoot.get(object as object) ?? (object as object));
 	const marker = observe.mark(root);
 
-	// Begin a batch for the transaction
-	observe.beginBatch(root);
-	const observed = observe(object);
+	const framesBefore = (batchStack.get(root) ?? []).length;
+	const isTopLevel = framesBefore === 0;
+	if (isTopLevel)
+		observe.beginBatch(root);
 
+	const observed = observe(object);
 	let groupId: string | undefined;
 	try {
 		const result = action(observed);
-		// Capture current batch id before commit
 		const frames = (batchStack.get(root) ?? []);
 		groupId = frames.length > 0 ? frames[frames.length - 1]!.id : undefined;
-		observe.commitBatch(root);
+		if (isTopLevel)
+			observe.commitBatch(root);
 
 		return {
 			result,
 			marker,
 			undo: () => {
-				// If the transaction's group is still the top-most, undo one group; otherwise fallback to marker
 				const h = historyCache.get(root);
 				if (groupId && h && h.length > 0) {
 					const topGroup = h[h.length - 1]!.groupId ?? `__g#${ h.length - 1 }`;
@@ -1327,8 +1333,60 @@ observe.transaction = <T extends object, R>(object: T, action: (observed: T) => 
 		};
 	}
 	catch (err) {
-		// Roll back the batch entirely
-		observe.rollbackBatch(root);
+		if (isTopLevel)
+			observe.rollbackBatch(root);
+		else
+			observe.undoSince(root, marker);
+
+		throw err;
+	}
+};
+
+observe.transactionAsync = async <T extends object, R>(
+	object: T,
+	action: (observed: T) => Promise<R>,
+) => {
+	const root = (proxyToRoot.get(object as object) ?? (object as object));
+	const marker = observe.mark(root);
+
+	const framesBefore = (batchStack.get(root) ?? []).length;
+	const isTopLevel = framesBefore === 0;
+	if (isTopLevel)
+		observe.beginBatch(root);
+
+	const observed = observe(object);
+	let groupId: string | undefined;
+	try {
+		const result = await action(observed);
+		const frames = (batchStack.get(root) ?? []);
+		groupId = frames.length > 0 ? frames[frames.length - 1]!.id : undefined;
+		if (isTopLevel)
+			observe.commitBatch(root);
+
+		return {
+			result,
+			marker,
+			undo: () => {
+				const h = historyCache.get(root);
+				if (groupId && h && h.length > 0) {
+					const topGroup = h[h.length - 1]!.groupId ?? `__g#${ h.length - 1 }`;
+					if (topGroup === groupId) {
+						observe.undoGroups(root, 1);
+
+						return;
+					}
+				}
+
+				observe.undoSince(root, marker);
+			},
+		};
+	}
+	catch (err) {
+		if (isTopLevel)
+			observe.rollbackBatch(root);
+		else
+			observe.undoSince(root, marker);
+
 		throw err;
 	}
 };
