@@ -1,12 +1,29 @@
-import { clearLastUngrouped, ensureHistory, getLastUngrouped, getOptions, nextGroupId, setLastUngrouped, trimHistoryByGroups } from './history.ts';
+import {
+	clearLastUngrouped, ensureHistory, getLastUngrouped, getOptions,
+	nextGroupId, setLastUngrouped, trimHistoryByGroups,
+} from './history.ts';
 import { getListenerBucket, getNode } from './listener-trie.ts';
 import { isArrayIndexKey, normalizeKey } from './path.ts';
 import { notifyListeners } from './schedule-queue.ts';
 import type { ChangeListener, ChangeMeta, ChangeRecord, PathTrieNode } from './types.ts';
 import { clearRedoCache, isSuspended, resumeWrites, suspendWrites } from './undo-redo.ts';
 
+
+export interface ProxyFactoryDeps {
+	getBatchFrames: (root: object) => { marker: number; id: string; }[] | undefined;
+	setProxyRoot:   (proxy: object, root: object) => void;
+}
+
+export interface ProxyFactory {
+	createProxy:       <O extends object>(targetObject: O, path: string[] | undefined, rootObject: object) => O;
+	invalidateCacheAt: (root: object, basePath: string[], alsoParentArray?: boolean) => void;
+	clearProxyCache:   (root: object) => void;
+}
+
+
 // Per-root proxy cache: Map<pathKey, proxy>
 const proxyCache: WeakMap<object, Map<string, any>> = new WeakMap();
+
 
 const pathKeyOf = (segs: string[]) => segs.join('\x1f');
 
@@ -40,23 +57,9 @@ export const clearProxyCache = (root: object): void => {
 		perRoot.clear();
 };
 
-export interface ProxyFactoryDeps {
-	getBatchFrames: (root: object) => { marker: number; id: string; }[] | undefined;
-	setProxyRoot:   (proxy: object, root: object) => void;
-}
-
-export interface ProxyFactory {
-	createProxy:       <O extends object>(targetObject: O, path: string[] | undefined, rootObject: object) => O;
-	invalidateCacheAt: (root: object, basePath: string[], alsoParentArray?: boolean) => void;
-	clearProxyCache:   (root: object) => void;
-}
 
 export const createProxyFactory = (deps: ProxyFactoryDeps): ProxyFactory => {
-	const createProxy = <O extends object>(
-		targetObject: O,
-		path: string[] = [],
-		rootObject: object,
-	): O => {
+	const createProxy: ProxyFactory['createProxy'] = (targetObject, path = [], rootObject) => {
 		const opts = getOptions(rootObject);
 		if (opts.cacheProxies) {
 			let perRoot = proxyCache.get(rootObject);
@@ -68,7 +71,7 @@ export const createProxyFactory = (deps: ProxyFactoryDeps): ProxyFactory => {
 			const pathKey = path.join('\x1f');
 			const cached = perRoot.get(pathKey);
 			if (cached)
-				return cached as O;
+				return cached;
 		}
 
 		const proxy = new Proxy(targetObject, {
@@ -91,7 +94,9 @@ export const createProxyFactory = (deps: ProxyFactoryDeps): ProxyFactory => {
 						if (opts && opts.mergeUngrouped) {
 							const now = Date.now();
 							const prev = getLastUngrouped(rootObject);
-							const within = opts.mergeWindowMs == null || (prev ? (now - prev.at) <= opts.mergeWindowMs : false);
+							const within = opts.mergeWindowMs == null
+								|| (prev ? (now - prev.at) <= opts.mergeWindowMs : false);
+
 							if (prev && within) {
 								setLastUngrouped(rootObject, { id: prev.id, at: now });
 
@@ -636,5 +641,5 @@ export const createProxyFactory = (deps: ProxyFactoryDeps): ProxyFactory => {
 		return proxy;
 	};
 
-	return { createProxy: createProxy, invalidateCacheAt, clearProxyCache };
+	return { createProxy, invalidateCacheAt, clearProxyCache };
 };
