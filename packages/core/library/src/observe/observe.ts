@@ -1,4 +1,5 @@
 import { nameofSegments } from '../function/nameof';
+import { clearLastUngrouped, ensureHistory, getLastUngrouped, getOptions, historyDelete, historyGet, nextGroupId, setLastUngrouped, setOptions as setObserveOptions, trimHistoryByGroups } from './history.ts';
 import { addListenerToTrie, cleanupListenerBucket, ensureListenerBucket, getListenerBucket, getNode, removeListenerFromTrie } from './listener-trie.ts';
 import { deleteAtPath, ensureParents, getParentAndKey, isArrayIndexKey, normalizeKey, setAtPath } from './path.ts';
 import { buildEffectiveListener, flush as scheduleFlush, notifyListeners, pause as schedulePause, resume as scheduleResume } from './schedule-queue.ts';
@@ -8,65 +9,9 @@ const proxyToRoot: WeakMap<object, object> = new WeakMap();
 // pause/queue state is managed in schedule-queue.ts
 
 // --- Change history (for undo/diff) ---
-const historyCache: WeakMap<object, ChangeRecord[]> = new WeakMap();
 const redoCache:    WeakMap<object, ChangeRecord[]> = new WeakMap();
 const suspendWriteCounter: WeakMap<object, number> = new WeakMap();
 const batchStack: WeakMap<object, { marker: number; id: string; }[]> = new WeakMap();
-const groupCounter: WeakMap<object, number> = new WeakMap();
-const optionsCache: WeakMap<object, {
-	mergeUngrouped?:             boolean;
-	mergeWindowMs?:              number;
-	compactConsecutiveSamePath?: boolean;
-	maxHistory?:                 number;
-	filter?:                     (record: ChangeRecord) => boolean;
-	clone?:                      (value: any) => any;
-	compare?:                    (a: any, b: any, path: string[]) => boolean; // true => equal
-	diffFilter?:                 (path: string[]) => boolean | 'shallow';
-	cacheProxies?:               boolean;
-}> = new WeakMap();
-const lastUngrouped: WeakMap<object, { id: string; at: number; }> = new WeakMap();
-
-const nextGroupId = (root: object): string => {
-	const n = (groupCounter.get(root) ?? 0) + 1;
-	groupCounter.set(root, n);
-
-	return `g${ n }`;
-};
-
-const ensureHistory = (root: object): ChangeRecord[] => {
-	let h = historyCache.get(root);
-	if (!h) {
-		h = [];
-		historyCache.set(root, h);
-	}
-
-	return h;
-};
-
-// Trim history by removing whole groups from the front until length <= max.
-// This keeps undoGroups coherent and avoids splitting groups.
-const trimHistoryByGroups = (history: ChangeRecord[], max: number) => {
-	if (!(typeof max === 'number') || max < 0)
-		return;
-
-	if (history.length <= max)
-		return;
-
-	let removeCount = 0;
-	let i = 0;
-	while (history.length - removeCount > max && i < history.length) {
-		const gid = history[i]!.groupId ?? `__g#${ i }`;
-		let j = i;
-		while (j < history.length && (history[j]!.groupId ?? `__g#${ j }`) === gid)
-			j++;
-
-		removeCount += (j - i);
-		i = j;
-	}
-
-	if (removeCount > 0)
-		history.splice(0, removeCount);
-};
 
 const isSuspended = (root: object): boolean => (suspendWriteCounter.get(root) ?? 0) > 0;
 const suspendWrites = (root: object) => suspendWriteCounter.set(root, (suspendWriteCounter.get(root) ?? 0) + 1);
@@ -93,7 +38,6 @@ const deepClone = <T>(v: T): T => {
 	return v;
 };
 
-const getOptions = (root: object) => optionsCache.get(root) ?? {};
 const getRedo = (root: object): ChangeRecord[] => {
 	let r = redoCache.get(root);
 	if (!r) {
@@ -236,24 +180,24 @@ export const observe: (<T extends object>(object: T) => T) & {
 						if (batchFrames && batchFrames.length > 0)
 							return batchFrames[batchFrames.length - 1]!.id;
 
-						const opts = optionsCache.get(rootObject);
+						const opts = getOptions(rootObject);
 						if (opts && opts.mergeUngrouped) {
 							const now = Date.now();
-							const prev = lastUngrouped.get(rootObject);
+							const prev = getLastUngrouped(rootObject);
 							const within = opts.mergeWindowMs == null || (prev ? (now - prev.at) <= opts.mergeWindowMs : false);
 							if (prev && within) {
-								lastUngrouped.set(rootObject, { id: prev.id, at: now });
+								setLastUngrouped(rootObject, { id: prev.id, at: now });
 
 								return prev.id;
 							}
 
 							const gid = nextGroupId(rootObject);
-							lastUngrouped.set(rootObject, { id: gid, at: now });
+							setLastUngrouped(rootObject, { id: gid, at: now });
 
 							return gid;
 						}
 
-						lastUngrouped.delete(rootObject);
+						clearLastUngrouped(rootObject);
 
 						return nextGroupId(rootObject);
 					};
@@ -262,7 +206,7 @@ export const observe: (<T extends object>(object: T) => T) & {
 						if (!isSuspended(rootObject)) {
 							const history = ensureHistory(rootObject);
 							clearRedoInternal(rootObject);
-							const cfg = optionsCache.get(rootObject);
+							const cfg = getOptions(rootObject);
 							if (!cfg?.filter || cfg.filter(rec))
 								history.push(rec);
 							if (cfg && typeof cfg.maxHistory === 'number')
@@ -489,23 +433,23 @@ export const observe: (<T extends object>(object: T) => T) & {
 					activeGroupId = batchFrames[batchFrames.length - 1]!.id;
 				}
 				else {
-					const opts = optionsCache.get(rootObject);
+					const opts = getOptions(rootObject);
 					if (opts && opts.mergeUngrouped) {
 						const now = Date.now();
-						const prev = lastUngrouped.get(rootObject);
+						const prev = getLastUngrouped(rootObject);
 						const within = opts.mergeWindowMs == null || (prev ? (now - prev.at) <= opts.mergeWindowMs : false);
 						if (prev && within) {
 							activeGroupId = prev.id;
-							lastUngrouped.set(rootObject, { id: prev.id, at: now });
+							setLastUngrouped(rootObject, { id: prev.id, at: now });
 						}
 						else {
 							const gid = nextGroupId(rootObject);
-							lastUngrouped.set(rootObject, { id: gid, at: now });
+							setLastUngrouped(rootObject, { id: gid, at: now });
 							activeGroupId = gid;
 						}
 					}
 					else {
-						lastUngrouped.delete(rootObject);
+						clearLastUngrouped(rootObject);
 						activeGroupId = nextGroupId(rootObject);
 					}
 				}
@@ -514,7 +458,7 @@ export const observe: (<T extends object>(object: T) => T) & {
 				if (!isSuspended(rootObject)) {
 					const history = ensureHistory(rootObject);
 					clearRedoInternal(rootObject);
-					const cfg = optionsCache.get(rootObject);
+					const cfg = getOptions(rootObject);
 					const baseRecord: ChangeRecord = {
 						path:          currentPath.slice(),
 						type:          'set',
@@ -668,23 +612,23 @@ export const observe: (<T extends object>(object: T) => T) & {
 					activeGroupId = batchFrames[batchFrames.length - 1]!.id;
 				}
 				else {
-					const opts = optionsCache.get(rootObject);
+					const opts = getOptions(rootObject);
 					if (opts && opts.mergeUngrouped) {
 						const now = Date.now();
-						const prev = lastUngrouped.get(rootObject);
+						const prev = getLastUngrouped(rootObject);
 						const within = opts.mergeWindowMs == null || (prev ? (now - prev.at) <= opts.mergeWindowMs : false);
 						if (prev && within) {
 							activeGroupId = prev.id;
-							lastUngrouped.set(rootObject, { id: prev.id, at: now });
+							setLastUngrouped(rootObject, { id: prev.id, at: now });
 						}
 						else {
 							const gid = nextGroupId(rootObject);
-							lastUngrouped.set(rootObject, { id: gid, at: now });
+							setLastUngrouped(rootObject, { id: gid, at: now });
 							activeGroupId = gid;
 						}
 					}
 					else {
-						lastUngrouped.delete(rootObject);
+						clearLastUngrouped(rootObject);
 						activeGroupId = nextGroupId(rootObject);
 					}
 				}
@@ -692,7 +636,7 @@ export const observe: (<T extends object>(object: T) => T) & {
 				if (!isSuspended(rootObject)) {
 					const history = ensureHistory(rootObject);
 					clearRedoInternal(rootObject);
-					const opts = optionsCache.get(rootObject);
+					const opts = getOptions(rootObject);
 					const delRec: ChangeRecord = {
 						path:      currentPath.slice(),
 						type:      'delete',
@@ -864,14 +808,14 @@ observe.flush = (obj: object) => {
 observe.getHistory = (obj: object) => {
 	const root = proxyToRoot.get(obj) ?? obj;
 
-	return (historyCache.get(root) ?? []).slice();
+	return (historyGet(root) ?? []).slice();
 };
 
 observe.clearHistory = (obj: object) => {
 	const root = proxyToRoot.get(obj) ?? obj;
-	historyCache.delete(root);
+	historyDelete(root);
 
-	lastUngrouped.delete(root);
+	clearLastUngrouped(root);
 	clearRedoInternal(root);
 };
 
@@ -946,9 +890,9 @@ observe.reset = (obj: object) => {
 observe.markPristine = (obj: object) => {
 	const root = proxyToRoot.get(obj) ?? obj;
 	originalSnapshotCache.set(root, cloneWithOptions(root, root));
-	historyCache.delete(root);
+	historyDelete(root);
 
-	lastUngrouped.delete(root);
+	clearLastUngrouped(root);
 	clearRedoInternal(root);
 
 	// Clear proxy cache to avoid stale entries after marking pristine/reset
@@ -959,7 +903,7 @@ observe.markPristine = (obj: object) => {
 
 observe.undo = (obj: object, steps: number = Number.POSITIVE_INFINITY) => {
 	const root = proxyToRoot.get(obj) ?? obj;
-	const history = historyCache.get(root);
+	const history = historyGet(root);
 	if (!history || history.length === 0)
 		return;
 
@@ -1042,7 +986,7 @@ observe.undo = (obj: object, steps: number = Number.POSITIVE_INFINITY) => {
 // Convenience: undo everything recorded after a previous history length marker
 observe.undoSince = (obj: object, historyLengthBefore: number) => {
 	const root = proxyToRoot.get(obj) ?? obj;
-	const history = historyCache.get(root);
+	const history = historyGet(root);
 	if (!history)
 		return;
 
@@ -1050,7 +994,7 @@ observe.undoSince = (obj: object, historyLengthBefore: number) => {
 	if (steps > 0)
 		observe.undo(root, steps);
 
-	lastUngrouped.delete(root);
+	clearLastUngrouped(root);
 };
 
 // --- Diff and pristine helpers ---
@@ -1134,7 +1078,7 @@ observe.isPristine = (obj: object) => {
 // --- Marks and transactions ---
 observe.mark = (obj: object) => {
 	const root = proxyToRoot.get(obj) ?? obj;
-	const history = historyCache.get(root);
+	const history = historyGet(root);
 
 	return history ? history.length : 0;
 };
@@ -1161,7 +1105,7 @@ observe.transaction = <T extends object, R>(object: T, action: (observed: T) => 
 			result,
 			marker,
 			undo: () => {
-				const h = historyCache.get(root);
+				const h = historyGet(root);
 				if (groupId && h && h.length > 0) {
 					const topGroup = h[h.length - 1]!.groupId ?? `__g#${ h.length - 1 }`;
 					if (topGroup === groupId) {
@@ -1210,7 +1154,7 @@ observe.transactionAsync = async <T extends object, R>(
 			result,
 			marker,
 			undo: () => {
-				const h = historyCache.get(root);
+				const h = historyGet(root);
 				if (groupId && h && h.length > 0) {
 					const topGroup = h[h.length - 1]!.groupId ?? `__g#${ h.length - 1 }`;
 					if (topGroup === groupId) {
@@ -1242,7 +1186,7 @@ observe.beginBatch = (obj: object) => {
 	const id = nextGroupId(root);
 	frames.push({ marker: history.length, id });
 	batchStack.set(root, frames);
-	lastUngrouped.delete(root);
+	clearLastUngrouped(root);
 };
 
 observe.commitBatch = (obj: object) => {
@@ -1255,7 +1199,7 @@ observe.commitBatch = (obj: object) => {
 	if (frames.length === 0)
 		batchStack.delete(root);
 
-	lastUngrouped.delete(root);
+	clearLastUngrouped(root);
 };
 
 observe.rollbackBatch = (obj: object) => {
@@ -1269,7 +1213,7 @@ observe.rollbackBatch = (obj: object) => {
 	if (frames.length === 0)
 		batchStack.delete(root);
 
-	lastUngrouped.delete(root);
+	clearLastUngrouped(root);
 };
 
 observe.batch = <T extends object, R>(object: T, action: (observed: T) => R) => {
@@ -1291,7 +1235,7 @@ observe.batch = <T extends object, R>(object: T, action: (observed: T) => R) => 
 // Undo by operation groups (batch groups)
 observe.undoGroups = (obj: object, groups: number = 1) => {
 	const root = proxyToRoot.get(obj) ?? obj;
-	const history = historyCache.get(root);
+	const history = historyGet(root);
 	if (!history || history.length === 0)
 		return;
 
@@ -1313,14 +1257,14 @@ observe.undoGroups = (obj: object, groups: number = 1) => {
 	if (steps > 0)
 		observe.undo(root, steps);
 
-	lastUngrouped.delete(root);
+	clearLastUngrouped(root);
 };
 
 // --- Redo APIs ---
 observe.canUndo = (obj: object) => {
 	const root = proxyToRoot.get(obj) ?? obj;
 
-	return (historyCache.get(root) ?? []).length > 0;
+	return (historyGet(root) ?? []).length > 0;
 };
 
 observe.canRedo = (obj: object) => {
@@ -1410,7 +1354,7 @@ observe.redo = (obj: object, steps: number = Number.POSITIVE_INFINITY) => {
 		resumeWrites(root);
 	}
 
-	lastUngrouped.delete(root);
+	clearLastUngrouped(root);
 };
 
 observe.redoGroups = (obj: object, groups: number = 1) => {
@@ -1448,7 +1392,7 @@ observe.redoGroups = (obj: object, groups: number = 1) => {
 		resumeWrites(root);
 	}
 
-	lastUngrouped.delete(root);
+	clearLastUngrouped(root);
 };
 
 // --- Options/configure API ---
@@ -1467,9 +1411,9 @@ observe.configure = (
 	},
 ) => {
 	const root = proxyToRoot.get(obj) ?? obj;
-	const prev = optionsCache.get(root) ?? {};
-	optionsCache.set(root, { ...prev, ...options });
+	const prev = getOptions(root) ?? {};
+	setObserveOptions(root, { ...prev, ...options });
 	if (!options.mergeUngrouped)
-		lastUngrouped.delete(root);
+		clearLastUngrouped(root);
 };
 /* eslint-enable key-spacing */

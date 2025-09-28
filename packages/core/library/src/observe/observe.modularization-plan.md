@@ -201,10 +201,13 @@ We’ll split into small PR-sized steps, running the full test suite after each 
 
 ## Next steps
 
-- Proceed with Step 4: Extract `history.ts` (without snapshot yet).
-  - Move history caches, group trimming, merge/compaction, and filter logic.
-  - Keep `markPristine`/`reset` temporarily in `observe.ts` until Step 5.
-  - Run the observe tests to verify behavior remains unchanged.
+- Proceed with Step 5: Extract `snapshot-diff.ts`.
+  - Move pristine snapshot cache and deep clone wrapper (honoring `options.clone`).
+  - Move `diffValues` (honoring `options.compare`/`diffFilter`, using `Reflect.ownKeys` and symbol keys).
+  - Move `markPristine`, `isPristine`, `diff`, and the `reset` deep overwrite helper.
+  - Refactor `observe.ts` to import from `snapshot-diff.ts` and remove local snapshot/diff helpers.
+  - Ensure proxy cache is cleared on `markPristine`/`reset` (behavior parity with current tests).
+  - Run the observe tests (diff/pristine/reset and related suites) to verify no behavior changes.
 
 ## Completed steps
 
@@ -221,3 +224,8 @@ We’ll split into small PR-sized steps, running the full test suite after each 
   - Moved pause/resume/flush queue management and notification delivery into `schedule-queue.ts`.
   - `observe.listen` now uses `buildEffectiveListener` (once/debounce/throttle/microtask); `observe.pause/resume/flush` delegate to the new module; notifications use `notifyListeners`.
   - Verified no behavior changes: all observe tests passed; public API unchanged.
+
+- 2025-09-28 — Step 4: Extracted `history.ts` and wired `observe.ts` to consume it.
+  - Moved history cache, group counters, lastUngrouped window, options store, and group-trim helper into `history.ts`.
+  - Updated write paths (set/delete and Map/Set adapters), batch/transaction, undo/redo groups, and configure() to use the new helpers.
+  - Fixed minor lint in `history.ts` (explicit return type) and ensured no behavior changes: all observe tests passed.
