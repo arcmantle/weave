@@ -179,6 +179,16 @@ This document tracks incremental improvements to the deep observe feature in `pa
 - Deliverables: Usage guide, gotchas, recipes (markers, transactions, batching, exact/up/down modes), performance tips, array caveats.
 - Include Map/Set usage: set/add/delete/clear semantics, batching/undo with groups, listener modes (exact/up/down on collection path), and notes on non-mutating method binding/brand checks.
 
+### 14. Proxy caching for nested objects (opt-in)
+
+- Status: Planned
+- Goal: Stabilize identity and improve performance for repeated traversals.
+- API: `observe.configure(object, { cacheProxies?: boolean })`
+- Plan:
+  - Cache proxies per (target, path) within a root; document identity and memory trade-offs.
+  - Ensure cache invalidation on delete/replace to avoid stale proxies.
+- Tests: Identity stability, cache effectiveness, memory/GC sanity; micro-bench comparisons.
+
 ---
 
 ## Execution workflow
@@ -192,6 +202,7 @@ This document tracks incremental improvements to the deep observe feature in `pa
 
 1) Task 12 — Observability surface
 2) Task 13 — Documentation and samples
+3) Task 14 — Proxy caching for nested objects (opt-in)
 
 Notes:
 
@@ -213,40 +224,7 @@ Notes:
 - [Done] (2025-09-28) Task 11: Transaction upgrades (async, nesting, redo)
 - [Planned] Task 12: Observability surface
 - [Planned] Task 13: Docs and samples
-
-### 11. Robust symbol path identity (segments as PropertyKey)
-
-- Status: Done (covered by Task 6)
-- Note: Implemented via stable symbol ID mapping and normalized segments; see Task 6 above.
-
-### 12. Snapshot/diff/reset fidelity for special types (complements Task 6)
-
-- Status: Done (merged into Task 8)
-- Note: Provided via `clone`, `compare`, and `diffFilter` hooks; shallow diff and Reflect.ownKeys are implemented. Add targeted tests for specific instance types as needed.
-
-### 13. Group-aware history trimming (maxHistory)
-
-- Status: Done (covered by Task 7)
-- Note: Implemented trimming by whole groups; see Task 7 above.
-
-### 14. Proxy caching for nested objects (opt-in)
-
-- Status: Planned
-- Goal: Stabilize identity and improve performance for repeated traversals.
-- API: `observe.configure(object, { cacheProxies?: boolean })`
-- Plan:
-  - Cache proxies per (target, path) within a root; document identity and memory trade-offs.
-  - Ensure cache invalidation on delete/replace to avoid stale proxies.
-- Tests: Identity stability, cache effectiveness, memory/GC sanity; micro-bench comparisons.
-
-### 15. Map/Set adapters via proxy interception
-
-- Status: Planned
-- Goal: Observe Map/Set mutations using the same proxy mechanics by intercepting method access.
-- Plan:
-  - In the get trap, wrap mutation methods (Map#set/delete/clear, Set#add/delete/clear) to record change records and dispatch listeners; emit synthetic records for size changes.
-  - Ensure batching/grouping semantics and undo support where feasible (e.g., emulate insert/delete via stored entries).
-- Tests: set/add/delete/clear produce history and notifications; undo/redo coverage; batch interactions.
+- [Planned] Task 14: Proxy caching for nested objects (opt-in)
 
 ## Polish items
 
@@ -255,32 +233,3 @@ Notes:
 - Diff: shallow mode and path filters now available via Task 8 (`diffFilter`); consider adding usage docs and targeted tests for large subtrees.
 
 ---
-
-## Quick docs: Listener options and meta
-
-Use `observe.listen` with QoL options to control delivery and lifecycle. The listener can accept an optional `meta` with change info.
-
-- Signature (flexible):
-  - `observe.listen(obj, sel, listener)`
-  - `observe.listen(obj, sel, listener, mode)`
-  - `observe.listen(obj, sel, listener, options)`
-  - `observe.listen(obj, sel, listener, mode, options)`
-
-- Options:
-  - `once`: invoke once, then auto-unsubscribe
-  - `debounceMs`: coalesce bursts into a single call after the quiet period
-  - `throttleMs`: at most once per window (leading + trailing)
-  - `schedule`: 'sync' (default) or 'microtask' to defer delivery
-
-- Meta payload (4th arg): `{ type: 'set' | 'delete'; existedBefore?: boolean; groupId?: string }`
-
-Example:
-
-```ts
-const off = observe.listen(state, s => s.user.name, (path, newV, oldV, meta) => {
-  console.log('change at', path.join('.'), newV, oldV, meta?.type, meta?.groupId);
-}, 'exact', { debounceMs: 50, schedule: 'microtask' });
-
-// Later
-off();
-```
