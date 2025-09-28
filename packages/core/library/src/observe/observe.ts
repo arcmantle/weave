@@ -1,4 +1,5 @@
 import { nameofSegments } from '../function/nameof';
+import { normalizePropertyKey } from '../util/symbol-id.ts';
 
 type ChangeListener = (path: string[], newValue: any, oldValue: any) => void;
 
@@ -35,7 +36,6 @@ const historyCache: WeakMap<object, ChangeRecord[]> = new WeakMap();
 const suspendWriteCounter: WeakMap<object, number> = new WeakMap();
 const batchStack: WeakMap<object, { marker: number; id: string; }[]> = new WeakMap();
 const groupCounter: WeakMap<object, number> = new WeakMap();
-/* eslint-disable key-spacing */
 const optionsCache: WeakMap<object, {
 	mergeUngrouped?:             boolean;
 	mergeWindowMs?:              number;
@@ -43,7 +43,6 @@ const optionsCache: WeakMap<object, {
 	maxHistory?:                 number;
 	filter?:                     (record: ChangeRecord) => boolean;
 }> = new WeakMap();
-/* eslint-enable key-spacing */
 const lastUngrouped: WeakMap<object, { id: string; at: number; }> = new WeakMap();
 
 const nextGroupId = (root: object): string => {
@@ -254,9 +253,8 @@ const _removeListenerFromTrie = (root: PathTrieNode, segs: string[], mode: PathM
 
 // --- Path helpers (segment-based matching) ---
 
-// Normalize property key to a stable string segment (symbols -> sym:desc)
-const normalizeKey = (prop: PropertyKey): string =>
-	typeof prop === 'symbol' ? `sym:${ String(prop.description ?? '') }` : String(prop);
+// Normalize property key to a stable string segment (symbols -> sym#id)
+const normalizeKey = (prop: PropertyKey): string => normalizePropertyKey(prop);
 
 // (segment compare helpers removed; trie-based dispatch no longer uses them)
 

@@ -1,3 +1,5 @@
+import { normalizePropertyKey } from '../util/symbol-id.ts';
+
 // nameof property path is stored here for retrieval.
 const propertyThatWasAccessed: string[] = [];
 
@@ -5,8 +7,8 @@ const propertyThatWasAccessed: string[] = [];
 // Proxy objects to store the property path.
 const proxy: any = new Proxy({} as any, {
 	get: <const C extends PropertyKey>(_: any, prop: C) => {
-		// Normalize to string so bracket keys with dots and Symbols become stable segments
-		propertyThatWasAccessed.push(typeof prop === 'symbol' ? `sym:${ String(prop.description ?? '') }` : String(prop));
+		// Normalize to stable id so bracket keys with dots and Symbols become stable segments
+		propertyThatWasAccessed.push(normalizePropertyKey(prop));
 
 		return proxy;
 	},
