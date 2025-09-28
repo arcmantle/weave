@@ -330,12 +330,10 @@ export const observe: (<T extends object>(object: T) => T) & {
 		modeOrOptions?: PathMode | ListenerOptions,
 		maybeOptions?: ListenerOptions,
 	) => () => void;
-} & {
-	onAny:  (object: object, listener: ChangeListener, options?: ListenerOptions) => () => void;
-	pause:  (object: object) => void;
-	resume: (object: object) => void;
-	flush:  (object: object) => void;
-} & {
+	onAny:        (object: object, listener: ChangeListener, options?: ListenerOptions) => () => void;
+	pause:        (object: object) => void;
+	resume:       (object: object) => void;
+	flush:        (object: object) => void;
 	getHistory:   (object: object) => readonly ChangeRecord[];
 	clearHistory: (object: object) => void;
 	reset:        (object: object) => void;
