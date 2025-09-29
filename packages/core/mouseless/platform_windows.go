@@ -669,7 +669,10 @@ func overlayWindowProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr
 					if textW < 0 { textW = 0 }
 					if textH < 0 { textH = labelHeight }
 					bgW := textW + pad*2
-					bgH := textH + pad*2
+					// Asymmetric vertical padding to reduce top whitespace (favor bottom)
+					topPad := 0
+					bottomPad := pad * 2
+					bgH := textH + topPad + bottomPad
 					// Background rectangle flush with the cell's top-left corner
 					rBg := r
 					rBg.right = rBg.left + int32(bgW)
@@ -679,14 +682,22 @@ func overlayWindowProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr
 					if rBg.bottom > r.bottom { rBg.bottom = r.bottom }
 					bgBrush := getCachedBrush(0x00404040)
 					procFillRect.Call(drawDC, uintptr(unsafe.Pointer(&rBg)), bgBrush)
-					// Center text within background
+					// Top-align text within background; center horizontally
 					rLabel := rBg
+					rLabel.top += int32(topPad)
+					rLabel.bottom -= int32(bottomPad)
+					// Apply a slight upward bias to minimize perceived top whitespace
+					if rLabel.top > rBg.top {
+						adj := int32(pad / 3)
+						if adj < 1 { adj = 1 }
+						rLabel.top -= adj
+					}
 					procDrawTextW.Call(
 						drawDC,
 						uintptr(unsafe.Pointer(lp)),
 						^uintptr(0),
 						uintptr(unsafe.Pointer(&rLabel)),
-						DT_CENTER|DT_VCENTER|DT_SINGLELINE,
+						DT_CENTER|DT_SINGLELINE,
 					)
 
 					// Crosshair at cell center to indicate exact click location
