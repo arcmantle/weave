@@ -1,9 +1,9 @@
 package main
 
 import (
-	m "mouseless/main"
+	m "mouseless/main/internal/app"
 )
 
 func main() {
-    m.Run()
+	m.Run()
 }

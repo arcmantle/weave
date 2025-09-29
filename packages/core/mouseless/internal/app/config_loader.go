@@ -1,4 +1,4 @@
-package mouseless
+package app
 
 import (
 	"flag"
@@ -10,14 +10,14 @@ import (
 
 // Flags for configuration and behavior
 var (
-    flagConfigPath     = flag.String("config", "", "Path to JSON config file")
-    flagGrid           = flag.Int("grid", 3, "Starting grid size (n for an n×n grid)")
-    flagKeys           = flag.String("keys", "nums", "Key mapping scheme: 'nums' (n×n), 'qwe' (3×3), or 'qwer' (4×3). 'qwerty' is an alias of 'qwe'.")
-    flagConfirm        = flag.String("confirm", "auto", "Confirmation mode: 'auto' (click immediately) or 'enter' (press Enter to click)")
-    flagOverlayAlpha   = flag.Int("overlay-alpha", 220, "Overlay global alpha 0-255 (higher = more opaque)")
-    flagOverlayBg      = flag.String("overlay-bg", "#303030", "Overlay background color in hex (e.g. #303030)")
+    flagConfigPath   = flag.String("config", "", "Path to JSON config file")
+    flagGrid         = flag.Int("grid", 3, "Starting grid size (n for an n×n grid)")
+    flagKeys         = flag.String("keys", "nums", "Key mapping scheme: 'nums' (n×n), 'qwe' (3×3), or 'qwer' (4×3). 'qwerty' is an alias of 'qwe'.")
+    flagConfirm      = flag.String("confirm", "auto", "Confirmation mode: 'auto' (click immediately) or 'enter' (press Enter to click)")
+    flagOverlayAlpha = flag.Int("overlay-alpha", 220, "Overlay global alpha 0-255 (higher = more opaque)")
+    flagOverlayBg    = flag.String("overlay-bg", "#303030", "Overlay background color in hex (e.g. #303030)")
     // Utility: write default config and exit
-    flagInitConfig     = flag.Bool("init-config", false, "Write default config to ./mouseless.json and exit")
+    flagInitConfig   = flag.Bool("init-config", false, "Write default config to ./mouseless.json and exit")
 )
 
 // PrepareConfigs parses flags, optionally writes defaults, loads and merges config, and returns the effective and overlay configs.
@@ -39,9 +39,9 @@ func PrepareConfigs() (effective cfg.EffectiveConfig, overlay pl.OverlayConfig, 
             CrosshairColor: "#FFFFFF", CrosshairThickness: 2,
         }
         path, werr := cfg.WriteDefault("mouseless.json", def)
-    if werr != nil { return cfg.EffectiveConfig{}, pl.OverlayConfig{}, "", true, werr }
+        if werr != nil { return cfg.EffectiveConfig{}, pl.OverlayConfig{}, "", true, werr }
         log.Printf("Wrote default config to %s", path)
-    return cfg.EffectiveConfig{}, pl.OverlayConfig{}, path, true, nil
+        return cfg.EffectiveConfig{}, pl.OverlayConfig{}, path, true, nil
     }
 
     // Defaults used when finalizing
@@ -82,9 +82,7 @@ func PrepareConfigs() (effective cfg.EffectiveConfig, overlay pl.OverlayConfig, 
     }
 
     var flagPartial cfg.AppConfigPartial
-    if visited["grid"] && flagGrid != nil && *flagGrid > 0 {
-        v := *flagGrid; flagPartial.Grid = &v
-    }
+    if visited["grid"] && flagGrid != nil && *flagGrid > 0 { v := *flagGrid; flagPartial.Grid = &v }
     if visited["keys"] && flagKeys != nil {
         v := *flagKeys
         if v == "qwerty" { v = "qwe" }
