@@ -1,7 +1,7 @@
 {
   "Grid": 3,
-  "Keys": "nums",
-  "Confirm": "auto",
+  "Keys": "qwe",
+  "Confirm": "enter",
   "OverlayAlpha": 220,
   "OverlayBg": "#303030",
   "GridColor": "#FF00FF",
