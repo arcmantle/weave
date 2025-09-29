@@ -110,6 +110,7 @@ const (
 	WS_EX_TOPMOST     = 0x00000008
 	WS_EX_NOACTIVATE  = 0x08000000
 	LWA_COLORKEY      = 0x00000001
+	LWA_ALPHA         = 0x00000002
 	SW_SHOW           = 5
 	SM_CXSCREEN       = 0
 	SM_CYSCREEN       = 1
@@ -148,6 +149,10 @@ var overlay struct {
 	monitors []RECT
 	monIdx   int
 }
+
+// Overlay appearance (configured via flags)
+var overlayAlpha = 220            // 0-255
+var overlayBgColor uint32 = 0x00303030 // COLORREF 0x00BBGGRR
 
 // Font cache by pixel height to avoid repeated CreateFont calls
 var fontCache struct {
@@ -561,6 +566,9 @@ func overlayWindowProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr
 				// Fill background on buffer (black is the transparent colorkey)
 				blackBrush := getCachedBrush(0x000000)
 				procFillRect.Call(drawDC, uintptr(unsafe.Pointer(&rcClient)), blackBrush)
+				// Draw an opaque grey overlay background across the whole client area (color from config)
+				greyBrush := getCachedBrush(overlayBgColor)
+				procFillRect.Call(drawDC, uintptr(unsafe.Pointer(&rcClient)), greyBrush)
 
 				// Pen for grid lines
 				magenta := uint32(0x00FF00FF)
@@ -608,9 +616,9 @@ func overlayWindowProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr
 				return RECT{left: int32(left), top: int32(top), right: int32(right), bottom: int32(bottom)}
 			}
 
-			// Draw root grid, then nested grids along overlayPath
+			// Determine deepest rect along the overlayPath; we'll draw labels first,
+			// then draw the grid lines afterwards so the grid "wins" visually.
 			cols, rows := gridDims()
-			drawGrid(rcClient, cols, rows)
 			overlay.mu.Lock()
 			pathCopy := make([]int, len(overlayPath))
 			copy(pathCopy, overlayPath)
@@ -618,7 +626,6 @@ func overlayWindowProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr
 			curRect := rcClient
 			for _, idx := range pathCopy {
 				curRect = cellRect(curRect, cols, rows, idx)
-				drawGrid(curRect, cols, rows)
 			}
 
 			// Prepare a smaller font for top-left labels
@@ -645,7 +652,7 @@ func overlayWindowProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr
 			procSetBkMode.Call(drawDC, TRANSPARENT)
 			procSetTextColor.Call(drawDC, 0x00FFFFFF)
 
-			// Draw labels (top-left) and crosshair at each cell center in deepest grid
+			// Draw labels (top-left) in the deepest grid first (under the grid lines)
 			idx := 1
 			for row := 0; row < rows; row++ {
 				for col := 0; col < cols; col++ {
@@ -700,12 +707,27 @@ func overlayWindowProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr
 						DT_CENTER|DT_SINGLELINE,
 					)
 
-					// Crosshair at cell center to indicate exact click location
+					idx++
+				}
+			}
+
+			if oldFont != 0 { procSelectObject.Call(drawDC, oldFont) }
+			// Now draw the grid lines on top of labels so the grid layout is dominant
+			drawGrid(rcClient, cols, rows)
+			tmpRect := rcClient
+			for _, p := range pathCopy {
+				tmpRect = cellRect(tmpRect, cols, rows, p)
+				drawGrid(tmpRect, cols, rows)
+			}
+			// Finally, draw crosshairs on top of everything for clarity
+			idx = 1
+			for row := 0; row < rows; row++ {
+				for col := 0; col < cols; col++ {
+					r := cellRect(curRect, cols, rows, idx)
 					cx := int(r.left) + int(r.right-r.left)/2
 					cy := int(r.top) + int(r.bottom-r.top)/2
-					arm := int(float64(min(cellW, cellH)) * 0.12) // shorter arms (~12% of min dim)
+					arm := int(float64(min(cellW, cellH)) * 0.12)
 					if arm < 3 { arm = 3 }
-					// Clamp within cell bounds with a 1px margin
 					leftBound := int(r.left) + 1
 					rightBound := int(r.right) - 1
 					topBound := int(r.top) + 1
@@ -714,20 +736,16 @@ func overlayWindowProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr
 					hx2 := cx + arm; if hx2 > rightBound { hx2 = rightBound }
 					hy1 := cy - arm; if hy1 < topBound { hy1 = topBound }
 					hy2 := cy + arm; if hy2 > bottomBound { hy2 = bottomBound }
-					// Draw crosshair with a slightly thicker white pen
 					crossPen := getCachedPen(2, 0x00FFFFFF)
 					prevPen, _, _ := procSelectObject.Call(drawDC, crossPen)
 					procMoveToEx.Call(drawDC, uintptr(hx1), uintptr(cy), 0)
 					procLineTo.Call(drawDC, uintptr(hx2), uintptr(cy))
 					procMoveToEx.Call(drawDC, uintptr(cx), uintptr(hy1), 0)
 					procLineTo.Call(drawDC, uintptr(cx), uintptr(hy2))
-					// Restore grid pen
 					procSelectObject.Call(drawDC, prevPen)
 					idx++
 				}
 			}
-
-			if oldFont != 0 { procSelectObject.Call(drawDC, oldFont) }
 			procSelectObject.Call(drawDC, oldPen)
 			// Blit the buffer to the screen and cleanup
 			if memDC != hdc {
@@ -950,6 +968,10 @@ func showOverlay() error {
 
 		if r, _, err := procSetLayeredWindowAttr.Call(hwnd, 0x000000, 0, LWA_COLORKEY); r == 0 {
 			log.Printf("SetLayeredWindowAttributes failed: %v", err)
+		}
+		// Apply a global alpha so the overlay appears dimmed while remaining click-through
+		if r, _, _ := procSetLayeredWindowAttr.Call(hwnd, 0, uintptr(uint8(overlayAlpha)), LWA_ALPHA); r == 0 {
+			// Not fatal; continue with color key transparency only
 		}
 
 	procSetWindowPos.Call(hwnd, ^uintptr(0), 0, 0, 0, 0, SWP_NOMOVE|SWP_NOSIZE|SWP_SHOWWINDOW)
