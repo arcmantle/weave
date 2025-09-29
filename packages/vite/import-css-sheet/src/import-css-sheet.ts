@@ -157,7 +157,7 @@ export class ImportCSSSheet {
 	): Promise<string | undefined> {
 		// Only process files if autoImport is configured and file is a supported type
 		if (!this.autoImport || !this.filetypes.has(extname(id)))
-			return code;
+			return;
 
 		return this.processAutoImport(code, id);
 	}
