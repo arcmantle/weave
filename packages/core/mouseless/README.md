@@ -1,6 +1,6 @@
 # Mouseless overlay (Windows)
 
-A tiny Go app that toggles a click-through screen overlay grid with Ctrl+Alt+C. Built with Ebiten and Windows APIs.
+A small Go tool that toggles a click-through screen grid with Ctrl+Alt+C to help aim the mouse accurately. Uses native Windows APIs (GDI, layered windows).
 
 ## Features
 
@@ -15,13 +15,16 @@ Requires Go 1.24+ on Windows.
 
 ```powershell
 # From this folder
-go build -o mouseless.exe .
+go build -o mouseless.exe ./cmd/mouseless
 ```
 
 ## Run
 
 ```powershell
-# Run the compiled binary
+# First time: write a default config to ./mouseless.json
+./mouseless.exe --init-config
+
+# Launch with defaults
 ./mouseless.exe
 ```
 
@@ -33,15 +36,9 @@ go build -o mouseless.exe .
 
 - If you see "RegisterHotKey failed; falling back to polling...", the app couldn't register the hotkey (another program is using it). It switches to a lightweight polling mode and still reacts to Ctrl+Alt+C.
 - If the overlay shows but you can't click through, try running the terminal as Administrator (some shells or UAC contexts can block click-through on other elevated windows).
-- The overlay covers your primary monitor. Multi-monitor support can be added if needed.
-- Grid tuning: update constants in `main.go`
-  - `gridSize` (default 50)
-  - `lineWidth` (default 1.0)
-  - `lineColor` (magenta with alpha)
+- While visible: use arrow keys to move overlay across monitors; hold Shift while selecting to refine deeper.
 
-## How it works
+## Config
 
-- The Ebiten window fills the screen with black, and draws magenta lines.
-- Windows extended styles are set to `WS_EX_LAYERED | WS_EX_TRANSPARENT` so the window is transparent and click-through.
-- `SetLayeredWindowAttributes(..., colorKey=black)` makes all black pixels fully transparent, so only the grid remains visible.
-- The app uses a system-wide hotkey (or polling fallback) and starts/stops the Ebiten loop on demand.
+Order of config resolution (first wins): `--config` path, `./mouseless.json`, `./mouseless.example.json`, `./configs/mouseless.json`, `./configs/mouseless.example.json`.
+See `configs/mouseless.example.json` for all fields (grid, keys, confirm, overlayAlpha/overlayBg, styling).

@@ -1,6 +1,4 @@
-//go:build never
-
-package main
+package config
 
 import (
 	"encoding/json"
@@ -13,12 +11,13 @@ import (
 // AppConfigPartial represents a partial configuration with presence semantics via pointers.
 // JSON example:
 // {"grid":3,"keys":"qwe","confirm":"enter","overlayAlpha":220,"overlayBg":"#303030"}
+// Exported so callers can compose and finalize.
 type AppConfigPartial struct {
-    Grid          *int    `json:"grid,omitempty"`
-    Keys          *string `json:"keys,omitempty"`
-    Confirm       *string `json:"confirm,omitempty"`        // "auto" | "enter"
-    OverlayAlpha  *int    `json:"overlayAlpha,omitempty"`   // 0-255
-    OverlayBg     *string `json:"overlayBg,omitempty"`      // hex color like "#303030"
+    Grid               *int    `json:"grid,omitempty"`
+    Keys               *string `json:"keys,omitempty"`
+    Confirm            *string `json:"confirm,omitempty"`        // "auto" | "enter"
+    OverlayAlpha       *int    `json:"overlayAlpha,omitempty"`   // 0-255
+    OverlayBg          *string `json:"overlayBg,omitempty"`      // hex color like "#303030"
     // Styling
     GridColor          *string `json:"gridColor,omitempty"`      // hex color
     GridLineWidth      *int    `json:"gridLineWidth,omitempty"`
@@ -29,12 +28,13 @@ type AppConfigPartial struct {
 }
 
 // EffectiveConfig is the finalized, concrete configuration used by the app.
+// Exported so main and platform layers can read values.
 type EffectiveConfig struct {
-    Grid          int
-    Keys          string
-    Confirm       string
-    OverlayAlpha  int
-    OverlayBg     string
+    Grid               int
+    Keys               string
+    Confirm            string
+    OverlayAlpha       int
+    OverlayBg          string
     GridColor          string
     GridLineWidth      int
     LabelTextColor     string
@@ -43,7 +43,8 @@ type EffectiveConfig struct {
     CrosshairThickness int
 }
 
-func loadConfig(path string) (AppConfigPartial, error) {
+// Load reads a JSON file into an AppConfigPartial.
+func Load(path string) (AppConfigPartial, error) {
     var cfg AppConfigPartial
     if path == "" {
         return cfg, errors.New("no config path provided")
@@ -92,8 +93,8 @@ func (p AppConfigPartial) Finalize(def EffectiveConfig) EffectiveConfig {
     return out
 }
 
-// parseHexColor parses a string like "#RRGGBB" or "RRGGBB" into a COLORREF 0x00BBGGRR.
-func parseHexColor(s string) (uint32, error) {
+// ParseHexColor parses a string like "#RRGGBB" or "RRGGBB" into a COLORREF 0x00BBGGRR.
+func ParseHexColor(s string) (uint32, error) {
     ss := strings.TrimSpace(s)
     if ss == "" { return 0, fmt.Errorf("empty color") }
     if ss[0] == '#' { ss = ss[1:] }
@@ -103,4 +104,15 @@ func parseHexColor(s string) (uint32, error) {
         return 0, err
     }
     return (b << 16) | (g << 8) | r, nil
+}
+
+// WriteDefault writes defaults to the given file if it doesn't exist.
+func WriteDefault(path string, def EffectiveConfig) (string, error) {
+    if _, err := os.Stat(path); err == nil {
+        return "", fmt.Errorf("%s already exists; refusing to overwrite", path)
+    }
+    b, err := json.MarshalIndent(def, "", "  ")
+    if err != nil { return "", err }
+    if err := os.WriteFile(path, b, 0644); err != nil { return "", err }
+    return path, nil
 }

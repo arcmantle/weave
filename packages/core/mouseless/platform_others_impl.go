@@ -1,8 +1,11 @@
 //go:build !windows
 
-package main
+package mouseless
 
-import "log"
+import (
+	"log"
+	pl "mouseless/main/internal/platform"
+)
 
 type stubPlatform struct{}
 
@@ -11,7 +14,7 @@ func (stubPlatform) StartHotkey(cb func()) (func(), error) {
     return func() {}, nil
 }
 
-func (stubPlatform) ShowOverlay(cfg OverlayConfig) error {
+func (stubPlatform) ShowOverlay(cfg pl.OverlayConfig) error {
     log.Println("Overlay not implemented on this platform yet.")
     return nil
 }
@@ -20,4 +23,5 @@ func (stubPlatform) HideOverlay() error { return nil }
 
 func (stubPlatform) IsOverlayVisible() bool { return false }
 
-func init() { platform = stubPlatform{} }
+// NewPlatform returns the stub platform for non-Windows builds.
+func NewPlatform() pl.Platform { return stubPlatform{} }

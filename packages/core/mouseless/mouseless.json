@@ -1,6 +1,13 @@
 {
-  "keys": "qwe",
-  "confirm": "enter",
-  "overlayAlpha": 220,
-  "overlayBg": "#303030"
+  "Grid": 3,
+  "Keys": "nums",
+  "Confirm": "auto",
+  "OverlayAlpha": 220,
+  "OverlayBg": "#303030",
+  "GridColor": "#FF00FF",
+  "GridLineWidth": 1,
+  "LabelTextColor": "#FFFFFF",
+  "LabelBgColor": "#404040",
+  "CrosshairColor": "#FFFFFF",
+  "CrosshairThickness": 2
 }

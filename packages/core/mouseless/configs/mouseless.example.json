@@ -1,0 +1,13 @@
+{
+  "grid": 3,
+  "keys": "nums",
+  "confirm": "auto",
+  "overlayAlpha": 220,
+  "overlayBg": "#303030",
+  "gridColor": "#FF00FF",
+  "gridLineWidth": 1,
+  "labelTextColor": "#FFFFFF",
+  "labelBgColor": "#404040",
+  "crosshairColor": "#FFFFFF",
+  "crosshairThickness": 2
+}

@@ -1,10 +1,7 @@
-//go:build never
-
-package main
+package platform
 
 // Platform defines the OS-specific operations the app needs.
-// Each OS must provide an implementation in a build-tagged file
-// that assigns the package-level variable 'platform'.
+// Each OS must provide an implementation that satisfies this interface.
 type Platform interface {
     // StartHotkey registers the global toggle hotkey and invokes cb when pressed.
     // Returns a stop function to unregister/stop.
@@ -32,6 +29,3 @@ type OverlayConfig struct {
     CrosshairColor      uint32 // crosshair color
     CrosshairThickness  int    // crosshair line thickness in px
 }
-
-// platform is the active OS-specific implementation.
-var platform Platform

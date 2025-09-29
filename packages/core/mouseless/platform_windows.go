@@ -1,7 +1,7 @@
 // Clean Windows implementation: system hotkey + native GDI overlay
 //go:build windows
 
-package main
+package mouseless
 
 import (
 	"log"
@@ -153,6 +153,12 @@ var overlay struct {
 // Overlay appearance (configured via flags)
 var overlayAlpha = 220            // 0-255
 var overlayBgColor uint32 = 0x00303030 // COLORREF 0x00BBGGRR
+var gridColor uint32 = 0x00FF00FF      // magenta default
+var gridLineWidth int = 1
+var labelTextColor uint32 = 0x00FFFFFF
+var labelBgColor uint32 = 0x00404040
+var crosshairColor uint32 = 0x00FFFFFF
+var crosshairThickness int = 2
 
 // Font cache by pixel height to avoid repeated CreateFont calls
 var fontCache struct {
@@ -570,9 +576,8 @@ func overlayWindowProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr
 				greyBrush := getCachedBrush(overlayBgColor)
 				procFillRect.Call(drawDC, uintptr(unsafe.Pointer(&rcClient)), greyBrush)
 
-				// Pen for grid lines
-				magenta := uint32(0x00FF00FF)
-				pen := getCachedPen(lineWidth, magenta)
+				// Pen for grid lines (from config)
+				pen := getCachedPen(gridLineWidth, gridColor)
 				oldPen, _, _ := procSelectObject.Call(drawDC, pen)
 
 			// Helper to draw grid lines within a rect (nCols x nRows)
@@ -650,7 +655,7 @@ func overlayWindowProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr
 				oldFont = of
 			}
 			procSetBkMode.Call(drawDC, TRANSPARENT)
-			procSetTextColor.Call(drawDC, 0x00FFFFFF)
+			procSetTextColor.Call(drawDC, uintptr(labelTextColor))
 
 			// Draw labels (top-left) in the deepest grid first (under the grid lines)
 			idx := 1
@@ -687,7 +692,7 @@ func overlayWindowProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr
 					// Clamp within cell
 					if rBg.right > r.right { rBg.right = r.right }
 					if rBg.bottom > r.bottom { rBg.bottom = r.bottom }
-					bgBrush := getCachedBrush(0x00404040)
+					bgBrush := getCachedBrush(labelBgColor)
 					procFillRect.Call(drawDC, uintptr(unsafe.Pointer(&rBg)), bgBrush)
 					// Top-align text within background; center horizontally
 					rLabel := rBg
@@ -736,7 +741,8 @@ func overlayWindowProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr
 					hx2 := cx + arm; if hx2 > rightBound { hx2 = rightBound }
 					hy1 := cy - arm; if hy1 < topBound { hy1 = topBound }
 					hy2 := cy + arm; if hy2 > bottomBound { hy2 = bottomBound }
-					crossPen := getCachedPen(2, 0x00FFFFFF)
+					// Draw crosshair with configured pen
+					crossPen := getCachedPen(crosshairThickness, crosshairColor)
 					prevPen, _, _ := procSelectObject.Call(drawDC, crossPen)
 					procMoveToEx.Call(drawDC, uintptr(hx1), uintptr(cy), 0)
 					procLineTo.Call(drawDC, uintptr(hx2), uintptr(cy))
