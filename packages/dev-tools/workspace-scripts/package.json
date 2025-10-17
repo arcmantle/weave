@@ -8,13 +8,14 @@
 	},
 	"author": "Kristoffer Roen-Lie",
 	"type": "module",
-	"scripts": {
-		"build": "pnpm build-toolbox && node ./build-package.ts",
-		"build-toolbox": "node ./build-package.ts @arcmantle/package-toolbox",
-		"release": "pnpm build-toolbox && node ./build-package.ts --publish"
+	"bin": {
+		"workspace": "./bin/index.ts"
 	},
+	"scripts": {},
 	"devDependencies": {
-		"@types/node": "catalog:"
+		"@types/node": "catalog:",
+		"@types/yargs": "catalog:",
+		"yargs": "catalog:"
 	},
 	"authors": "Kristoffer Roen-Lie"
 }
