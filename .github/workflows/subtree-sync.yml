@@ -61,7 +61,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10.18
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile=false
@@ -69,7 +69,7 @@ jobs:
       - name: Generate dependency map
         id: deps
         run: |
-          DEPS_JSON=$(node packages/dev-tools/workspace-scripts/bin/index.ts pnpm-to-semver)
+          DEPS_JSON=$(pnpm workspace pnpm-to-semver)
           echo "deps-map<<EOF" >> $GITHUB_OUTPUT
           echo "$DEPS_JSON" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT

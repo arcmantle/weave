@@ -101,7 +101,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: latest
+          version: 10.18
 
       - name: Run pre-build script
         if: ${{ inputs.pre-build-script != '' }}

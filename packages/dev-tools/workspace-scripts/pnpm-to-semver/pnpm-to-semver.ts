@@ -30,6 +30,13 @@ export type UpdateMap = Record<string, Record<string, UpdateEntry>>;
 
 export function pnpmToSemver(): void {
 	const statePath = path.resolve(process.cwd(), 'node_modules', '.pnpm-workspace-state-v1.json');
+
+	const exists = fs.existsSync(statePath);
+	if (!exists) {
+		console.error('Error: .pnpm-workspace-state-v1.json not found.', statePath);
+		process.exit(1);
+	}
+
 	const raw = fs.readFileSync(statePath, 'utf8');
 	const data: PNPMWorkspaceState = JSON.parse(raw);
 
@@ -134,10 +141,10 @@ export function pnpmToSemver(): void {
 	// Print only the final version map
 	console.log(JSON.stringify(simple, null, 2));
 
-	if (process.argv.includes('--catalog')) {
-		const catalog = data.settings?.catalogs?.default ?? {};
-		console.log('\nCatalog:');
-		for (const [ pkg, ver ] of Object.entries(catalog))
-			console.log(`${ pkg } -> ${ ver }`);
-	}
+	//if (process.argv.includes('--catalog')) {
+	//	const catalog = data.settings?.catalogs?.default ?? {};
+	//	console.log('\nCatalog:');
+	//	for (const [ pkg, ver ] of Object.entries(catalog))
+	//		console.log(`${ pkg } -> ${ ver }`);
+	//}
 }
