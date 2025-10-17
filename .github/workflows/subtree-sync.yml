@@ -63,9 +63,6 @@ jobs:
         with:
           version: 9
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
       - name: Generate dependency map
         id: deps
         run: |

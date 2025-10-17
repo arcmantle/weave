@@ -4,7 +4,7 @@
 	"type": "module",
 	"scripts": {
 		"build": "pnpm build-package",
-		"clean-all": "rimraf --glob **/node_modules **/dist",
+		"clean-all": "rimraf --glob **/node_modules **/dist pnpm-lock.yaml",
 		"clean-dist": "rimraf --glob **/dist",
 		"clean-node": "rimraf --glob **/node_modules",
 		"release": "pnpm build-package --release"
