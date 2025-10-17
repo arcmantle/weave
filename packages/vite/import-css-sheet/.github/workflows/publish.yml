@@ -2,9 +2,23 @@ name: Publish Package
 
 on:
   workflow_dispatch:
+    inputs:
+      dependency-map:
+        description: JSON map of dependencies to update
+        required: false
+        type: string
+        default: "{}"
+      triggered-by:
+        description: What triggered this workflow
+        required: false
+        type: string
+        default: "manual"
 
 jobs:
   publish:
     uses: arcmantle/github-workflows/.github/workflows/pnpm-publish.yml@main
+    with:
+      dependency-map: ${{ inputs.dependency-map }}
+      triggered-by: ${{ inputs.triggered-by }}
     secrets:
       NPM_PUBLISH: ${{ secrets.NPM_PUBLISH }}
