@@ -1,8 +1,9 @@
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { basename, extname } from 'node:path';
 
 import { transform } from 'lightningcss';
-import type { CustomPluginOptions, PluginContext } from 'rollup';
+import type { CustomPluginOptions, PluginContext, SourceDescription } from 'rollup';
 import ts from 'typescript';
 import type { ResolvedConfig } from 'vite';
 
@@ -154,7 +155,7 @@ export class ImportCSSSheet {
 		_options?: {
 			ssr?: boolean | undefined;
 		},
-	): Promise<string | undefined> {
+	): Promise<string | SourceDescription | undefined> {
 		// Only process files if autoImport is configured and file is a supported type
 		if (!this.autoImport || !this.filetypes.has(extname(id)))
 			return;
@@ -162,50 +163,37 @@ export class ImportCSSSheet {
 		return this.processAutoImport(code, id);
 	}
 
-	protected processAutoImport(code: string, filePath: string): string {
+	protected processAutoImport(code: string, filePath: string): string | SourceDescription | undefined {
+		const cssPath = filePath.slice(0, -extname(filePath).length) + '.css';
+		if (!existsSync(cssPath))
+			return;
+
+		const autoImport = this.autoImport!;
+		// Build a lookup of base class name => styleName
+		const styleNameByBase: Map<string, string> = new Map(autoImport.identifier);
+
+		// Fast pre-scan: only transform if any class extends a targeted base
 		const sourceFile = ts.createSourceFile(
 			filePath, code, ts.ScriptTarget.Latest, true,
 		);
 
-		const autoImport = this.autoImport!;
-		const classNames = new Set(autoImport.identifier.map(([ className ]) => className));
-		const classesToProcess: {
-			classNode: ts.ClassDeclaration;
-			className: string;
-			styleName: string;
-		}[] = [];
-
-		// Find classes that extend one of our target class names
+		let needsTransform = false;
 		const visit = (node: ts.Node) => {
-			// Early return if not a class declaration
-			if (!ts.isClassDeclaration(node) || !node.heritageClauses)
-				return void ts.forEachChild(node, visit);
-
-			for (const heritage of node.heritageClauses) {
-				// Skip non-extends clauses
-				if (heritage.token !== ts.SyntaxKind.ExtendsKeyword)
-					continue;
-
-				// Check each extended type
-				for (const type of heritage.types) {
-					const typeName = type.expression.getText(sourceFile);
-
-					// Skip if not one of our target classes
-					if (!classNames.has(typeName))
+			if (needsTransform)
+				return;
+			if (ts.isClassDeclaration(node) && node.heritageClauses) {
+				for (const heritage of node.heritageClauses) {
+					if (heritage.token !== ts.SyntaxKind.ExtendsKeyword)
 						continue;
 
-					// Find the corresponding styleName
-					const identifier = autoImport.identifier
-						.find(([ className ]) => className === typeName);
+					for (const type of heritage.types) {
+						const typeName = type.expression.getText(sourceFile);
+						if (styleNameByBase.has(typeName)) {
+							needsTransform = true;
 
-					if (!identifier)
-						continue;
-
-					classesToProcess.push({
-						classNode: node,
-						className: typeName,
-						styleName: identifier[1],
-					});
+							return;
+						}
+					}
 				}
 			}
 
@@ -214,39 +202,40 @@ export class ImportCSSSheet {
 
 		visit(sourceFile);
 
-		if (classesToProcess.length === 0)
-			return code;
+		if (!needsTransform)
+			return;
 
-		// Generate the CSS import
+		// Generate the CSS import variable name
 		const fileName = basename(filePath, extname(filePath)).replace(/-/g, '_');
 		const importVariable = `${ fileName }_styles`;
 
-		// Transform the AST
-		const transformedSourceFile = this.transformSourceFileAST(
-			sourceFile,
-			classesToProcess,
-			importVariable,
-		);
-
-		// Print the transformed AST back to code
-		const printer = ts.createPrinter({
-			newLine:        ts.NewLineKind.LineFeed,
-			removeComments: false,
+		// Use transpileModule to apply a transformer and get a sourcemap
+		const transformer = this.createAutoImportTransformer(styleNameByBase, importVariable, filePath);
+		const { outputText, sourceMapText } = ts.transpileModule(code, {
+			fileName:        filePath,
+			transformers:    { before: [ transformer ] },
+			compilerOptions: {
+				target:        ts.ScriptTarget.ES2020,
+				module:        ts.ModuleKind.ESNext,
+				sourceMap:     true,
+				inlineSources: true,
+			},
 		});
 
-		const output = printer.printFile(transformedSourceFile);
+		this.transformedFiles.set(filePath, outputText);
 
-		this.transformedFiles.set(filePath, output);
-
-		return output;
+		return {
+			code: outputText,
+			map:  sourceMapText,
+		};
 	}
 
-	protected transformSourceFileAST(
-		sourceFile: ts.SourceFile,
-		classesToProcess: { classNode: ts.ClassDeclaration; styleName: string; }[],
+	protected createAutoImportTransformer(
+		styleNameByBase: Map<string, string>,
 		importVariable: string,
-	): ts.SourceFile {
-		const fileName = basename(sourceFile.fileName, extname(sourceFile.fileName));
+		filePath: string,
+	): ts.TransformerFactory<ts.SourceFile> {
+		const base = basename(filePath, extname(filePath));
 
 		// Create the CSS import statement
 		const cssImportDeclaration = ts.factory.createImportDeclaration(
@@ -256,7 +245,7 @@ export class ImportCSSSheet {
 				ts.factory.createIdentifier(importVariable),
 				undefined,
 			),
-			ts.factory.createStringLiteral(`./${ fileName }.css`),
+			ts.factory.createStringLiteral(`./${ base }.css`),
 			ts.factory.createImportAttributes(
 				ts.factory.createNodeArray([
 					ts.factory.createImportAttribute(
@@ -267,46 +256,46 @@ export class ImportCSSSheet {
 			),
 		);
 
-		// Transform the source file
-		const transformer: ts.TransformerFactory<ts.SourceFile> = context => {
-			const visit: ts.Visitor = node => {
-				if (!ts.isClassDeclaration(node))
-					return ts.visitEachChild(node, visit, context);
+		return context => {
+			const visitClass: ts.Visitor = node => {
+				if (!ts.isClassDeclaration(node) || !node.heritageClauses)
+					return ts.visitEachChild(node, visitClass, context);
 
-				// Transform classes that need style modification first
-				const classToProcess = classesToProcess.find(c => c.classNode === node);
-				if (!classToProcess)
-					return ts.visitEachChild(node, visit, context);
+				let styleNameToUse: string | undefined;
+				for (const heritage of node.heritageClauses) {
+					if (heritage.token !== ts.SyntaxKind.ExtendsKeyword)
+						continue;
 
-				return this.transformClassDeclaration(node, classToProcess.styleName, importVariable);
+					for (const type of heritage.types) {
+						const typeName = type.expression.getText();
+						const styleName = styleNameByBase.get(typeName);
+						if (styleName) {
+							styleNameToUse = styleName;
+							break;
+						}
+					}
+					if (styleNameToUse)
+						break;
+				}
+
+				if (!styleNameToUse)
+					return ts.visitEachChild(node, visitClass, context);
+
+				return this.transformClassDeclaration(node, styleNameToUse, importVariable);
 			};
 
-			// Transform the source file to add the import
-			const visitSourceFile: ts.Visitor = node => {
+			const visitSource: ts.Visitor = node => {
 				if (!ts.isSourceFile(node))
 					return node;
 
-				// First, visit all children to transform classes
-				const visitedNode = ts.visitEachChild(node, visit, context) as ts.SourceFile;
-				const statements = [ ...visitedNode.statements ];
+				const visited = ts.visitEachChild(node, visitClass, context) as ts.SourceFile;
+				const statements = [ cssImportDeclaration, ...visited.statements ];
 
-				// Insert the CSS import at the beginning
-				statements.unshift(cssImportDeclaration);
-
-				return ts.factory.updateSourceFile(visitedNode, statements);
+				return ts.factory.updateSourceFile(visited, statements);
 			};
 
-			return node => ts.visitNode(node, visitSourceFile) as ts.SourceFile;
+			return node => ts.visitNode(node, visitSource) as ts.SourceFile;
 		};
-
-		const result = ts.transform(sourceFile, [ transformer ]);
-		const transformedFile = result.transformed[0];
-		result.dispose();
-
-		if (!transformedFile)
-			throw new Error('Failed to transform source file');
-
-		return transformedFile;
 	}
 
 	protected transformClassDeclaration(
