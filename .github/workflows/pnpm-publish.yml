@@ -3,6 +3,16 @@ name: Pnpm Publish
 on:
   workflow_call:
     inputs:
+      dependency-map:
+        description: "JSON map of dependencies to update"
+        required: false
+        type: string
+        default: "{}"
+      triggered-by:
+        description: "What triggered this workflow"
+        required: false
+        type: string
+        default: "manual"
       pre-build-script:
         description: "Custom script to run before build"
         required: false
@@ -42,6 +52,51 @@ jobs:
         with:
           node-version: ${{ inputs.node-version }}
           registry-url: https://registry.npmjs.org/
+
+      - name: Update dependencies
+        if: ${{ inputs.dependency-map != '{}' }}
+        run: |
+          echo "Dependency map: ${{ inputs.dependency-map }}"
+          node -e "
+            const depsMap = JSON.parse(process.env.DEP_MAP);
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            const pkgDeps = depsMap[pkg.name];
+            if (!pkgDeps) {
+              console.log('No matching dependencies for this package.');
+              process.exit(0);
+            }
+            const sections = [
+              'dependencies',
+              'devDependencies',
+              'peerDependencies',
+              'optionalDependencies'
+            ];
+
+            let changed = false;
+            for (const [dep, version] of Object.entries(pkgDeps)) {
+              const sectionWithDep = sections.find(
+                section => pkg[section] && Object.hasOwn(pkg[section], dep)
+              );
+
+              if (!sectionWithDep) {
+                console.log(`Skipping ${dep}; not present in package.json.`);
+                continue;
+              }
+
+              pkg[sectionWithDep][dep] = version;
+              changed = true;
+            }
+
+            if (changed) {
+              fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+            }
+            else {
+              console.log('No dependency updates were applied.');
+            }
+          "
+        env:
+          DEP_MAP: ${{ inputs.dependency-map }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -90,8 +145,8 @@ jobs:
             echo "✅ First release version: 1.0.0"
           fi
 
-      - name: Publish to NPM
-        run: pnpm publish --access ${{ inputs.access }} --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH }}
-          NPM_TOKEN: ${{ secrets.NPM_PUBLISH }}
+      #- name: Publish to NPM
+      #  run: pnpm publish --access ${{ inputs.access }} --no-git-checks
+      #  env:
+      #    NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH }}
+      #    NPM_TOKEN: ${{ secrets.NPM_PUBLISH }}
