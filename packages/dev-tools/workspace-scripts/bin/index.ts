@@ -11,7 +11,6 @@ args.command(
 	'Convert pnpm workspace and catalog specifiers to semver versions',
 	() => {},
 	async (argv) => {
-		console.log('serve command called', argv);
 		pnpmToSemver();
 	},
 ).option('verbose', {
