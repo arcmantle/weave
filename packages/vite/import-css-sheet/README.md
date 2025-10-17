@@ -7,6 +7,7 @@ A Vite plugin that enables the use of [TC39 Import Attributes proposal](https://
 - 🚀 **Import CSS as CSSStyleSheet**: Transform CSS imports into constructable stylesheets
 - 🎯 **TC39 Standard Syntax**: Uses the official `with { type: 'css' }` syntax
 - ⚡ **Vite Integration**: Seamless integration with Vite's build process
+- 🤖 **Auto-Import**: Automatically inject CSS imports for co-located stylesheets
 - 🗜️ **CSS Minification**: Built-in CSS minification using Lightning CSS
 - 🔧 **Customizable**: Support for custom transformers and additional code injection
 - 📦 **TypeScript Support**: Full TypeScript definitions included
@@ -143,8 +144,200 @@ export default defineConfig({
 | `transformers` | `((code: string, id: string) => string)[]` | `[]` | Array of functions to transform CSS before converting to stylesheet |
 | `additionalCode` | `string[]` | `[]` | Additional JavaScript code to inject into the generated module |
 | `minify` | `boolean` | `true` | Whether to minify CSS using Lightning CSS |
+| `autoImport` | `object` | `undefined` | Configuration for automatic CSS import injection |
 
-## How It Works
+## Auto-Import Feature
+
+The auto-import feature automatically detects when a `.css` file exists alongside your component file and automatically injects the import statement and adds it to your component's static styles property. This is perfect for component-based frameworks like Lit.
+
+### How It Works
+
+When you have co-located CSS files:
+
+```text
+src/
+  ├── my-component.ts
+  └── my-component.css
+```
+
+The plugin can automatically transform your component to include the CSS import, eliminating boilerplate.
+
+### Auto-Import Configuration
+
+Enable auto-import by providing the `autoImport` configuration:
+
+```typescript
+import { importCSSSheet } from '@arcmantle/vite-plugin-import-css-sheet';
+
+export default defineConfig({
+  plugins: [
+    importCSSSheet({
+      autoImport: {
+        identifier: [
+          {
+            className: 'LitElement',
+            styleName: 'styles',
+            position: 'prepend' // or 'append'
+          }
+        ]
+      }
+    })
+  ]
+});
+```
+
+### Auto-Import Options
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `className` | `string` | Yes | The base class name to detect (e.g., `'LitElement'`, `'HTMLElement'`) |
+| `styleName` | `string` | Yes | The static property name to inject the stylesheet into (e.g., `'styles'`) |
+| `position` | `'prepend' \| 'append'` | No | Where to add the stylesheet in the array. Default: `'prepend'` |
+
+### Example: Without Auto-Import
+
+```typescript
+// my-component.ts
+import { LitElement, html } from 'lit';
+import { customElement } from 'lit/decorators.js';
+import componentStyles from './my-component.css' with { type: 'css' };
+
+@customElement('my-component')
+export class MyComponent extends LitElement {
+  static styles = [componentStyles]; // Manually added
+
+  render() {
+    return html`<div>Hello World</div>`;
+  }
+}
+```
+
+### Example: With Auto-Import
+
+With auto-import enabled, you can omit the import and static property:
+
+```typescript
+// my-component.ts
+import { LitElement, html } from 'lit';
+import { customElement } from 'lit/decorators.js';
+// Import is automatically injected!
+
+@customElement('my-component')
+export class MyComponent extends LitElement {
+  // static styles is automatically created/updated!
+
+  render() {
+    return html`<div>Hello World</div>`;
+  }
+}
+```
+
+The plugin automatically transforms this to:
+
+```typescript
+import my_component_styles from './my-component.css' with { type: 'css' };
+import { LitElement, html } from 'lit';
+import { customElement } from 'lit/decorators.js';
+
+@customElement('my-component')
+export class MyComponent extends LitElement {
+  static styles = [my_component_styles]; // Auto-injected!
+
+  render() {
+    return html`<div>Hello World</div>`;
+  }
+}
+```
+
+### Auto-Import with Existing Styles
+
+If you already have a `static styles` property, the auto-import will add to it:
+
+```typescript
+// Before transformation
+import { LitElement } from 'lit';
+import sharedStyles from './shared.css' with { type: 'css' };
+
+export class MyComponent extends LitElement {
+  static styles = [sharedStyles];
+}
+
+// After transformation (with position: 'prepend')
+import my_component_styles from './my-component.css' with { type: 'css' };
+import { LitElement } from 'lit';
+import sharedStyles from './shared.css' with { type: 'css' };
+
+export class MyComponent extends LitElement {
+  static styles = [my_component_styles, sharedStyles]; // Prepended
+}
+
+// After transformation (with position: 'append')
+export class MyComponent extends LitElement {
+  static styles = [sharedStyles, my_component_styles]; // Appended
+}
+```
+
+### Multiple Class Support
+
+You can configure auto-import for multiple base classes:
+
+```typescript
+importCSSSheet({
+  autoImport: {
+    identifier: [
+      {
+        className: 'LitElement',
+        styleName: 'styles',
+        position: 'prepend'
+      },
+      {
+        className: 'CustomBaseElement',
+        styleName: 'styleSheets',
+        position: 'append'
+      },
+      {
+        className: 'MyFrameworkComponent',
+        styleName: 'componentStyles'
+      }
+    ]
+  }
+})
+```
+
+### When Auto-Import Triggers
+
+The auto-import feature only activates when:
+
+1. A `.css` file exists with the same name as your component file
+2. Your class extends one of the configured base classes
+3. The file is a supported type (`.ts`, `.tsx`, `.js`, `.jsx`, `.mts`, `.mjs`)
+
+### Position: Prepend vs Append
+
+The `position` option controls CSS cascade order:
+
+- **`prepend`** (default): Component styles come first, can be overridden by later styles
+- **`append`**: Component styles come last, override earlier styles
+
+```typescript
+// position: 'prepend'
+static styles = [componentStyles, baseStyles, themeStyles];
+//                ^^^^^^^^^^^^^^ auto-imported (lowest specificity)
+
+// position: 'append'
+static styles = [baseStyles, themeStyles, componentStyles];
+//                                        ^^^^^^^^^^^^^^ auto-imported (highest specificity)
+```
+
+### Benefits of Auto-Import
+
+✅ **Less Boilerplate**: No need to manually import and assign stylesheets
+✅ **Co-location**: Encourages keeping styles next to components
+✅ **Consistency**: Automatic naming conventions
+✅ **Flexibility**: Works with existing manual imports
+✅ **Type-Safe**: Full TypeScript support with source maps
+
+## Plugin Architecture
 
 1. **Detection**: The plugin scans your source files for CSS imports using the `with { type: 'css' }` syntax
 2. **Virtual Modules**: Creates virtual modules for CSS files that need to be converted
@@ -247,5 +440,3 @@ Apache-2.0
 ## Contributing
 
 This package is part of the Arcmantle Weave monorepo. Contributions are welcome!
-
-.........

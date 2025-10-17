@@ -16,10 +16,11 @@ export class ImportCSSSheet {
 		public additionalCode: string[],
 		public minify: boolean,
 		public autoImport: {
-			identifier: [
-				className: string,
-				styleName: string,
-			][];
+			identifier: {
+				className: string;
+				styleName: string;
+				position?: 'prepend' | 'append';
+			}[];
 		} | undefined = undefined,
 	) {}
 
@@ -168,9 +169,13 @@ export class ImportCSSSheet {
 		if (!existsSync(cssPath))
 			return;
 
-		const autoImport = this.autoImport!;
-		// Build a lookup of base class name => styleName
-		const styleNameByBase: Map<string, string> = new Map(autoImport.identifier);
+		// Build a lookup of base class name => [styleName, position]
+		const styleConfigByBase: Map<string, [string, 'prepend' | 'append']> = new Map(
+			this.autoImport!.identifier.map(({ className, styleName, position }) => [
+				className,
+				[ styleName, position ?? 'prepend' ],
+			]),
+		);
 
 		// Fast pre-scan: only transform if any class extends a targeted base
 		const sourceFile = ts.createSourceFile(
@@ -181,6 +186,7 @@ export class ImportCSSSheet {
 		const visit = (node: ts.Node) => {
 			if (needsTransform)
 				return;
+
 			if (ts.isClassDeclaration(node) && node.heritageClauses) {
 				for (const heritage of node.heritageClauses) {
 					if (heritage.token !== ts.SyntaxKind.ExtendsKeyword)
@@ -188,7 +194,7 @@ export class ImportCSSSheet {
 
 					for (const type of heritage.types) {
 						const typeName = type.expression.getText(sourceFile);
-						if (styleNameByBase.has(typeName)) {
+						if (styleConfigByBase.has(typeName)) {
 							needsTransform = true;
 
 							return;
@@ -210,7 +216,7 @@ export class ImportCSSSheet {
 		const importVariable = `${ fileName }_styles`;
 
 		// Use transpileModule to apply a transformer and get a sourcemap
-		const transformer = this.createAutoImportTransformer(styleNameByBase, importVariable, filePath);
+		const transformer = this.createAutoImportTransformer(styleConfigByBase, importVariable, filePath);
 		const { outputText, sourceMapText } = ts.transpileModule(code, {
 			fileName:        filePath,
 			transformers:    { before: [ transformer ] },
@@ -231,7 +237,7 @@ export class ImportCSSSheet {
 	}
 
 	protected createAutoImportTransformer(
-		styleNameByBase: Map<string, string>,
+		styleConfigByBase: Map<string, [string, 'prepend' | 'append']>,
 		importVariable: string,
 		filePath: string,
 	): ts.TransformerFactory<ts.SourceFile> {
@@ -241,7 +247,7 @@ export class ImportCSSSheet {
 		const cssImportDeclaration = ts.factory.createImportDeclaration(
 			undefined,
 			ts.factory.createImportClause(
-				false,
+				undefined,
 				ts.factory.createIdentifier(importVariable),
 				undefined,
 			),
@@ -262,15 +268,16 @@ export class ImportCSSSheet {
 					return ts.visitEachChild(node, visitClass, context);
 
 				let styleNameToUse: string | undefined;
+				let positionToUse: 'prepend' | 'append' = 'prepend';
 				for (const heritage of node.heritageClauses) {
 					if (heritage.token !== ts.SyntaxKind.ExtendsKeyword)
 						continue;
 
 					for (const type of heritage.types) {
 						const typeName = type.expression.getText();
-						const styleName = styleNameByBase.get(typeName);
-						if (styleName) {
-							styleNameToUse = styleName;
+						const styleConfig = styleConfigByBase.get(typeName);
+						if (styleConfig) {
+							[ styleNameToUse, positionToUse ] = styleConfig;
 							break;
 						}
 					}
@@ -281,7 +288,7 @@ export class ImportCSSSheet {
 				if (!styleNameToUse)
 					return ts.visitEachChild(node, visitClass, context);
 
-				return this.transformClassDeclaration(node, styleNameToUse, importVariable);
+				return this.transformClassDeclaration(node, styleNameToUse, importVariable, positionToUse);
 			};
 
 			const visitSource: ts.Visitor = node => {
@@ -302,6 +309,7 @@ export class ImportCSSSheet {
 		classNode: ts.ClassDeclaration,
 		styleName: string,
 		importVariable: string,
+		position: 'prepend' | 'append' = 'prepend',
 	): ts.ClassDeclaration {
 		// Find existing static property with the styleName
 		let existingPropertyIndex = -1;
@@ -331,7 +339,7 @@ export class ImportCSSSheet {
 
 		if (existingProperty) {
 			// Modify existing property
-			newProperty = this.modifyExistingProperty(existingProperty, importVariableExpression);
+			newProperty = this.modifyExistingProperty(existingProperty, importVariableExpression, position);
 		}
 		else {
 			// Create new static property
@@ -367,23 +375,26 @@ export class ImportCSSSheet {
 	protected modifyExistingProperty(
 		property: ts.PropertyDeclaration,
 		importVariableExpression: ts.Identifier,
+		position: 'prepend' | 'append' = 'prepend',
 	): ts.PropertyDeclaration {
 		let newInitializer: ts.Expression;
 
 		if (property.initializer) {
 			if (ts.isArrayLiteralExpression(property.initializer)) {
-				// Already an array, unshift the import
-				newInitializer = ts.factory.createArrayLiteralExpression([
-					importVariableExpression,
-					...property.initializer.elements,
-				]);
+				// Already an array, add the import at the specified position
+				newInitializer = ts.factory.createArrayLiteralExpression(
+					position === 'prepend'
+						? [ importVariableExpression, ...property.initializer.elements ]
+						: [ ...property.initializer.elements, importVariableExpression ],
+				);
 			}
 			else {
 				// Not an array, convert to array with existing value
-				newInitializer = ts.factory.createArrayLiteralExpression([
-					importVariableExpression,
-					property.initializer,
-				]);
+				newInitializer = ts.factory.createArrayLiteralExpression(
+					position === 'prepend'
+						? [ importVariableExpression, property.initializer ]
+						: [ property.initializer, importVariableExpression ],
+				);
 			}
 		}
 		else {

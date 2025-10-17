@@ -10,15 +10,17 @@ export const importCSSSheet = (options?: Partial<{
 	/** Enables auto import and assignment of stylesheet. */
 	autoImport:     {
 		/**
-		 * Tuple identifying the class and style property to use when augmenting
-		 * the class with the imported CSSStyleSheet.
+		 * Configuration for identifying classes and style properties to use when
+		 * augmenting the class with the imported CSSStyleSheet.
 		 */
-		identifier: [
-			/** Class where the auto imported CSStylesheet will be automatically added */
-			className: string,
-			/** Identifier to use for the imported CSStylesheet */
-			styleName: string,
-		][];
+		identifier: {
+			/** Class where the auto imported CSSStyleSheet will be automatically added */
+			className: string;
+			/** Identifier to use for the imported CSSStyleSheet */
+			styleName: string;
+			/** Position to add the stylesheet in the array: 'prepend' (default) or 'append' */
+			position?: 'prepend' | 'append';
+		}[];
 	};
 }>): PluginOption => {
 	const {

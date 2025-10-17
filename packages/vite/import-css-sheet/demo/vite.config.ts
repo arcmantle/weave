@@ -8,7 +8,12 @@ export default defineConfig({
 	plugins: [
 		importCSSSheet({
 			autoImport: {
-				identifier: [ [ 'LitElement', 'styles' ] ],
+				identifier: [
+					{
+						className: 'LitElement',
+						styleName: 'styles',
+					},
+				],
 			},
 		}),
 	],
