@@ -63,6 +63,9 @@ jobs:
         with:
           version: 9
 
+      - name: Install dependencies
+        run: pnpm install
+
       - name: Generate dependency map
         id: deps
         run: |
