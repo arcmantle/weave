@@ -3,22 +3,34 @@ name: Publish Package
 on:
   workflow_dispatch:
     inputs:
-      dependency-map:
-        description: JSON map of dependencies to update
-        required: false
-        type: string
-        default: "{}"
       triggered-by:
         description: What triggered this workflow
         required: false
         type: string
         default: "manual"
+      dep-map:
+        description: JSON map of dependencies to update
+        required: false
+        type: string
+        default: "{}"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
 jobs:
   publish:
     uses: arcmantle/github-workflows/.github/workflows/pnpm-publish.yml@main
     with:
-      dependency-map: ${{ inputs.dependency-map }}
       triggered-by: ${{ inputs.triggered-by }}
+      dep-map: ${{ inputs.dep-map }}
     secrets:
       NPM_PUBLISH: ${{ secrets.NPM_PUBLISH }}
+
+  deploy-docs:
+    uses: arcmantle/github-workflows/.github/workflows/deploy-typedoc.yml@main
+    with:
+      triggered-by: ${{ inputs.triggered-by }}
+      dep-map: ${{ inputs.dep-map }}
+      build-dependencies: '@types/node @arcmantle/tsconfig'

@@ -30,12 +30,12 @@ jobs:
         run: |
           node .github/scripts/detect-package-changes.ts
 
-  generate-deps-map:
+  generate-dep-map:
     needs: detect-changes
     if: needs.detect-changes.outputs.has-changes == 'true'
     runs-on: ubuntu-latest
     outputs:
-      deps-map: ${{ steps.deps.outputs.dep-map }}
+      dep-map: ${{ steps.deps.outputs.dep-map }}
     steps:
       - uses: actions/checkout@v4
 
@@ -49,78 +49,56 @@ jobs:
         with:
           version: 10.18
 
-      #- name: Get pnpm store directory
-      #  shell: bash
-      #  run: |
-      #    echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      #- name: Setup pnpm cache
-      #  uses: actions/cache@v4
-      #  with:
-      #    path: ${{ env.STORE_PATH }}
-      #    key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-      #    restore-keys: |
-      #      ${{ runner.os }}-pnpm-store-
-
       - name: Install dependencies
-        run: pnpm install --filter . --frozen-lockfile=false
+        run: pnpm install --filter . --frozen-lockfile=false --ignore-scripts
 
       - name: Create dependency map
         uses: arcmantle/github-actions/pnpm-to-semver@main
         id: deps
       - run: echo "${{ steps.deps.outputs.dep-map }}"
 
-      #- name: Generate dependency map
-      #  id: deps
-      #  run: |
-      #    DEPS_JSON=$(pnpm workspace pnpm-to-semver)
-      #    echo "deps-map<<EOF" >> $GITHUB_OUTPUT
-      #    echo "$DEPS_JSON" >> $GITHUB_OUTPUT
-      #    echo "EOF" >> $GITHUB_OUTPUT
-      #    echo "$DEPS_JSON"
+  sync-subtree:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has-changes == 'true'
+    strategy:
+      matrix:
+        include: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
+    uses: arcmantle/github-workflows/.github/workflows/subtree-sync.yml@main
+    with:
+      package-path: ${{ matrix.packagePath }}
+      target-repo: ${{ matrix.targetRepo }}
+    secrets:
+      sync-token: ${{ secrets.SYNC_SUBTREE }}
 
-  #sync-subtree:
-  #  needs: detect-changes
-  #  if: needs.detect-changes.outputs.has-changes == 'true'
-  #  strategy:
-  #    matrix:
-  #      include: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
-  #  uses: arcmantle/github-workflows/.github/workflows/subtree-sync.yml@main
-  #  with:
-  #    package-path: ${{ matrix.packagePath }}
-  #    target-repo: ${{ matrix.targetRepo }}
-  #  secrets:
-  #    sync-token: ${{ secrets.SYNC_SUBTREE }}
+  trigger-publish:
+    needs: [detect-changes, generate-dep-map, sync-subtree]
+    if: needs.detect-changes.outputs.has-changes == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
+    steps:
+      - name: Trigger target repo publish
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SYNC_SUBTREE }}
+          script: |
+            const [owner, repo] = '${{ matrix.targetRepo }}'.split('/');
+            const depMap = JSON.parse(`${{ needs.generate-dep-map.outputs.dep-map }}`);
 
-  #trigger-publish:
-  #  needs: [detect-changes, generate-deps-map, sync-subtree]
-  #  if: needs.detect-changes.outputs.has-changes == 'true'
-  #  runs-on: ubuntu-latest
-  #  strategy:
-  #    matrix:
-  #      include: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
-  #  steps:
-  #    - name: Trigger target repo publish
-  #      uses: actions/github-script@v7
-  #      with:
-  #        github-token: ${{ secrets.SYNC_SUBTREE }}
-  #        script: |
-  #          const [owner, repo] = '${{ matrix.targetRepo }}'.split('/');
-  #          const depsMap = JSON.parse(`${{ needs.generate-deps-map.outputs.deps-map }}`);
-
-  #          try {
-  #            await github.rest.actions.createWorkflowDispatch({
-  #              owner,
-  #              repo,
-  #              workflow_id: 'publish.yml',
-  #              ref: 'main',
-  #              inputs: {
-  #                'dependency-map': JSON.stringify(depsMap),
-  #                'triggered-by': 'subtree-sync'
-  #              }
-  #            });
-  #            console.log(`✅ Successfully triggered publish workflow for ${owner}/${repo}`);
-  #          } catch (error) {
-  #            console.error(`❌ Failed to trigger publish workflow for ${owner}/${repo}:`, error.message);
-  #            throw error;
-  #          }
+            try {
+              await github.rest.actions.createWorkflowDispatch({
+                owner,
+                repo,
+                workflow_id: 'publish.yml',
+                ref: 'main',
+                inputs: {
+                  'triggered-by': 'subtree-sync',
+                  'dep-map': JSON.stringify(depMap),
+                }
+              });
+              console.log(`✅ Successfully triggered publish workflow for ${owner}/${repo}`);
+            } catch (error) {
+              console.error(`❌ Failed to trigger publish workflow for ${owner}/${repo}:`, error.message);
+              throw error;
+            }

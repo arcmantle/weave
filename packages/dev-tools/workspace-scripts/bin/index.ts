@@ -2,7 +2,6 @@
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 
-import { pnpmToSemver } from '../pnpm-to-semver/pnpm-to-semver.ts';
 
 const args = yargs(hideBin(process.argv));
 
@@ -11,7 +10,7 @@ args.command(
 	'Convert pnpm workspace and catalog specifiers to semver versions',
 	() => {},
 	async (argv) => {
-		pnpmToSemver();
+		console.log('this has been moved to an action');
 	},
 ).option('verbose', {
 	alias:       'v',
