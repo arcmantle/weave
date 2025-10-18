@@ -30,6 +30,50 @@ jobs:
         run: |
           node .github/scripts/detect-package-changes.ts
 
+  generate-deps-map:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has-changes == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      deps-map: ${{ steps.deps.outputs.deps-map }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --filter @arcmantle/workspace-scripts --frozen-lockfile=false
+
+      - name: Generate dependency map
+        id: deps
+        run: |
+          DEPS_JSON=$(pnpm workspace pnpm-to-semver)
+          echo "deps-map<<EOF" >> $GITHUB_OUTPUT
+          echo "$DEPS_JSON" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "$DEPS_JSON"
+
   sync-subtree:
     needs: detect-changes
     if: needs.detect-changes.outputs.has-changes == 'true'
@@ -44,52 +88,34 @@ jobs:
       sync-token: ${{ secrets.SYNC_SUBTREE }}
 
   trigger-publish:
-    needs: [detect-changes, sync-subtree]
+    needs: [detect-changes, generate-deps-map, sync-subtree]
     if: needs.detect-changes.outputs.has-changes == 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
         include: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.18
-
-      - name: Install dependencies
-        run: pnpm install --filter @arcmantle/workspace-scripts --frozen-lockfile=false
-
-      - name: Generate dependency map
-        id: deps
-        run: |
-          DEPS_JSON=$(pnpm workspace pnpm-to-semver)
-          echo "deps-map<<EOF" >> $GITHUB_OUTPUT
-          echo "$DEPS_JSON" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          echo "$DEPS_JSON"
-
       - name: Trigger target repo publish
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.SYNC_SUBTREE }}
           script: |
             const [owner, repo] = '${{ matrix.targetRepo }}'.split('/');
-            const depsMap = JSON.parse(`${{ steps.deps.outputs.deps-map }}`);
+            const depsMap = JSON.parse(`${{ needs.generate-deps-map.outputs.deps-map }}`);
 
-            await github.rest.actions.createWorkflowDispatch({
-              owner,
-              repo,
-              workflow_id: 'publish.yml',
-              ref: 'main',
-              inputs: {
-                'dependency-map': JSON.stringify(depsMap),
-                'triggered-by': 'subtree-sync'
-              }
-            });
+            try {
+              await github.rest.actions.createWorkflowDispatch({
+                owner,
+                repo,
+                workflow_id: 'publish.yml',
+                ref: 'main',
+                inputs: {
+                  'dependency-map': JSON.stringify(depsMap),
+                  'triggered-by': 'subtree-sync'
+                }
+              });
+              console.log(`✅ Successfully triggered publish workflow for ${owner}/${repo}`);
+            } catch (error) {
+              console.error(`❌ Failed to trigger publish workflow for ${owner}/${repo}:`, error.message);
+              throw error;
+            }

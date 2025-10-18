@@ -1,8 +1,8 @@
 name: Deploy Documentation to GitHub Pages using typedoc
 
 on:
-  push:
-    branches: ["main"]
+  #push:
+  #  branches: ["main"]
   workflow_dispatch:
 
 permissions:
