@@ -10,25 +10,29 @@ jobs:
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-      has-changes: ${{ steps.set-matrix.outputs.has-changes }}
+      matrix: ${{ steps.detect.outputs.matrix }}
+      has-changes: ${{ steps.detect.outputs.has-changes }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-
       - name: Detect changed packages
-        id: set-matrix
-        env:
-          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
-          GITHUB_SHA: ${{ github.sha }}
-        run: |
-          node .github/scripts/detect-package-changes.ts
+        id: detect
+        uses: arcmantle/github-actions/detect-changes@main
+
+      #- name: Setup Node.js
+      #  uses: actions/setup-node@v4
+      #  with:
+      #    node-version: '24'
+
+      #- name: Detect changed packages
+      #  id: set-matrix
+      #  env:
+      #    GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+      #    GITHUB_SHA: ${{ github.sha }}
+      #  run: |
+      #    node .github/scripts/detect-package-changes.ts
 
   generate-dep-map:
     needs: detect-changes
