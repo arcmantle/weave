@@ -54,7 +54,6 @@ jobs:
     uses: arcmantle/github-workflows/.github/workflows/subtree-sync.yml@main
     with:
       matrix: ${{ needs.detect-changes.outputs.matrix }}
-      dep-map: ${{ needs.generate-dep-map.outputs.dep-map }}
     secrets:
       sync-token: ${{ secrets.SYNC_SUBTREE }}
 
