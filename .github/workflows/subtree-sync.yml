@@ -7,62 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  detect-changes:
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.detect.outputs.matrix }}
-      has-changes: ${{ steps.detect.outputs.has-changes }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Detect changed packages
-        id: detect
-        uses: arcmantle/github-actions/detect-changes@main
-
-  generate-dep-map:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.has-changes == 'true'
-    runs-on: ubuntu-latest
-    outputs:
-      dep-map: ${{ steps.deps.outputs.dep-map }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.18
-
-      - name: Install dependencies
-        run: pnpm install --filter . --frozen-lockfile=false --ignore-scripts
-
-      - name: Create dependency map
-        uses: arcmantle/github-actions/pnpm-to-semver@main
-        id: deps
-      - run: echo "${{ steps.deps.outputs.dep-map }}"
-
-  push-subtree:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.has-changes == 'true'
-    uses: arcmantle/github-workflows/.github/workflows/push-subtree.yml@main
-    with:
-      matrix: ${{ needs.detect-changes.outputs.matrix }}
-    secrets:
-      sync-token: ${{ secrets.SYNC_SUBTREE }}
-
-  trigger-publish:
-    needs: [detect-changes, generate-dep-map]
-    if: needs.detect-changes.outputs.has-changes == 'true'
-    uses: arcmantle/github-workflows/.github/workflows/trigger-publish.yml@main
-    with:
-      matrix: ${{ needs.detect-changes.outputs.matrix }}
-      dep-map: ${{ needs.generate-dep-map.outputs.dep-map }}
+  sync:
+    uses: arcmantle/github-workflows/.github/workflows/subtree-sync.yml@main
     secrets:
       sync-token: ${{ secrets.SYNC_SUBTREE }}
