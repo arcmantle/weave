@@ -48,10 +48,10 @@ jobs:
         id: deps
       - run: echo "${{ steps.deps.outputs.dep-map }}"
 
-  sync-subtree:
+  push-subtree:
     needs: detect-changes
     if: needs.detect-changes.outputs.has-changes == 'true'
-    uses: arcmantle/github-workflows/.github/workflows/subtree-sync.yml@main
+    uses: arcmantle/github-workflows/.github/workflows/push-subtree.yml@main
     with:
       matrix: ${{ needs.detect-changes.outputs.matrix }}
     secrets:
