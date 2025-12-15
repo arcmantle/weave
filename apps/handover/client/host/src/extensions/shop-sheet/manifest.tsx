@@ -1,6 +1,7 @@
 import { pushSearchState } from '@arcmantle/library/dom';
 
 import { type Content, type ContentManifest, createManifest, type Manifest } from '../create-manifest.ts';
+import { TestCustomElement } from './test.ts';
 
 
 class ShopSheetPrimarySidebar implements Content {
@@ -27,9 +28,15 @@ class ShopSheetPrimarySidebar implements Content {
 	}
 
 	render(): unknown {
+		const tagName: 'a' | 'input' = undefined as any;
+		const Tag = as.tag(tagName);
+
 		return <div>
 			<h1>Shop Sheet navigation</h1>
 			<p>This is the primary panel for the Shop Sheet extension.</p>
+			<Tag href="https://example.com" target="_blank" value={123} static>Example Link</Tag>
+
+			<TestCustomElement<number, 'static'> value={12} variant={undefined} static />
 		</div>;
 	}
 
