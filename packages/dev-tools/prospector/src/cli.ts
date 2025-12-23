@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import ora from 'ora';
+
 import { calculateVersion, suggestVersionBump } from './index.ts';
 
 const args = process.argv.slice(2);
@@ -7,16 +9,18 @@ const args = process.argv.slice(2);
 // Parse command line arguments
 const options: {
 	cwd?:               string;
-	mainBranch?:        string;
+	mainBranch?:        string | string[];
 	tagPrefix?:         string;
 	format?:            'version' | 'json' | 'detailed';
 	suggest?:           'major' | 'minor' | 'patch';
 	enableCommitBumps?: boolean;
+	showMemory?:        boolean;
 } = {
-	mainBranch:        'main',
+	mainBranch:        undefined,
 	tagPrefix:         'v',
 	format:            'version',
 	enableCommitBumps: true,
+	showMemory:        false,
 };
 
 for (let i = 0; i < args.length; i++) {
@@ -60,6 +64,10 @@ for (let i = 0; i < args.length; i++) {
 		options.enableCommitBumps = false;
 		break;
 
+	case '--show-memory':
+		options.showMemory = true;
+		break;
+
 	default:
 		if (arg!.startsWith('-')) {
 			console.error(`Unknown option: ${ arg }`);
@@ -84,6 +92,7 @@ Options:
   --detailed              Output detailed information
   --suggest <type>        Suggest next version (major|minor|patch)
   --no-commit-bumps       Disable commit message based version bumping
+  --show-memory           Show memory usage statistics
 
 Examples:
   prospector                          # Output current version
@@ -100,27 +109,59 @@ Versioning Rules:
   - When a branch merges to main, it increments patch by 1
 
 Commit Message Version Bumping:
-  - [major] or +semver: major or BREAKING CHANGE - increments major version
-  - [minor] or +semver: minor or feat: - increments minor version
-  - [patch] or +semver: patch or fix: - increments patch version
+  - [major] - increments major version (resets minor and patch to 0)
+  - [minor] - increments minor version (resets patch to 0)
+  - [patch] - increments patch version
+  - [version:x.y.z] or [v:x.y.z] - sets exact version
 
   Example commit messages:
-    "feat: add new feature"           → bumps minor version
+    "[minor] add new feature"         → bumps minor version
     "[major] breaking API change"     → bumps major version
-    "fix: resolve bug"                → bumps patch version
-    "chore: update deps"              → no explicit bump (uses commit count)
+    "[patch] fix bug"                 → bumps patch version
+    "[version:2.5.0] release 2.5.0"   → sets version to 2.5.0
+    "update dependencies"             → no explicit bump (uses commit count)
 `);
 }
 
 try {
 	if (options.suggest) {
 		// Suggest a version bump
-		const suggested = suggestVersionBump(options.suggest, options);
+		const spinner = ora('Calculating version...').start();
+		const startMem = process.memoryUsage();
+
+		const suggested = await suggestVersionBump(options.suggest, {
+			...options,
+			onProgress: (msg) => {
+				spinner.text = msg;
+			},
+		});
+
+		const endMem = process.memoryUsage();
+		const heapUsedMB = (endMem.heapUsed / 1024 / 1024).toFixed(2);
+		const deltaMB = ((endMem.heapUsed - startMem.heapUsed) / 1024 / 1024).toFixed(2);
+
+		const memStats = options.showMemory ? ` | Memory: ${ heapUsedMB } MB (Δ${ deltaMB } MB)` : '';
+		spinner.succeed(`Suggested version: ${ suggested }${ memStats }`);
 		console.log(suggested);
 	}
 	else {
 		// Calculate current version
-		const info = calculateVersion(options);
+		const spinner = ora('Calculating version...').start();
+		const startMem = process.memoryUsage();
+
+		const info = await calculateVersion({
+			...options,
+			onProgress: (msg) => {
+				spinner.text = msg;
+			},
+		});
+
+		const endMem = process.memoryUsage();
+		const heapUsedMB = (endMem.heapUsed / 1024 / 1024).toFixed(2);
+		const deltaMB = ((endMem.heapUsed - startMem.heapUsed) / 1024 / 1024).toFixed(2);
+
+		const memStats = options.showMemory ? ` | Memory: ${ heapUsedMB } MB (Δ${ deltaMB } MB)` : '';
+		spinner.succeed(`Version calculated${ memStats }`);
 
 		switch (options.format) {
 		case 'json':
@@ -160,6 +201,8 @@ try {
 	}
 }
 catch (error) {
+	const spinner = ora();
+	spinner.fail('Error calculating version');
 	console.error('Error:', error instanceof Error ? error.message : String(error));
 	process.exit(1);
 }
