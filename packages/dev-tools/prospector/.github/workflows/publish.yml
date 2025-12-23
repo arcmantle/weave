@@ -10,8 +10,18 @@ on:
         required: false
         type: string
         default: "manual"
-      dep-map-gist-id:
-        description: "Gist ID containing JSON map of dependencies to update"
+      dep-map-artifact:
+        description: "Artifact name containing the dependency map JSON"
+        required: false
+        type: string
+        default: ""
+      source-repo:
+        description: "Source repository (owner/repo) that triggered this workflow"
+        required: false
+        type: string
+        default: ""
+      source-run-id:
+        description: "Source workflow run ID"
         required: false
         type: string
         default: ""
@@ -51,24 +61,51 @@ jobs:
           node-version: ${{ inputs.node-version }}
           registry-url: https://registry.npmjs.org/
 
-      - name: Fetch dep-map from Gist
-        id: fetch-dep-map
+      - name: Download dep-map artifact
+        if: ${{ inputs.dep-map-artifact != '' && inputs.source-repo != '' && inputs.source-run-id != '' }}
+        id: download-dep-map
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const gist = await github.rest.gists.get({
-              gist_id: '${{ inputs.dep-map-gist-id }}'
+            const [owner, repo] = '${{ inputs.source-repo }}'.split('/');
+            const fs = require('fs');
+
+            // Download artifact
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner,
+              repo,
+              run_id: ${{ inputs.source-run-id }}
             });
-            const depMap = JSON.parse(gist.data.files['dep-map.json'].content);
+
+            const artifact = artifacts.data.artifacts.find(a => a.name === '${{ inputs.dep-map-artifact }}');
+            if (!artifact) {
+              throw new Error(`Artifact ${{ inputs.dep-map-artifact }} not found`);
+            }
+
+            const download = await github.rest.actions.downloadArtifact({
+              owner,
+              repo,
+              artifact_id: artifact.id,
+              archive_format: 'zip'
+            });
+
+            // Write and extract artifact
+            fs.writeFileSync('artifact.zip', Buffer.from(download.data));
+            await exec.exec('unzip', ['-o', 'artifact.zip']);
+
+            // Read the dep-map
+            const depMap = JSON.parse(fs.readFileSync('dep-map-' + '${{ inputs.dep-map-artifact }}'.split('-').pop() + '.json', 'utf8'));
+            console.log('📥 Downloaded dep-map from artifact:', depMap);
+
+            // Output as JSON string
             core.setOutput('dep-map', JSON.stringify(depMap));
-            return depMap;
 
       - name: Update dependencies
-        if: ${{ steps.fetch-dep-map.outputs.dep-map != '{}' }}
+        if: ${{ inputs.dep-map-artifact != '' }}
         uses: arcmantle/github-actions/replace-deps@main
         with:
-          dep-map: ${{ steps.fetch-dep-map.outputs.dep-map }}
+          dep-map: ${{ steps.download-dep-map.outputs.dep-map }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
