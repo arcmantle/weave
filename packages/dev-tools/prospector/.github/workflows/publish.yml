@@ -79,7 +79,7 @@ jobs:
         id: version
         run: |
           echo "🔍 Using Prospector to calculate version..."
-          VERSION=$(node dist/bin.js)
+          VERSION=$(node bin/bin.js)
           echo "📦 Calculated version: $VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
