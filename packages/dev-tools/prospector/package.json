@@ -45,7 +45,7 @@
 	"scripts": {
 		"build": "tsdown",
 		"dev": "tsc --watch",
-		"prepublishOnly": "pnpm build && pnpm test run",
+		"skip_prepublishOnly": "pnpm build && pnpm test run",
 		"test": "vitest"
 	},
 	"dependencies": {

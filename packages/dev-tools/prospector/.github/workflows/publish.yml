@@ -43,14 +43,69 @@ on:
 
 jobs:
   publish:
-    uses: arcmantle/github-workflows/.github/workflows/pnpm-publish.yml@main
-    with:
-      triggered-by:  ${{ inputs.triggered-by }}
-      dep-map: ${{ inputs.dep-map }}
-      pre-build-script: ${{ inputs.pre-build-script }}
-      additional-deps: ${{ inputs.additional-deps }}
-      version-increment: ${{ inputs.version-increment }}
-      node-version: ${{ inputs.node-version }}
-      access: ${{ inputs.access }}
-    secrets:
-      NPM_PUBLISH: ${{ secrets.NPM_PUBLISH }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          registry-url: https://registry.npmjs.org/
+
+      - name: Update dependencies
+        if: ${{ inputs.dep-map != '{}' }}
+        uses: arcmantle/github-actions/replace-deps@main
+        with:
+          dep-map: ${{ inputs.dep-map }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18
+
+      - name: Run pre-build script
+        if: ${{ inputs.pre-build-script != '' }}
+        run: ${{ inputs.pre-build-script }}
+
+      - name: Install common build dependencies.
+        run: pnpm add -D rimraf typescript @arcmantle/tsconfig @types/node ${{ inputs.additional-deps }}
+
+      - name: Install dependencies.
+        run: pnpm install
+
+      - name: Build project.
+        run: pnpm build
+
+      - name: Calculate version with Prospector
+        id: version
+        run: |
+          echo "🔍 Using Prospector to calculate version..."
+          VERSION=$(node dist/bin.js)
+          echo "📦 Calculated version: $VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          echo "package=$PACKAGE_NAME" >> $GITHUB_OUTPUT
+
+      - name: Set package version
+        run: |
+          echo "✅ Setting package version to ${{ steps.version.outputs.version }}"
+          npm version ${{ steps.version.outputs.version }} --no-git-tag-version
+          echo "📦 Package ${{ steps.version.outputs.package }} ready to publish"
+
+      #- name: Publish to NPM
+      #  run: pnpm publish --access ${{ inputs.access }} --no-git-checks
+      #  env:
+      #    NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH }}
+      #    NPM_TOKEN: ${{ secrets.NPM_PUBLISH }}
+
+    #uses: arcmantle/github-workflows/.github/workflows/pnpm-publish.yml@main
+    #with:
+    #  triggered-by:  ${{ inputs.triggered-by }}
+    #  dep-map: ${{ inputs.dep-map }}
+    #  pre-build-script: ${{ inputs.pre-build-script }}
+    #  additional-deps: ${{ inputs.additional-deps }}
+    #  version-increment: ${{ inputs.version-increment }}
+    #  node-version: ${{ inputs.node-version }}
+    #  access: ${{ inputs.access }}
+    #secrets:
+    #  NPM_PUBLISH: ${{ secrets.NPM_PUBLISH }}
