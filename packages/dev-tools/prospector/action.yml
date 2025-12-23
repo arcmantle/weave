@@ -1,0 +1,52 @@
+name: 'Prospector Version Calculator'
+description: 'Calculate semantic versions from git history using trunk-based development'
+author: 'arcmantle'
+
+branding:
+  icon: 'git-branch'
+  color: 'blue'
+
+inputs:
+  dir:
+    description: 'Git repository path'
+    required: false
+    default: '.'
+  branch:
+    description: 'Main branch name (comma-separated for multiple)'
+    required: false
+    default: 'main,master'
+  prefix:
+    description: 'Version tag prefix'
+    required: false
+    default: 'v'
+  suggest:
+    description: 'Suggest next version (major, minor, or patch)'
+    required: false
+  no-commit-bumps:
+    description: 'Disable commit message based version bumping'
+    required: false
+    default: 'false'
+
+outputs:
+  version:
+    description: 'Calculated semantic version'
+  branch:
+    description: 'Current git branch'
+  is-main-branch:
+    description: 'Whether on main/trunk branch (true/false)'
+  commits-since-tag:
+    description: 'Number of commits since last version tag'
+  last-tag:
+    description: 'Last version tag found'
+  current-commit:
+    description: 'Current commit hash'
+  major-bumps:
+    description: 'Number of major version bumps from commits'
+  minor-bumps:
+    description: 'Number of minor version bumps from commits'
+  patch-bumps:
+    description: 'Number of patch version bumps from commits'
+
+runs:
+  using: 'node20'
+  main: 'dist/action.js'

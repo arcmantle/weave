@@ -1,13 +1,9 @@
-#!/usr/bin/env node
+import ora, { type Ora } from 'ora';
 
-import ora from 'ora';
+import { calculateVersion, suggestVersionBump, type VersionInfo } from './index.ts';
 
-import { calculateVersion, suggestVersionBump } from './index.ts';
 
-const args = process.argv.slice(2);
-
-// Parse command line arguments
-const options: {
+interface CLIOptions {
 	cwd?:               string;
 	mainBranch?:        string | string[];
 	tagPrefix?:         string;
@@ -15,70 +11,81 @@ const options: {
 	suggest?:           'major' | 'minor' | 'patch';
 	enableCommitBumps?: boolean;
 	showMemory?:        boolean;
-} = {
-	mainBranch:        undefined,
-	tagPrefix:         'v',
-	format:            'version',
-	enableCommitBumps: true,
-	showMemory:        false,
-};
-
-for (let i = 0; i < args.length; i++) {
-	const arg = args[i];
-
-	switch (arg) {
-	case '-h':
-	case '--help':
-		printHelp();
-		process.exit(0);
-		break;
-
-	case '-d':
-	case '--dir':
-		options.cwd = args[++i];
-		break;
-
-	case '-b':
-	case '--branch':
-		options.mainBranch = args[++i];
-		break;
-
-	case '-p':
-	case '--prefix':
-		options.tagPrefix = args[++i];
-		break;
-
-	case '--json':
-		options.format = 'json';
-		break;
-
-	case '--detailed':
-		options.format = 'detailed';
-		break;
-
-	case '--suggest':
-		options.suggest = args[++i] as 'major' | 'minor' | 'patch';
-		break;
-
-	case '--no-commit-bumps':
-		options.enableCommitBumps = false;
-		break;
-
-	case '--show-memory':
-		options.showMemory = true;
-		break;
-
-	default:
-		if (arg!.startsWith('-')) {
-			console.error(`Unknown option: ${ arg }`);
-			console.error('Use --help for usage information');
-			process.exit(1);
-		}
-	}
 }
 
-function printHelp() {
-	console.log(`
+export class ProspectorCLI {
+
+	private options: CLIOptions;
+
+	constructor(args: string[]) {
+		this.options = {
+			tagPrefix:         'v',
+			format:            'version',
+			enableCommitBumps: true,
+			showMemory:        false,
+		};
+
+		this.parseArguments(args);
+	}
+
+	private parseArguments(args: string[]): void {
+		for (let i = 0; i < args.length; i++) {
+			const arg = args[i];
+
+			switch (arg) {
+			case '-h':
+			case '--help':
+				this.printHelp();
+				process.exit(0);
+				break;
+
+			case '-d':
+			case '--dir':
+				this.options.cwd = args[++i];
+				break;
+
+			case '-b':
+			case '--branch':
+				this.options.mainBranch = args[++i];
+				break;
+
+			case '-p':
+			case '--prefix':
+				this.options.tagPrefix = args[++i];
+				break;
+
+			case '--json':
+				this.options.format = 'json';
+				break;
+
+			case '--detailed':
+				this.options.format = 'detailed';
+				break;
+
+			case '--suggest':
+				this.options.suggest = args[++i] as 'major' | 'minor' | 'patch';
+				break;
+
+			case '--no-commit-bumps':
+				this.options.enableCommitBumps = false;
+				break;
+
+			case '--show-memory':
+				this.options.showMemory = true;
+				break;
+
+			default:
+				if (arg!.startsWith('-')) {
+					console.error(`Unknown option: ${ arg }`);
+					console.error('Use --help for usage information');
+					process.exit(1);
+				}
+			}
+		}
+	}
+
+	private printHelp(): void {
+		console.log(`
 Prospector - Semver Version Calculator
 
 Usage: prospector [options]
@@ -121,49 +128,38 @@ Commit Message Version Bumping:
     "[version:2.5.0] release 2.5.0"   → sets version to 2.5.0
     "update dependencies"             → no explicit bump (uses commit count)
 `);
-}
+	}
 
-try {
-	if (options.suggest) {
-		// Suggest a version bump
+	private formatMemoryStats(startMem: NodeJS.MemoryUsage, endMem: NodeJS.MemoryUsage): string {
+		if (!this.options.showMemory)
+			return '';
+
+		const heapUsedMB = (endMem.heapUsed / 1024 / 1024).toFixed(2);
+		const deltaMB = ((endMem.heapUsed - startMem.heapUsed) / 1024 / 1024).toFixed(2);
+
+		return ` | Memory: ${ heapUsedMB } MB (Δ${ deltaMB } MB)`;
+	}
+
+	private async runSuggest(): Promise<void> {
 		const spinner = ora('Calculating version...').start();
 		const startMem = process.memoryUsage();
 
-		const suggested = await suggestVersionBump(options.suggest, {
-			...options,
+		const suggested = await suggestVersionBump(this.options.suggest!, {
+			...this.options,
 			onProgress: (msg) => {
 				spinner.text = msg;
 			},
 		});
 
 		const endMem = process.memoryUsage();
-		const heapUsedMB = (endMem.heapUsed / 1024 / 1024).toFixed(2);
-		const deltaMB = ((endMem.heapUsed - startMem.heapUsed) / 1024 / 1024).toFixed(2);
+		const memStats = this.formatMemoryStats(startMem, endMem);
 
-		const memStats = options.showMemory ? ` | Memory: ${ heapUsedMB } MB (Δ${ deltaMB } MB)` : '';
 		spinner.succeed(`Suggested version: ${ suggested }${ memStats }`);
 		console.log(suggested);
 	}
-	else {
-		// Calculate current version
-		const spinner = ora('Calculating version...').start();
-		const startMem = process.memoryUsage();
 
-		const info = await calculateVersion({
-			...options,
-			onProgress: (msg) => {
-				spinner.text = msg;
-			},
-		});
-
-		const endMem = process.memoryUsage();
-		const heapUsedMB = (endMem.heapUsed / 1024 / 1024).toFixed(2);
-		const deltaMB = ((endMem.heapUsed - startMem.heapUsed) / 1024 / 1024).toFixed(2);
-
-		const memStats = options.showMemory ? ` | Memory: ${ heapUsedMB } MB (Δ${ deltaMB } MB)` : '';
-		spinner.succeed(`Version calculated${ memStats }`);
-
-		switch (options.format) {
+	private outputVersionInfo(info: VersionInfo, spinner: Ora): void {
+		switch (this.options.format) {
 		case 'json':
 			console.log(JSON.stringify(info, null, 2));
 			break;
@@ -199,10 +195,39 @@ try {
 			break;
 		}
 	}
-}
-catch (error) {
-	const spinner = ora();
-	spinner.fail('Error calculating version');
-	console.error('Error:', error instanceof Error ? error.message : String(error));
-	process.exit(1);
+
+	private async runCalculate(): Promise<void> {
+		const spinner = ora('Calculating version...').start();
+		const startMem = process.memoryUsage();
+
+		const info = await calculateVersion({
+			...this.options,
+			onProgress: (msg) => {
+				spinner.text = msg;
+			},
+		});
+
+		const endMem = process.memoryUsage();
+		const memStats = this.formatMemoryStats(startMem, endMem);
+
+		spinner.succeed(`Version calculated${ memStats }`);
+
+		this.outputVersionInfo(info, spinner);
+	}
+
+	async run(): Promise<void> {
+		try {
+			if (this.options.suggest)
+				await this.runSuggest();
+			else
+				await this.runCalculate();
+		}
+		catch (error) {
+			const spinner = ora();
+			spinner.fail('Error calculating version');
+			console.error('Error:', error instanceof Error ? error.message : String(error));
+			process.exit(1);
+		}
+	}
+
 }

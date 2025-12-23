@@ -1,34 +1,78 @@
 {
 	"name": "@arcmantle/prospector",
 	"version": "1.0.0",
-	"description": "A tool for calculating semver version based on git commit history",
+	"description": "Automatic semantic versioning from git history for trunk-based development",
 	"keywords": [
 		"semver",
 		"versioning",
 		"git",
-		"trunk-based"
+		"trunk-based",
+		"semantic-version",
+		"ci-cd",
+		"github-action",
+		"automation"
 	],
+	"homepage": "https://github.com/arcmantle/weave/tree/main/packages/dev-tools/prospector#readme",
+	"bugs": {
+		"url": "https://github.com/arcmantle/weave/issues"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/arcmantle/weave.git",
+		"directory": "packages/dev-tools/prospector"
+	},
 	"license": "MIT",
 	"author": "arcmantle",
 	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
 	"bin": {
-		"prospector": "./src/cli.ts"
+		"prospector": "./bin/bin.js"
 	},
+	"files": [
+		"dist",
+		"README.md",
+		"LICENSE",
+		"CHANGELOG.md",
+		"action.yml"
+	],
 	"scripts": {
-		"build": "tsc",
+		"build": "tsdown",
 		"dev": "tsc --watch",
+		"prepublishOnly": "pnpm build && pnpm test run",
 		"test": "vitest"
 	},
 	"dependencies": {
-		"ora": "^8.1.1",
-		"semver": "^7.6.0"
+		"@actions/core": "catalog:",
+		"ora": "catalog:",
+		"semver": "catalog:"
 	},
 	"devDependencies": {
 		"@types/node": "catalog:",
-		"@types/semver": "^7.5.6",
+		"@types/semver": "catalog:",
+		"tsdown": "catalog:",
 		"typescript": "catalog:",
 		"vitest": "catalog:"
+	},
+	"tsdown": {
+		"entry": [
+			"src/index.ts",
+			"src/action.ts",
+			"src/cli.ts"
+		],
+		"platform": "node",
+		"format": "esm",
+		"outDir": "dist",
+		"noExternal": [
+			"@actions/core",
+			"ora",
+			"semver"
+		]
 	}
 }

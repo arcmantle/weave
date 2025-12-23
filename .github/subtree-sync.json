@@ -49,6 +49,10 @@
 			"targetRepo": "arcmantle/tsconfig"
 		},
 		{
+			"packagePath": "packages/dev-tools/prospector",
+			"targetRepo": "arcmantle/prospector"
+		},
+		{
 			"packagePath": "packages/dev-tools/eslint-config",
 			"targetRepo": "arcmantle/eslint-config"
 		},

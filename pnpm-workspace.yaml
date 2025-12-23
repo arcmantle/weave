@@ -183,6 +183,8 @@ catalog:
   weaviate-client: ^3.5.2
   ws: ^8.18.1
   yargs: ^18.0.0
+  '@actions/core': ^1.11.1
+  ora: ^8.1.1
 
 onlyBuiltDependencies:
   - '@firebase/util'

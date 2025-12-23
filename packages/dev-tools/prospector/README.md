@@ -1,26 +1,90 @@
 # Prospector
 
-A TypeScript/Node.js tool for calculating semantic versions (semver) based on git commit history using a trunk-based development workflow.
+**Semantic versioning made simple.** Calculate versions automatically from your git history using trunk-based development.
 
-## Features
+## What is Prospector?
 
-- **Commit Message Version Bumping**: Automatically bump versions using simple `[major]`, `[minor]`, `[patch]` markers in commit messages
-- **Explicit Version Setting**: Set exact versions with `[version:x.y.z]` syntax
-- **Trunk-Based Versioning**: Each commit to the main branch increments the version intelligently
-- **Prerelease Versioning**: Feature branches use prerelease version format (e.g., `1.2.3-feature.5`)
-- **Tag-Based Version Control**: Use git tags to set explicit versions
-- **Flexible Configuration**: Customize branch names, tag prefixes, and commit patterns
-- **CLI & Programmatic API**: Use as a command-line tool or import as a library
+Prospector is a tool that generates semantic versions (semver) for your project based on git commits. Instead of manually updating version numbers, Prospector reads your git history and commit messages to calculate the current version automatically.
+
+**Perfect for:**
+
+- Trunk-based development workflows
+- Automated CI/CD pipelines
+- Projects that want automatic versioning without manual intervention
+- Teams that need consistent versioning across repositories
+
+## Quick Start
+
+```bash
+# Install
+pnpm add -D @arcmantle/prospector
+
+# Get current version
+prospector
+# Output: 1.2.5
+
+# See what's next
+prospector --suggest minor
+# Output: 1.3.0
+```
+
+**Or use as a GitHub Action** - see [GitHub Action docs](./docs/GITHUB_ACTION.md)
+
+## Key Features
+
+- **🚀 Smart Version Calculation**: Automatically determines versions from git history
+- **💬 Commit Message Bumps**: Use `[major]`, `[minor]`, `[patch]` in commit messages for explicit version control
+- **🏷️ Tag-Based Releases**: Create git tags for official version markers
+- **🌿 Branch-Aware**: Different versioning for main branch vs feature branches
+- **⚡ Lightning Fast**: Optimized for repositories with millions of commits
+- **🔧 Flexible**: CLI tool or programmatic API
+- **📦 Zero Config**: Works out of the box with sensible defaults
+- **⚙️ GitHub Action**: Use in CI/CD pipelines (see [GitHub Action docs](./docs/GITHUB_ACTION.md))
+
+## How It Works
+
+### Three Simple Rules
+
+1. **On main branch**: Version increments based on commits and tags
+2. **On feature branches**: Version gets a prerelease suffix (e.g., `1.2.3-feature.5`)
+3. **Git tags set versions**: Create tags like `v1.0.0` to mark releases
+
+### Example
+
+```bash
+# Start: No tags, 10 commits on main
+prospector → 0.0.10
+
+# Tag a release
+git tag v1.0.0
+
+# Make 3 more commits
+prospector → 1.0.3
+
+# Create feature branch with 2 commits
+git checkout -b feature/awesome
+prospector → 1.0.1-feature-awesome.2
+
+# Merge back to main
+git checkout main
+git merge feature/awesome
+prospector → 1.0.4
+```
 
 ## Installation
 
 ```bash
-# Install dependencies
-pnpm install
+# npm
+npm install -D @arcmantle/prospector
 
-# Build the project
-pnpm build
+# pnpm
+pnpm add -D @arcmantle/prospector
+
+# yarn
+yarn add -D @arcmantle/prospector
 ```
+
+Or use as a **GitHub Action** - see [GitHub Action docs](./docs/GITHUB_ACTION.md) for details.
 
 ## Usage
 
@@ -66,88 +130,68 @@ prospector --branch master --prefix version-
 ```typescript
 import { calculateVersion, suggestVersionBump } from '@arcmantle/prospector';
 
-// Calculate current version (optimized scanning by default)
-// Automatically recognizes both 'main' and 'master' as trunk branches
-const info = calculateVersion({
+// Get current version
+const info = await calculateVersion({
   cwd: '/path/to/repo',
   tagPrefix: 'v'
 });
 
-console.log(info.version); // e.g., "1.2.5" or "1.2.3-feature.2"
-console.log(info.commitBumps); // { major: 0, minor: 2, patch: 1 }
+console.log(info.version);      // "1.2.5"
+console.log(info.commitBumps);  // { major: 0, minor: 2, patch: 1, explicitVersion: null }
 
-// Explicitly specify a single trunk branch
-const infoSingleBranch = calculateVersion({
-  mainBranch: 'develop'
-});
+// Suggest next version
+const next = await suggestVersionBump('minor');
+console.log(next); // "1.3.0"
+```
 
-// Specify multiple trunk branches
-const infoMultipleBranches = calculateVersion({
-  mainBranch: ['main', 'master', 'trunk']
-});
+#### Configuration Options
 
-// Disable commit message bumping for maximum speed
-const infoNoBumps = calculateVersion({
-  enableCommitBumps: false
-});
+```typescript
+await calculateVersion({
+  // Repository path (default: current directory)
+  cwd: '/path/to/repo',
 
-// Legacy mode: Limit scan depth (only if experiencing issues)
-const infoWithLimit = calculateVersion({
-  maxCommitScan: 500  // Fetch up to 500 commits (legacy mode)
-});
+  // Main branch names (default: ['main', 'master'])
+  mainBranch: 'develop',
+  // Or multiple: mainBranch: ['main', 'master', 'trunk'],
 
-// Custom commit patterns
-const infoCustom = calculateVersion({
+  // Tag prefix (default: 'v')
+  tagPrefix: 'version-',
+
+  // Enable commit message bumping (default: true)
+  enableCommitBumps: true,
+
+  // Custom commit patterns
   commitBumpPatterns: {
     major: /BREAKING|!:/i,
     minor: /feature:|feat:/i,
     patch: /fix:|bugfix:/i
-  }
-});
+  },
 
-// With progress callback for custom UI
-const infoWithProgress = calculateVersion({
-  onProgress: (message) => {
-    console.log(`[Progress] ${message}`);
-  }
+  // Progress callback
+  onProgress: (msg) => console.log(msg)
 });
-
-// Suggest next version
-const nextMinor = suggestVersionBump('minor', {
-  cwd: '/path/to/repo'
-});
-
-console.log(nextMinor); // e.g., "1.3.0"
 ```
 
-## Versioning Rules
+## Versioning Behavior
 
 ### Main Branch (Trunk)
 
-When on the main branch, there are two modes of operation:
+On your main branch, Prospector uses commit messages to determine version bumps:
 
-#### Commit Message-Based Bumping (Default)
+#### Commit Message Markers
 
-When enabled (default), Prospector scans commit messages for version bump indicators:
+Add these markers to your commit messages for explicit version control:
 
-**Supported Patterns:**
+| Marker            | Effect                             | Example                                                |
+|-------------------|------------------------------------|--------------------------------------------------------|
+| `[major]`         | Bump major version (2.0.0 → 3.0.0) | `git commit -m "[major] Breaking API changes"`         |
+| `[minor]`         | Bump minor version (1.2.0 → 1.3.0) | `git commit -m "[minor] Add new feature"`              |
+| `[patch]`         | Bump patch version (1.2.3 → 1.2.4) | `git commit -m "[patch] Fix bug"`                      |
+| `[version:x.y.z]` | Set exact version                  | `git commit -m "[version:2.5.0] Release 2.5.0"`        |
+| `[v:x.y.z]`       | Set exact version (short)          | `git commit -m "[v:1.0.0] Initial release"`            |
 
-- **Major**: `[major]` - Bumps to next major version (resets minor and patch)
-- **Minor**: `[minor]` - Bumps to next minor version (resets patch)
-- **Patch**: `[patch]` - Bumps patch version
-- **Explicit**: `[version:x.y.z]` or `[v:x.y.z]` - Sets exact version
-
-**Examples:**
-
-```bash
-git commit -m "[minor] Add new user dashboard"           # Bumps minor
-git commit -m "[major] Complete API redesign"            # Bumps major
-git commit -m "[patch] Fix login timeout issue"          # Bumps patch
-git commit -m "[version:2.5.0] Release 2.5.0"            # Sets to 2.5.0
-git commit -m "Update dependencies"                      # No explicit bump
-```
-
-**Behavior:**
+#### How Bumps Work
 
 - Explicit versions (`[version:x.y.z]`) take absolute precedence
 - Multiple bump indicators accumulate (e.g., 3 `[minor]` = +3 to minor version)
@@ -155,22 +199,26 @@ git commit -m "Update dependencies"                      # No explicit bump
 - When minor bumps, patch resets to 0
 - If no explicit bumps found, falls back to commit count
 
-**✨ Optimized Scanning**
+#### Optimized Scanning (Default)
 
-Prospector uses **optimized git grep-based scanning** by default, which is extremely efficient even for repositories with millions of commits:
+Prospector is **extremely fast** even with millions of commits. It uses git's internal indexes to find only commits with bump markers:
 
-- Only fetches commits that contain bump markers (`[major]`, `[minor]`, `[patch]`, `[version:x.y.z]`)
-- Uses Git's internal indexes for fast pattern matching
-- Early termination when explicit version is found
-- **No scan limit needed** - handles 1M+ commits efficiently
+**Why it's fast:**
 
-Performance characteristics:
+- Only fetches commits containing `[major]`, `[minor]`, `[patch]`, or `[version:x.y.z]`
+- Uses `git log --grep` (built-in git optimization)
+- Early stops when explicit version found
+- Typical repositories: <1% of commits have markers
 
-- If you have 1M commits with 50 bump markers → only fetches those 50 commits (~0.3s)
-- Memory usage: Only stores matching commits (typically < 1MB)
-- Works seamlessly with any repository size
+**Performance examples:**
 
-**Legacy Scan Limit (Optional)**
+- 100K commits, 50 with markers → ~0.2s, ~500KB memory
+- 1M commits, 100 with markers → ~0.3s, ~1MB memory
+- 10M commits, 200 with markers → ~0.5s, ~2MB memory
+
+**No configuration needed** - it just works fast out of the box!
+
+#### Legacy Scan Limit (Optional)
 
 For edge cases or specific performance requirements, you can enable a scan limit:
 
@@ -181,103 +229,120 @@ calculateVersion({ maxCommitScan: 1000 })
 
 When `maxCommitScan` is set, Prospector falls back to the legacy scanning mode that fetches all commits up to the limit. This is generally not needed with the optimized approach.
 
-**🏷️ Tagging Best Practices**
+#### Tagging Best Practices
 
-Even with optimized scanning, regular tagging is recommended for trunk-based workflow:
-
-- **Tags mark official releases**: They provide clear version checkpoints
-- **Commit bumps for work-in-progress**: Between tags, use commit messages for incremental versioning
-- **Tag at major milestones**: Don't let hundreds of bumps accumulate
+Use git tags to mark official releases:
 
 ```bash
-# Good workflow
+# Work with commit markers
 git commit -m "[minor] Add feature A"
 git commit -m "[patch] Fix bug"
-# ... after several features/fixes ...
-git tag v1.5.0  # Mark a release
+git commit -m "[minor] Add feature B"
+
+# Mark official release
+git tag v1.5.0
 git push --tags
 
-# Continue working
-git commit -m "[patch] New fix"
-# ... next release cycle ...
+# Continue development
+git commit -m "[patch] Quick fix"
+prospector → 1.5.1
 ```
 
-#### Commit Count Mode
+**Why tag?**
 
-When commit message bumping is disabled (`--no-commit-bumps`):
-
-1. Find the most recent version tag (e.g., `v1.2.0`)
-2. Count commits since that tag
-3. Add commit count to the patch version
-4. Example: If tag is `v1.2.0` and there are 5 commits → version is `1.2.5`
+- Tags mark stable release points
+- Makes version history clear
+- Allows easy rollback to specific versions
+- Prevents hundreds of bump markers from accumulating
 
 ### Feature Branches
 
-When on a feature branch:
+Feature branches automatically get prerelease versions:
 
-1. Find the most recent version tag
-2. Increment the patch version by 1
-3. Add branch name and commit count as prerelease identifier
-4. Example: If tag is `v1.2.0`, branch is `feature/awesome`, with 3 commits → version is `1.2.1-feature-awesome.3`
+**Format:** `{base_version}-{branch_name}.{commit_count}`
 
-### No Tags
-
-If no version tags exist:
-
-- **Main branch**: Version starts at `0.0.{commitCount}`
-- **Feature branch**: Version is `0.0.1-{branch}.{commitCount}`
-
-### Creating Version Tags
-
-To bump major or minor versions, create a git tag:
+**Example:**
 
 ```bash
-# Bump to next major version (e.g., 1.0.0 → 2.0.0)
-git tag v2.0.0
-git push --tags
+# On main: v1.2.0 exists
+git checkout -b feature/awesome-thing
 
-# Bump to next minor version (e.g., 1.2.0 → 1.3.0)
-git tag v1.3.0
-git push --tags
+# Make 3 commits
+prospector → 1.2.1-feature-awesome-thing.3
 ```
 
-After creating a tag, subsequent commits will increment from that version.
+**How it works:**
 
-## Example Workflow
+1. Find last version tag (`v1.2.0`)
+2. Increment patch by 1 (`1.2.1`)
+3. Add branch name (sanitized) and commit count as prerelease
+
+This makes it clear the version is:
+
+- Not an official release
+- Based on version 1.2.0
+- From the "feature-awesome-thing" branch
+- 3 commits ahead
+
+### No Tags (Initial State)
+
+When no git tags exist:
+
+- **Main branch:** `0.0.{total_commits}`
+  - Example: 15 commits → `0.0.15`
+- **Feature branch:** `0.0.1-{branch_name}.{total_commits}`
+  - Example: 8 commits on `feature/init` → `0.0.1-feature-init.8`
+
+Create your first tag when ready to release:
 
 ```bash
-# Initial state: no tags, 10 commits on main
-prospector
-# Output: 0.0.10
-
-# Create first release
 git tag v1.0.0
 git push --tags
-
-# Make 3 more commits on main
-prospector
-# Output: 1.0.3
-
-# Create feature branch
-git checkout -b feature/new-thing
-
-# Make 2 commits on feature branch
-prospector
-# Output: 1.0.1-feature-new-thing.2
-
-# Merge back to main (1 merge commit)
-git checkout main
-git merge feature/new-thing
-prospector
-# Output: 1.0.4
-
-# Ready for minor release
-prospector --suggest minor
-# Output: 1.1.0
-
-git tag v1.1.0
-git push --tags
 ```
+
+## Advanced Usage
+
+### Disable Commit Bumps (Faster)
+
+For maximum speed, disable commit message scanning:
+
+```bash
+# CLI
+prospector --no-commit-bumps
+
+# API
+await calculateVersion({ enableCommitBumps: false })
+```
+
+This uses only commit count, no message parsing. Version is simply `{tag} + {commit_count}`.
+
+### Custom Commit Patterns
+
+Match your team's commit conventions:
+
+```typescript
+await calculateVersion({
+  commitBumpPatterns: {
+    major: /BREAKING CHANGE|!:/i,
+    minor: /^feat:/i,
+    patch: /^fix:/i
+  }
+});
+```
+
+Now commits like `feat: add dashboard` will bump minor version.
+
+### Legacy Scan Limit
+
+If you experience issues (very rare), you can limit commit scanning:
+
+```typescript
+await calculateVersion({
+  maxCommitScan: 1000  // Only scan last 1000 commits
+})
+```
+
+**Note:** This is rarely needed. The default optimized mode handles millions of commits efficiently.
 
 ## API Reference
 
@@ -302,7 +367,7 @@ Calculates the current version based on git history.
 - `commitsSinceTag` - Number of commits since last tag
 - `lastTag` - Last version tag info (or null)
 - `currentCommit` - Current commit hash
-- `commitBumps` - Object with `{ major, minor, patch }` counts from commit messages
+- `commitBumps` - Object with `{ major, minor, patch, explicitVersion }` counts from commit messages
 
 ### `suggestVersionBump(bumpType, options?)`
 
@@ -315,71 +380,32 @@ Suggests the next version for a given bump type.
 
 **Returns:** Version string (e.g., `'2.0.0'`)
 
-## Performance & Scalability
+## Performance
 
-Prospector is **highly optimized** for repositories of all sizes, from small projects to monorepos with millions of commits.
+Prospector is **extremely fast** even with millions of commits:
 
-### Optimized Git Grep Scanning (Default)
+### Why It's Fast
 
-By default, Prospector uses **git log --grep** to efficiently scan for version bump patterns:
+- **Optimized git operations**: Uses `git log --grep` to scan only commits with bump markers
+- **Typical case**: <1% of commits have version markers, so we only process <1%
+- **Early termination**: Stops when explicit version found
+- **Smart counting**: Uses `git rev-list --count` (O(1) operation)
 
-**How it works:**
+### Performance Data
 
-1. Uses Git's internal indexes to find commits with bump markers
-2. Only fetches commits that contain `[major]`, `[minor]`, `[patch]`, or `[version:x.y.z]`
-3. Early termination when explicit version is found
-4. Commit counting uses `git rev-list --count` (O(1) operation)
+|Repository Size|Commits with Bumps|Time  |Memory|
+|---------------|------------------|------|------|
+|1K commits     |20                |< 0.1s|< 1MB |
+|10K commits    |50                |< 0.2s|< 1MB |
+|100K commits   |100               |< 0.3s|< 2MB |
+|1M commits     |200               |< 0.5s|< 3MB |
+|10M commits    |500               |< 1s  |< 5MB |
 
-**Performance:**
-
-- **100k commits, 50 with bumps**: ~0.2s, ~500KB memory
-- **1M commits, 100 with bumps**: ~0.3s, ~1MB memory
-- **10M commits, 200 with bumps**: ~0.5s, ~2MB memory
-
-**The key insight:** Most repositories have bump markers in <1% of commits, so we only process that <1%.
-
-### Performance Across All Repository Sizes
-
-| Repo Size | Commits with Bumps | Time | Memory | Mode |
-|-----------|-------------------|------|--------|------|
-| 1k commits | 20 | < 0.1s | < 1MB | Optimized (default) |
-| 10k commits | 50 | < 0.2s | < 1MB | Optimized (default) |
-| 100k commits | 100 | < 0.3s | < 2MB | Optimized (default) |
-| 1M commits | 200 | < 0.5s | < 3MB | Optimized (default) |
-| 10M commits | 500 | < 1s | < 5MB | Optimized (default) |
-
-**With bumps disabled** (`enableCommitBumps: false`): All sizes run in < 0.1s using only commit counting.
-
-### Legacy Scan Limit Mode
-
-If you explicitly set `maxCommitScan`, Prospector falls back to legacy mode (fetches all commits up to limit):
-
-```typescript
-// Legacy mode: Fetch up to 1000 commits
-calculateVersion({ maxCommitScan: 1000 });
-
-// Maximum speed: Disable bump scanning entirely
-calculateVersion({ enableCommitBumps: false });
-```
-
-**Legacy Mode Performance:**
-
-| Commits Since Tag | With Limit (1000) | Memory |
-|-------------------|-------------------|--------|
-| 100               | < 0.1s            | < 1MB  |
-| 1,000             | < 0.2s            | ~5MB   |
-| 10,000            | < 0.3s (hits limit) | ~5MB   |
-| 100,000           | < 0.3s (hits limit) | ~5MB   |
-
-**When to use legacy mode:**
-
-- Generally not needed - optimized mode handles all cases
-- Only if you experience unexpected issues with git grep
-- For very strict memory constraints (though optimized mode is already minimal)
+**With `--no-commit-bumps`**: All sizes run in < 0.1s.
 
 ## Quick Reference
 
-### Commit Message Syntax
+### Commit Marker Syntax
 
 ```bash
 # Major version bump (1.0.0 → 2.0.0)
@@ -389,19 +415,19 @@ git commit -m "[major] Breaking API changes"
 git commit -m "[minor] New reporting feature"
 
 # Patch version bump (1.0.0 → 1.0.1)
-git commit -m "[patch] Update dependencies"
+git commit -m "[patch] Fix bug in login"
 
 # Set exact version
 git commit -m "[version:2.5.0] Release version 2.5.0"
-git commit -m "[v:1.3.7] Align with upstream version"
+git commit -m "[v:1.3.7] Align with upstream"
 
-# No explicit bump (falls back to commit count)
+# No explicit bump (uses commit count for patch)
 git commit -m "Update README"
 ```
 
-See [COMMIT_SYNTAX.md](./COMMIT_SYNTAX.md) for comprehensive documentation on commit message patterns.
+See [docs/COMMIT_SYNTAX.md](./docs/COMMIT_SYNTAX.md) for more details on commit message patterns.
 
-### Common Commands
+### Common CLI Commands
 
 ```bash
 # Get current version

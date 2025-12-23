@@ -8,8 +8,8 @@ import { calculateVersion, suggestVersionBump } from './index.js';
 
 console.log('=== Prospector Example ===\n');
 
-// Get current version information
-const versionInfo = calculateVersion({
+// Get current version information (now async!)
+const versionInfo = await calculateVersion({
 	mainBranch: 'main',
 	tagPrefix:  'v',
 });
@@ -30,6 +30,6 @@ if (versionInfo.lastTag) {
 }
 
 console.log('\n=== Version Bump Suggestions ===');
-console.log(`Next Patch:  ${ suggestVersionBump('patch') }`);
-console.log(`Next Minor:  ${ suggestVersionBump('minor') }`);
-console.log(`Next Major:  ${ suggestVersionBump('major') }`);
+console.log(`Next Patch:  ${ await suggestVersionBump('patch') }`);
+console.log(`Next Minor:  ${ await suggestVersionBump('minor') }`);
+console.log(`Next Major:  ${ await suggestVersionBump('major') }`);

@@ -90,9 +90,7 @@ function parseCommandArgs(command: string): string[] {
 	let inQuote = false;
 	let quoteChar = '';
 
-	for (let i = 0; i < command.length; i++) {
-		const char = command[i]!;
-
+	for (const char of command) {
 		if ((char === '"' || char === "'") && !inQuote) {
 			inQuote = true;
 			quoteChar = char;
