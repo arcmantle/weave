@@ -13,6 +13,7 @@
 		"@arcmantle/build-package": "workspace:^",
 		"@arcmantle/eslint-config": "workspace:^",
 		"@arcmantle/package-toolbox": "workspace:^",
+		"@arcmantle/prospector": "workspace:^",
 		"@arcmantle/tsconfig": "workspace:^",
 		"@arcmantle/workspace-scripts": "workspace:^",
 		"@types/node": "catalog:",

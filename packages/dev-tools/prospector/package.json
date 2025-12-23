@@ -1,0 +1,33 @@
+{
+	"name": "@arcmantle/prospector",
+	"version": "1.0.0",
+	"description": "A tool for calculating semver version based on git commit history",
+	"keywords": [
+		"semver",
+		"versioning",
+		"git",
+		"trunk-based"
+	],
+	"license": "MIT",
+	"author": "arcmantle",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"bin": {
+		"prospector": "./src/cli.ts"
+	},
+	"scripts": {
+		"build": "tsc",
+		"dev": "tsc --watch",
+		"test": "vitest"
+	},
+	"dependencies": {
+		"semver": "^7.6.0"
+	},
+	"devDependencies": {
+		"@types/node": "catalog:",
+		"@types/semver": "^7.5.6",
+		"typescript": "catalog:",
+		"vitest": "catalog:"
+	}
+}
