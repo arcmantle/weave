@@ -45,7 +45,6 @@
 	"scripts": {
 		"build": "tsdown",
 		"dev": "tsc --watch",
-		"skip_prepublishOnly": "pnpm build && pnpm test run",
 		"test": "vitest"
 	},
 	"dependencies": {
@@ -60,19 +59,33 @@
 		"typescript": "catalog:",
 		"vitest": "catalog:"
 	},
-	"tsdown": {
-		"entry": [
-			"src/index.ts",
-			"src/action.ts",
-			"src/cli.ts"
-		],
-		"platform": "node",
-		"format": "esm",
-		"outDir": "dist",
-		"noExternal": [
-			"@actions/core",
-			"ora",
-			"semver"
-		]
-	}
+	"tsdown": [
+		{
+			"entry": [
+				"src/index.ts",
+				"src/cli.ts"
+			],
+			"platform": "node",
+			"format": "esm",
+			"outDir": "dist",
+			"noExternal": [
+				"ora",
+				"semver"
+			]
+		},
+		{
+			"entry": [
+				"src/action.ts"
+			],
+			"platform": "node",
+			"format": "esm",
+			"outDir": "action",
+			"dts": false,
+			"noExternal": [
+				"@actions/core",
+				"ora",
+				"semver"
+			]
+		}
+	]
 }

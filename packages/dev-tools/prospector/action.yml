@@ -49,4 +49,4 @@ outputs:
 
 runs:
   using: 'node20'
-  main: 'dist/action.js'
+  main: 'action/action.js'

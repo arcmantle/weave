@@ -95,7 +95,7 @@ jobs:
             await exec.exec('unzip', ['-o', 'artifact.zip']);
 
             // Read the dep-map
-            const depMap = JSON.parse(fs.readFileSync('dep-map-' + '${{ inputs.dep-map-artifact }}'.split('-').pop() + '.json', 'utf8'));
+            const depMap = JSON.parse(fs.readFileSync('dep-map.json', 'utf8'));
             console.log('📥 Downloaded dep-map from artifact:', depMap);
 
             // Output as JSON string
@@ -127,20 +127,17 @@ jobs:
 
       - name: Calculate version with Prospector
         id: version
-        run: |
-          echo "🔍 Using Prospector to calculate version..."
-          VERSION=$(node bin/bin.js)
-          echo "📦 Calculated version: $VERSION"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-          PACKAGE_NAME=$(node -p "require('./package.json').name")
-          echo "package=$PACKAGE_NAME" >> $GITHUB_OUTPUT
+        uses: ./
+        with:
+          dir: '.'
 
       - name: Set package version
         run: |
           echo "✅ Setting package version to ${{ steps.version.outputs.version }}"
           npm version ${{ steps.version.outputs.version }} --no-git-tag-version
-          echo "📦 Package ${{ steps.version.outputs.package }} ready to publish"
+
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          echo "📦 Package $PACKAGE_NAME ready to publish at version ${{ steps.version.outputs.version }}"
 
       #- name: Publish to NPM
       #  run: pnpm publish --access ${{ inputs.access }} --no-git-checks
