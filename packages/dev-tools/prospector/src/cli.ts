@@ -141,7 +141,7 @@ Commit Message Version Bumping:
 	}
 
 	private async runSuggest(): Promise<void> {
-		const spinner = ora('Calculating version...').start();
+		const spinner = ora({ text: 'Calculating version...', stream: process.stderr }).start();
 		const startMem = process.memoryUsage();
 
 		const suggested = await suggestVersionBump(this.options.suggest!, {
@@ -197,7 +197,7 @@ Commit Message Version Bumping:
 	}
 
 	private async runCalculate(): Promise<void> {
-		const spinner = ora('Calculating version...').start();
+		const spinner = ora({ text: 'Calculating version...', stream: process.stderr }).start();
 		const startMem = process.memoryUsage();
 
 		const info = await calculateVersion({
@@ -223,7 +223,7 @@ Commit Message Version Bumping:
 				await this.runCalculate();
 		}
 		catch (error) {
-			const spinner = ora();
+			const spinner = ora({ stream: process.stderr });
 			spinner.fail('Error calculating version');
 			console.error('Error:', error instanceof Error ? error.message : String(error));
 			process.exit(1);

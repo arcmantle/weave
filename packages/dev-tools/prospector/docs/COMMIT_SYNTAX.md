@@ -170,11 +170,13 @@ const version = calculateVersion({
 You can disable this feature entirely:
 
 **CLI:**
+
 ```bash
 prospector --no-commit-bumps
 ```
 
 **Programmatically:**
+
 ```typescript
 const version = calculateVersion({
   enableCommitBumps: false
