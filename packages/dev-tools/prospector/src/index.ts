@@ -54,10 +54,11 @@ export interface VersionInfo {
 	currentCommit:   string;
 	/** Version bumps detected from commit messages */
 	commitBumps:     {
-		major:           number;
-		minor:           number;
-		patch:           number;
-		explicitVersion: string | null;
+		major:                 number;
+		minor:                 number;
+		patch:                 number;
+		explicitVersion:       string | null;
+		explicitVersionCommit: string | null;
 	};
 }
 
@@ -392,7 +393,7 @@ async function getCommitsWithBumps(
 	const range = from ? `${ from }..${ to }` : to;
 
 	// Build grep pattern for all bump indicators
-	const pattern = '\\[major\\]\\|\\[minor\\]\\|\\[patch\\]\\|\\[version:\\|\\[v:';
+	const pattern = '\\[major\\]|\\[minor\\]|\\[patch\\]|\\[version:|\\[v:';
 
 	onProgress?.('Searching for version bump markers...');
 
@@ -454,8 +455,14 @@ async function getCommitsWithBumps(
 function analyzeCommitBumps(
 	commits: CommitInfo[],
 	patterns: { major?: RegExp; minor?: RegExp; patch?: RegExp; },
-): { major: number; minor: number; patch: number; explicitVersion: string | null; } {
-	const bumps = { major: 0, minor: 0, patch: 0, explicitVersion: null as string | null };
+): { major: number; minor: number; patch: number; explicitVersion: string | null; explicitVersionCommit: string | null; } {
+	const bumps = {
+		major:                 0,
+		minor:                 0,
+		patch:                 0,
+		explicitVersion:       null as string | null,
+		explicitVersionCommit: null as string | null,
+	};
 
 	for (const commit of commits) {
 		// Check for explicit version setting first
@@ -463,6 +470,7 @@ function analyzeCommitBumps(
 		if (versionMatch?.[1]) {
 			// Use the most recent explicit version found
 			bumps.explicitVersion = versionMatch[1];
+			bumps.explicitVersionCommit = commit.hash;
 			// Early termination: explicit version takes precedence, no need to scan older commits
 			break;
 		}
@@ -488,6 +496,7 @@ function analyzeCommitBumps(
  */
 export async function calculateVersion(options: ProspectorOptions = {}): Promise<VersionInfo> {
 	const cwd = options.cwd || '.';
+
 	// Support both 'main' and 'master' by default, or custom branch names
 	const mainBranchOption = options.mainBranch || [ 'main', 'master' ];
 	const mainBranches = Array.isArray(mainBranchOption) ? mainBranchOption : [ mainBranchOption ];
@@ -522,7 +531,13 @@ export async function calculateVersion(options: ProspectorOptions = {}): Promise
 
 	let version: string;
 	let commitsSinceTag: number;
-	let commitBumps = { major: 0, minor: 0, patch: 0, explicitVersion: null as string | null };
+	let commitBumps = {
+		major:                 0,
+		minor:                 0,
+		patch:                 0,
+		explicitVersion:       null as string | null,
+		explicitVersionCommit: null as string | null,
+	};
 
 	// Only fetch commit messages if we need them for bump analysis
 	let commits: CommitInfo[] = [];
@@ -580,10 +595,27 @@ export async function calculateVersion(options: ProspectorOptions = {}): Promise
 
 		if (isMainBranch) {
 			// Check for explicit version setting first
-			if (enableCommitBumps && commitBumps.explicitVersion) {
-				version = commitBumps.explicitVersion;
+			if (enableCommitBumps && commitBumps.explicitVersion && commitBumps.explicitVersionCommit) {
+				// Count commits AFTER the explicit version commit
+				const commitsSinceExplicit = await countCommits(
+					cwd,
+					commitBumps.explicitVersionCommit,
+					currentCommit,
+					onProgress,
+				);
+
+				const msg
+					= `Found explicit version ${ commitBumps.explicitVersion } with `
+					+ `${ commitsSinceExplicit } commit(s) after it`;
+
+				onProgress(msg);
+
+				// Parse the explicit version and add commits to patch
+				const explicitVer = semver.parse(commitBumps.explicitVersion)!;
+				explicitVer.patch += commitsSinceExplicit;
+				version = explicitVer.format();
 			}
-			else if (enableCommitBumps && (commitBumps.major > 0 || commitBumps.minor > 0)) {
+			else if (enableCommitBumps && (commitBumps.major > 0 || commitBumps.minor > 0 || commitBumps.patch > 0)) {
 				// Apply explicit version bumps from commit messages
 				const newVersion = semver.parse(lastTag.version.version)!;
 				newVersion.major += commitBumps.major;
@@ -642,11 +674,19 @@ export async function calculateVersion(options: ProspectorOptions = {}): Promise
 		}
 
 		if (isMainBranch) {
-			if (enableCommitBumps && commitBumps.explicitVersion) {
-				// Use explicit version if set
-				version = commitBumps.explicitVersion;
+			if (enableCommitBumps && commitBumps.explicitVersion && commitBumps.explicitVersionCommit) {
+				// Count commits AFTER the explicit version commit
+				const commitsSinceExplicit = await countCommits(cwd, commitBumps.explicitVersionCommit, currentCommit, onProgress);
+				const msg = `Found explicit version ${ commitBumps.explicitVersion } with ` +
+					`${ commitsSinceExplicit } commit(s) after it`;
+				onProgress(msg);
+
+				// Parse the explicit version and add commits to patch
+				const explicitVer = semver.parse(commitBumps.explicitVersion)!;
+				explicitVer.patch += commitsSinceExplicit;
+				version = explicitVer.format();
 			}
-			else if (enableCommitBumps && (commitBumps.major > 0 || commitBumps.minor > 0)) {
+			else if (enableCommitBumps && (commitBumps.major > 0 || commitBumps.minor > 0 || commitBumps.patch > 0)) {
 				// Apply explicit bumps from commits
 				const newVersion = new semver.SemVer('0.0.0');
 				newVersion.major = commitBumps.major;
@@ -664,6 +704,7 @@ export async function calculateVersion(options: ProspectorOptions = {}): Promise
 			const branchName = currentBranch
 				.replace(/[^a-zA-Z0-9-]/g, '-')
 				.replace(/^-+|-+$/g, '');
+
 			version = `0.0.1-${ branchName }.${ commitsSinceTag }`;
 		}
 	}

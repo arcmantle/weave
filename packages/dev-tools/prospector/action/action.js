@@ -18559,7 +18559,7 @@ async function getCommitMessages(cwd, from, to = "HEAD", limit) {
 */
 async function getCommitsWithBumps(cwd, from, to = "HEAD", onProgress) {
 	const range = from ? `${from}..${to}` : to;
-	const pattern = "\\[major\\]\\|\\[minor\\]\\|\\[patch\\]\\|\\[version:\\|\\[v:";
+	const pattern = "\\[major\\]|\\[minor\\]|\\[patch\\]|\\[version:|\\[v:";
 	onProgress?.("Searching for version bump markers...");
 	const output = await gitExec(`log ${range} --grep='${pattern}' -E -i --format=%H%x00%B%x00`, cwd);
 	if (!output) {
@@ -18602,12 +18602,14 @@ function analyzeCommitBumps(commits, patterns) {
 		major: 0,
 		minor: 0,
 		patch: 0,
-		explicitVersion: null
+		explicitVersion: null,
+		explicitVersionCommit: null
 	};
 	for (const commit of commits) {
 		const versionMatch = VERSION_SET_PATTERN.exec(commit.message);
 		if (versionMatch?.[1]) {
 			bumps.explicitVersion = versionMatch[1];
+			bumps.explicitVersionCommit = commit.hash;
 			break;
 		}
 		if (patterns.major?.test(commit.message)) bumps.major++;
@@ -18648,7 +18650,8 @@ async function calculateVersion(options = {}) {
 		major: 0,
 		minor: 0,
 		patch: 0,
-		explicitVersion: null
+		explicitVersion: null,
+		explicitVersionCommit: null
 	};
 	let commits = [];
 	if (enableCommitBumps && isMainBranch) {
@@ -18675,8 +18678,13 @@ async function calculateVersion(options = {}) {
 			onProgress(`Counted ${commitsSinceTag.toLocaleString()} commit(s) since ${lastTag.tag}`);
 		}
 		onProgress(`${commitsSinceTag} commit(s) since last tag (${lastTag.tag})`);
-		if (isMainBranch) if (enableCommitBumps && commitBumps.explicitVersion) version = commitBumps.explicitVersion;
-		else if (enableCommitBumps && (commitBumps.major > 0 || commitBumps.minor > 0)) {
+		if (isMainBranch) if (enableCommitBumps && commitBumps.explicitVersion && commitBumps.explicitVersionCommit) {
+			const commitsSinceExplicit = await countCommits(cwd, commitBumps.explicitVersionCommit, currentCommit, onProgress);
+			onProgress(`Found explicit version ${commitBumps.explicitVersion} with ${commitsSinceExplicit} commit(s) after it`);
+			const explicitVer = import_semver.parse(commitBumps.explicitVersion);
+			explicitVer.patch += commitsSinceExplicit;
+			version = explicitVer.format();
+		} else if (enableCommitBumps && (commitBumps.major > 0 || commitBumps.minor > 0 || commitBumps.patch > 0)) {
 			const newVersion = import_semver.parse(lastTag.version.version);
 			newVersion.major += commitBumps.major;
 			newVersion.minor += commitBumps.minor;
@@ -18707,8 +18715,13 @@ async function calculateVersion(options = {}) {
 			commitsSinceTag = await countAllCommits(cwd, onProgress);
 			onProgress(`Total commits in repository: ${commitsSinceTag.toLocaleString()}`);
 		}
-		if (isMainBranch) if (enableCommitBumps && commitBumps.explicitVersion) version = commitBumps.explicitVersion;
-		else if (enableCommitBumps && (commitBumps.major > 0 || commitBumps.minor > 0)) {
+		if (isMainBranch) if (enableCommitBumps && commitBumps.explicitVersion && commitBumps.explicitVersionCommit) {
+			const commitsSinceExplicit = await countCommits(cwd, commitBumps.explicitVersionCommit, currentCommit, onProgress);
+			onProgress(`Found explicit version ${commitBumps.explicitVersion} with ${commitsSinceExplicit} commit(s) after it`);
+			const explicitVer = import_semver.parse(commitBumps.explicitVersion);
+			explicitVer.patch += commitsSinceExplicit;
+			version = explicitVer.format();
+		} else if (enableCommitBumps && (commitBumps.major > 0 || commitBumps.minor > 0 || commitBumps.patch > 0)) {
 			const newVersion = new import_semver.SemVer("0.0.0");
 			newVersion.major = commitBumps.major;
 			newVersion.minor = commitBumps.minor;

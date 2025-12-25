@@ -89,7 +89,13 @@ describe('ProspectorCLI', () => {
 					version: new SemVer('1.2.0'),
 					commit:  'def456abc123',
 				},
-				commitBumps: { major: 0, minor: 0, patch: 0, explicitVersion: null },
+				commitBumps: {
+					major:                 0,
+					minor:                 0,
+					patch:                 0,
+					explicitVersion:       null,
+					explicitVersionCommit: null,
+				},
 			});
 
 			const cli = new ProspectorCLI([]);
