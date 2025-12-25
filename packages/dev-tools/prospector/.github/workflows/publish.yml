@@ -139,20 +139,8 @@ jobs:
           PACKAGE_NAME=$(node -p "require('./package.json').name")
           echo "📦 Package $PACKAGE_NAME ready to publish at version ${{ steps.version.outputs.version }}"
 
-      #- name: Publish to NPM
-      #  run: pnpm publish --access ${{ inputs.access }} --no-git-checks
-      #  env:
-      #    NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH }}
-      #    NPM_TOKEN: ${{ secrets.NPM_PUBLISH }}
-
-    #uses: arcmantle/github-workflows/.github/workflows/pnpm-publish.yml@main
-    #with:
-    #  triggered-by:  ${{ inputs.triggered-by }}
-    #  dep-map: ${{ inputs.dep-map }}
-    #  pre-build-script: ${{ inputs.pre-build-script }}
-    #  additional-deps: ${{ inputs.additional-deps }}
-    #  version-increment: ${{ inputs.version-increment }}
-    #  node-version: ${{ inputs.node-version }}
-    #  access: ${{ inputs.access }}
-    #secrets:
-    #  NPM_PUBLISH: ${{ secrets.NPM_PUBLISH }}
+      - name: Publish to NPM
+        run: pnpm publish --access ${{ inputs.access }} --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH }}
+          NPM_TOKEN: ${{ secrets.NPM_PUBLISH }}
