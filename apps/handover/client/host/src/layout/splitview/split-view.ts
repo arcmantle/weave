@@ -1,7 +1,7 @@
 import { effect } from '@arcmantle/adapter-element/shared';
-import { html, render } from 'lit-html';
-import { classMap } from 'lit-html/directives/class-map.js';
-import { createRef, type Ref, ref } from 'lit-html/directives/ref.js';
+import { html, render } from 'lit';
+import { classMap } from 'lit/directives/class-map.js';
+import { createRef, type Ref, ref } from 'lit/directives/ref.js';
 
 import { type ISashItem, type ISashLayoutProvider, Sash } from './sash.ts';
 import {

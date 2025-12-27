@@ -11,13 +11,15 @@
 	"dependencies": {
 		"@arcmantle/adapter-element": "catalog:",
 		"@arcmantle/handover-core": "workspace:^",
+		"@arcmantle/injector": "workspace:^",
 		"@arcmantle/library": "catalog:",
 		"@arcmantle/lit-jsx": "catalog:",
 		"@arcmantle/vite-plugin-import-css-sheet": "workspace:^",
+		"@preact/signals-core": "catalog:",
 		"@tailwindcss/vite": "catalog:",
 		"class-variance-authority": "catalog:",
 		"clsx": "catalog:",
-		"lit-html": "catalog:",
+		"lit": "catalog:",
 		"tailwind-merge": "catalog:",
 		"tailwindcss": "catalog:",
 		"tw-animate-css": "catalog:"

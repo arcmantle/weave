@@ -5,7 +5,7 @@ import type { UserConfig } from 'vite';
 
 
 export default libConfig({
-	plugins: [ litJsx(), importCSSSheet() ],
+	plugins: [ litJsx({ useTypeInference: true }), importCSSSheet() ],
 	esbuild: {
 		supported: {
 			decorators: false,

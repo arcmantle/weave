@@ -1,26 +1,34 @@
-import { type DynamicCSS, state } from '@arcmantle/adapter-element/adapter';
-import { css, type CSSStyle, type Signal } from '@arcmantle/adapter-element/shared';
-import { type ToComponent, toComponent } from '@arcmantle/lit-jsx';
+import { Signal } from '@preact/signals-core';
+import { css, type CSSResultGroup } from 'lit';
+import { customElement, state } from 'lit/decorators.js';
 
 import type { ContentLocation } from '../extensions/create-manifest.ts';
+import { injector } from '../inject.ts';
 import { ContentArea } from './content-area.tsx';
 import { layoutPreferences } from './layout-preferences.ts';
 
 
-export class SecondarySidebarCmp extends ContentArea {
+@customElement('ho-secondary-sidebar')
+export class SecondarySidebar extends ContentArea {
 
-	static override tagName:  string = 'ho-secondary-sidebar';
-	override contentLocation: ContentLocation = 'secondary-sidebar';
-
-	protected secondarySidebar: SecondarySidebarService = this.inject.get('secondary-sidebar');
+	static tagName: string = 'ho-secondary-sidebar';
 
 	@state() accessor width: number = 200;
+
+	override contentLocation:   ContentLocation = 'secondary-sidebar';
+	protected secondarySidebar: SecondarySidebarService;
+
+	override connectedCallback(): void {
+		super.connectedCallback();
+
+		this.secondarySidebar = injector.get('secondary-sidebar');
+	}
 
 	protected onWrapperMousedown(ev: MouseEvent): void {
 		ev.preventDefault();
 
 		const mousemove = (ev: MouseEvent): void => {
-			const width = this.element.getBoundingClientRect().right - ev.clientX;
+			const width = this.getBoundingClientRect().right - ev.clientX;
 
 			if (width < 40 && this.secondarySidebar.visible.value)
 				this.secondarySidebar.visible.value = false;
@@ -44,6 +52,8 @@ export class SecondarySidebarCmp extends ContentArea {
 			return;
 
 		return <>
+			<style>{this.renderStyles()}</style>
+
 			<s-drag-handle
 				on-mousedown={this.onWrapperMousedown}
 			></s-drag-handle>
@@ -53,8 +63,8 @@ export class SecondarySidebarCmp extends ContentArea {
 		</>;
 	}
 
-	protected override renderStyles(styles: string, css: DynamicCSS): string | void {
-		styles += css`
+	protected renderStyles(): string | void {
+		const styles = `
 			:host {
 				--_width: ${ this.width }px;
 			}
@@ -63,7 +73,7 @@ export class SecondarySidebarCmp extends ContentArea {
 		return styles;
 	}
 
-	static override styles: CSSStyle = css`
+	static override styles: CSSResultGroup = css`
 		:host {
 			position: relative;
 			display: grid;
@@ -107,10 +117,6 @@ export class SecondarySidebarCmp extends ContentArea {
 	`;
 
 }
-
-
-export const SecondarySidebar: ToComponent<SecondarySidebarCmp> =
-	toComponent(SecondarySidebarCmp);
 
 
 export class SecondarySidebarService {

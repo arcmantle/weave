@@ -1,4 +1,5 @@
-import { signal } from '@arcmantle/adapter-element/shared';
+import { signal } from '@preact/signals-core';
+
 
 /**
  * A Map-like utility that automatically triggers signal updates when mutated.

@@ -1,9 +1,8 @@
-import { effect, type Signal, signal } from '@arcmantle/adapter-element/shared';
-import type { Writeable } from '@arcmantle/library/types';
-import { html, render } from 'lit-html';
-import { classMap } from 'lit-html/directives/class-map.js';
-import { map } from 'lit-html/directives/map.js';
-import { createRef, type Ref, ref } from 'lit-html/directives/ref.js';
+import { effect, type Signal, signal } from '@preact/signals-core';
+import { html, render } from 'lit';
+import { classMap } from 'lit/directives/class-map.js';
+import { map } from 'lit/directives/map.js';
+import { createRef, type Ref, ref } from 'lit/directives/ref.js';
 
 import type { IRenderableView } from '../types.ts';
 import type { IViewManager } from '../view-manager.ts';
@@ -224,7 +223,7 @@ export class TabView extends EventTarget implements IEditorView, IRenderableView
 const hostMap: WeakMap<TemplateStringsArray, HTMLElement> = new WeakMap();
 
 
-const standaloneRender = (host: { strings: TemplateStringsArray; }, value: unknown) => {
+const _standaloneRender = (host: { strings: TemplateStringsArray; }, value: unknown) => {
 	let _host = hostMap.get(host.strings);
 	if (!_host) {
 		const template = document.createElement('template');

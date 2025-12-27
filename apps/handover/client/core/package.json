@@ -18,8 +18,10 @@
 		"@arcmantle/library": "catalog:",
 		"@arcmantle/lit-jsx": "catalog:",
 		"@arcmantle/vite-plugin-import-css-sheet": "catalog:",
+		"@preact/signals-core": "catalog:",
 		"class-variance-authority": "catalog:",
 		"clsx": "catalog:",
+		"lit": "catalog:",
 		"lit-html": "catalog:",
 		"tailwind-merge": "catalog:",
 		"tslib": "catalog:"

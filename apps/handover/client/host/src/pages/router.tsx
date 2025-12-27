@@ -1,11 +1,12 @@
-import { AdapterElement, customElement, PluginModule, provider, state } from '@arcmantle/adapter-element/adapter';
 import { Router } from '@arcmantle/adapter-element/router';
-import { css, type CSSStyle } from '@arcmantle/adapter-element/shared';
 import { cssreset } from '@arcmantle/handover-core/styles/css-reset.js';
+import { css, type CSSResultGroup, LitElement } from 'lit';
+import { customElement, state } from 'lit/decorators.js';
 
 import { absenceManifest } from '../extensions/absence/manifest.tsx';
 import { registerManifest, resolveManifests } from '../extensions/create-manifest.ts';
 import { shopSheetManifest } from '../extensions/shop-sheet/manifest.tsx';
+import { injector } from '../inject.ts';
 import { EditorArea, EditorAreaService } from '../layout/editor-area.tsx';
 import { PanelArea, PanelAreaService } from '../layout/panel-area.tsx';
 import { PrimarySidebar, PrimarySidebarService } from '../layout/primary-sidebar.tsx';
@@ -13,18 +14,10 @@ import { SecondarySidebar, SecondarySidebarService } from '../layout/secondary-s
 import { Statusbar } from '../layout/statusbar.tsx';
 
 
-@provider()
 @customElement('ho-router')
-export class RouterCmp extends AdapterElement {
+export class RouterCmp extends LitElement {
 
-	static override modules: readonly PluginModule[] = [
-		new PluginModule(({ bind }) => {
-			bind('primary-sidebar').class(PrimarySidebarService);
-			bind('secondary-sidebar').class(SecondarySidebarService);
-			bind('editor-area').class(EditorAreaService);
-			bind('panel-area').class(PanelAreaService);
-		}),
-	];
+	static tagName: string = 'ho-router';
 
 	@state() accessor layoutState: {
 		primaryPanel?:     string;
@@ -36,20 +29,26 @@ export class RouterCmp extends AdapterElement {
 
 	protected router: Router = new Router(this);
 
-	override firstConnected(): void {
-		super.firstConnected();
+	override connectedCallback(): void {
+		super.connectedCallback();
 
-		registerManifest(this.inject, shopSheetManifest);
-		registerManifest(this.inject, absenceManifest);
-		resolveManifests(this.inject);
+		if (!this.hasUpdated)
+			this.firstConnected();
 
-		Router.addNavListener(() => this.parseLayoutFromURL());
-	}
-
-	override connected(): void {
-		super.connected();
+		injector.bind('primary-sidebar').class(PrimarySidebarService);
+		injector.bind('secondary-sidebar').class(SecondarySidebarService);
+		injector.bind('editor-area').class(EditorAreaService);
+		injector.bind('panel-area').class(PanelAreaService);
 
 		this.parseLayoutFromURL();
+	}
+
+	firstConnected(): void {
+		registerManifest(shopSheetManifest);
+		registerManifest(absenceManifest);
+		resolveManifests();
+
+		Router.addNavListener(() => this.parseLayoutFromURL());
 	}
 
 	protected parseLayoutFromURL(): void {
@@ -65,34 +64,32 @@ export class RouterCmp extends AdapterElement {
 	protected override render(): unknown {
 		return <>
 			<PrimarySidebar
+				static
+				contentLocation='editor'
 				activeTemplateId={this.layoutState.primarySidebar}
 				class="primary-sidebar"
-				static
 			></PrimarySidebar>
 
 			<EditorArea
 				activeTemplateId={this.layoutState.primaryPanel}
 				class="primary-panel"
-				static
 			></EditorArea>
 
 			<SecondarySidebar
 				activeTemplateId={this.layoutState.secondarySidebar}
 				class="secondary-sidebar"
-				static
 			></SecondarySidebar>
 
 			<PanelArea
 				activeTemplateId={this.layoutState.secondaryPanel}
 				class="secondary-panel"
-				static
 			></PanelArea>
 
-			<Statusbar class="statusbar" static></Statusbar>
+			<Statusbar class="statusbar"></Statusbar>
 		</>;
 	}
 
-	static override styles: CSSStyle = [
+	static override styles: CSSResultGroup = [
 		cssreset,
 		css`
 		:host {
@@ -126,3 +123,13 @@ export class RouterCmp extends AdapterElement {
 	];
 
 }
+
+
+//interface SomeObject {
+//	a:          string;
+//	readonly b: number;
+//	c?:         boolean;
+//	d:          LitJSX.Mandatory<number>;
+//}
+
+//type Test = LitJSX.PartialExceptRequired<SomeObject>;

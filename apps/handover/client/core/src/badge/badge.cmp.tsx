@@ -1,6 +1,9 @@
-import { AdapterElement, property } from '@arcmantle/adapter-element/adapter';
-import { type CSSStyle, ifDefined } from '@arcmantle/adapter-element/shared';
-import { type ToComponent, toComponent, toTag } from '@arcmantle/lit-jsx';
+
+import { type CSSResultGroup, LitElement } from 'lit';
+import { customElement, property } from 'lit/decorators.js';
+import { ifDefined as shit } from 'lit/directives/if-defined.js';
+
+const ifDefined = shit as <T>(value: T) => NonNullable<T>;
 
 import { cssreset } from '../styles/css-reset.ts';
 import badgeStyles from './badge.css' with { type: 'css' };
@@ -9,20 +12,21 @@ import badgeStyles from './badge.css' with { type: 'css' };
 export type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline';
 
 
-export class BadgeCmp extends AdapterElement {
+@customElement('ho-badge')
+export class Badge extends LitElement {
 
-	static override tagName = 'ho-badge';
+	static tagName = 'ho-badge';
 
-	@property(String) accessor variant: BadgeVariant = 'default';
-	@property(String) accessor href: string | undefined;
+	@property() accessor variant: BadgeVariant = 'default';
+	@property() accessor href:    string | undefined;
 
 	protected override render(): unknown {
-		const Wrapper = toTag(this.href ? 'a' : 'span');
+		const Wrapper = this.href ? 'a' : 'span';
 
 		return <>
 			<Wrapper
 				id="base"
-				tabindex="0"
+				tabIndex={0}
 				href={ ifDefined(this.href) }
 				classList={{ [this.variant]: true }}
 				static
@@ -32,12 +36,9 @@ export class BadgeCmp extends AdapterElement {
 		</>;
 	};
 
-	static override styles: CSSStyle = [
+	static override styles: CSSResultGroup = [
 		cssreset,
 		badgeStyles,
 	];
 
 }
-
-
-export const Badge: ToComponent<BadgeCmp> = toComponent(BadgeCmp);

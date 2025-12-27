@@ -1,4 +1,5 @@
 import { pushSearchState } from '@arcmantle/library/dom';
+import { createRef } from 'lit/directives/ref.js';
 
 import { type Content, type ContentManifest, createManifest, type Manifest } from '../create-manifest.ts';
 import { TestCustomElement } from './test.ts';
@@ -29,14 +30,24 @@ class ShopSheetPrimarySidebar implements Content {
 
 	render(): unknown {
 		const tagName: 'a' | 'input' = undefined as any;
-		const Tag = as.tag(tagName);
+		const Tag = tagName;
+
+		const ref = createRef<HTMLButtonElement>();
 
 		return <div>
 			<h1>Shop Sheet navigation</h1>
 			<p>This is the primary panel for the Shop Sheet extension.</p>
-			<Tag href="https://example.com" target="_blank" value={123} static>Example Link</Tag>
+			<Tag href="https://example.com" target="_blank" value={''}>
+				Example Link
+			</Tag>
 
-			<TestCustomElement<number, 'static'> value={12} variant={undefined} static />
+			<button
+				disabled={as.bool(false)}
+				onmousedown={ev => console.log(ev)}
+				ref={ref}
+			></button>
+
+			<TestCustomElement<number, 'static'> value={123} variant={'static'} />
 		</div>;
 	}
 
@@ -48,3 +59,10 @@ export const shopSheetManifest: Manifest = createManifest({
 	contents:  [ ShopSheetPrimarySidebar ],
 	statusbar: [],
 });
+
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'test-custom-element': TestCustomElement<number, 'static'>;
+	}
+}

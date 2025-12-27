@@ -1,12 +1,12 @@
-import { AdapterElement } from '@arcmantle/adapter-element/adapter';
-import { css, type CSSStyle } from '@arcmantle/adapter-element/shared';
 import { Badge } from '@arcmantle/handover-core/badge/badge.cmp.js';
-import { type ToComponent, toComponent } from '@arcmantle/lit-jsx';
+import { css, type CSSResultGroup, LitElement } from 'lit';
+import { customElement } from 'lit/decorators.js';
 
 
-export class BadgePageCmp extends AdapterElement {
+@customElement('ho-badge-page')
+export class BadgePage extends LitElement {
 
-	static override tagName = 'ho-badge-page';
+	static tagName = 'ho-badge-page';
 
 	protected override render(): unknown {
 		return (
@@ -30,7 +30,7 @@ export class BadgePageCmp extends AdapterElement {
 		);
 	}
 
-	static override styles: CSSStyle = css`
+	static override styles: CSSResultGroup = css`
 		:host {
 			display: grid;
 			grid-auto-flow: column;
@@ -39,6 +39,3 @@ export class BadgePageCmp extends AdapterElement {
 	`;
 
 }
-
-
-export const BadgePage: ToComponent<BadgePageCmp> = toComponent(BadgePageCmp);

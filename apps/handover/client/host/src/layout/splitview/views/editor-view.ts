@@ -1,4 +1,5 @@
-import { effect, render } from '@arcmantle/adapter-element/shared';
+import { effect } from '@preact/signals-core';
+import { render } from 'lit';
 
 import type { IViewManager } from '../view-manager.ts';
 import { type EditorTemplateContext, type EditorTemplateFunction, type IEditorView } from './shared.ts';

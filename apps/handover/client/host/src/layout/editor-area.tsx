@@ -1,8 +1,9 @@
-import { AdapterElement, state } from '@arcmantle/adapter-element/adapter';
-import { css, type CSSStyle, html, type Signal } from '@arcmantle/adapter-element/shared';
-import { type ToComponent, toComponent } from '@arcmantle/lit-jsx';
+import type { Signal } from '@preact/signals-core';
+import { css, type CSSResultGroup, html, LitElement } from 'lit';
+import { customElement, state } from 'lit/decorators.js';
 
 import type { ContentLocation } from '../extensions/create-manifest.ts';
+import { injector } from '../inject.ts';
 import { ContentArea } from './content-area.tsx';
 import { layoutPreferences } from './layout-preferences.ts';
 import splitViewStyles from './splitview/split-view.css' with { type: 'css'};
@@ -11,19 +12,21 @@ import { ViewManager } from './splitview/view-manager.ts';
 import { type EditorTemplateContext } from './splitview/views/index.ts';
 
 
-class TestCmp extends AdapterElement {
+@customElement('ho-test-cmp')
+class _TestCmp extends LitElement {
 
-	static override tagName: string = 'ho-test-cmp';
+	static tagName: string = 'ho-test-cmp';
 
 	@state() private accessor count = 0;
 
-	override connected(): void {
-		super.connected();
+	override connectedCallback(): void {
+		super.connectedCallback();
+
+		if (!this.hasUpdated)
+			this.firstConnected();
 	}
 
-	override firstConnected(): void {
-		super.firstConnected();
-
+	firstConnected(): void {
 		setInterval(() => {
 			this.count++;
 		}, 1000);
@@ -34,7 +37,6 @@ class TestCmp extends AdapterElement {
 	}
 
 }
-TestCmp.register();
 
 
 // Default template function for editors
@@ -48,26 +50,31 @@ const defaultEditorTemplate = (context: EditorTemplateContext) => html`
 `;
 
 
-export class EditorAreaCmp extends ContentArea {
+@customElement('ho-editor-area')
+export class EditorArea extends ContentArea {
 
-	static override tagName:  string = 'ho-editor-area';
-	override contentLocation: ContentLocation = 'editor';
-
-	protected editorArea: EditorAreaService = this.inject.get('editor-area');
+	static tagName: string = 'ho-editor-area';
 
 	@state() private accessor viewManager: ViewManager;
 
-	override connected(): void {
-		super.connected();
+	override contentLocation: ContentLocation = 'editor';
+	protected editorArea:     EditorAreaService;
+
+	override connectedCallback(): void {
+		super.connectedCallback();
+
+		this.editorArea = injector.get('editor-area');
+
+		this.updateComplete.then(() => this.afterConnected());
 	}
 
-	override afterConnected(): void {
-		super.afterConnected();
+	protected afterConnected(): void {
 		this.initializeViewManager();
 	}
 
-	override disconnected(): void {
-		super.disconnected();
+	override disconnectedCallback(): void {
+		super.disconnectedCallback();
+
 		this.viewManager?.dispose();
 	}
 
@@ -120,7 +127,7 @@ export class EditorAreaCmp extends ContentArea {
 		</>;
 	}
 
-	static override styles: CSSStyle = [
+	static override styles: CSSResultGroup = [
 		splitViewStyles,
 		css`
 		:host {
@@ -201,10 +208,6 @@ export class EditorAreaCmp extends ContentArea {
 	];
 
 }
-
-
-export const EditorArea: ToComponent<EditorAreaCmp> =
-	toComponent(EditorAreaCmp);
 
 
 export class EditorAreaService {

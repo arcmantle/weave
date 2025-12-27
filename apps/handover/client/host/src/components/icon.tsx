@@ -1,15 +1,15 @@
-import { AdapterElement, property, state } from '@arcmantle/adapter-element/adapter';
-import { css, type CSSStyle, unsafeHTML } from '@arcmantle/adapter-element/shared';
-import { type ToComponent, toComponent } from '@arcmantle/lit-jsx';
+import { css, type CSSResultGroup, LitElement } from 'lit';
+import { customElement, property, state } from 'lit/decorators.js';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 
 import { requestIcon } from './icon-helpers.ts';
 
 
-export class IconCmp extends AdapterElement {
+@customElement('ho-icon')
+export class Icon extends LitElement {
 
-	static override tagName: string = 'ho-icon';
-
-	static parser: DOMParser;
+	static tagName: string = 'ho-icon';
+	static parser:  DOMParser;
 
 	/** Can be set to change default behavior. */
 	static mutator = (svg: SVGElement): void => {
@@ -18,23 +18,19 @@ export class IconCmp extends AdapterElement {
 		svg.removeAttribute('width');
 	};
 
-	@property(String) accessor url: string = '';
-	@property(String) accessor template: string = '';
+	@property() accessor url: string = '';
+	@property() accessor template: string = '';
 	@state() protected accessor svg: string = '';
 
-	override connected(): void {
-		super.connected();
-	}
-
-	protected override beforeUpdate(changedProps: Map<keyof any, any>): void {
-		super.beforeUpdate(changedProps);
+	protected override willUpdate(changedProps: Map<keyof any, any>): void {
+		super.willUpdate(changedProps);
 
 		if (changedProps.has('url') || changedProps.has('template'))
 			this.setSvg();
 	}
 
 	protected async getSvg(): Promise<string> {
-		IconCmp.parser ??= new DOMParser();
+		Icon.parser ??= new DOMParser();
 
 		let svg = '';
 		if (this.url) {
@@ -51,12 +47,12 @@ export class IconCmp extends AdapterElement {
 			return '';
 		}
 
-		const doc = IconCmp.parser.parseFromString(svg, 'text/html');
+		const doc = Icon.parser.parseFromString(svg, 'text/html');
 		const svgEl = doc.body.querySelector('svg');
 		if (!svgEl)
 			return '';
 
-		IconCmp.mutator(svgEl);
+		Icon.mutator(svgEl);
 
 		return svgEl.outerHTML;
 	}
@@ -71,7 +67,7 @@ export class IconCmp extends AdapterElement {
 		</div>;
 	}
 
-	static override styles: CSSStyle = css`
+	static override styles: CSSResultGroup = css`
 		:host {
 			display: inline-grid;
 			place-items: center;
@@ -95,17 +91,4 @@ export class IconCmp extends AdapterElement {
 		}
 	`;
 
-}
-
-
-export const Icon: ToComponent<IconCmp> =
-	toComponent(IconCmp);
-
-
-declare global {
-	namespace JSX {
-		interface CustomElementTags {
-			'ho-icon': JSXProps<IconCmp>;
-		}
-	}
 }

@@ -1,26 +1,35 @@
-import { type DynamicCSS, state } from '@arcmantle/adapter-element/adapter';
-import { css, type CSSStyle, type Signal } from '@arcmantle/adapter-element/shared';
-import { Show, type ToComponent, toComponent } from '@arcmantle/lit-jsx';
+import { Show } from '@arcmantle/lit-jsx';
+import type { Signal } from '@preact/signals-core';
+import { css, type CSSResultGroup } from 'lit';
+import { customElement, state } from 'lit/decorators.js';
 
 import type { ContentLocation } from '../extensions/create-manifest.ts';
+import { injector } from '../inject.ts';
 import { ContentArea } from './content-area.tsx';
 import { layoutPreferences } from './layout-preferences.ts';
 
 
-export class PanelAreaCmp extends ContentArea {
+@customElement('ho-panel-area')
+export class PanelArea extends ContentArea {
 
-	static override tagName:  string = 'ho-panel-area';
-	override contentLocation: ContentLocation = 'panel';
-
-	protected panelArea: PanelAreaService = this.inject.get('panel-area');
+	static tagName: string = 'ho-panel-area';
 
 	@state() accessor height: number = 200;
+
+	override contentLocation: ContentLocation = 'panel';
+	protected panelArea:      PanelAreaService;
+
+	override connectedCallback(): void {
+		super.connectedCallback();
+
+		this.panelArea = injector.get('panel-area');
+	}
 
 	protected onWrapperMousedown(ev: MouseEvent): void {
 		ev.preventDefault();
 
 		const mousemove = (ev: MouseEvent): void => {
-			const height = this.element.getBoundingClientRect().bottom - ev.clientY;
+			const height = this.getBoundingClientRect().bottom - ev.clientY;
 
 			if (height < 40 && this.panelArea.visible.value)
 				this.panelArea.visible.value = false;
@@ -42,6 +51,8 @@ export class PanelAreaCmp extends ContentArea {
 
 	protected override render(): unknown {
 		return <>
+			<style>{this.renderStyles()}</style>
+
 			<s-drag-handle on-mousedown={this.onWrapperMousedown}></s-drag-handle>
 
 			<Show when={this.panelArea.visible.value}>
@@ -51,8 +62,8 @@ export class PanelAreaCmp extends ContentArea {
 		</>;
 	}
 
-	protected override renderStyles(styles: string, css: DynamicCSS): string | void {
-		styles += css`
+	protected renderStyles(): string | void {
+		const styles = `
 			:host {
 				--_height: ${ this.height }px;
 			}
@@ -61,7 +72,7 @@ export class PanelAreaCmp extends ContentArea {
 		return styles;
 	}
 
-	static override styles: CSSStyle = css`
+	static override styles: CSSResultGroup = css`
 		:host {
 			position: relative;
 			display: grid;
@@ -105,10 +116,6 @@ export class PanelAreaCmp extends ContentArea {
 	`;
 
 }
-
-
-export const PanelArea: ToComponent<PanelAreaCmp> =
-	toComponent(PanelAreaCmp);
 
 
 export class PanelAreaService {

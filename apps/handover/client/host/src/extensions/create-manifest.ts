@@ -1,4 +1,4 @@
-import type { PluginContainer } from '@arcmantle/adapter-element/adapter';
+import { injector } from '../inject.ts';
 
 
 export const createManifest = (options: Manifest): Manifest => {
@@ -6,15 +6,13 @@ export const createManifest = (options: Manifest): Manifest => {
 };
 
 
-export const registerManifest = (
-	container: PluginContainer,
-	manifest: Manifest,
-): void => {
-	container.bind('manifest').constant(manifest);
+export const registerManifest = (manifest: Manifest): void => {
+	injector.bind('manifest').constant(manifest);
 };
 
 
-export const resolveManifests = (container: PluginContainer): void => {
+export const resolveManifests = (): void => {
+	const container = injector;
 	const manifests = container.getAll<Manifest>('manifest');
 
 	if (!container.exists('manifest-log'))

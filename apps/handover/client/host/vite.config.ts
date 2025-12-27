@@ -4,5 +4,5 @@ import { defineConfig, type UserConfig } from 'vite';
 
 
 export default defineConfig({
-	plugins: [ litJsx(), importCSSSheet() ],
+	plugins: [ litJsx({ useTypeInference: true }), importCSSSheet() ],
 }) as UserConfig;

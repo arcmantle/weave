@@ -1,24 +1,29 @@
-import { type DynamicCSS, state } from '@arcmantle/adapter-element/adapter';
 import { css, type CSSStyle, type Signal } from '@arcmantle/adapter-element/shared';
-import { Show, type ToComponent, toComponent } from '@arcmantle/lit-jsx';
+import { Show } from '@arcmantle/lit-jsx';
+import { customElement, state } from 'lit/decorators.js';
 
 import type { ContentLocation } from '../extensions/create-manifest.ts';
+import { injector } from '../inject.ts';
 import { Activitybar } from './activitybar.tsx';
 import { ContentArea } from './content-area.tsx';
 import { layoutPreferences } from './layout-preferences.ts';
 
 
-export class PrimarySidebarCmp extends ContentArea {
+@customElement('ho-primary-sidebar')
+export class PrimarySidebar extends ContentArea {
 
-	static override tagName:  string = 'ho-primary-sidebar';
-	override contentLocation: ContentLocation = 'primary-sidebar';
+	static tagName: string = 'ho-primary-sidebar';
 
-	protected primarySidebar: PrimarySidebarService = this.inject.get('primary-sidebar');
+	@state() protected accessor width: number = 200;
 
-	@state() accessor width: number = 200;
+	override contentLocation: LitJSX.Explicit<ContentLocation> = 'primary-sidebar';
 
-	override connected(): void {
-		super.connected();
+	protected primarySidebar: PrimarySidebarService;
+
+	override connectedCallback(): void {
+		super.connectedCallback();
+
+		this.primarySidebar = injector.get('primary-sidebar');
 	}
 
 	protected onWrapperMousedown(ev: MouseEvent): void {
@@ -50,20 +55,22 @@ export class PrimarySidebarCmp extends ContentArea {
 
 	protected override render(): unknown {
 		return <>
-			<Activitybar class="activitybar" static></Activitybar>
+			<style>{this.renderStyles()}</style>
+
+			<Activitybar class="activitybar"></Activitybar>
 
 			<Show when={this.primarySidebar.visible.value}>
 				{() => <s-wrapper>
 					{this.content.render()}
-				</s-wrapper>}
+				</s-wrapper> }
 			</Show>
 
 			<s-drag-handle on-mousedown={this.onWrapperMousedown}></s-drag-handle>
 		</>;
 	}
 
-	protected override renderStyles(styles: string, css: DynamicCSS): string | void {
-		styles += css`
+	protected renderStyles(): string | void {
+		const styles = `
 			s-wrapper {
 				--_width: ${ this.width }px;
 			}
@@ -117,10 +124,6 @@ export class PrimarySidebarCmp extends ContentArea {
 	`;
 
 }
-
-
-export const PrimarySidebar: ToComponent<PrimarySidebarCmp> =
-	toComponent(PrimarySidebarCmp);
 
 
 export class PrimarySidebarService {

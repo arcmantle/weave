@@ -1,11 +1,12 @@
-import { AdapterElement } from '@arcmantle/adapter-element/adapter';
 import { css, type CSSStyle } from '@arcmantle/adapter-element/shared';
-import { type ToComponent, toComponent } from '@arcmantle/lit-jsx';
+import { LitElement } from 'lit';
+import { customElement } from 'lit/decorators.js';
 
 
-export class StatusbarCmp extends AdapterElement {
+@customElement('ho-statusbar')
+export class Statusbar extends LitElement {
 
-	static override tagName: string = 'ho-statusbar';
+	static tagName: string = 'ho-statusbar';
 
 	protected override render(): unknown {
 		return <div>
@@ -20,7 +21,3 @@ export class StatusbarCmp extends AdapterElement {
 	`;
 
 }
-
-
-export const Statusbar: ToComponent<StatusbarCmp> =
-	toComponent(StatusbarCmp);

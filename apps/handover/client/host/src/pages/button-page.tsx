@@ -1,12 +1,12 @@
-import { AdapterElement } from '@arcmantle/adapter-element/adapter';
-import { css, type CSSStyle } from '@arcmantle/adapter-element/shared';
 import { Button } from '@arcmantle/handover-core/button/button.cmp.js';
-import { type ToComponent, toComponent } from '@arcmantle/lit-jsx';
+import { css, type CSSResultGroup, LitElement } from 'lit';
+import { customElement } from 'lit/decorators.js';
 
 
-export class ButtonPageCmp extends AdapterElement {
+@customElement('ho-button-page')
+export class ButtonPage extends LitElement {
 
-	static override tagName = 'ho-button-page';
+	static tagName = 'ho-button-page';
 
 	protected override render(): unknown {
 		return (
@@ -33,7 +33,7 @@ export class ButtonPageCmp extends AdapterElement {
 		);
 	}
 
-	static override styles: CSSStyle = css`
+	static override styles: CSSResultGroup = css`
 		:host {
 			display: grid;
 			grid-auto-flow: column;
@@ -42,6 +42,3 @@ export class ButtonPageCmp extends AdapterElement {
 	`;
 
 }
-
-
-export const ButtonPage: ToComponent<ButtonPageCmp> = toComponent(ButtonPageCmp);

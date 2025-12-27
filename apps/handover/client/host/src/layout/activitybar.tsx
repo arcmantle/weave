@@ -1,21 +1,33 @@
-import { AdapterElement, state } from '@arcmantle/adapter-element/adapter';
 import { css, type CSSStyle } from '@arcmantle/adapter-element/shared';
-import { For, type ToComponent, toComponent } from '@arcmantle/lit-jsx';
+import { For } from '@arcmantle/lit-jsx';
+import { LitElement } from 'lit';
+import { customElement, state } from 'lit/decorators.js';
 
 import { Icon } from '../components/icon.tsx';
 import type { ContentCtor, ContentManifest } from '../extensions/create-manifest.ts';
+import { injector } from '../inject.ts';
 
 
-export class ActivitybarCmp extends AdapterElement {
+declare global {
+	namespace LitJSX {
+		interface ExcludedComponentProps {
+			'lit-element': keyof LitElement | 'template';
+		}
+	}
+}
 
-	static override tagName: string = 'ho-activity';
 
-	@state() accessor tabs: ContentManifest[] = [];
+@customElement('ho-activity')
+export class Activitybar extends LitElement {
 
-	override connected(): void {
-		super.connected();
+	static tagName: string = 'ho-activity';
 
-		const availableContent = this.inject.getAll<ContentCtor>('content');
+	@state() protected accessor tabs: ContentManifest[] = [];
+
+	override connectedCallback(): void {
+		super.connectedCallback();
+
+		const availableContent = injector.getAll<ContentCtor>('content');
 		this.tabs = availableContent.map(content => content.manifest);
 	}
 
@@ -23,8 +35,8 @@ export class ActivitybarCmp extends AdapterElement {
 		return <>
 			<s-top-actions>
 				<For each={ this.tabs }>
-					{({ tab }) => <button on-click={tab.onClick}>
-						<Icon class="icon" url={tab.icon} static></Icon>
+					{({ tab }) => <button onclick={tab.onClick}>
+						<Icon class="icon" url={tab.icon}></Icon>
 					</button>}
 				</For>
 			</s-top-actions>
@@ -55,7 +67,3 @@ export class ActivitybarCmp extends AdapterElement {
 	`;
 
 }
-
-
-export const Activitybar: ToComponent<ActivitybarCmp> =
-	toComponent(ActivitybarCmp);

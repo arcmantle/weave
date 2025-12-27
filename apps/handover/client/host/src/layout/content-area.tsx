@@ -1,29 +1,33 @@
-import { AdapterElement, property, state } from '@arcmantle/adapter-element/adapter';
+import { SignalWatcher } from '@arcmantle/handover-core/features/index.ts';
+import { LitElement } from 'lit';
+import { property, state } from 'lit/decorators.js';
 
 import type { Content, ContentCtor, ContentLocation } from '../extensions/create-manifest.ts';
+import { injector } from '../inject.ts';
 
 
-export abstract class ContentArea extends AdapterElement {
+@SignalWatcher
+export abstract class ContentArea extends LitElement {
 
-	@property(String) accessor activeTemplateId: string = '';
+	@property() accessor activeTemplateId: string | undefined = undefined;
 	@state() protected accessor content: Content;
 
 	abstract contentLocation: ContentLocation;
 
-	protected override beforeUpdate(changedProps: Map<keyof any, any>): void {
-		super.beforeUpdate(changedProps);
+	protected override willUpdate(changedProps: Map<keyof any, any>): void {
+		super.willUpdate(changedProps);
 
 		if (changedProps.has('activeTemplateId'))
 			this.resolveContent();
 	}
 
 	protected resolveContent(): void {
-		const content = this.inject.getAll<ContentCtor>('content');
+		const content = injector.getAll<ContentCtor>('content');
 		const contentCtor = content.find(c => c.manifest.id === this.activeTemplateId);
 		if (!contentCtor)
 			return;
 
-		if (contentCtor.manifest.availableLocations.includes(this.contentLocation)) {
+		if (contentCtor.manifest.availableLocations.includes(this.contentLocation!)) {
 			this.content = new contentCtor();
 			this.content.initialize();
 		}

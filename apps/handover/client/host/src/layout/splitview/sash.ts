@@ -1,4 +1,4 @@
-import type { Ref } from 'lit-html/directives/ref.js';
+import type { Ref } from 'lit/directives/ref.js';
 
 import { type ISashEvent, Orientation, SashState } from './types.ts';
 
