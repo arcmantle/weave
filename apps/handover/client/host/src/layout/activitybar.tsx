@@ -8,15 +8,6 @@ import type { ContentCtor, ContentManifest } from '../extensions/create-manifest
 import { injector } from '../inject.ts';
 
 
-declare global {
-	namespace LitJSX {
-		interface ExcludedComponentProps {
-			'lit-element': keyof LitElement | 'template';
-		}
-	}
-}
-
-
 @customElement('ho-activity')
 export class Activitybar extends LitElement {
 

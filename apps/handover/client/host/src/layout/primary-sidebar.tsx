@@ -16,7 +16,7 @@ export class PrimarySidebar extends ContentArea {
 
 	@state() protected accessor width: number = 200;
 
-	override contentLocation: LitJSX.Explicit<ContentLocation> = 'primary-sidebar';
+	override contentLocation: ContentLocation = 'primary-sidebar';
 
 	protected primarySidebar: PrimarySidebarService;
 
@@ -30,7 +30,7 @@ export class PrimarySidebar extends ContentArea {
 		ev.preventDefault();
 
 		const mousemove = (ev: MouseEvent): void => {
-			const activitybar = this.querySelector<HTMLElement>('.activitybar');
+			const activitybar = this.renderRoot.querySelector<Activitybar>(Activitybar.tagName);
 			if (!activitybar)
 				return console.warn('Activitybar not found for resizing primary sidebar.');
 
@@ -61,11 +61,11 @@ export class PrimarySidebar extends ContentArea {
 
 			<Show when={this.primarySidebar.visible.value}>
 				{() => <s-wrapper>
-					{this.content.render()}
+					{this.content?.render()}
 				</s-wrapper> }
 			</Show>
 
-			<s-drag-handle on-mousedown={this.onWrapperMousedown}></s-drag-handle>
+			<s-drag-handle onmousedown={this.onWrapperMousedown}></s-drag-handle>
 		</>;
 	}
 
@@ -92,7 +92,7 @@ export class PrimarySidebar extends ContentArea {
 		}
 		s-wrapper {
 			display: block;
-			width: var(--width, var(--_width));
+			width: var(--_width, var(--width));
 			max-width: 40vw;
 			min-width: 60px;
 			border-left: 1px solid black;

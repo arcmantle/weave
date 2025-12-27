@@ -9,8 +9,8 @@ import { injector } from '../inject.ts';
 @SignalWatcher
 export abstract class ContentArea extends LitElement {
 
-	@property() accessor activeTemplateId: string | undefined = undefined;
-	@state() protected accessor content: Content;
+	@property() accessor activeTemplateId: string | null = null;
+	@state() protected accessor content: Content | null = null;
 
 	abstract contentLocation: ContentLocation;
 
@@ -23,6 +23,9 @@ export abstract class ContentArea extends LitElement {
 
 	protected resolveContent(): void {
 		const content = injector.getAll<ContentCtor>('content');
+
+		console.log(content);
+
 		const contentCtor = content.find(c => c.manifest.id === this.activeTemplateId);
 		if (!contentCtor)
 			return;

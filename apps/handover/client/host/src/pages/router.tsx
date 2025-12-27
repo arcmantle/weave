@@ -64,8 +64,6 @@ export class RouterCmp extends LitElement {
 	protected override render(): unknown {
 		return <>
 			<PrimarySidebar
-				static
-				contentLocation='editor'
 				activeTemplateId={this.layoutState.primarySidebar}
 				class="primary-sidebar"
 			></PrimarySidebar>
@@ -123,13 +121,3 @@ export class RouterCmp extends LitElement {
 	];
 
 }
-
-
-//interface SomeObject {
-//	a:          string;
-//	readonly b: number;
-//	c?:         boolean;
-//	d:          LitJSX.Mandatory<number>;
-//}
-
-//type Test = LitJSX.PartialExceptRequired<SomeObject>;
