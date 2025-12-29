@@ -21,3 +21,10 @@ export class Statusbar extends LitElement {
 	`;
 
 }
+
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'ho-statusbar': Statusbar;
+	}
+}

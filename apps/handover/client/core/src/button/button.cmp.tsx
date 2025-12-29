@@ -31,3 +31,10 @@ export class Button extends LitElement {
 	];
 
 }
+
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'ho-button': Button;
+	}
+}

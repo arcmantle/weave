@@ -215,3 +215,10 @@ export class EditorAreaService {
 	visible: Signal<boolean> = layoutPreferences.editorArea.visible;
 
 }
+
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'ho-editor-area': EditorArea;
+	}
+}

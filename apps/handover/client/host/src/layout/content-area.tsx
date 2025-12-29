@@ -24,8 +24,6 @@ export abstract class ContentArea extends LitElement {
 	protected resolveContent(): void {
 		const content = injector.getAll<ContentCtor>('content');
 
-		console.log(content);
-
 		const contentCtor = content.find(c => c.manifest.id === this.activeTemplateId);
 		if (!contentCtor)
 			return;

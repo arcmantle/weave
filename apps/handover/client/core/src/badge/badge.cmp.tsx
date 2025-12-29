@@ -42,3 +42,10 @@ export class Badge extends LitElement {
 	];
 
 }
+
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'ho-badge': Badge;
+	}
+}

@@ -1,9 +1,10 @@
+import '../components/icon.tsx';
+
 import { css, type CSSStyle } from '@arcmantle/adapter-element/shared';
 import { For } from '@arcmantle/lit-jsx';
 import { LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 
-import { Icon } from '../components/icon.tsx';
 import type { ContentCtor, ContentManifest } from '../extensions/create-manifest.ts';
 import { injector } from '../inject.ts';
 
@@ -27,7 +28,7 @@ export class Activitybar extends LitElement {
 			<s-top-actions>
 				<For each={ this.tabs }>
 					{({ tab }) => <button onclick={tab.onClick}>
-						<Icon class="icon" url={tab.icon}></Icon>
+						<ho-icon class="icon" url={tab.icon}></ho-icon>
 					</button>}
 				</For>
 			</s-top-actions>
@@ -57,4 +58,11 @@ export class Activitybar extends LitElement {
 		}
 	`;
 
+}
+
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'ho-activity': Activitybar;
+	}
 }

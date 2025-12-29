@@ -1,3 +1,9 @@
+import '../layout/editor-area.tsx';
+import '../layout/panel-area.tsx';
+import '../layout/primary-sidebar.tsx';
+import '../layout/secondary-sidebar.tsx';
+import '../layout/statusbar.tsx';
+
 import { Router } from '@arcmantle/adapter-element/router';
 import { cssreset } from '@arcmantle/handover-core/styles/css-reset.js';
 import { css, type CSSResultGroup, LitElement } from 'lit';
@@ -7,11 +13,10 @@ import { absenceManifest } from '../extensions/absence/manifest.tsx';
 import { registerManifest, resolveManifests } from '../extensions/create-manifest.ts';
 import { shopSheetManifest } from '../extensions/shop-sheet/manifest.tsx';
 import { injector } from '../inject.ts';
-import { EditorArea, EditorAreaService } from '../layout/editor-area.tsx';
-import { PanelArea, PanelAreaService } from '../layout/panel-area.tsx';
-import { PrimarySidebar, PrimarySidebarService } from '../layout/primary-sidebar.tsx';
-import { SecondarySidebar, SecondarySidebarService } from '../layout/secondary-sidebar.tsx';
-import { Statusbar } from '../layout/statusbar.tsx';
+import { EditorAreaService } from '../layout/editor-area.tsx';
+import { PanelAreaService } from '../layout/panel-area.tsx';
+import { PrimarySidebarService } from '../layout/primary-sidebar.tsx';
+import { SecondarySidebarService } from '../layout/secondary-sidebar.tsx';
 
 
 @customElement('ho-router')
@@ -63,27 +68,27 @@ export class RouterCmp extends LitElement {
 
 	protected override render(): unknown {
 		return <>
-			<PrimarySidebar
+			<ho-primary-sidebar
 				activeTemplateId={this.layoutState.primarySidebar}
 				class="primary-sidebar"
-			></PrimarySidebar>
+			></ho-primary-sidebar>
 
-			<EditorArea
+			<ho-editor-area
 				activeTemplateId={this.layoutState.primaryPanel}
 				class="primary-panel"
-			></EditorArea>
+			></ho-editor-area>
 
-			<SecondarySidebar
+			<ho-secondary-sidebar
 				activeTemplateId={this.layoutState.secondarySidebar}
 				class="secondary-sidebar"
-			></SecondarySidebar>
+			></ho-secondary-sidebar>
 
-			<PanelArea
+			<ho-panel-area
 				activeTemplateId={this.layoutState.secondaryPanel}
 				class="secondary-panel"
-			></PanelArea>
+			></ho-panel-area>
 
-			<Statusbar class="statusbar"></Statusbar>
+			<ho-statusbar class="statusbar"></ho-statusbar>
 		</>;
 	}
 

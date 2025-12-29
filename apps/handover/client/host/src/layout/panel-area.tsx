@@ -123,3 +123,10 @@ export class PanelAreaService {
 	visible: Signal<boolean> = layoutPreferences.panelArea.visible;
 
 }
+
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'ho-panel-area': PanelArea;
+	}
+}

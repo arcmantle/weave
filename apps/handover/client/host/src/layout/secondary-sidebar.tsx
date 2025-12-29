@@ -124,3 +124,10 @@ export class SecondarySidebarService {
 	visible: Signal<boolean> = layoutPreferences.secondarySidebar.visible;
 
 }
+
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'ho-secondary-sidebar': SecondarySidebar;
+	}
+}

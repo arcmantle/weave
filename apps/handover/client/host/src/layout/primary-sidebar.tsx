@@ -57,7 +57,7 @@ export class PrimarySidebar extends ContentArea {
 		return <>
 			<style>{this.renderStyles()}</style>
 
-			<Activitybar class="activitybar"></Activitybar>
+			<ho-activity class="activitybar"></ho-activity>
 
 			<Show when={this.primarySidebar.visible.value}>
 				{() => <s-wrapper>
@@ -130,4 +130,11 @@ export class PrimarySidebarService {
 
 	visible: Signal<boolean> = layoutPreferences.primarySidebar.visible;
 
+}
+
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'ho-primary-sidebar': PrimarySidebar;
+	}
 }

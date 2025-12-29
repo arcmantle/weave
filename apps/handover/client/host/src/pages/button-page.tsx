@@ -1,4 +1,5 @@
-import { Button } from '@arcmantle/handover-core/button/button.cmp.js';
+import '@arcmantle/handover-core/button/button.cmp.js';
+
 import { css, type CSSResultGroup, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 
@@ -11,24 +12,29 @@ export class ButtonPage extends LitElement {
 	protected override render(): unknown {
 		return (
 			<>
-				<Button variant="default">
+				<ho-button variant="default">
 					Default Button
-				</Button>
-				<Button variant="secondary">
+				</ho-button>
+
+				<ho-button variant="secondary">
 					Secondary Button
-				</Button>
-				<Button variant="outline">
+				</ho-button>
+
+				<ho-button variant="outline">
 					Outline Button
-				</Button>
-				<Button variant="ghost">
+				</ho-button>
+
+				<ho-button variant="ghost">
 					Ghost Button
-				</Button>
-				<Button variant="link">
+				</ho-button>
+
+				<ho-button variant="link">
 					Link Button
-				</Button>
-				<Button variant="destructive">
+				</ho-button>
+
+				<ho-button variant="destructive">
 					Destructive Button
-				</Button>
+				</ho-button>
 			</>
 		);
 	}

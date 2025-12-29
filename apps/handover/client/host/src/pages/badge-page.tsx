@@ -1,4 +1,5 @@
-import { Badge } from '@arcmantle/handover-core/badge/badge.cmp.js';
+import '@arcmantle/handover-core/badge/badge.cmp.js';
+
 import { css, type CSSResultGroup, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 
@@ -11,21 +12,21 @@ export class BadgePage extends LitElement {
 	protected override render(): unknown {
 		return (
 			<>
-				<Badge variant="default" static>
+				<ho-badge variant="default">
 					Badge
-				</Badge>
+				</ho-badge>
 
-				<Badge variant="secondary" static>
+				<ho-badge variant="secondary">
 					Badge
-				</Badge>
+				</ho-badge>
 
-				<Badge variant="outline" static>
+				<ho-badge variant="outline">
 					Badge
-				</Badge>
+				</ho-badge>
 
-				<Badge variant="destructive" static>
+				<ho-badge variant="destructive">
 					Badge
-				</Badge>
+				</ho-badge>
 			</>
 		);
 	}
