@@ -125,7 +125,7 @@ const state = chronicle({
 });
 
 // React to changes
-chronicle.listen(state, 'todos', () => {
+chronicle.listen(state, s => s.todos, () => {
   console.log('Todos updated:', state.todos);
 }, 'down');
 
