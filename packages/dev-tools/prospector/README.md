@@ -28,7 +28,82 @@ prospector --suggest minor
 # Output: 1.3.0
 ```
 
-**Or use as a GitHub Action** - see [GitHub Action docs](./docs/GITHUB_ACTION.md)
+## Using in GitHub Actions
+
+The primary way to use Prospector is in CI/CD pipelines. Add it to your workflow to automatically version your packages:
+
+```yaml
+name: Publish Package
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required: fetch all history for version calculation
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org/
+
+      # Calculate version using Prospector
+      - name: Calculate version
+        id: version
+        uses: arcmantle/prospector@v1
+        with:
+          dir: '.'  # Optional: defaults to repository root
+
+      # Use the calculated version
+      - name: Set package version
+        run: |
+          echo "Setting version to ${{ steps.version.outputs.version }}"
+          npm version ${{ steps.version.outputs.version }} --no-git-tag-version
+
+      - name: Publish to NPM
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+```
+
+### GitHub Action Inputs
+
+| Input | Description | Default |
+|-------|-------------|---------|
+| `dir` | Repository directory path | `'.'` |
+| `branch` | Main branch name(s) | `'main'` (also recognizes `'master'`) |
+| `prefix` | Version tag prefix | `'v'` |
+| `no-commit-bumps` | Disable commit message bumping | `false` |
+
+### GitHub Action Outputs
+
+| Output | Description |
+|--------|-------------|
+| `version` | The calculated semantic version (e.g., `1.2.5`) |
+| `branch` | Current branch name |
+| `is-main-branch` | `'true'` if on main branch, `'false'` otherwise |
+| `commits-since-tag` | Number of commits since last version tag |
+
+### Example: Conditional Publishing
+
+Only publish on main branch with new commits:
+
+```yaml
+- name: Calculate version
+  id: version
+  uses: arcmantle/prospector@v1
+
+- name: Publish to NPM
+  if: steps.version.outputs.is-main-branch == 'true' && steps.version.outputs.commits-since-tag != '0'
+  run: npm publish
+  env:
+    NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+```
 
 ## Key Features
 
