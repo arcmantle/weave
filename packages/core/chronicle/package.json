@@ -24,7 +24,11 @@
 	"scripts": {
 		"bench": "vitest bench --run",
 		"build": "rimraf dist && tsc --project ./src/tsconfig.json",
-		"test": "vitest"
+		"docs:build": "typedoc --options docs/typedoc.json && vitepress build docs",
+		"docs:dev": "vitepress dev docs",
+		"docs:preview": "vitepress preview docs",
+		"docs:typedoc": "typedoc --options docs/typedoc.json",
+		"test": "vitest run"
 	},
 	"dependencies": {
 		"@arcmantle/library": "catalog:"
@@ -33,6 +37,8 @@
 		"typedoc": "catalog:",
 		"typedoc-plugin-markdown": "catalog:",
 		"vitepress": "catalog:",
-		"vitest": "catalog:"
+		"vitepress-mermaid-renderer": "^1.1.7",
+		"vitest": "catalog:",
+		"vue": "catalog:"
 	}
 }

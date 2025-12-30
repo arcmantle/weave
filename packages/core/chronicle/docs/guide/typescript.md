@@ -1,3 +1,9 @@
+---
+title: TypeScript
+description: Leverage TypeScript's type system for type-safe state management
+keywords: typescript, types, type safety, generics, intellisense, type inference
+---
+
 # TypeScript
 
 Learn how to leverage TypeScript's type system with Chronicle for fully type-safe state management, complete IntelliSense, and compile-time error checking.
@@ -153,7 +159,7 @@ Create reusable state management functions:
 ```typescript
 function createStore<T extends object>(initialState: T) {
   const state = chronicle<T>(initialState);
-  
+
   return {
     state,
     listen: (
@@ -225,7 +231,7 @@ diff.forEach(change => {
   // change.path is string[]
   // change.oldValue is any (or undefined for 'added')
   // change.newValue is any (or undefined for 'removed')
-  
+
   if (change.kind === 'changed') {
     console.log(change.oldValue, change.newValue);
   }
@@ -290,13 +296,13 @@ Make state readonly for consumers:
 ```typescript
 function createReadonlyState<T extends object>(initialState: T) {
   const state = chronicle<T>(initialState);
-  
+
   return {
     // Readonly access
     get state(): Readonly<T> {
       return state as Readonly<T>;
     },
-    
+
     // Controlled mutations
     update(fn: (state: T) => void) {
       chronicle.batch(state, fn);
@@ -425,14 +431,14 @@ import { useState, useEffect } from 'react';
 function useChronicleState<T extends object>(initialState: T) {
   const [state] = useState(() => chronicle<T>(initialState));
   const [, forceUpdate] = useState({});
-  
+
   useEffect(() => {
     const unlisten = chronicle.onAny(state, () => {
       forceUpdate({});
     });
     return unlisten;
   }, [state]);
-  
+
   return state;
 }
 
@@ -447,7 +453,7 @@ function TodoApp() {
     items: [],
     filter: 'all'
   });
-  
+
   // Fully typed state!
   const addTodo = (text: string) => {
     state.items.push({
@@ -456,7 +462,7 @@ function TodoApp() {
       done: false
     });
   };
-  
+
   return (
     <div>
       {state.items.map(item => (

@@ -1,3 +1,9 @@
+---
+title: Listeners
+description: Master Chronicle's listener system with modes, path selectors, and advanced options
+keywords: listeners, events, reactive, callbacks, debounce, throttle
+---
+
 # Listeners
 
 Master the art of listening to state changes in Chronicle. Learn about the three listening modes, path selectors, and powerful options like debouncing and throttling.
@@ -151,30 +157,45 @@ state.settings = { ... };         // ❌ Doesn't fire (unrelated)
 
 ## Visual Comparison
 
-```text
-State tree:
-  app
-  ├── user
-  │   ├── name: 'Alice'
-  │   └── profile
-  │       └── bio: 'Developer'
-  └── settings
-      └── theme: 'dark'
+```mermaid
+graph TB
+    Root["app (root)"]
+    Root --> User["user"]
+    Root --> Settings["settings"]
+    User --> Name["name: 'Alice'"]
+    User --> Profile["profile 🎯"]
+    Profile --> Bio["bio: 'Developer'"]
+    Settings --> Theme["theme: 'dark'"]
 
-Listener at 'user.profile':
+    style Profile fill:#ffd54f,stroke:#f57c00,stroke-width:3px
+    style Root fill:#e8f5e9
+    style User fill:#c8e6c9
+    style Settings fill:#c8e6c9
+    style Name fill:#a5d6a7
+    style Bio fill:#81c784
+    style Theme fill:#a5d6a7
+```
 
-┌─────────────────────┬────────────────────────────────────┐
-│ Mode                │ Fires On                           │
-├─────────────────────┼────────────────────────────────────┤
-│ 'exact'             │ user.profile = {...}               │
-├─────────────────────┼────────────────────────────────────┤
-│ 'down' (default)    │ user.profile = {...}               │
-│                     │ user.profile.bio = 'Senior Dev'    │
-├─────────────────────┼────────────────────────────────────┤
-│ 'up'                │ user.profile = {...}               │
-│                     │ user = {...}                       │
-│                     │ (root replaced)                    │
-└─────────────────────┴────────────────────────────────────┘
+**Listener at `'user.profile'` (marked with 🎯):**
+
+| Mode | Fires On | Use Case |
+| --- | --- | --- |
+| `'exact'` | `user.profile = {...}` | Only when profile object is replaced |
+| `'down'` (default) | `user.profile = {...}` or `user.profile.bio = 'Senior Dev'` | Profile or any child property changes |
+| `'up'` | `user.profile = {...}` or `user = {...}` or `(root replaced)` | Profile or any ancestor changes |
+
+```mermaid
+graph LR
+    A["Change at user.profile.bio"] --> B{Listener Mode}
+    B -->|exact| C["❌ No fire<br/>Not exact match"]
+    B -->|down| D["✅ Fires<br/>Child changed"]
+    B -->|up| E["✅ Fires<br/>Descendant changed"]
+
+    style A fill:#e3f2fd
+    style B fill:#fff9c4
+    style C fill:#ffcdd2
+    style D fill:#c8e6c9
+    style E fill:#c8e6c9
 ```
 
 ## Listener Options

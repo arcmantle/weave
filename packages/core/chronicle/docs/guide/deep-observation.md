@@ -1,3 +1,9 @@
+---
+title: Deep Observation
+description: How Chronicle tracks changes to nested objects using JavaScript Proxies
+keywords: deep observation, proxies, nested objects, change tracking, reactivity
+---
+
 # Deep Observation
 
 Learn how Chronicle automatically tracks changes to nested objects, arrays, Maps, and Sets using JavaScript Proxies.
@@ -64,6 +70,54 @@ const profileProxy = app.user.profile; // Proxy created
 // Now changes at any level are tracked
 app.user.profile.name = 'Bob'; // ✅ Tracked!
 ```
+
+## Change Notification Flow
+
+When you modify a property, Chronicle follows this flow:
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Proxy
+    participant History
+    participant Listeners
+
+    User->>Proxy: state.user.name = 'Bob'
+    activate Proxy
+
+    Proxy->>Proxy: Intercept set trap
+    Proxy->>Proxy: Get old value: 'Alice'
+
+    Proxy->>History: Record change
+    History->>History: Push to past stack
+    History->>History: Clear future stack
+
+    Proxy->>Proxy: Update actual value
+
+    Proxy->>Listeners: Notify listeners
+
+    par Exact Listeners
+        Listeners->>Listeners: Fire 'user.name' exact
+    and Down Listeners
+        Listeners->>Listeners: Fire 'user.name' down
+        Listeners->>Listeners: Fire 'user' down
+        Listeners->>Listeners: Fire '' (root) down
+    and Up Listeners
+        Listeners->>Listeners: Fire 'user.name' up
+    end
+
+    deactivate Proxy
+    Proxy-->>User: Change complete
+```
+
+**Flow Steps:**
+
+1. **Intercept**: Proxy catches the property set operation
+2. **Capture**: Record old value before change
+3. **History**: Add change to history stack, clear redo
+4. **Mutate**: Apply the actual change to the object
+5. **Notify**: Fire all matching listeners based on their modes
+6. **Complete**: Return control to user code
 
 ### Visual Representation
 

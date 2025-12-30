@@ -1,3 +1,9 @@
+---
+title: History & Time-Travel
+description: Explore Chronicle's undo/redo system and time-travel debugging techniques
+keywords: history, undo, redo, time-travel, change tracking, audit trail
+---
+
 # History & Time-Travel
 
 Explore Chronicle's powerful undo/redo system, learn how history recording works, and master time-travel debugging techniques.
@@ -81,30 +87,69 @@ user.email = 'bob@example.com';
 
 Chronicle maintains two stacks:
 
-```text
-Past (undo stack)         Future (redo stack)
-┌──────────────┐          ┌──────────────┐
-│ Change #3    │          │              │
-├──────────────┤          │              │
-│ Change #2    │          │              │
-├──────────────┤          │              │
-│ Change #1    │          │              │
-└──────────────┘          └──────────────┘
-     ↑                          ↑
-   Current                   (empty)
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> Initial: chronicle(obj)
+    Initial --> Change1: state.x = 1
+    Change1 --> Change2: state.y = 2
+    Change2 --> Change3: state.z = 3
+
+    Change3 --> Change2: undo()
+    Change2 --> Change1: undo()
+    Change1 --> Initial: undo()
+
+    Change1 --> Change2: redo()
+    Change2 --> Change3: redo()
+
+    note left of Initial
+        Past: []
+        Future: []
+    end note
+
+    note right of Change3
+        Past: [#1, #2, #3]
+        Future: []
+    end note
 ```
 
-After undo:
+**Stack Visualization:**
 
-```text
-Past                      Future
-┌──────────────┐          ┌──────────────┐
-│ Change #2    │          │ Change #3    │
-├──────────────┤          │              │
-│ Change #1    │          │              │
-└──────────────┘          └──────────────┘
-     ↑                          ↑
-   Current                   Can redo
+```mermaid
+graph TB
+    subgraph "After 3 Changes"
+        P1["Past Stack"]
+        P1 --> PC3["Change #3"]
+        PC3 --> PC2["Change #2"]
+        PC2 --> PC1["Change #1"]
+
+        F1["Future Stack"]
+        F1 --> FE1["(empty)"]
+    end
+
+    subgraph "After 1 Undo"
+        P2["Past Stack"]
+        P2 --> PC2B["Change #2"]
+        PC2B --> PC1B["Change #1"]
+
+        F2["Future Stack"]
+        F2 --> FC3["Change #3"]
+    end
+
+    subgraph "After New Change"
+        P3["Past Stack"]
+        P3 --> PC4["Change #4 (new)"]
+        PC4 --> PC2C["Change #2"]
+        PC2C --> PC1C["Change #1"]
+
+        F3["Future Stack"]
+        F3 --> FE2["(cleared!)"]
+    end
+
+    style PC3 fill:#90caf9
+    style FC3 fill:#ffcc80
+    style PC4 fill:#81c784
+    style FE2 fill:#ffcdd2
 ```
 
 ### Redo Stack Clearing

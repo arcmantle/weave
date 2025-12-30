@@ -1,3 +1,9 @@
+---
+title: Getting Started with Chronicle
+description: Learn what Chronicle is and create your first observable state in minutes
+keywords: chronicle, observable, state management, getting started, tutorial
+---
+
 # Getting Started with Chronicle
 
 Welcome to Chronicle! This guide will help you understand what Chronicle is, why you'd use it, and how to create your first observable state in just a few minutes.
@@ -128,29 +134,32 @@ console.log(counter.count); // 1
 
 Before diving deeper, here's a mental model of how Chronicle works:
 
-```text
-┌─────────────────────────────────────────┐
-│  Your Object                            │
-│  { count: 0, user: { name: 'Alice' } }  │
-└─────────────┬───────────────────────────┘
-              │
-              │ chronicle()
-              ↓
-┌─────────────────────────────────────────┐
-│  Observable Proxy                       │
-│  • Tracks all changes                   │
-│  • Records history                      │
-│  • Notifies listeners                   │
-└─────────────┬───────────────────────────┘
-              │
-       ┌──────┴──────┐
-       ↓             ↓
-  Listeners      History Stack
-  • Exact        • Change #1
-  • Down         • Change #2
-  • Up           • Change #3
-                 • ...
+```mermaid
+graph TB
+    A["Your Object<br/>{ count: 0, user: { name: 'Alice' } }"] -->|"chronicle()"| B[Observable Proxy]
+    B --> C[Tracks Changes]
+    B --> D[Records History]
+    B --> E[Notifies Listeners]
+    C --> F["Deep Observation<br/>All nested properties"]
+    D --> G["History Stack<br/>Undo/Redo support"]
+    E --> H["Listener System<br/>Exact, Down, Up modes"]
+
+    style A fill:#e3f2fd
+    style B fill:#bbdefb
+    style C fill:#90caf9
+    style D fill:#90caf9
+    style E fill:#90caf9
+    style F fill:#64b5f6
+    style G fill:#64b5f6
+    style H fill:#64b5f6
 ```
+
+**Key Components:**
+
+- **Observable Proxy**: Wraps your object to intercept all property access and changes
+- **Deep Observation**: Automatically tracks nested objects, arrays, Maps, and Sets
+- **History Stack**: Maintains undo/redo capability with configurable limits
+- **Listener System**: React to changes at any level with flexible notification modes
 
 ### The Three Key Ideas
 
@@ -295,6 +304,41 @@ Now that you understand the basics, dive deeper into specific topics:
 - **[Listeners →](./listeners)** - Master the art of listening to changes
 - **[History & Time-Travel →](./history)** - Undo, redo, and debugging with history
 - **[API Reference →](../api/index)** - Complete API documentation
+
+## Chronicle vs Alternatives
+
+How does Chronicle compare to other state management solutions?
+
+| Feature | Chronicle | MobX | Redux | Signals | Immer |
+| --- | --- | --- | --- | --- | --- |
+| **Automatic Tracking** | ✅ Deep | ✅ Deep | ❌ Manual | ✅ Shallow | ❌ Manual |
+| **Time-Travel** | ✅ Built-in | ❌ Plugin | ✅ DevTools | ❌ No | ❌ No |
+| **Undo/Redo** | ✅ Native | ❌ Manual | ✅ Custom | ❌ Manual | ❌ Manual |
+| **History Stack** | ✅ Yes | ❌ No | ✅ Yes | ❌ No | ❌ No |
+| **Batching** | ✅ Built-in | ✅ Actions | ✅ Dispatch | ❌ No | ❌ No |
+| **Snapshots** | ✅ Built-in | ❌ Manual | ✅ State | ❌ No | ✅ Produce |
+| **Mutable API** | ✅ Yes | ✅ Yes | ❌ Immutable | ✅ Yes | ✅ Yes |
+| **Bundle Size** | ~15KB | ~16KB | ~3KB | ~2KB | ~14KB |
+| **TypeScript** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | ✅ Full |
+| **Learning Curve** | Low | Medium | High | Low | Low |
+| **Async Support** | ✅ Yes | ✅ Yes | ✅ Middleware | ✅ Yes | ✅ Yes |
+| **Listeners** | ✅ Granular | ✅ Reactions | ✅ Subscribe | ✅ Effects | ❌ No |
+| **Framework Agnostic** | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+
+**When to choose Chronicle:**
+
+- ✅ Need built-in undo/redo without setup
+- ✅ Want deep observation with minimal boilerplate
+- ✅ Need granular change tracking and history
+- ✅ Prefer mutable API over immutable patterns
+- ✅ Building apps with complex state (games, editors, forms)
+
+**When to choose alternatives:**
+
+- **MobX**: Similar features, larger ecosystem, more mature
+- **Redux**: Large team, strict patterns, extensive middleware
+- **Signals**: Minimal bundle size, simple reactivity only
+- **Immer**: Need immutability with Redux/Zustand
 
 ## Quick Reference
 

@@ -1,6 +1,67 @@
+---
+title: Best Practices
+description: Architectural patterns and recommended practices for production applications
+keywords: best practices, patterns, architecture, production, recommendations, pitfalls
+---
+
 # Best Practices
 
 Learn architectural patterns, common pitfalls, and recommended practices for using Chronicle effectively in production applications.
+
+## Quick Decision Trees
+
+### When to Use Batching?
+
+```mermaid
+graph TD
+    A[Making multiple changes?] -->|Yes| B{Related changes?}
+    A -->|No| C[Single change - no batching needed]
+    B -->|Yes, logically grouped| D[Use batch\\(\\)]
+    B -->|No, independent| E[Keep separate]
+    D --> F{How many changes?}
+    F -->|Many \\(100+\\)| G[batch\\(\\) is critical]
+    F -->|Few \\(2-10\\)| H[batch\\(\\) is nice-to-have]
+
+    style D fill:#c8e6c9
+    style G fill:#81c784
+    style H fill:#a5d6a7
+    style E fill:#fff9c4
+```
+
+### Which Listener Mode?
+
+```mermaid
+graph TD
+    A[Where is your data?] -->|Exact path| B[Use 'exact']
+    A -->|Path + children| C[Use 'down' \\(default\\)]
+    A -->|Path + ancestors| D[Use 'up']
+
+    B --> B1[\"Only fires when<br/>that specific property changes\"]
+    C --> C1[\"Fires when property<br/>or any descendant changes\"]
+    D --> D1[\"Fires when property<br/>or any ancestor changes\"]
+
+    style B fill:#e1f5fe
+    style C fill:#c8e6c9
+    style D fill:#fff9c4
+```
+
+### Should You Track History?
+
+```mermaid
+graph TD
+    A[Need undo/redo?] -->|Yes| B[Enable history]
+    A -->|No| C{Need change audit?}
+    C -->|Yes| D[Enable with historyFilter]
+    C -->|No| E[Disable history]
+
+    B --> F[Set maxHistory appropriately]
+    D --> G[Filter out noise]
+    E --> H[maxHistory: 0]
+
+    style B fill:#c8e6c9
+    style D fill:#fff9c4
+    style E fill:#ffcdd2
+```
 
 ## Core Principles
 

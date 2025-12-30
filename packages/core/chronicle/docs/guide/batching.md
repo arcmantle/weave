@@ -1,6 +1,42 @@
+---
+title: Batching & Transactions
+description: Group multiple changes into atomic operations for better performance
+keywords: batching, transactions, performance, optimization, bulk updates, atomic operations
+---
+
 # Batching & Transactions
 
 Learn how to group multiple changes into atomic operations for better undo/redo behavior and improved performance.
+
+## When to Use Batching
+
+```mermaid
+graph TD
+    A[Making changes?] -->|Single change| B[No batching needed]
+    A -->|Multiple changes| C{Are changes related?}
+
+    C -->|Yes, same logical operation| D[Use batch\\(\\)]
+    C -->|No, independent| E[Keep separate]
+
+    D --> F{How many changes?}
+    F -->|2-10 changes| G[batch\\(\\) for clean undo]
+    F -->|10-100 changes| H[batch\\(\\) for performance]
+    F -->|100+ changes| I[batch\\(\\) is critical!]
+
+    style D fill:#c8e6c9
+    style G fill:#a5d6a7
+    style H fill:#81c784
+    style I fill:#66bb6a
+    style E fill:#fff9c4
+```
+
+**Examples of when to batch:**
+
+- ✅ Form submission (multiple field updates)
+- ✅ Bulk data import
+- ✅ Complex UI interactions (drag & drop with multiple updates)
+- ✅ Synchronizing related state (cart items + total + tax)
+- ❌ Independent user actions (separate button clicks)
 
 ## Why Batch Changes?
 

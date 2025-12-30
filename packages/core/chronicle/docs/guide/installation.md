@@ -1,3 +1,9 @@
+---
+title: Installation
+description: Get Chronicle up and running in your project in minutes
+keywords: installation, setup, npm, pnpm, yarn, getting started, configuration
+---
+
 # Installation
 
 Get Chronicle up and running in your project in just a few minutes.

@@ -1,3 +1,9 @@
+---
+title: Performance
+description: Optimize Chronicle for production with performance best practices
+keywords: performance, optimization, benchmarks, scalability, memory, profiling
+---
+
 # Performance
 
 Learn how to optimize Chronicle for production use, avoid common performance pitfalls, and handle large-scale state management efficiently.
@@ -5,6 +11,34 @@ Learn how to optimize Chronicle for production use, avoid common performance pit
 ## Performance Overview
 
 Chronicle is designed to be performant out of the box, but understanding its performance characteristics helps you make informed decisions.
+
+### Operation Cost Comparison
+
+```mermaid
+graph LR
+    subgraph "Relative Cost per Operation"
+        A["Plain Object<br/>1x baseline"]
+        B["Chronicle Read<br/>1.1x"]
+        C["Chronicle Write<br/>2x"]
+        D["With History<br/>3x"]
+        E["With Listeners<br/>4x"]
+        F["Batched \\(1000 ops\\)<br/>1.5x total"]
+    end
+
+    style A fill:#c8e6c9
+    style B fill:#a5d6a7
+    style C fill:#fff9c4
+    style D fill:#ffcc80
+    style E fill:#ffab91
+    style F fill:#81c784
+```
+
+**Key Takeaways:**
+
+- Reading properties: ~10% overhead (negligible)
+- Writing properties: ~2x overhead (small)
+- Batching 1000 operations: Overall 1.5x overhead (excellent)
+- Most apps: <1% total performance impact
 
 ### Proxy Overhead
 

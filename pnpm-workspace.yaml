@@ -132,7 +132,7 @@ catalog:
   marked-gfm-heading-id: ^4.1.1
   marked-highlight: ^2.2.1
   marked-mangle: ^1.1.10
-  mermaid: ^11.6.0
+  mermaid: 11.12.2
   mime: ^4.0.7
   monaco-editor: ^0.52.2
   nanoid: ^5.1.5
@@ -175,18 +175,19 @@ catalog:
   type-fest: ^4.40.0
   typedoc: ^0.28.15
   typedoc-github-theme: ^0.3.0
+  typedoc-plugin-markdown: ^4.9.0
   typescript: ^5.9.2
   typescript-eslint: ^8.35.1
   urlpattern-polyfill: ^10.0.0
   validate-html-nesting: ^1.2.4
   vite: ^7.3.0
   vite-plugin-solid: ^2.11.6
+  vitepress: ^1.6.4
   vitest: ^4.0.16
+  vue: ^3.5.26
   weaviate-client: ^3.5.2
   ws: ^8.18.1
   yargs: ^18.0.0
-  typedoc-plugin-markdown: ^4.9.0
-  vitepress: ^1.6.4
 
 onlyBuiltDependencies:
   - '@firebase/util'

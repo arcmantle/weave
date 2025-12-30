@@ -27,6 +27,7 @@ export default defineConfig({
 					items: [
 						{ text: 'Getting Started', link: '/guide/getting-started' },
 						{ text: 'Installation', link: '/guide/installation' },
+						{ text: 'Quick Reference', link: '/guide/quick-reference' },
 					],
 				},
 				{
@@ -45,6 +46,17 @@ export default defineConfig({
 						{ text: 'Performance', link: '/guide/performance' },
 						{ text: 'TypeScript', link: '/guide/typescript' },
 						{ text: 'Best Practices', link: '/guide/best-practices' },
+					],
+				},
+				{
+					text:  'Examples',
+					items: [
+						{ text: 'Todo List', link: '/guide/examples/todo-list' },
+						{ text: 'Form State', link: '/guide/examples/form-state' },
+						{ text: 'Collaborative Editor', link: '/guide/examples/collaborative-editor' },
+						{ text: 'Game State', link: '/guide/examples/game-state' },
+						{ text: 'Data Table', link: '/guide/examples/data-table' },
+						{ text: 'Shopping Cart', link: '/guide/examples/shopping-cart' },
 					],
 				},
 			],

@@ -1,3 +1,9 @@
+---
+title: Snapshots & Diffs
+description: Capture point-in-time state, compare changes, and reset to pristine conditions
+keywords: snapshots, diffs, comparison, restore, immutable, state comparison, deep copy
+---
+
 # Snapshots & Diffs
 
 Learn how to capture point-in-time state, compare changes, and reset to pristine conditions with Chronicle's snapshot and diff system.
