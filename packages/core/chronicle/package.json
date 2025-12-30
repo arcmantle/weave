@@ -28,5 +28,11 @@
 	},
 	"dependencies": {
 		"@arcmantle/library": "catalog:"
+	},
+	"devDependencies": {
+		"typedoc": "catalog:",
+		"typedoc-plugin-markdown": "catalog:",
+		"vitepress": "catalog:",
+		"vitest": "catalog:"
 	}
 }

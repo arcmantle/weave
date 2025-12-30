@@ -8,7 +8,7 @@
  * - Pause/resume for batch updates
  */
 
-import { chronicle } from '../chronicle.ts';
+import { chronicle } from '../src/chronicle.ts';
 
 interface Position {
 	x: number;

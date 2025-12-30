@@ -8,7 +8,7 @@
  * - Conflict resolution patterns
  */
 
-import { chronicle } from '../chronicle.ts';
+import { chronicle } from '../src/chronicle.ts';
 
 interface Cursor {
 	userId:   string;

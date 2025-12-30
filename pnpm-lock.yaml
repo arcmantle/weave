@@ -1704,6 +1704,19 @@ importers:
       '@arcmantle/library':
         specifier: workspace:^
         version: link:../library
+    devDependencies:
+      typedoc:
+        specifier: 'catalog:'
+        version: 0.28.15(typescript@5.9.3)
+      typedoc-plugin-markdown:
+        specifier: 'catalog:'
+        version: 4.9.0(typedoc@0.28.15(typescript@5.9.3))
+      vitepress:
+        specifier: 'catalog:'
+        version: 1.6.4(@algolia/client-search@5.46.2)(@types/node@25.0.3)(idb-keyval@6.2.2)(lightningcss@1.30.2)(postcss@8.5.6)(sass@1.97.1)(search-insights@2.17.3)(terser@5.44.1)(typescript@5.9.3)
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.16(@types/node@25.0.3)(happy-dom@17.6.3)(jiti@2.6.1)(jsdom@26.1.0)(lightningcss@1.30.2)(sass@1.97.1)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2)
 
   packages/core/esplot:
     dependencies:
