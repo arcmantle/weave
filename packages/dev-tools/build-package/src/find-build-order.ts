@@ -8,9 +8,41 @@ import type { ExportObject, PackageJson } from './package-json.ts';
 
 const nameToPathMap: Map<string, string> = new Map();
 const nameToContentMap: Map<string, PackageJson> = new Map();
+const workspaceOverrides: Map<string, string> = new Map();
+
+/**
+ * Reset the package cache. Useful for testing.
+ * @internal
+ */
+export const __resetPackageCache = (): void => {
+	nameToPathMap.clear();
+	nameToContentMap.clear();
+	workspaceOverrides.clear();
+};
+
 const ensurePackageLookup = async () => {
 	if (nameToPathMap.size)
 		return;
+
+	// Read workspace overrides from pnpm-workspace.yaml
+	const workspaceYamlPath = join(process.cwd().replaceAll('\\', '/'), '/pnpm-workspace.yaml');
+	if (existsSync(workspaceYamlPath)) {
+		const yamlContent = readFileSync(workspaceYamlPath, 'utf-8');
+		// Simple YAML parsing for overrides section
+		const overridesMatch = yamlContent.match(/overrides:\s*([\s\S]*?)(?=\n\S|$)/);
+		if (overridesMatch && overridesMatch[1]) {
+			const overridesSection = overridesMatch[1];
+			const overrideLines = overridesSection.split('\n');
+			for (const line of overrideLines) {
+				const match = line.match(/^\s*['"]?([^'":\s]+)['"]?\s*:\s*([^\s#]+)/);
+				if (match && match[1] && match[2]) {
+					const packageName = match[1];
+					const version = match[2];
+					workspaceOverrides.set(packageName, version);
+				}
+			}
+		}
+	}
 
 	const globPath = join(
 		process.cwd().replaceAll('\\', '/'),
@@ -62,7 +94,20 @@ export const getPackageDeps = (json: PackageJson): [string, string][] => {
 
 export const getWorkspaceDeps = (json: PackageJson): string[] => {
 	return getPackageDeps(json)
-		.filter(([ , ver ]) => ver.startsWith('workspace:'))
+		.filter(([ name, ver ]) => {
+			// Check if it's explicitly a workspace dependency
+			if (ver.startsWith('workspace:'))
+				return true;
+
+			// Check if it's a catalog: reference that has a workspace override
+			if (ver === 'catalog:') {
+				const override = workspaceOverrides.get(name);
+				if (override && override.startsWith('workspace:'))
+					return true;
+			}
+
+			return false;
+		})
 		.map(([ name ]) => name);
 };
 
@@ -145,12 +190,14 @@ export const getPackageBuildOrder = async (
 	return [ ...flat ];
 
 	function createNodeTree(node: Node) {
-		const visitedNodes: WeakSet<Node> = new WeakSet();
+		const visitedNames: Set<string> = new Set();
 		const nodeQueue: Node[] = [ node ];
 		while (nodeQueue.length) {
 			const node = nodeQueue.shift()!;
-			if (visitedNodes.has(node) && visitedNodes.add(node))
+			if (visitedNames.has(node.name))
 				continue;
+
+			visitedNames.add(node.name);
 
 			const pkg = nameToContentMap.get(node.name);
 			if (!pkg)
@@ -171,15 +218,17 @@ export const getPackageBuildOrder = async (
 	function traverseUpwards(
 		node: Node,
 		dependencies: string[][] = [],
-		visitedNodes: WeakSet<Node> = new WeakSet(),
+		visitedNames: Set<string> = new Set(),
 		depth = 0,
 	) {
-		if (visitedNodes.has(node) && visitedNodes.add(node))
+		if (visitedNames.has(node.name))
 			return dependencies;
+
+		visitedNames.add(node.name);
 
 		if (node.deps.length) {
 			for (const child of node.deps)
-				traverseUpwards(child, dependencies, visitedNodes, depth + 1);
+				traverseUpwards(child, dependencies, visitedNames, depth + 1);
 		}
 
 		const arr = dependencies[depth] ?? (dependencies[depth] = []);

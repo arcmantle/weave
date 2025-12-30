@@ -12,6 +12,10 @@
 	"bin": {
 		"build-package": "./bin/index.ts"
 	},
+	"scripts": {
+		"test": "vitest run",
+		"test:watch": "vitest"
+	},
 	"dependencies": {
 		"@types/semver": "catalog:",
 		"semver": "catalog:"
