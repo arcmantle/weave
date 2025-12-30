@@ -30,9 +30,7 @@
 		"docs:typedoc": "typedoc --options docs/typedoc.json",
 		"test": "vitest run"
 	},
-	"dependencies": {
-		"@arcmantle/library": "catalog:"
-	},
+	"dependencies": {},
 	"devDependencies": {
 		"typedoc": "catalog:",
 		"typedoc-plugin-markdown": "catalog:",

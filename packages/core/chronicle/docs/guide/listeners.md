@@ -86,19 +86,101 @@ chronicle.listen(state, ['cache', 'user:123'], listener); // Keys with special c
 
 ### Function Selectors
 
-Use a function to access the property (type-safe):
+Use a function to access the property (type-safe and intuitive):
 
 ```typescript
-// Using an arrow function
+// Using an arrow function - the recommended approach
 chronicle.listen(state, s => s.user.profile.name, listener);
 
-// TypeScript provides full autocomplete!
+// TypeScript provides full autocomplete and type checking!
 chronicle.listen(state, s => s.settings.theme, listener);
+
+// Works with arrays
+chronicle.listen(state, s => s.items[0], listener);
+
+// Complex nested paths
+chronicle.listen(state, s => s.config.api.endpoints.users, listener);
 ```
 
-::: tip Type Safety
-Function selectors provide the best TypeScript experience with full autocomplete and type checking.
+::: tip Why Use Function Selectors?
+Function selectors are the **recommended approach** for several reasons:
+
+1. **Type Safety**: Full TypeScript autocomplete and compile-time checking
+2. **Refactor-Friendly**: Rename refactoring works correctly
+3. **No String Typos**: Compiler catches invalid property names
+4. **Better IDE Support**: Jump to definition, find references, etc.
+5. **More Intuitive**: Looks like normal property access
+
+```typescript
+// ❌ String selector - typo only caught at runtime
+chronicle.listen(state, 'user.naem', listener); // Runtime error!
+
+// ✅ Function selector - typo caught at compile time
+chronicle.listen(state, s => s.user.naem, listener); // TS error!
+                              //     ^^^^
+```
+
 :::
+
+::: warning Function Selector Limitations
+Function selectors track property access, so they only work with direct property access:
+
+```typescript
+// ✅ Works
+chronicle.listen(state, s => s.user.name, listener);
+
+// ❌ Doesn't work - destructuring
+chronicle.listen(state, s => {
+  const { user } = s;
+  return user.name;
+}, listener);
+
+// ❌ Doesn't work - computed properties
+const key = 'name';
+chronicle.listen(state, s => s.user[key], listener);
+```
+
+For these cases, use string or array selectors instead.
+:::
+
+### Selector Comparison
+
+Here's the same listener written three ways:
+
+```typescript
+const state = chronicle({
+  user: {
+    profile: {
+      settings: {
+        theme: 'dark'
+      }
+    }
+  }
+});
+
+// String selector - concise but no type checking
+chronicle.listen(state, 'user.profile.settings.theme', (path, newVal) => {
+  console.log('Theme changed to:', newVal);
+});
+
+// Array selector - handles special characters
+chronicle.listen(state, ['user', 'profile', 'settings', 'theme'], (path, newVal) => {
+  console.log('Theme changed to:', newVal);
+});
+
+// Function selector - type-safe and refactor-friendly ⭐ RECOMMENDED
+chronicle.listen(state, s => s.user.profile.settings.theme, (path, newVal) => {
+  console.log('Theme changed to:', newVal);
+});
+```
+
+**When to use each:**
+
+| Selector Type | Best For | Pros | Cons |
+| -------------- | ---------- | ------ | ------ |
+| **Function** | Most cases | Type-safe, autocomplete, refactor-friendly | Doesn't work with destructuring |
+| **String** | Simple paths, dynamic paths | Concise, easy to read | No compile-time checking |
+| **Array** | Special characters in keys | Handles any key name | More verbose |
 
 ## Listening Modes
 
@@ -116,7 +198,11 @@ const state = chronicle({
   }
 });
 
+// String selector
 chronicle.listen(state, 'user.name', listener, 'exact');
+
+// Or function selector (recommended)
+chronicle.listen(state, s => s.user.name, listener, 'exact');
 
 state.user.name = 'Bob';     // ✅ Fires
 state.user.email = 'new@ex';  // ❌ Doesn't fire
@@ -130,7 +216,11 @@ state.user = { ... };         // ❌ Doesn't fire (parent changed)
 Fires when the path **or any descendant** changes:
 
 ```typescript
+// String selector
 chronicle.listen(state, 'user', listener, 'down');
+
+// Or function selector (recommended)
+chronicle.listen(state, s => s.user, listener, 'down');
 
 state.user.name = 'Bob';      // ✅ Fires (descendant)
 state.user.email = 'new@ex';   // ✅ Fires (descendant)
@@ -145,7 +235,11 @@ state.user = { ... };          // ✅ Fires (exact match)
 Fires when **any ancestor** changes (rare):
 
 ```typescript
+// String selector
 chronicle.listen(state, 'user.profile.name', listener, 'up');
+
+// Or function selector (recommended)
+chronicle.listen(state, s => s.user.profile.name, listener, 'up');
 
 state.user.profile.name = 'Bob'; // ✅ Fires (exact)
 state.user.profile = { ... };     // ✅ Fires (ancestor)

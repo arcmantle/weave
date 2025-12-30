@@ -20,8 +20,13 @@ import { chronicle } from './chronicle.ts';
 // Observe an object
 const state = chronicle({ count: 0, user: { name: 'Alice' } });
 
-// Listen to changes
+// Listen to changes (string selector)
 chronicle.listen(state, 'count', (path, newValue, oldValue) => {
+  console.log(`Count changed from ${oldValue} to ${newValue}`);
+});
+
+// Or use a function selector for better type safety
+chronicle.listen(state, s => s.count, (path, newValue, oldValue) => {
   console.log(`Count changed from ${oldValue} to ${newValue}`);
 });
 
@@ -69,8 +74,13 @@ Listen to changes at a specific path.
 - `schedule: 'sync' | 'microtask'` - When to deliver notifications
 
 ```typescript
-// Listen to exact path
+// Listen to exact path (string selector)
 chronicle.listen(state, 'count', (path, newVal, oldVal, meta) => {
+  console.log('Count changed:', newVal);
+});
+
+// Or use a function selector for type safety
+chronicle.listen(state, s => s.count, (path, newVal, oldVal, meta) => {
   console.log('Count changed:', newVal);
 });
 
@@ -79,18 +89,23 @@ chronicle.listen(state, 'user', (path) => {
   console.log('User changed at:', path);
 }, 'down');
 
+// Function selector with descendant mode
+chronicle.listen(state, s => s.user, (path) => {
+  console.log('User changed at:', path);
+}, 'down');
+
 // Debounced listener
-chronicle.listen(state, 'searchQuery', handleSearch, {
+chronicle.listen(state, s => s.searchQuery, handleSearch, {
   debounceMs: 300
 });
 
 // Throttled listener
-chronicle.listen(state, 'mousePosition', updateUI, {
+chronicle.listen(state, s => s.mousePosition, updateUI, {
   throttleMs: 16 // ~60fps
 });
 
 // One-time listener
-chronicle.listen(state, 'initialized', () => {
+chronicle.listen(state, s => s.initialized, () => {
   console.log('App initialized!');
 }, { once: true });
 ```

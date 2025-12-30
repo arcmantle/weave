@@ -40,13 +40,21 @@ const list = chronicle([1, 2, 3]);
 Listen to changes on an observable object.
 
 ```typescript
-// Listen to specific property
+// Listen to specific property (string selector)
 chronicle.listen(state, 'count', (path, newVal, oldVal) => {
   console.log(`${path[0]} changed: ${oldVal} → ${newVal}`);
 });
 
-// Listen to nested property
+// Listen to specific property (function selector - type-safe)
+chronicle.listen(state, s => s.count, (path, newVal, oldVal) => {
+  console.log(`${path[0]} changed: ${oldVal} → ${newVal}`);
+});
+
+// Listen to nested property (string)
 chronicle.listen(state, 'user.name', callback);
+
+// Listen to nested property (function - recommended for type safety)
+chronicle.listen(state, s => s.user.name, callback);
 
 // Listen to entire object (shallow)
 chronicle.listen(state, null, callback, 'shallow');
@@ -72,7 +80,11 @@ unlisten(); // Stop listening
 Remove a listener.
 
 ```typescript
+// With string selector
 chronicle.unlisten(state, 'count', callback);
+
+// With function selector
+chronicle.unlisten(state, s => s.count, callback);
 ```
 
 ### chronicle.batch()

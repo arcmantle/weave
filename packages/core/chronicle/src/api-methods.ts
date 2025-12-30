@@ -1,7 +1,6 @@
-import { nameofSegments } from '@arcmantle/library/function';
-
 import { clearLastUngrouped, historyDelete, historyGet } from './history.ts';
 import { addListenerToTrie, cleanupListenerBucket, ensureListenerBucket, removeListenerFromTrie } from './listener-trie.ts';
+import { nameofSegments } from './nameof.ts';
 import { clearProxyCache as pfClearProxyCache } from './proxy-factory.ts';
 import { buildEffectiveListener, flush as scheduleFlush, pause as schedulePause, resume as scheduleResume } from './schedule-queue.ts';
 import { cloneWithOptions, diffValues, originalSnapshotCache } from './snapshot-diff.ts';

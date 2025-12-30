@@ -63,13 +63,23 @@ const state = chronicle({
   user: { name: 'Alice', email: 'alice@example.com' }
 });
 
-// Listen to specific changes
+// Listen to specific changes (string selector)
 chronicle.listen(state, 'count', (path, newValue, oldValue) => {
+  console.log(`Count changed from ${oldValue} to ${newValue}`);
+});
+
+// Or use a function selector for better type safety
+chronicle.listen(state, s => s.count, (path, newValue, oldValue) => {
   console.log(`Count changed from ${oldValue} to ${newValue}`);
 });
 
 // Listen to nested changes
 chronicle.listen(state, 'user', (path, newValue, oldValue) => {
+  console.log(`User changed at ${path.join('.')}`);
+}, 'down');
+
+// Or with function selector
+chronicle.listen(state, s => s.user, (path, newValue, oldValue) => {
   console.log(`User changed at ${path.join('.')}`);
 }, 'down');
 

@@ -33,7 +33,14 @@ const state = { user: { name: 'Alice', settings: { theme: 'dark' } } };
 
 // After: Chronicle handles it automatically
 const state = chronicle({ user: { name: 'Alice', settings: { theme: 'dark' } } });
+
+// Using string selector
 chronicle.listen(state, 'user.settings.theme', (path, newVal, oldVal) => {
+  console.log(`Theme changed from ${oldVal} to ${newVal}`);
+});
+
+// Or use a function for better type safety and intellisense
+chronicle.listen(state, s => s.user.settings.theme, (path, newVal, oldVal) => {
   console.log(`Theme changed from ${oldVal} to ${newVal}`);
 });
 ```
@@ -99,8 +106,13 @@ console.log(counter.count); // 0
 ### Step 3: Listen to Changes
 
 ```typescript
-// React to changes
+// React to changes using string selector
 chronicle.listen(counter, 'count', (path, newValue, oldValue) => {
+  console.log(`Count changed from ${oldValue} to ${newValue}`);
+});
+
+// Or use a function selector for better type safety
+chronicle.listen(counter, c => c.count, (path, newValue, oldValue) => {
   console.log(`Count changed from ${oldValue} to ${newValue}`);
 });
 
