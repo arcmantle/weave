@@ -1703,10 +1703,6 @@ importers:
         version: 10.1.0
 
   packages/core/chronicle:
-    dependencies:
-      '@arcmantle/library':
-        specifier: workspace:^
-        version: link:../library
     devDependencies:
       typedoc:
         specifier: 'catalog:'

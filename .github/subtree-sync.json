@@ -21,6 +21,10 @@
 			"targetRepo": "arcmantle/adapter-element"
 		},
 		{
+			"packagePath": "packages/core/chronicle",
+			"targetRepo": "arcmantle/chronicle"
+		},
+		{
 			"packagePath": "packages/core/esplot",
 			"targetRepo": "arcmantle/esplot"
 		},
