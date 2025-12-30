@@ -1,0 +1,32 @@
+{
+	"name": "@arcmantle/chronicle",
+	"version": "1.0.0",
+	"description": "A library for managing changes over time with undo/redo functionality",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/arcmantle/chronicle.git"
+	},
+	"license": "Apache-2.0",
+	"author": "Kristoffer Roen-Lie",
+	"sideEffects": false,
+	"type": "module",
+	"exports": {
+		"./*": "./dist/*.js"
+	},
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"files": [
+		"dist",
+		"src",
+		"package.json",
+		"README.md"
+	],
+	"scripts": {
+		"bench": "vitest bench --run",
+		"build": "rimraf dist && tsc --project ./src/tsconfig.json",
+		"test": "vitest"
+	},
+	"dependencies": {
+		"@arcmantle/library": "catalog:"
+	}
+}
