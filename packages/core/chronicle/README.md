@@ -562,4 +562,4 @@ const user: User = chronicle({ name: 'Alice', age: 30 });
 
 Apache-2
 
-.
+..
