@@ -74,7 +74,7 @@ jobs:
 ### GitHub Action Inputs
 
 | Input | Description | Default |
-|-------|-------------|---------|
+| ------- | ------------- | --------- |
 | `dir` | Repository directory path | `'.'` |
 | `branch` | Main branch name(s) | `'main'` (also recognizes `'master'`) |
 | `prefix` | Version tag prefix | `'v'` |
@@ -83,7 +83,7 @@ jobs:
 ### GitHub Action Outputs
 
 | Output | Description |
-|--------|-------------|
+| -------- | ------------- |
 | `version` | The calculated semantic version (e.g., `1.2.5`) |
 | `branch` | Current branch name |
 | `is-main-branch` | `'true'` if on main branch, `'false'` otherwise |
