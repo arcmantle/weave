@@ -1,4 +1,5 @@
 import { ensureHistory, getOptions, trimHistoryByGroups } from './history.ts';
+import { cloneWithOptions } from './snapshot-diff.ts';
 import type { ChangeRecord } from './types.ts';
 import { clearRedoCache, isSuspended } from './undo-redo.ts';
 
@@ -34,8 +35,8 @@ export const recordSet = (
 	const rec: ChangeRecord = {
 		path:      path.slice(),
 		type:      'set',
-		oldValue,
-		newValue,
+		oldValue:  cloneWithOptions(root, oldValue),
+		newValue:  cloneWithOptions(root, newValue),
 		timestamp: Date.now(),
 		existedBefore,
 		groupId,
@@ -92,7 +93,7 @@ export const recordDelete = (
 	const rec: ChangeRecord = {
 		path:      path.slice(),
 		type:      'delete',
-		oldValue,
+		oldValue:  cloneWithOptions(root, oldValue),
 		newValue:  undefined,
 		timestamp: Date.now(),
 		groupId,
@@ -133,7 +134,7 @@ export const recordArrayShrinkDeletes = (
 		const rec: ChangeRecord = {
 			path:      [ ...basePath, String(index) ],
 			type:      'delete',
-			oldValue:  oldVal,
+			oldValue:  cloneWithOptions(root, oldVal),
 			newValue:  undefined,
 			timestamp: Date.now(),
 			groupId,

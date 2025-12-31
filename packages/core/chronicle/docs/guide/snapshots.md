@@ -248,14 +248,14 @@ Restore the state to its original condition:
 state.count = 100;
 state.name = 'Charlie';
 
-chronicle.resetToPristine(state);
+chronicle.reset(state);
 
 console.log(state.count); // 0 (original value)
 console.log(state.name);  // 'Alice' (original value)
 ```
 
 ::: warning Destructive Operation
-`resetToPristine()` cannot be undone with `chronicle.undo()`. It clears all history.
+`reset()` cannot be undone with `chronicle.undo()`. It clears all history and reverts to the original snapshot taken when `chronicle()` was first called.
 :::
 
 ### Checking if State is Dirty
@@ -272,7 +272,7 @@ console.log(isDirty(form)); // false
 form.email = 'test@example.com';
 console.log(isDirty(form)); // true
 
-chronicle.resetToPristine(form);
+chronicle.reset(form);
 console.log(isDirty(form)); // false
 ```
 
@@ -301,13 +301,13 @@ function FormComponent() {
     api.save(data);
 
     // Reset pristine to current values
-    chronicle.resetToPristine(form);
+    chronicle.markPristine(form);
     setDirty(false);
   }
 
   function handleCancel() {
     if (dirty) {
-      chronicle.resetToPristine(form);
+      chronicle.reset(form);
       setDirty(false);
     }
   }
@@ -390,7 +390,7 @@ async function saveChanges(state: any) {
   await api.patch('/resource', payload);
 
   // Mark as saved
-  chronicle.resetToPristine(state);
+  chronicle.markPristine(state);
 }
 ```
 
@@ -446,7 +446,7 @@ async function optimisticUpdate(state: any, changes: any) {
     await api.save(chronicle.snapshot(state));
 
     // Success - update pristine
-    chronicle.resetToPristine(state);
+    chronicle.markPristine(state);
   } catch (error) {
     // Failed - restore backup
     Object.assign(state, backup);

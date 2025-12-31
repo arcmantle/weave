@@ -98,7 +98,7 @@ function createInitialState(): GameState {
 
 const game = chronicle(createInitialState(), {
   maxHistory: 1000, // Keep long history for replays
-  historyFilter: (path) => {
+  filter: (path) => {
     // Don't track every frame of gameTime in history
     return path[0] !== 'gameTime';
   },

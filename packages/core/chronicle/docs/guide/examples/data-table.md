@@ -97,7 +97,7 @@ const table = chronicle<TableState>({
   editingCell: null,
 }, {
   maxHistory: 50,
-  historyFilter: (path) => {
+  filter: (path) => {
     // Don't track filteredData or page changes in history
     return path[0] !== 'filteredData' && path[0] !== 'page';
   },

@@ -51,7 +51,7 @@ graph TD
 graph TD
     A[Need undo/redo?] -->|Yes| B[Enable history]
     A -->|No| C{Need change audit?}
-    C -->|Yes| D[Enable with historyFilter]
+    C -->|Yes| D[Enable with filter option]
     C -->|No| E[Disable history]
 
     B --> F[Set maxHistory appropriately]

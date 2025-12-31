@@ -18,22 +18,18 @@ Create an observable object or array.
 // Basic usage
 const state = chronicle({ count: 0 });
 
-// With options
-const state = chronicle({ count: 0 }, {
-  maxHistory: 100,
-  enableBatching: true
-});
-
 // Arrays
 const list = chronicle([1, 2, 3]);
+
+// Configure options after creation
+chronicle.configure(state, {
+  maxHistory: 100,
+  mergeUngrouped: true,
+  mergeWindowMs: 100
+});
 ```
 
-**Options:**
-
-| Option           | Type      | Default | Description                       |
-| ---------------- | --------- | ------- | --------------------------------- |
-| `maxHistory`     | `number`  | `50`    | Maximum history entries to keep   |
-| `enableBatching` | `boolean` | `false` | Enable automatic batching         |
+**Note:** Chronicle does not accept options in the constructor. Use `chronicle.configure()` to set options after creation. See [Configuration](#chronicleconfigure) below.
 
 ### chronicle.listen()
 
@@ -139,12 +135,24 @@ const snapshot = chronicle.snapshot(state);
 // Returns: Plain object (not observable)
 ```
 
-### chronicle.restore()
+### chronicle.reset()
 
-Restore from snapshot.
+Reset to original pristine state.
 
 ```typescript
-chronicle.restore(state, snapshot);
+chronicle.reset(state);
+// Reverts to state when chronicle() was first called
+// Clears history and redo stack
+```
+
+### chronicle.markPristine()
+
+Mark current state as the new pristine baseline.
+
+```typescript
+chronicle.markPristine(state);
+// Current state becomes new "original"
+// Clears history and redo stack
 ```
 
 ### chronicle.diff()
@@ -153,23 +161,15 @@ Compare current state with original.
 
 ```typescript
 const changes = chronicle.diff(state);
-// Returns: Array of changes since creation
+// Returns: Array of changes since pristine state
 ```
 
-### chronicle.isObservable()
+### chronicle.isPristine()
 
-Check if object is observable.
-
-```typescript
-const isObs = chronicle.isObservable(state); // boolean
-```
-
-### chronicle.getOriginal()
-
-Get original (non-proxy) object.
+Check if state is unchanged from pristine.
 
 ```typescript
-const original = chronicle.getOriginal(state);
+const pristine = chronicle.isPristine(state); // boolean
 ```
 
 ## Common Patterns
@@ -191,14 +191,16 @@ chronicle.listen(form, null, () => {
 // Reset form
 const initialSnapshot = chronicle.snapshot(form);
 function reset() {
-  chronicle.restore(form, initialSnapshot);
+  Object.assign(form, initialSnapshot);
+  // Or use chronicle.reset(form) to revert to original pristine state
 }
 ```
 
 ### Undo/Redo with UI State
 
 ```typescript
-const state = chronicle({ count: 0 }, { maxHistory: 50 });
+const state = chronicle({ count: 0 });
+chronicle.configure(state, { maxHistory: 50 });
 
 // UI bindings
 const undoButton = document.querySelector('#undo');
@@ -258,7 +260,7 @@ const saveGame = () => {
 // Load state
 const loadGame = () => {
   const snapshot = JSON.parse(localStorage.getItem('save'));
-  chronicle.restore(gameState, snapshot);
+  Object.assign(gameState, snapshot);
 };
 ```
 

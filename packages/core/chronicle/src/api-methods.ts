@@ -1,10 +1,12 @@
+import { type ConfigureOptions, configureRoot } from './config.ts';
 import { clearLastUngrouped, historyDelete, historyGet } from './history.ts';
 import { addListenerToTrie, cleanupListenerBucket, ensureListenerBucket, removeListenerFromTrie } from './listener-trie.ts';
 import { nameofSegments } from './nameof.ts';
 import { clearProxyCache as pfClearProxyCache } from './proxy-factory.ts';
 import { buildEffectiveListener, flush as scheduleFlush, pause as schedulePause, resume as scheduleResume } from './schedule-queue.ts';
 import { cloneWithOptions, diffValues, originalSnapshotCache } from './snapshot-diff.ts';
-import type { ChangeListener, ChangeRecord, DiffRecord, ListenerOptions, PathMode, PathSelector } from './types.ts';
+import { threeWayMerge } from './three-way-merge.ts';
+import type { ChangeListener, ChangeRecord, ConflictResolutions, DiffRecord, ListenerOptions, MergeResult, PathMode, PathSelector } from './types.ts';
 import { canRedo as coreCanRedo, canUndo as coreCanUndo, clearRedoCache, redo as coreRedo, redoGroups as coreRedoGroups, resumeWrites, suspendWrites, undo as coreUndo, undoGroups as coreUndoGroups, undoSince as coreUndoSince } from './undo-redo.ts';
 
 
@@ -17,13 +19,13 @@ const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'obj
 
 
 export interface ChronicleApiMethods {
-	listen: <T extends object>(
-		object: T,
-		selector: PathSelector<T>,
-		listener: ChangeListener,
-		modeOrOptions?: PathMode | ListenerOptions,
-		maybeOptions?: ListenerOptions,
-	) => () => void;
+	listen<T extends object>(object: T, selector: PathSelector<T>, listener: ChangeListener): () => void;
+	// eslint-disable-next-line @typescript-eslint/unified-signatures
+	listen<T extends object>(object: T, selector: PathSelector<T>, listener: ChangeListener, options: ListenerOptions): () => void;
+	// eslint-disable-next-line @typescript-eslint/unified-signatures
+	listen<T extends object>(object: T, selector: PathSelector<T>, listener: ChangeListener, mode: PathMode): () => void;
+	// eslint-disable-next-line @stylistic/max-len, @typescript-eslint/unified-signatures
+	listen<T extends object>(object: T, selector: PathSelector<T>, listener: ChangeListener, mode: PathMode, options: ListenerOptions): () => void;
 	onAny:        (obj: object, listener: ChangeListener, options?: ListenerOptions) => () => void;
 	pause:        (obj: object) => void;
 	resume:       (obj: object) => void;
@@ -34,6 +36,9 @@ export interface ChronicleApiMethods {
 	markPristine: (obj: object) => void;
 	diff:         (obj: object) => DiffRecord[];
 	isPristine:   (obj: object) => boolean;
+	snapshot:     <T extends object>(obj: T) => T;
+	unwrap:       <T extends object>(obj: T) => T;
+	merge:        (obj: object, incomingObject: object, resolutions?: ConflictResolutions) => MergeResult;
 	mark:         (obj: object) => number;
 	undo:         (obj: object, steps?: number) => void;
 	undoSince:    (obj: object, historyLengthBefore: number) => void;
@@ -43,19 +48,20 @@ export interface ChronicleApiMethods {
 	clearRedo:    (obj: object) => void;
 	redo:         (obj: object, steps?: number) => void;
 	redoGroups:   (obj: object, groups?: number) => void;
+	configure:    (obj: object, options: ConfigureOptions) => void;
 }
 
 export const createApiMethods = (deps: ApiDeps): ChronicleApiMethods => {
 	// listen/onAny --------------------------------------------------------------
-	const listen = <T extends object>(
-		object: T,
-		selector: PathSelector<T>,
-		listener: ChangeListener,
+	const listen: ChronicleApiMethods['listen'] = (
+		object,
+		selector,
+		listener,
 		modeOrOptions?: PathMode | ListenerOptions,
 		maybeOptions?: ListenerOptions,
 	) => {
 		const segs = nameofSegments(selector);
-		const root = deps.getRoot(object as object);
+		const root = deps.getRoot(object);
 		const bucket = ensureListenerBucket(root);
 
 		let mode: PathMode = 'down';
@@ -96,34 +102,34 @@ export const createApiMethods = (deps: ApiDeps): ChronicleApiMethods => {
 		return unsubscribe;
 	};
 
-	const onAny = (obj: object, listener: ChangeListener, options?: ListenerOptions): () => void => {
-		return listen(obj as any, s => s as any, listener, options);
+	const onAny: ChronicleApiMethods['onAny'] = (obj, listener, options) => {
+		return listen(obj, s => s, listener, options!);
 	};
 
 	// pause/resume/flush --------------------------------------------------------
-	const pause = (obj: object): void => {
+	const pause: ChronicleApiMethods['pause'] = (obj) => {
 		const root = deps.getRoot(obj);
 		schedulePause(root);
 	};
 
-	const resume = (obj: object): void => {
+	const resume: ChronicleApiMethods['resume'] = (obj) => {
 		const root = deps.getRoot(obj);
 		scheduleResume(root);
 	};
 
-	const flush = (obj: object): void => {
+	const flush: ChronicleApiMethods['flush'] = (obj) => {
 		const root = deps.getRoot(obj);
 		scheduleFlush(root);
 	};
 
 	// history ------------------------------------------------------------------
-	const getHistory = (obj: object): ChangeRecord[] => {
+	const getHistory: ChronicleApiMethods['getHistory'] = (obj) => {
 		const root = deps.getRoot(obj);
 
 		return (historyGet(root) ?? []).slice();
 	};
 
-	const clearHistory = (obj: object): void => {
+	const clearHistory: ChronicleApiMethods['clearHistory'] = (obj) => {
 		const root = deps.getRoot(obj);
 		historyDelete(root);
 		clearLastUngrouped(root);
@@ -131,7 +137,7 @@ export const createApiMethods = (deps: ApiDeps): ChronicleApiMethods => {
 	};
 
 	// reset/markPristine/diff/pristine ----------------------------------------
-	const markPristine = (obj: object): void => {
+	const markPristine: ChronicleApiMethods['markPristine'] = (obj) => {
 		const root = deps.getRoot(obj);
 		originalSnapshotCache.set(root, cloneWithOptions(root, root));
 		historyDelete(root);
@@ -140,7 +146,7 @@ export const createApiMethods = (deps: ApiDeps): ChronicleApiMethods => {
 		pfClearProxyCache(root);
 	};
 
-	const reset = (obj: object): void => {
+	const reset: ChronicleApiMethods['reset'] = (obj) => {
 		const root = deps.getRoot(obj);
 		const snapshot = originalSnapshotCache.get(root);
 		if (!snapshot) {
@@ -198,7 +204,7 @@ export const createApiMethods = (deps: ApiDeps): ChronicleApiMethods => {
 		clearRedoCache(root);
 	};
 
-	const diff = (obj: object): DiffRecord[] => {
+	const diff: ChronicleApiMethods['diff'] = (obj) => {
 		const root = deps.getRoot(obj);
 		const original = originalSnapshotCache.get(root) ?? cloneWithOptions(root, root as any);
 		const out: DiffRecord[] = [];
@@ -207,86 +213,113 @@ export const createApiMethods = (deps: ApiDeps): ChronicleApiMethods => {
 		return out;
 	};
 
-	const isPristine = (obj: object): boolean => {
+	const isPristine: ChronicleApiMethods['isPristine'] = (obj) => {
 		const diffs = diff(obj);
 
 		return diffs.length === 0;
 	};
 
+	const snapshot: ChronicleApiMethods['snapshot'] = (obj) => {
+		const root = deps.getRoot(obj);
+
+		return cloneWithOptions(root, root) as any;
+	};
+
+	const unwrap: ChronicleApiMethods['unwrap'] = (obj) => {
+		const root = deps.getRoot(obj);
+
+		return root as any;
+	};
+
+	const merge: ChronicleApiMethods['merge'] = (obj, incomingObject, resolutions?) => {
+		const root = deps.getRoot(obj);
+
+		return threeWayMerge(root, obj, incomingObject, resolutions);
+	};
+
 	// marks/undo/redo -----------------------------------------------------------
-	const mark = (obj: object): number => {
+	const mark: ChronicleApiMethods['mark'] = (obj) => {
 		const root = deps.getRoot(obj);
 		const history = historyGet(root);
 
 		return history ? history.length : 0;
 	};
 
-	const undo = (obj: object, steps: number = Number.POSITIVE_INFINITY): void => {
+	const undo: ChronicleApiMethods['undo'] = (obj, steps = Number.POSITIVE_INFINITY) => {
 		const root = deps.getRoot(obj);
 		coreUndo(root, steps);
 	};
 
-	const undoSince = (obj: object, historyLengthBefore: number): void => {
+	const undoSince: ChronicleApiMethods['undoSince'] = (obj, historyLengthBefore) => {
 		const root = deps.getRoot(obj);
 		coreUndoSince(root, historyLengthBefore);
 		clearLastUngrouped(root);
 	};
 
-	const undoGroups = (obj: object, groups: number = 1): void => {
+	const undoGroups: ChronicleApiMethods['undoGroups'] = (obj, groups = 1) => {
 		const root = deps.getRoot(obj);
 		coreUndoGroups(root, groups);
 		clearLastUngrouped(root);
 	};
 
-	const canUndo = (obj: object): boolean => {
+	const canUndo: ChronicleApiMethods['canUndo'] = (obj) => {
 		const root = deps.getRoot(obj);
 
 		return coreCanUndo(root);
 	};
 
-	const canRedo = (obj: object): boolean => {
+	const canRedo: ChronicleApiMethods['canRedo'] = (obj) => {
 		const root = deps.getRoot(obj);
 
 		return coreCanRedo(root);
 	};
 
-	const clearRedo = (obj: object): void => {
+	const clearRedo: ChronicleApiMethods['clearRedo'] = (obj) => {
 		const root = deps.getRoot(obj);
 		clearRedoCache(root);
 	};
 
-	const redo = (obj: object, steps: number = Number.POSITIVE_INFINITY): void => {
+	const redo: ChronicleApiMethods['redo'] = (obj, steps = Number.POSITIVE_INFINITY) => {
 		const root = deps.getRoot(obj);
 		coreRedo(root, steps);
 		clearLastUngrouped(root);
 	};
 
-	const redoGroups = (obj: object, groups: number = 1): void => {
+	const redoGroups: ChronicleApiMethods['redoGroups'] = (obj, groups = 1) => {
 		const root = deps.getRoot(obj);
 		coreRedoGroups(root, groups);
 		clearLastUngrouped(root);
 	};
 
+	const configure: ChronicleApiMethods['configure'] = (obj, options) => {
+		const root = deps.getRoot(obj);
+		configureRoot(root, options);
+	};
+
 	return {
-		listen:       listen,
-		onAny:        onAny,
-		pause:        pause,
-		resume:       resume,
-		flush:        flush,
-		getHistory:   getHistory,
-		clearHistory: clearHistory,
-		reset:        reset,
-		markPristine: markPristine,
-		diff:         diff,
-		isPristine:   isPristine,
-		mark:         mark,
-		undo:         undo,
-		undoSince:    undoSince,
-		undoGroups:   undoGroups,
-		canUndo:      canUndo,
-		canRedo:      canRedo,
-		clearRedo:    clearRedo,
-		redo:         redo,
-		redoGroups:   redoGroups,
+		listen,
+		onAny,
+		pause,
+		resume,
+		flush,
+		getHistory,
+		clearHistory,
+		reset,
+		markPristine,
+		diff,
+		isPristine,
+		snapshot,
+		unwrap,
+		merge,
+		mark,
+		undo,
+		undoSince,
+		undoGroups,
+		canUndo,
+		canRedo,
+		clearRedo,
+		redo,
+		redoGroups,
+		configure,
 	};
 };

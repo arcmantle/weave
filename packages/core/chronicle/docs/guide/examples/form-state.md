@@ -159,7 +159,7 @@ const initialState: FormState = {
 // Create observable form
 const form = chronicle(initialState, {
   maxHistory: 100,
-  historyFilter: (path) => {
+  filter: (path) => {
     // Don't track error, touched, or dirty changes in history
     return path[path.length - 1] !== 'error' &&
            path[path.length - 1] !== 'touched' &&

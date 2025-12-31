@@ -283,22 +283,27 @@ console.log(chronicle.isPristine(state)); // true
 
 ### Configuration
 
+Chronicle provides sensible defaults out of the box, but you can customize behavior:
+
 ```typescript
 chronicle.configure(state, {
-  // Limit history size (trims by whole groups)
-  maxHistory: 100,
+  // Merge ungrouped changes within time window (default: true)
+  // Groups rapid consecutive changes for better undo/redo UX
+  mergeUngrouped: true,
+  mergeWindowMs: 300, // default: 300ms
+
+  // Compact consecutive sets to same path (default: true)
+  // Reduces memory without losing information
+  compactConsecutiveSamePath: true,
+
+  // Limit history size (default: 1000)
+  // Trims by whole groups to prevent unbounded growth
+  maxHistory: 1000,
 
   // Filter which changes to record
   filter: (record) => !record.path.includes('_temp'),
 
-  // Merge ungrouped changes within time window
-  mergeUngrouped: true,
-  mergeWindowMs: 100,
-
-  // Compact consecutive sets to same path
-  compactConsecutiveSamePath: true,
-
-  // Enable proxy caching for stable identity
+  // Enable proxy caching for stable identity (default: true)
   cacheProxies: true,
 
   // Custom clone function (default: structuredClone)
@@ -315,6 +320,14 @@ chronicle.configure(state, {
   }
 });
 ```
+
+**Default Configuration:**
+
+- `mergeUngrouped: true` - Groups rapid changes for intuitive undo/redo
+- `mergeWindowMs: 300` - 300ms window for grouping changes
+- `compactConsecutiveSamePath: true` - Optimizes memory for rapid updates
+- `maxHistory: 1000` - Prevents unbounded memory growth
+- `cacheProxies: true` - Stable proxy identity for better UI framework integration
 
 ## Working with Collections
 
@@ -477,11 +490,12 @@ chronicle.listen(doc, 'content', (path, newVal) => {
 ## Performance Tips
 
 1. **Use batching** for bulk operations to reduce listener overhead
-2. **Enable proxy caching** for frequently accessed nested objects
+2. **Proxy caching is enabled by default** for better performance
 3. **Use debounce/throttle** for high-frequency updates
 4. **Filter history** to exclude temporary/internal state
-5. **Set maxHistory** to prevent unbounded growth
+5. **maxHistory is set to 1000 by default** to prevent unbounded growth
 6. **Use 'exact' mode** when possible (faster than 'down'/'up')
+7. **Rapid changes are auto-grouped** for intuitive undo/redo
 
 ## Gotchas & Best Practices
 

@@ -3,42 +3,37 @@ import { describe, expect, test } from 'vitest';
 import { chronicle } from '../src/chronicle.ts';
 
 
-describe('chronicle - proxy caching (opt-in)', () => {
-	test('default is off: repeated access yields distinct proxies for nested objects', () => {
+describe('chronicle - proxy caching', () => {
+	test('default is on: repeated access yields same proxy for nested objects', () => {
 		const state = { a: { x: 1 }, arr: [ { y: 2 } ] };
 		const chronicled = chronicle(state);
 
 		const p1 = chronicled.a;
 		const p2 = chronicled.a;
-		expect(p1).not.toBe(p2);
+		expect(p1).toBe(p2);
 
 		const q1 = chronicled.arr[0];
 		const q2 = chronicled.arr[0];
-		expect(q1).not.toBe(q2);
+		expect(q1).toBe(q2);
 	});
 
-	test('cacheProxies: true yields stable proxy identity for a given path', () => {
+	test('can disable cacheProxies to get new proxies on each access', () => {
 		const state = { a: { x: 1 }, b: { x: 2 }, arr: [ { y: 2 } ] };
 		const chronicled = chronicle(state);
-		chronicle.configure(chronicled, { cacheProxies: true });
+		chronicle.configure(chronicled, { cacheProxies: false });
 
 		const a1 = chronicled.a;
 		const a2 = chronicled.a;
-		expect(a1).toBe(a2);
+		expect(a1).not.toBe(a2);
 
 		const arr0_1 = chronicled.arr[0];
 		const arr0_2 = chronicled.arr[0];
-		expect(arr0_1).toBe(arr0_2);
-
-		// Different paths yield different proxies
-		const b1 = chronicled.b;
-		expect(b1).not.toBe(a1);
+		expect(arr0_1).not.toBe(arr0_2);
 	});
 
 	test('invalidation on set/delete keeps future proxies fresh', () => {
 		const state = { a: { x: 1 }, arr: [ { y: 2 }, { y: 3 } ] };
 		const chronicled = chronicle(state);
-		chronicle.configure(chronicled, { cacheProxies: true });
 
 		const a = chronicled.a;
 		expect(a.x).toBe(1);

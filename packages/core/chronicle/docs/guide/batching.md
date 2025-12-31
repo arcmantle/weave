@@ -229,8 +229,8 @@ try {
 }
 ```
 
-::: warning Manual Rollback
-Chronicle currently does **not** automatically rollback transactions on error. You need to implement rollback logic manually if needed.
+::: tip Automatic Rollback
+Transactions (both sync and async) automatically rollback all changes if an error is thrown. Top-level transactions use `rollbackBatch()`, nested transactions use `undoSince()` to the marker.
 :::
 
 ### Transaction vs Batch
@@ -412,15 +412,15 @@ async function syncFromServer(state: AppState) {
 }
 ```
 
-## Manual Group Control
+## Manual Batch Control
 
-For advanced use cases, manually control history groups:
+For advanced use cases, manually control batching:
 
-### Start and End Groups
+### Begin, Commit, and Rollback
 
 ```typescript
-// Start a group
-const groupId = chronicle.startGroup(state);
+// Start a batch
+chronicle.beginBatch(state);
 
 try {
   state.step = 1;
@@ -430,33 +430,39 @@ try {
   await doSomethingElse();
 
   state.step = 3;
-} finally {
-  // End the group
-  chronicle.endGroup(state, groupId);
+
+  // Commit if successful
+  chronicle.commitBatch(state);
+} catch (error) {
+  // Rollback on error
+  chronicle.rollbackBatch(state);
+  throw error;
 }
 
-// One undo reverts all changes
-chronicle.undo(state);
+// One undoGroups(1) reverts all changes in the batch
+chronicle.undoGroups(state, 1);
 ```
 
-### Conditional Grouping
+### Conditional Batching
 
 ```typescript
-const shouldGroup = items.length > 10;
-const groupId = shouldGroup ? chronicle.startGroup(state) : null;
+const shouldBatch = items.length > 10;
+if (shouldBatch) {
+  chronicle.beginBatch(state);
+}
 
 for (const item of items) {
   state.items.push(item);
   state.count++;
 }
 
-if (groupId) {
-  chronicle.endGroup(state, groupId);
+if (shouldBatch) {
+  chronicle.commitBatch(state);
 }
 ```
 
 ::: tip Prefer batch() and transaction()
-Manual group control is rarely needed. Use `batch()` or `transaction()` for most cases.
+Manual batch control is rarely needed. Use `batch()` or `transaction()` for most cases.
 :::
 
 ## Auto-Batching Configuration

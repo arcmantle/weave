@@ -89,8 +89,8 @@ sequenceDiagram
     Proxy->>Proxy: Get old value: 'Alice'
 
     Proxy->>History: Record change
-    History->>History: Push to past stack
-    History->>History: Clear future stack
+    History->>History: Push to history array
+    History->>History: Clear redo cache
 
     Proxy->>Proxy: Update actual value
 
@@ -307,7 +307,7 @@ Chronicle will wrap frozen objects but cannot track changes to them since they'r
 
 ## Proxy Caching
 
-Chronicle caches proxies to ensure consistency:
+Chronicle caches proxies by default to ensure consistency and better performance:
 
 ```typescript
 const state = chronicle({
@@ -317,14 +317,34 @@ const state = chronicle({
 const userRef1 = state.user;
 const userRef2 = state.user;
 
-console.log(userRef1 === userRef2); // true - same proxy!
+console.log(userRef1 === userRef2); // true - same proxy (default behavior)
 ```
 
-**Why this matters:**
+**Why this is enabled by default:**
 
 - **Reference equality**: Multiple accesses return the same proxy
+- **UI framework compatibility**: Works seamlessly with React, Vue, Solid, etc.
 - **Listener stability**: Listeners attached to a proxy work across multiple accesses
 - **Memory efficiency**: One proxy per object, not one per access
+- **Memoization support**: Enables `useMemo`, `React.memo`, and other optimizations
+
+### Disabling Proxy Caching
+
+If you need fresh proxies on each access (rare):
+
+```typescript
+chronicle.configure(state, {
+  cacheProxies: false
+});
+
+const userRef1 = state.user;
+const userRef2 = state.user;
+console.log(userRef1 === userRef2); // false - different proxies
+```
+
+::: tip Default Behavior
+Proxy caching is **enabled by default** (since version 1.0) for better performance and UI framework integration. Most applications should keep this enabled.
+:::
 
 ## Accessing the Original Object
 

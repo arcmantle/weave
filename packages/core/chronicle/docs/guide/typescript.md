@@ -618,7 +618,7 @@ interface ChronicleOptions {
   maxHistory?: number;
   mergeUngrouped?: boolean;
   mergeWindowMs?: number;
-  historyFilter?: (change: ChangeRecord) => boolean;
+  filter?: (change: ChangeRecord) => boolean;
 }
 
 // Diff result

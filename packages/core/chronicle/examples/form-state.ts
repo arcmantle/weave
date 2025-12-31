@@ -54,6 +54,7 @@ const formState: FormState = chronicle({
 	submitSuccess: false,
 });
 
+
 // Validation logic
 function validateField(field: keyof FormValues, value: any): string | undefined {
 	switch (field) {
@@ -168,7 +169,7 @@ async function submitForm(): Promise<{ userId: number; } | null> {
 	}
 
 	try {
-		const { result } = await chronicle.transactionAsync(formState, async (state) => {
+		const { result } = await chronicle.transaction(formState, async (state) => {
 			state.isSubmitting = true;
 			state.submitError = undefined;
 

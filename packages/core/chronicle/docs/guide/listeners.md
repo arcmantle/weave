@@ -40,9 +40,11 @@ type ChangeListener = (
 ) => void;
 
 interface ChangeMeta {
-  changeType: 'set' | 'delete';
-  timestamp: number;
-  groupId?: string;      // If part of a batch
+  type: 'set' | 'delete';  // Type of change
+  existedBefore?: boolean; // For set operations, did property exist before?
+  groupId?: string;        // If part of a batch
+  collection?: 'map' | 'set'; // For Map/Set operations
+  key?: any;               // For Map/Set, the key/entry affected
 }
 ```
 
@@ -53,8 +55,8 @@ chronicle.listen(state, 'user.name', (path, newVal, oldVal, meta) => {
   console.log('Path:', path);           // ['user', 'name']
   console.log('New value:', newVal);     // 'Bob'
   console.log('Old value:', oldVal);     // 'Alice'
-  console.log('Type:', meta?.changeType); // 'set'
-  console.log('When:', meta?.timestamp); // 1735567890123
+  console.log('Type:', meta?.type);      // 'set'
+  console.log('Group:', meta?.groupId);  // undefined (or 'g1' if in batch)
 });
 
 state.user.name = 'Bob';
@@ -513,7 +515,7 @@ const state = chronicle({
 
 chronicle.listen(state, 'cache', (path, newVal, oldVal, meta) => {
   const key = path[path.length - 1];
-  console.log(`Map ${meta?.changeType}: ${key}`);
+  console.log(`Map ${meta?.type}: ${key}`);
 }, 'down');
 
 state.cache.set('user:1', { name: 'Alice' });
@@ -531,7 +533,7 @@ const state = chronicle({
 });
 
 chronicle.listen(state, 'tags', (path, newVal, oldVal, meta) => {
-  console.log(`Set ${meta?.changeType}:`, newVal);
+  console.log(`Set ${meta?.type}:`, newVal);
 }, 'down');
 
 state.tags.add('typescript');

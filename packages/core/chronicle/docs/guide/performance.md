@@ -165,14 +165,17 @@ chronicle.listen(state, 'mousePosition', (path, pos) => {
 Prevent memory growth:
 
 ```typescript
-// ❌ Unbounded history growth
-chronicle.configure(state, {
-  maxHistory: Infinity // Default
-});
+// Default: Already bounded to 1000 entries
+// This is usually sufficient for most applications
 
-// ✅ Bounded history
+// Custom limit for specific needs
 chronicle.configure(state, {
   maxHistory: 50 // Keep last 50 operations only
+});
+
+// Or disable limit for unlimited history
+chronicle.configure(state, {
+  maxHistory: Infinity // Unbounded (not recommended)
 });
 ```
 
@@ -184,7 +187,7 @@ Don't record temporary state:
 
 ```typescript
 chronicle.configure(state, {
-  historyFilter: (change) => {
+  filter: (change) => {
     // Don't record UI-only state
     if (change.path[0] === 'ui') return false;
     if (change.path[0] === 'mouse') return false;
@@ -391,7 +394,7 @@ async function saveToServer(state: any) {
 
 ```typescript
 chronicle.configure(state, {
-  historyFilter: (change) => {
+  filter: (change) => {
     // Only record user actions, not derived state
     return !change.path.includes('computed');
   }

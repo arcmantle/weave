@@ -497,7 +497,7 @@ const state = chronicle(initialState, {
 
 // 2. Filter changes from history
 const state = chronicle(initialState, {
-  historyFilter: (path) => {
+  filter: (path) => {
     // Don't track filter or editingId changes
     return path[0] !== 'filter' && path[0] !== 'editingId';
   },

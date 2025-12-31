@@ -258,7 +258,7 @@ form.firstName = 'Alice';
 console.log(isDirty()); // true
 
 // Reset to pristine state
-chronicle.resetToPristine(form);
+chronicle.reset(form);
 console.log(isDirty()); // false
 ```
 
@@ -376,7 +376,7 @@ await chronicle.transaction(obj, async (state) => { /* async changes */ });
 // Snapshots
 const snap = chronicle.snapshot(obj);
 const changes = chronicle.diff(obj);
-chronicle.resetToPristine(obj);
+chronicle.reset(obj);
 
 // Configuration
 chronicle.configure(obj, {

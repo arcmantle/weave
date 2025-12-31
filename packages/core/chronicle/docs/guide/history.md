@@ -103,13 +103,13 @@ stateDiagram-v2
     Change2 --> Change3: redo()
 
     note left of Initial
-        Past: []
-        Future: []
+        History: []
+        Redo: []
     end note
 
     note right of Change3
-        Past: [#1, #2, #3]
-        Future: []
+        History: [#1, #2, #3]
+        Redo: []
     end note
 ```
 
@@ -118,31 +118,31 @@ stateDiagram-v2
 ```mermaid
 graph TB
     subgraph "After 3 Changes"
-        P1["Past Stack"]
+        P1["History Array"]
         P1 --> PC3["Change #3"]
         PC3 --> PC2["Change #2"]
         PC2 --> PC1["Change #1"]
 
-        F1["Future Stack"]
+        F1["Redo Cache"]
         F1 --> FE1["(empty)"]
     end
 
     subgraph "After 1 Undo"
-        P2["Past Stack"]
+        P2["History Array"]
         P2 --> PC2B["Change #2"]
         PC2B --> PC1B["Change #1"]
 
-        F2["Future Stack"]
+        F2["Redo Cache"]
         F2 --> FC3["Change #3"]
     end
 
     subgraph "After New Change"
-        P3["Past Stack"]
+        P3["History Array"]
         P3 --> PC4["Change #4 (new)"]
         PC4 --> PC2C["Change #2"]
         PC2C --> PC1C["Change #1"]
 
-        F3["Future Stack"]
+        F3["Redo Cache"]
         F3 --> FE2["(cleared!)"]
     end
 
@@ -205,21 +205,21 @@ chronicle.batch(cart, (state) => {
 chronicle.undo(cart); // Undoes all three changes!
 ```
 
-### Manual Grouping
+### Manual Batching
 
 ```typescript
-// Start a group
-const groupId = chronicle.startGroup(state);
+// Start a batch
+chronicle.beginBatch(state);
 
 state.user.name = 'Bob';
 state.user.email = 'bob@example.com';
 state.user.age = 30;
 
-// End the group
-chronicle.endGroup(state, groupId);
+// Commit the batch
+chronicle.commitBatch(state);
 
-// One undo reverts all three changes
-chronicle.undo(state);
+// One undoGroups(1) reverts all three changes
+chronicle.undoGroups(state, 1);
 ```
 
 ## History Configuration
@@ -230,10 +230,11 @@ Customize how Chronicle records and manages history:
 
 ```typescript
 chronicle.configure(state, {
-  maxHistory: 50,         // Keep last 50 operations
-  mergeUngrouped: true,   // Auto-group rapid changes
-  mergeWindowMs: 100,     // Group changes within 100ms
-  historyFilter: (change) => {
+  maxHistory: 50,                    // Keep last 50 operations (default: 1000)
+  mergeUngrouped: true,              // Auto-group rapid changes (default: true)
+  mergeWindowMs: 100,                // Group changes within 100ms (default: 300)
+  compactConsecutiveSamePath: true,  // Merge consecutive sets to same path (default: true)
+  filter: (change) => {
     // Don't record temporary UI state
     return !change.path.includes('ui');
   }
@@ -245,18 +246,29 @@ chronicle.configure(state, {
 ```typescript
 interface ChronicleOptions {
   // Maximum history entries to keep
-  maxHistory?: number;                    // Default: Infinity
+  maxHistory?: number;                    // Default: 1000
 
   // Auto-merge ungrouped changes
-  mergeUngrouped?: boolean;               // Default: false
-  mergeWindowMs?: number;                 // Default: 0
+  mergeUngrouped?: boolean;               // Default: true
+  mergeWindowMs?: number;                 // Default: 300
+
+  // Compact consecutive sets to same path in same group
+  compactConsecutiveSamePath?: boolean;   // Default: true
 
   // Filter which changes to record
-  historyFilter?: (change: ChangeRecord) => boolean;
+  filter?: (change: ChangeRecord) => boolean;
 
-  // Compact history periodically
-  compactHistory?: boolean;               // Default: false
-  compactThreshold?: number;              // Default: 100
+  // Custom clone function for snapshots
+  clone?: (value: any) => any;            // Default: structuredClone
+
+  // Custom comparison for diff
+  compare?: (a: any, b: any, path: string[]) => boolean;  // true = equal
+
+  // Filter diff paths
+  diffFilter?: (path: string[]) => boolean | 'shallow';
+
+  // Enable stable proxy identity
+  cacheProxies?: boolean;                 // Default: true
 }
 ```
 
@@ -302,7 +314,7 @@ console.log(state.searchQuery); // '' (back to initial)
 
 ```typescript
 chronicle.configure(state, {
-  historyFilter: (change) => {
+  filter: (change) => {
     // Don't record cursor position changes
     if (change.path[0] === 'cursor') return false;
 
@@ -388,21 +400,21 @@ console.log(chronicle.canRedo(state)); // false
 Mark important points in history for later reference:
 
 ```typescript
-// Save current state as a marker
-const checkpointId = chronicle.snapshot(state);
+// Mark current point in history
+const checkpoint = chronicle.mark(state);
 
 // Make changes
 state.content = 'Some text';
 state.content = 'More text';
 state.content = 'Even more text';
 
-// Return to checkpoint
-chronicle.restore(state, checkpointId);
-console.log(state.content); // Back to original
+// Undo back to checkpoint
+chronicle.undoSince(state, checkpoint);
+console.log(state.content); // Back to original (before marker)
 ```
 
-::: warning Not Yet Implemented
-History markers are a planned feature. Currently, use `snapshot()` and manual restoration.
+::: tip How It Works
+`mark()` returns the current history length as a marker. `undoSince(marker)` calculates how many steps to undo and reverts to that point.
 :::
 
 ## Time-Travel Debugging
@@ -606,7 +618,7 @@ chronicle.configure(state, {
 
 // 2. Filter out large changes
 chronicle.configure(state, {
-  historyFilter: (change) => {
+  filter: (change) => {
     // Don't record cache updates
     return !change.path.includes('cache');
   }

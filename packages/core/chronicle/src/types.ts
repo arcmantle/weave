@@ -55,5 +55,30 @@ export interface DiffRecord {
 	newValue?: any;
 }
 
+// --- Three-way merge ---
+export interface MergeConflict {
+	path:   string[];
+	base:   any;    // original value
+	ours:   any;    // current value
+	theirs: any;    // incoming value
+}
+
+export type MergeStrategy = 'ours' | 'theirs' | 'custom';
+
+export interface ConflictResolution {
+	strategy: MergeStrategy;
+	value?:   any; // required for 'custom' strategy
+}
+
+export interface ConflictResolutions {
+	[pathKey: string]: ConflictResolution;
+}
+
+export interface MergeResult {
+	success:   boolean;
+	conflicts: MergeConflict[];
+	applied:   number; // number of changes applied
+}
+
 // Internal helper for pause queue
 export interface QueuedCall { listener: ChangeListener; args: [ string[], any, any, ChangeMeta | undefined ]; }

@@ -29,13 +29,13 @@ describe('chronicle.transaction - nested coalescing', () => {
 		const state = { a: 0, b: 0 };
 		const chronicled = chronicle(state);
 
-		const outer = chronicle.transaction(chronicled, o => {
+		const outer = await chronicle.transaction(chronicled, o => {
 			o.a = 1;
 
 			return o;
 		});
 
-		await chronicle.transactionAsync(outer.result, async i => {
+		await chronicle.transaction(outer.result, async i => {
 			i.b = 2;
 		});
 

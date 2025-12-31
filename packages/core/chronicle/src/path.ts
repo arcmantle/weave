@@ -15,7 +15,7 @@ export const getParentAndKey = (root: any, path: string[]): [ any, string ] | nu
 		if (parent == null)
 			return null;
 
-		parent = (parent as any)[seg as any];
+		parent = parent[seg];
 	}
 
 	const last = path[path.length - 1]!;

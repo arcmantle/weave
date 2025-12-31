@@ -3,12 +3,12 @@ import { describe, expect, test } from 'vitest';
 import { chronicle } from '../src/chronicle.ts';
 
 
-describe('chronicle.transactionAsync', () => {
+describe('chronicle.transaction (async)', () => {
 	test('resolves: commits as one group and undo reverts', async () => {
 		const state = { a: 0, b: 0 };
 		const chronicled = chronicle(state);
 
-		const { result, undo } = await chronicle.transactionAsync(chronicled, async (o) => {
+		const { result, undo } = await chronicle.transaction(chronicled, async (o) => {
 			o.a = 1;
 			await Promise.resolve();
 			o.b = 2;
@@ -28,7 +28,7 @@ describe('chronicle.transactionAsync', () => {
 		const state = { a: 0 };
 		const chronicled = chronicle(state);
 
-		await expect(chronicle.transactionAsync(chronicled, async (o) => {
+		await expect(chronicle.transaction(chronicled, async (o) => {
 			o.a = 1;
 			await Promise.resolve();
 			throw new Error('boom');
