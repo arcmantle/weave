@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RootNamespace>Changelog</RootNamespace>
+    <AssemblyName>Changelog</AssemblyName>
+    <Version>1.0.0</Version>
+    <Authors>Arcmantle</Authors>
+    <Description>A library for tracking and managing changes to objects over time</Description>
+    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Changelog.Tests/**" />
+    <Compile Remove="Changelog.Demo/**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.0" />
+  </ItemGroup>
+
+</Project>
