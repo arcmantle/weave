@@ -315,6 +315,131 @@ public class MemoryStorageTests {
 		groups[0].ChangeCount.Should().Be(5);
 	}
 
+	[Fact]
+	public async Task GetChangesAsync_SupportsPagination_WithSkipAndTake() {
+		// Arrange
+		var groupId = await _storage.CreateGroupAsync("doc-1");
+		var changes = new List<ChangeRecord>();
+		for (int i = 0; i < 10; i++) {
+			changes.Add(new ChangeRecord {
+				Path = ["item", i.ToString()],
+				Type = ChangeType.Set,
+				OldValue = null,
+				NewValue = i,
+				Timestamp = i
+			});
+		}
+		await _storage.AppendChangesAsync("doc-1", changes, groupId);
+
+		// Act - Get items 3-5 (skip 3, take 3)
+		var page = await _storage.GetChangesAsync("doc-1", new QueryOptions { Skip = 3, Take = 3 });
+
+		// Assert
+		page.Should().HaveCount(3);
+		page[0].NewValue.Should().Be(System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>("3").GetInt32());
+		page[1].NewValue.Should().Be(System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>("4").GetInt32());
+		page[2].NewValue.Should().Be(System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>("5").GetInt32());
+	}
+
+	[Fact]
+	public async Task GetChangesAsync_Pagination_SkipBeyondEndReturnsEmpty() {
+		// Arrange
+		var groupId = await _storage.CreateGroupAsync("doc-1");
+		var changes = new List<ChangeRecord> {
+			new() { Path = ["a"], Type = ChangeType.Set, NewValue = 1, Timestamp = 1 }
+		};
+		await _storage.AppendChangesAsync("doc-1", changes, groupId);
+
+		// Act
+		var page = await _storage.GetChangesAsync("doc-1", new QueryOptions { Skip = 100 });
+
+		// Assert
+		page.Should().BeEmpty();
+	}
+
+	[Fact]
+	public async Task GetChangesAsync_Pagination_TakeTakesPrecedenceOverLimit() {
+		// Arrange
+		var groupId = await _storage.CreateGroupAsync("doc-1");
+		var changes = new List<ChangeRecord>();
+		for (int i = 0; i < 10; i++) {
+			changes.Add(new ChangeRecord {
+				Path = ["item"],
+				Type = ChangeType.Set,
+				NewValue = i,
+				Timestamp = i
+			});
+		}
+		await _storage.AppendChangesAsync("doc-1", changes, groupId);
+
+		// Act - Take should take precedence over Limit
+		var page = await _storage.GetChangesAsync("doc-1", new QueryOptions { Limit = 5, Take = 3 });
+
+		// Assert
+		page.Should().HaveCount(3);
+	}
+
+	[Fact]
+	public async Task LoadVersionedStateAsync_ReturnsDocumentWithVersion() {
+		// Arrange
+		var document = new TestDocument { Name = "Alice" };
+		await _storage.SaveStateAsync("doc-1", document);
+
+		// Act
+		var versioned = await _storage.LoadVersionedStateAsync("doc-1");
+
+		// Assert
+		versioned.Should().NotBeNull();
+		versioned!.Document.Name.Should().Be("Alice");
+		versioned.Version.Should().Be(1);
+	}
+
+	[Fact]
+	public async Task SaveVersionedStateAsync_IncrementsVersion() {
+		// Arrange
+		var document = new TestDocument { Name = "Alice" };
+		await _storage.SaveVersionedStateAsync("doc-1", document, null);
+
+		// Act
+		await _storage.SaveVersionedStateAsync("doc-1", new TestDocument { Name = "Bob" }, null);
+		var versioned = await _storage.LoadVersionedStateAsync("doc-1");
+
+		// Assert
+		versioned!.Version.Should().Be(2);
+	}
+
+	[Fact]
+	public async Task SaveVersionedStateAsync_ThrowsOnVersionMismatch() {
+		// Arrange
+		var document = new TestDocument { Name = "Alice" };
+		await _storage.SaveVersionedStateAsync("doc-1", document, null);
+
+		// Act & Assert
+		var exception = await Assert.ThrowsAsync<ConcurrencyException>(async () => {
+			await _storage.SaveVersionedStateAsync("doc-1", new TestDocument { Name = "Bob" }, 5);
+		});
+
+		exception.DocumentId.Should().Be("doc-1");
+		exception.ExpectedVersion.Should().Be(5);
+		exception.ActualVersion.Should().Be(1);
+	}
+
+	[Fact]
+	public async Task SaveVersionedStateAsync_SucceedsWithCorrectVersion() {
+		// Arrange
+		var document = new TestDocument { Name = "Alice" };
+		await _storage.SaveVersionedStateAsync("doc-1", document, null);
+		var versioned = await _storage.LoadVersionedStateAsync("doc-1");
+
+		// Act - Save with correct version should succeed
+		await _storage.SaveVersionedStateAsync("doc-1", new TestDocument { Name = "Bob" }, versioned!.Version);
+		var updated = await _storage.LoadVersionedStateAsync("doc-1");
+
+		// Assert
+		updated!.Document.Name.Should().Be("Bob");
+		updated.Version.Should().Be(2);
+	}
+
 	// Test document classes
 	public class TestDocument {
 		public string? Name { get; set; }

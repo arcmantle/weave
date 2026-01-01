@@ -4,6 +4,33 @@ using System.Collections.Generic;
 namespace Changelog;
 
 /// <summary>
+/// Exception thrown when a concurrent update is detected (optimistic concurrency violation)
+/// </summary>
+public class ConcurrencyException : Exception {
+	/// <summary>
+	/// The document ID that had the concurrency conflict
+	/// </summary>
+	public string DocumentId { get; }
+
+	/// <summary>
+	/// The version that was expected during the update
+	/// </summary>
+	public int ExpectedVersion { get; }
+
+	/// <summary>
+	/// The actual current version in storage
+	/// </summary>
+	public int ActualVersion { get; }
+
+	public ConcurrencyException(string documentId, int expectedVersion, int actualVersion)
+		: base($"Concurrency conflict detected for document '{documentId}'. Expected version {expectedVersion}, but found version {actualVersion}.") {
+		DocumentId = documentId;
+		ExpectedVersion = expectedVersion;
+		ActualVersion = actualVersion;
+	}
+}
+
+/// <summary>
 /// Represents a single difference between two values at a specific path
 /// </summary>
 public class DiffRecord {
@@ -148,6 +175,21 @@ public class DocumentState<T> {
 }
 
 /// <summary>
+/// Represents a document with version information for optimistic concurrency control
+/// </summary>
+public class VersionedDocument<T> where T : class {
+	/// <summary>
+	/// The document data
+	/// </summary>
+	public required T Document { get; init; }
+
+	/// <summary>
+	/// Current version number
+	/// </summary>
+	public required int Version { get; init; }
+}
+
+/// <summary>
 /// Options for querying change history
 /// </summary>
 public class QueryOptions {
@@ -168,4 +210,16 @@ public class QueryOptions {
 	/// Filters changes with matching groupId
 	/// </summary>
 	public string? GroupId { get; init; }
+
+	/// <summary>
+	/// Number of records to skip (for pagination)
+	/// Applied after filtering but before Take
+	/// </summary>
+	public int? Skip { get; init; }
+
+	/// <summary>
+	/// Maximum number of records to return (for pagination)
+	/// Alternative to Limit - if both are specified, Take takes precedence
+	/// </summary>
+	public int? Take { get; init; }
 }

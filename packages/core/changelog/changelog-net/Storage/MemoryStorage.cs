@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Changelog.Storage;
@@ -12,6 +14,7 @@ namespace Changelog.Storage;
 /// </summary>
 public class MemoryStorage<T> : IChangelogStorage<T> where T : class {
 	private readonly Dictionary<string, T> _states = [];
+	private readonly Dictionary<string, int> _versions = [];
 	private readonly Dictionary<string, List<ChangeRecord>> _changes = [];
 	private readonly Dictionary<string, List<ChangeGroup>> _groups = [];
 	private readonly Dictionary<string, int> _groupCounter = [];
@@ -33,11 +36,58 @@ public class MemoryStorage<T> : IChangelogStorage<T> where T : class {
 		}
 	}
 
+	public Task<VersionedDocument<T>?> LoadVersionedStateAsync(string documentId) {
+		lock (_lock) {
+			if (!_states.TryGetValue(documentId, out var state))
+				return Task.FromResult<VersionedDocument<T>?>(null);
+
+			try {
+				var version = _versions.GetValueOrDefault(documentId, 1);
+				return Task.FromResult<VersionedDocument<T>?>(new VersionedDocument<T> {
+					Document = DeepClone(state),
+					Version = version
+				});
+			}
+			catch (Exception ex) {
+				throw new InvalidOperationException(
+					$"Failed to clone state for document '{documentId}': {ex.Message}. State may have been corrupted.",
+					ex);
+			}
+		}
+	}
+
 	public Task SaveStateAsync(string documentId, T state) {
 		lock (_lock) {
 			try {
 				_states[documentId] = DeepClone(state);
+				_versions[documentId] = _versions.GetValueOrDefault(documentId, 0) + 1;
 				return Task.CompletedTask;
+			}
+			catch (Exception ex) {
+				throw new InvalidOperationException(
+					$"Failed to clone state for document '{documentId}': {ex.Message}. " +
+					"Ensure state contains only serializable data (no functions, delegates, etc.)",
+					ex);
+			}
+		}
+	}
+
+	public Task SaveVersionedStateAsync(string documentId, T state, int? expectedVersion) {
+		lock (_lock) {
+			try {
+				if (expectedVersion.HasValue) {
+					var currentVersion = _versions.GetValueOrDefault(documentId, 0);
+					if (currentVersion != expectedVersion.Value) {
+						throw new ConcurrencyException(documentId, expectedVersion.Value, currentVersion);
+					}
+				}
+
+				_states[documentId] = DeepClone(state);
+				_versions[documentId] = _versions.GetValueOrDefault(documentId, 0) + 1;
+				return Task.CompletedTask;
+			}
+			catch (ConcurrencyException) {
+				throw;
 			}
 			catch (Exception ex) {
 				throw new InvalidOperationException(
@@ -72,10 +122,53 @@ public class MemoryStorage<T> : IChangelogStorage<T> where T : class {
 			if (options?.GroupId != null)
 				filtered = filtered.Where(r => r.GroupId == options.GroupId);
 
-			if (options?.Limit.HasValue == true)
-				filtered = filtered.Take(options.Limit.Value);
+			// Apply pagination (Skip/Take takes precedence over Limit)
+			if (options?.Skip.HasValue == true)
+				filtered = filtered.Skip(options.Skip.Value);
+
+			var limit = options?.Take ?? options?.Limit;
+			if (limit.HasValue)
+				filtered = filtered.Take(limit.Value);
 
 			return Task.FromResult(filtered.ToList());
+		}
+	}
+
+	public async IAsyncEnumerable<ChangeRecord> StreamChangesAsync(
+		string documentId,
+		QueryOptions? options = null,
+		[EnumeratorCancellation] CancellationToken cancellationToken = default
+	) {
+		List<ChangeRecord> records;
+		lock (_lock) {
+			if (!_changes.TryGetValue(documentId, out var allRecords))
+				allRecords = [];
+
+			// Apply filters
+			IEnumerable<ChangeRecord> filtered = allRecords;
+
+			if (options?.Since.HasValue == true)
+				filtered = filtered.Where(r => r.Timestamp >= options.Since.Value);
+
+			if (options?.GroupId != null)
+				filtered = filtered.Where(r => r.GroupId == options.GroupId);
+
+			// Apply pagination
+			if (options?.Skip.HasValue == true)
+				filtered = filtered.Skip(options.Skip.Value);
+
+			var limit = options?.Take ?? options?.Limit;
+			if (limit.HasValue)
+				filtered = filtered.Take(limit.Value);
+
+			records = filtered.ToList();
+		}
+
+		// Stream results outside the lock
+		foreach (var record in records) {
+			cancellationToken.ThrowIfCancellationRequested();
+			yield return record;
+			await Task.Yield(); // Allow other work to proceed
 		}
 	}
 
@@ -120,6 +213,33 @@ public class MemoryStorage<T> : IChangelogStorage<T> where T : class {
 		}
 	}
 
+	public async IAsyncEnumerable<ChangeGroup> StreamGroupsAsync(
+		string documentId,
+		[EnumeratorCancellation] CancellationToken cancellationToken = default
+	) {
+		List<ChangeGroup> groups;
+		lock (_lock) {
+			if (!_groups.TryGetValue(documentId, out var allGroups))
+				yield break;
+
+			try {
+				groups = DeepCloneGroups(allGroups);
+			}
+			catch (Exception ex) {
+				throw new InvalidOperationException(
+					$"Failed to clone groups for document '{documentId}': {ex.Message}",
+					ex);
+			}
+		}
+
+		// Stream results outside the lock
+		foreach (var group in groups) {
+			cancellationToken.ThrowIfCancellationRequested();
+			yield return group;
+			await Task.Yield(); // Allow other work to proceed
+		}
+	}
+
 	public Task TrimHistoryAsync(string documentId, int maxGroups) {
 		if (maxGroups < 0)
 			throw new ArgumentException("maxGroups must be a non-negative integer", nameof(maxGroups));
@@ -159,6 +279,7 @@ public class MemoryStorage<T> : IChangelogStorage<T> where T : class {
 	public Task ClearAsync(string documentId) {
 		lock (_lock) {
 			_states.Remove(documentId);
+			_versions.Remove(documentId);
 			_changes.Remove(documentId);
 			_groups.Remove(documentId);
 			_groupCounter.Remove(documentId);
@@ -176,6 +297,40 @@ public class MemoryStorage<T> : IChangelogStorage<T> where T : class {
 				group.ChangeCount = count;
 
 			return Task.CompletedTask;
+		}
+	}
+
+	public Task CommitGroupAsync(string documentId, string groupId, List<ChangeRecord> changes, T? state) {
+		lock (_lock) {
+			try {
+				// Atomically perform all operations
+				if (changes.Count > 0) {
+					// 1. Append changes
+					if (!_changes.ContainsKey(documentId))
+						_changes[documentId] = [];
+					_changes[documentId].AddRange(changes);
+
+					// 2. Update group change count
+					if (_groups.TryGetValue(documentId, out var groups)) {
+						var group = groups.FirstOrDefault(g => g.Id == groupId);
+						if (group != null)
+							group.ChangeCount = changes.Count;
+					}
+
+					// 3. Save state if provided
+					if (state != null) {
+						_states[documentId] = DeepClone(state);
+						_versions[documentId] = _versions.GetValueOrDefault(documentId, 0) + 1;
+					}
+				}
+
+				return Task.CompletedTask;
+			}
+			catch {
+				// In MemoryStorage, the lock ensures atomicity
+				// If an exception occurs, none of the changes are committed
+				throw;
+			}
 		}
 	}
 

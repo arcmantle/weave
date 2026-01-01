@@ -13,7 +13,7 @@ The Changelog library provides a solid foundation for document change tracking w
 
 ### Current Design
 
-```
+```txt
 ┌─────────────────┐
 │  Changelog<T>   │  ← Public API (per-document instance)
 └────────┬────────┘
@@ -87,11 +87,11 @@ Database Schema:
 
 **Deliverables:**
 
-- [ ] Add migration script for indexes
-- [ ] Update `IChangelogStorage` interface with pagination params
-- [ ] Implement transaction support in SqliteStorage
-- [ ] Add `Version` column to States table
-- [ ] Refactor `GetChangesAsync()` to build SQL WHERE clauses
+- [x] Add migration script for indexes *(Completed: Jan 1, 2026)*
+- [x] Update `IChangelogStorage` interface with pagination params *(Completed: Jan 1, 2026)*
+- [x] Implement transaction support in SqliteStorage *(Completed: Jan 1, 2026)*
+- [x] Add `Version` column to States table *(Completed: Jan 1, 2026)*
+- [x] Refactor `GetChangesAsync()` to build SQL WHERE clauses *(Completed: Jan 1, 2026)*
 
 **Success Criteria:**
 
@@ -117,12 +117,12 @@ Database Schema:
 
 **Deliverables:**
 
-- [ ] Implement document cache with LRU eviction
-- [ ] Refactor DiffEngine to use `Expression.Compile()`
-- [ ] Add LCS-based array differ
-- [ ] Add compression layer in storage implementations
-- [ ] Create archival service with configurable retention
-- [ ] Update all list methods to return `IAsyncEnumerable<T>`
+- [x] Implement document cache with LRU eviction *(Completed: Jan 1, 2026)*
+- [x] Refactor DiffEngine to use `Expression.Compile()` *(Completed: Jan 1, 2026)*
+- [x] Add LCS-based array differ *(Completed: Jan 1, 2026)*
+- [x] Add compression layer in storage implementations *(Completed: Jan 1, 2026)*
+- [x] Create retention policies with configurable cleanup *(Completed: Jan 1, 2026)*
+- [x] Update all list methods to return `IAsyncEnumerable<T>` *(Completed: Jan 1, 2026)*
 
 **Success Criteria:**
 

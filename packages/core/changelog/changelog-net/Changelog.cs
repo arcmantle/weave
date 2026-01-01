@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Changelog.Storage;
 
@@ -98,7 +101,7 @@ public class Changelog<T> where T : class {
 
 	/// <summary>
 	/// Commit the current change group
-	/// Saves all changes made since BeginGroupAsync() to storage
+	/// Saves all changes made since BeginGroupAsync() to storage atomically
 	/// </summary>
 	public async Task CommitGroupAsync() {
 		if (_batchStack.Count == 0)
@@ -106,16 +109,9 @@ public class Changelog<T> where T : class {
 
 		var frame = _batchStack.Pop();
 
-		// Save changes to storage
+		// Atomically commit the group with all changes and state
 		if (frame.Changes.Count > 0) {
-			await _storage.AppendChangesAsync(_documentId, frame.Changes, frame.GroupId);
-
-			// Update group change count
-			await _storage.UpdateGroupChangeCountAsync(_documentId, frame.GroupId, frame.Changes.Count);
-
-			// Save the pending state after successfully saving changes
-			if (frame.PendingState != null)
-				await _storage.SaveStateAsync(_documentId, frame.PendingState);
+			await _storage.CommitGroupAsync(_documentId, frame.GroupId, frame.Changes, frame.PendingState);
 		}
 	}
 
@@ -202,12 +198,38 @@ public class Changelog<T> where T : class {
 	}
 
 	/// <summary>
+	/// Stream change history for the document (memory-efficient for large result sets)
+	/// </summary>
+	/// <param name="options">Query options (since, limit, groupId)</param>
+	/// <param name="cancellationToken">Cancellation token</param>
+	/// <returns>Async stream of change records</returns>
+	public IAsyncEnumerable<ChangeRecord> GetHistoryStreamAsync(
+		QueryOptions? options = null,
+		CancellationToken cancellationToken = default
+	) {
+		return _storage.StreamChangesAsync(_documentId, options, cancellationToken);
+	}
+
+	/// <summary>
 	/// Get changes for a specific group
 	/// </summary>
 	/// <param name="groupId">The group ID to get changes for</param>
 	/// <returns>List of change records for that group</returns>
 	public async Task<List<ChangeRecord>> GetGroupChangesAsync(string groupId) {
 		return await _storage.GetChangesAsync(_documentId, new QueryOptions { GroupId = groupId });
+	}
+
+	/// <summary>
+	/// Stream changes for a specific group (memory-efficient for large result sets)
+	/// </summary>
+	/// <param name="groupId">The group ID to get changes for</param>
+	/// <param name="cancellationToken">Cancellation token</param>
+	/// <returns>Async stream of change records for that group</returns>
+	public IAsyncEnumerable<ChangeRecord> GetGroupChangesStreamAsync(
+		string groupId,
+		CancellationToken cancellationToken = default
+	) {
+		return _storage.StreamChangesAsync(_documentId, new QueryOptions { GroupId = groupId }, cancellationToken);
 	}
 
 	/// <summary>
@@ -219,11 +241,66 @@ public class Changelog<T> where T : class {
 	}
 
 	/// <summary>
+	/// Stream all change groups for the document (memory-efficient for large result sets)
+	/// </summary>
+	/// <param name="cancellationToken">Cancellation token</param>
+	/// <returns>Async stream of change groups</returns>
+	public IAsyncEnumerable<ChangeGroup> GetGroupsStreamAsync(
+		CancellationToken cancellationToken = default
+	) {
+		return _storage.StreamGroupsAsync(_documentId, cancellationToken);
+	}
+
+	/// <summary>
 	/// Trim old history by removing oldest groups
 	/// </summary>
 	/// <param name="maxGroups">Maximum number of groups to keep</param>
 	public async Task TrimHistoryAsync(int maxGroups) {
 		await _storage.TrimHistoryAsync(_documentId, maxGroups);
+	}
+
+	/// <summary>
+	/// Apply retention policy to manage history growth.
+	/// Removes old change groups according to the policy rules.
+	/// </summary>
+	/// <param name="policy">The retention policy to apply</param>
+	public async Task ApplyRetentionPolicyAsync(RetentionPolicy policy) {
+		if (policy == null)
+			throw new ArgumentNullException(nameof(policy));
+
+		// Get all groups to evaluate
+		var allGroups = await _storage.GetGroupsAsync(_documentId);
+
+		if (allGroups.Count == 0)
+			return;
+
+		// Calculate how many groups to keep
+		int groupsToKeep = allGroups.Count;
+
+		// Apply MaxGroups limit
+		if (policy.MaxGroups.HasValue && policy.MaxGroups.Value < groupsToKeep) {
+			groupsToKeep = policy.MaxGroups.Value;
+		}
+
+		// Apply MaxAge limit
+		if (policy.MaxAge.HasValue) {
+			var cutoffTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() -
+											 (long)policy.MaxAge.Value.TotalMilliseconds;
+
+			// Count groups newer than cutoff
+			var recentGroups = allGroups.Count(g => g.Timestamp >= cutoffTime);
+
+			// Use the more restrictive of the two limits (keep fewer groups)
+			groupsToKeep = Math.Min(groupsToKeep, recentGroups);
+		}
+
+		// Ensure we respect MinGroups
+		groupsToKeep = Math.Max(groupsToKeep, policy.MinGroups);
+
+		// Only trim if we need to reduce the count
+		if (groupsToKeep < allGroups.Count) {
+			await _storage.TrimHistoryAsync(_documentId, groupsToKeep);
+		}
 	}
 
 	/// <summary>
