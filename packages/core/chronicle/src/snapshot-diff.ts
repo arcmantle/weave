@@ -1,6 +1,7 @@
-import { getOptions } from './history.ts';
+import { getOptions } from './config.ts';
 import { normalizeKey } from './path.ts';
 import type { DiffRecord } from './types.ts';
+
 
 // Original snapshot for diff/isPristine
 export const originalSnapshotCache: WeakMap<object, any> = new WeakMap();

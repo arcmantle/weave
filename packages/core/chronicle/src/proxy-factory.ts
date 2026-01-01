@@ -1,7 +1,7 @@
 import { captureShrinkRemovals, deleteIndex, isArrayIndexDeletion } from './array-mutations.ts';
 import { adaptMapMethod, adaptSetMethod } from './collection-adapters.ts';
+import { getOptions } from './config.ts';
 import { computeActiveGroupId } from './grouping.ts';
-import { getOptions } from './history.ts';
 import { recordArrayShrinkDeletes, recordDelete, recordSet } from './history-recorder.ts';
 import { computeAffectedListeners } from './listener-affinity.ts';
 import { getListenerBucket } from './listener-trie.ts';

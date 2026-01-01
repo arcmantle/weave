@@ -97,7 +97,7 @@ describe('chronicle - batching and configuration', () => {
 	test('configure: compactConsecutiveSamePath compacts repeated sets to same path within one group', () => {
 		const state = { a: 1, b: { c: 1 } };
 		const chronicled = chronicle(state);
-		chronicle.configure(chronicled, { compactConsecutiveSamePath: true });
+		chronicle.configure(chronicled, { compactSamePath: true });
 
 		chronicle.batch(chronicled, obs => {
 			obs.a = 2;
@@ -115,7 +115,7 @@ describe('chronicle - batching and configuration', () => {
 	test('configure: compactConsecutiveSamePath does not compact array index updates', () => {
 		const state = { arr: [ 0 ] as number[] };
 		const chronicled = chronicle(state);
-		chronicle.configure(chronicled, { compactConsecutiveSamePath: true });
+		chronicle.configure(chronicled, { compactSamePath: true });
 
 		chronicle.batch(chronicled, obs => {
 			obs.arr[0] = 1;

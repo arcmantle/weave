@@ -8,7 +8,7 @@ describe('chronicle - history policy controls', () => {
 		const state = { a: 0, b: 0 };
 		const o = chronicle(state);
 
-		chronicle.configure(o, { maxHistory: 3, mergeUngrouped: false, compactConsecutiveSamePath: false });
+		chronicle.configure(o, { maxHistory: 3, mergeUngrouped: false, compactSamePath: false });
 
 		o.a = 1; // 1
 		o.b = 1; // 2
@@ -72,7 +72,7 @@ describe('chronicle - history policy controls', () => {
 		const o = chronicle(state);
 
 		// take initial pristine snapshot (done automatically on first chronicle call)
-		chronicle.configure(o, { maxHistory: 2, mergeUngrouped: false, compactConsecutiveSamePath: false });
+		chronicle.configure(o, { maxHistory: 2, mergeUngrouped: false, compactSamePath: false });
 
 		// Make more than maxHistory changes
 		o.a = 1; // 1

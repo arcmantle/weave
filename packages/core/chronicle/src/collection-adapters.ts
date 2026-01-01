@@ -1,5 +1,6 @@
+import { getOptions } from './config.ts';
 import { computeActiveGroupId } from './grouping.ts';
-import { ensureHistory, getOptions, trimHistoryByGroups } from './history.ts';
+import { ensureHistory, trimHistoryByGroups } from './history.ts';
 import { computeAffectedListeners } from './listener-affinity.ts';
 import { notifyListeners } from './schedule-queue.ts';
 import type { ChangeMeta, ChangeRecord } from './types.ts';

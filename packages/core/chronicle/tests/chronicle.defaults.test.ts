@@ -52,7 +52,7 @@ describe('chronicle - default options', () => {
 		// Also disable compaction so we get predictable counts
 		chronicle.configure(o, {
 			mergeUngrouped:             false,
-			compactConsecutiveSamePath: false,
+			compactSamePath: false,
 		});
 
 		for (let i = 1; i <= 1100; i++)
@@ -72,7 +72,7 @@ describe('chronicle - default options', () => {
 		// Override defaults
 		chronicle.configure(o, {
 			mergeUngrouped:             false,
-			compactConsecutiveSamePath: false,
+			compactSamePath: false,
 			maxHistory:                 5,
 		});
 

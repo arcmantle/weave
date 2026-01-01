@@ -1,4 +1,5 @@
-import { ensureHistory, getOptions, trimHistoryByGroups } from './history.ts';
+import { getOptions } from './config.ts';
+import { ensureHistory, trimHistoryByGroups } from './history.ts';
 import { cloneWithOptions } from './snapshot-diff.ts';
 import type { ChangeRecord } from './types.ts';
 import { clearRedoCache, isSuspended } from './undo-redo.ts';
@@ -46,7 +47,7 @@ export const recordSet = (
 		history.push(rec);
 
 	// Optional compaction: merge consecutive sets on the same path within the same group
-	if (cfg && cfg.compactConsecutiveSamePath && history.length >= 2) {
+	if (cfg && cfg.compactSamePath && history.length >= 2) {
 		const a = history[history.length - 2]!;
 		const b = history[history.length - 1]!;
 		const sameGroup = (a.groupId ?? `__g#${ history.length - 2 }`) === (b.groupId ?? `__g#${ history.length - 1 }`);

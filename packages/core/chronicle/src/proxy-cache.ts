@@ -1,4 +1,4 @@
-import { getOptions } from './history.ts';
+import { getOptions } from './config.ts';
 import { pathKeyOf } from './path-key.ts';
 
 

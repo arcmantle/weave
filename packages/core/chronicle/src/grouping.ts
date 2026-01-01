@@ -1,4 +1,5 @@
-import { clearLastUngrouped, getLastUngrouped, getOptions, nextGroupId, setLastUngrouped } from './history.ts';
+import { getOptions } from './config.ts';
+import { clearLastUngrouped, getLastUngrouped, nextGroupId, setLastUngrouped } from './history.ts';
 
 
 /**

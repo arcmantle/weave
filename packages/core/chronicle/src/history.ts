@@ -7,8 +7,8 @@ const historyCache: WeakMap<object, ChangeRecord[]> = new WeakMap();
 const groupCounter: WeakMap<object, number> = new WeakMap();
 const lastUngrouped: WeakMap<object, { id: string; at: number; }> = new WeakMap();
 
-// Observe options per root
-export interface ChronicleOptions {
+
+export interface ChronicleHistoryOptions {
 	/**
 	 * When enabled, consecutive ungrouped changes (those not in a batch or transaction)
 	 * are merged into a single undo group. If mergeWindowMs is also set, only changes
@@ -17,7 +17,7 @@ export interface ChronicleOptions {
 	 *
 	 * @default true
 	 */
-	mergeUngrouped?:             boolean;
+	mergeUngrouped?:  boolean;
 	/**
 	 * Time window in milliseconds for merging ungrouped changes. Only effective when
 	 * mergeUngrouped is true. Changes occurring within this window are grouped together
@@ -26,7 +26,7 @@ export interface ChronicleOptions {
 	 *
 	 * @default 300
 	 */
-	mergeWindowMs?:              number;
+	mergeWindowMs?:   number;
 	/**
 	 * When enabled, consecutive 'set' operations on the same path within the same undo
 	 * group are compacted into a single history record, keeping only the original oldValue
@@ -36,7 +36,7 @@ export interface ChronicleOptions {
 	 *
 	 * @default true
 	 */
-	compactConsecutiveSamePath?: boolean;
+	compactSamePath?: boolean;
 	/**
 	 * Maximum number of history records to retain. When the limit is exceeded, entire
 	 * undo groups are trimmed from the front of history to keep groups coherent. This
@@ -44,35 +44,35 @@ export interface ChronicleOptions {
 	 *
 	 * @default 1000
 	 */
-	maxHistory?:                 number;
+	maxHistory?:      number;
 	/**
 	 * Custom filter function to selectively exclude certain change records from history.
 	 * Return false to prevent recording; return true to record normally. The actual change
 	 * still occurs in the object, but filtered records won't appear in history and can't
 	 * be undone. Useful for excluding temporary properties or noisy updates.
 	 */
-	filter?:                     (record: ChangeRecord) => boolean;
+	filter?:          (record: ChangeRecord) => boolean;
 	/**
 	 * Custom deep clone function used when creating snapshots for diff, reset, and undo
 	 * operations. Defaults to structuredClone. Provide a custom implementation if you
 	 * need special handling for certain object types (e.g., using JSON serialization,
 	 * custom class cloning, or handling non-cloneable objects).
 	 */
-	clone?:                      (value: any) => any;
+	clone?:           (value: any) => any;
 	/**
 	 * Custom equality comparison function used during diff operations to determine if
 	 * two values are equal. Return true if values are equal, false otherwise. Defaults
 	 * to Object.is. The path parameter provides context about where in the object tree
 	 * the comparison is occurring.
 	 */
-	compare?:                    (a: any, b: any, path: string[]) => boolean; // true => equal
+	compare?:         (a: any, b: any, path: string[]) => boolean; // true => equal
 	/**
 	 * Filter function to control diff traversal depth. Return false to skip a path entirely,
 	 * 'shallow' to compare the value at this path without recursing into it, or true to
 	 * recurse normally. Useful for excluding internal properties from diffs or avoiding
 	 * deep traversal of large subtrees.
 	 */
-	diffFilter?:                 (path: string[]) => boolean | 'shallow';
+	diffFilter?:      (path: string[]) => boolean | 'shallow';
 	/**
 	 * When enabled, proxies for nested objects at a given path are cached and reused,
 	 * providing stable identity for the same path across multiple accesses. Without this,
@@ -81,19 +81,25 @@ export interface ChronicleOptions {
 	 *
 	 * @default true
 	 */
-	cacheProxies?:               boolean;
+	cacheProxies?:    boolean;
 }
 
-const optionsCache: WeakMap<object, ChronicleOptions> = new WeakMap();
+export const defaultHistoryOptions: ChronicleHistoryOptions = {
+	mergeUngrouped:  true,
+	mergeWindowMs:   300,
+	compactSamePath: true,
+	maxHistory:      1000,
+	cacheProxies:    true,
+};
 
 export const ensureHistory = (root: object): ChangeRecord[] => {
-	let h = historyCache.get(root);
-	if (!h) {
-		h = [];
-		historyCache.set(root, h);
+	let hist = historyCache.get(root);
+	if (!hist) {
+		hist = [];
+		historyCache.set(root, hist);
 	}
 
-	return h;
+	return hist;
 };
 
 export const historyGet = (root: object): ChangeRecord[] | undefined => historyCache.get(root);
@@ -102,24 +108,31 @@ export const historyDelete = (root: object): void => { historyCache.delete(root)
 // Trim history by removing whole groups from the front until length <= max.
 // This keeps undoGroups coherent and avoids splitting groups.
 export const trimHistoryByGroups = (history: ChangeRecord[], max: number): void => {
+	// Validate max is a non-negative number
 	if (!(typeof max === 'number') || max < 0)
 		return;
 
+	// Nothing to trim if we're already under the limit
 	if (history.length <= max)
 		return;
 
+	// Count how many records to remove by walking through complete groups
 	let removeCount = 0;
 	let i = 0;
 	while (history.length - removeCount > max && i < history.length) {
 		const gid = history[i]!.groupId ?? `__g#${ i }`;
+
+		// Find end of current group by scanning forward while groupId matches
 		let j = i;
 		while (j < history.length && (history[j]!.groupId ?? `__g#${ j }`) === gid)
 			j++;
 
+		// Accumulate group size and advance to next group
 		removeCount += (j - i);
 		i = j;
 	}
 
+	// Remove entire groups from the front
 	if (removeCount > 0)
 		history.splice(0, removeCount);
 };
@@ -130,26 +143,6 @@ export const nextGroupId = (root: object): string => {
 
 	return `g${ n }`;
 };
-
-const defaultOptions: ChronicleOptions = {
-	mergeUngrouped:             true,
-	mergeWindowMs:              300,
-	compactConsecutiveSamePath: true,
-	maxHistory:                 1000,
-	cacheProxies:               true,
-};
-
-export const getOptions = (root: object): ChronicleOptions => {
-	const opts = optionsCache.get(root);
-	if (!opts)
-		return defaultOptions;
-
-	return {
-		...defaultOptions,
-		...opts,
-	};
-};
-export const setOptions = (root: object, options: ChronicleOptions): void => { optionsCache.set(root, options); };
 
 export const getLastUngrouped = (root: object): { id: string; at: number; } | undefined => lastUngrouped.get(root);
 export const setLastUngrouped = (root: object, v: { id: string; at: number; }): void => { lastUngrouped.set(root, v); };
