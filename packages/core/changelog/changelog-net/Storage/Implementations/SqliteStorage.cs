@@ -12,19 +12,89 @@ namespace Changelog.Storage;
 
 public class SqliteStorage<T> : IChangelogStorage<T> where T : class {
 	private readonly string _connectionString;
+	private readonly string _changesTable;
+	private readonly string _groupsTable;
+	private readonly string _statesTable;
+	private readonly string _changesTableSql;
+	private readonly string _groupsTableSql;
+	private readonly string _statesTableSql;
 
-	public SqliteStorage(string connectionString) {
+	public SqliteStorage(string connectionString, SqliteStorageOptions? options = null) {
 		_connectionString = connectionString;
+
+		options ??= new SqliteStorageOptions();
+		var prefix = NormalizePrefix(options.TablePrefix);
+
+		_changesTable = ResolveIdentifier(options.ChangesTable, baseName: "Changes", prefix, nameof(SqliteStorageOptions.ChangesTable));
+		_groupsTable = ResolveIdentifier(options.GroupsTable, baseName: "Groups", prefix, nameof(SqliteStorageOptions.GroupsTable));
+		_statesTable = ResolveIdentifier(options.StatesTable, baseName: "States", prefix, nameof(SqliteStorageOptions.StatesTable));
+
+		_changesTableSql = QuoteIdentifier(_changesTable);
+		_groupsTableSql = QuoteIdentifier(_groupsTable);
+		_statesTableSql = QuoteIdentifier(_statesTable);
+
 		InitializeDatabase().Wait();
 	}
+
+	private static string QuoteIdentifier(string identifier) {
+		// Identifiers cannot be parameterized in SQLite, so we validate and then quote.
+		return $"\"{identifier.Replace("\"", "\"\"")}\"";
+	}
+
+	private static string? NormalizePrefix(string? prefix) {
+		if (prefix == null)
+			return null;
+
+		prefix = prefix.Trim();
+		if (prefix.Length == 0)
+			return null;
+
+		ValidateIdentifier(prefix, nameof(SqliteStorageOptions.TablePrefix));
+		return prefix;
+	}
+
+	private static string ResolveIdentifier(string? explicitValue, string baseName, string? prefix, string parameterName) {
+		var resolved = explicitValue?.Trim();
+		if (string.IsNullOrEmpty(resolved))
+			resolved = prefix != null ? prefix + baseName : baseName;
+
+		ValidateIdentifier(resolved, parameterName);
+		return resolved;
+	}
+
+	private static void ValidateIdentifier(string identifier, string parameterName) {
+		if (string.IsNullOrWhiteSpace(identifier))
+			throw new ArgumentException("SQLite identifier must not be empty.", parameterName);
+
+		for (var i = 0; i < identifier.Length; i++) {
+			var c = identifier[i];
+			var isLetter = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+			var isDigit = c >= '0' && c <= '9';
+			var isUnderscore = c == '_';
+
+			if (!isLetter && !isDigit && !isUnderscore)
+				throw new ArgumentException(
+					"SQLite identifiers may only contain letters, digits, and underscore (_).",
+					parameterName
+				);
+
+			if (i == 0 && isDigit)
+				throw new ArgumentException(
+					"SQLite identifiers must not start with a digit.",
+					parameterName
+				);
+		}
+	}
+
+	private static string IndexName(string table, string suffix) => $"idx_{table}_{suffix}";
 
 	private async Task InitializeDatabase() {
 		using var connection = new SqliteConnection(_connectionString);
 		await connection.OpenAsync();
 
 		var command = connection.CreateCommand();
-		command.CommandText = @"
-			CREATE TABLE IF NOT EXISTS Changes (
+		command.CommandText = $@"
+			CREATE TABLE IF NOT EXISTS {_changesTableSql} (
 				Id INTEGER PRIMARY KEY AUTOINCREMENT,
 				DocumentId TEXT NOT NULL,
 				Path TEXT NOT NULL,
@@ -35,7 +105,7 @@ public class SqliteStorage<T> : IChangelogStorage<T> where T : class {
 				GroupId TEXT
 			);
 
-			CREATE TABLE IF NOT EXISTS Groups (
+			CREATE TABLE IF NOT EXISTS {_groupsTableSql} (
 				Id TEXT PRIMARY KEY,
 				DocumentId TEXT NOT NULL,
 				Timestamp INTEGER NOT NULL,
@@ -43,28 +113,26 @@ public class SqliteStorage<T> : IChangelogStorage<T> where T : class {
 				Metadata TEXT
 			);
 
-			CREATE TABLE IF NOT EXISTS States (
+			CREATE TABLE IF NOT EXISTS {_statesTableSql} (
 				DocumentId TEXT PRIMARY KEY,
 				State TEXT NOT NULL,
-			LastUpdated INTEGER NOT NULL,
-			Version INTEGER NOT NULL DEFAULT 1
-		);
+				LastUpdated INTEGER NOT NULL,
+				Version INTEGER NOT NULL DEFAULT 1
+			);
 
-		CREATE INDEX IF NOT EXISTS idx_changes_documentid ON Changes(DocumentId);
-		CREATE INDEX IF NOT EXISTS idx_changes_groupid ON Changes(GroupId);
-		CREATE INDEX IF NOT EXISTS idx_groups_documentid ON Groups(DocumentId);
-	-- Composite indexes for optimized query patterns
-	CREATE INDEX IF NOT EXISTS idx_changes_docid_timestamp ON Changes(DocumentId, Timestamp);
-	CREATE INDEX IF NOT EXISTS idx_changes_docid_groupid ON Changes(DocumentId, GroupId);
-	CREATE INDEX IF NOT EXISTS idx_groups_docid_timestamp ON Groups(DocumentId, Timestamp);
-
-	-- Add Version column to existing States table if it doesn't exist
-	PRAGMA table_info(States);";
+			CREATE INDEX IF NOT EXISTS {QuoteIdentifier(IndexName(_changesTable, "documentid"))} ON {_changesTableSql}(DocumentId);
+			CREATE INDEX IF NOT EXISTS {QuoteIdentifier(IndexName(_changesTable, "groupid"))} ON {_changesTableSql}(GroupId);
+			CREATE INDEX IF NOT EXISTS {QuoteIdentifier(IndexName(_groupsTable, "documentid"))} ON {_groupsTableSql}(DocumentId);
+			-- Composite indexes for optimized query patterns
+			CREATE INDEX IF NOT EXISTS {QuoteIdentifier(IndexName(_changesTable, "docid_timestamp"))} ON {_changesTableSql}(DocumentId, Timestamp);
+			CREATE INDEX IF NOT EXISTS {QuoteIdentifier(IndexName(_changesTable, "docid_groupid"))} ON {_changesTableSql}(DocumentId, GroupId);
+			CREATE INDEX IF NOT EXISTS {QuoteIdentifier(IndexName(_groupsTable, "docid_timestamp"))} ON {_groupsTableSql}(DocumentId, Timestamp);
+		";
 		await command.ExecuteNonQueryAsync();
 
 		// Check if Version column exists, add it if not
 		var checkCommand = connection.CreateCommand();
-		checkCommand.CommandText = "PRAGMA table_info(States)";
+		checkCommand.CommandText = $"PRAGMA table_info({_statesTableSql})";
 		var hasVersion = false;
 		using (var reader = await checkCommand.ExecuteReaderAsync()) {
 			while (await reader.ReadAsync()) {
@@ -77,10 +145,9 @@ public class SqliteStorage<T> : IChangelogStorage<T> where T : class {
 
 		if (!hasVersion) {
 			var alterCommand = connection.CreateCommand();
-			alterCommand.CommandText = "ALTER TABLE States ADD COLUMN Version INTEGER NOT NULL DEFAULT 1";
+			alterCommand.CommandText = $"ALTER TABLE {_statesTableSql} ADD COLUMN Version INTEGER NOT NULL DEFAULT 1";
 			await alterCommand.ExecuteNonQueryAsync();
 		}
-		await command.ExecuteNonQueryAsync();
 	}
 
 	public async Task AppendChangesAsync(string documentId, List<ChangeRecord> changes, string groupId) {
@@ -89,8 +156,8 @@ public class SqliteStorage<T> : IChangelogStorage<T> where T : class {
 
 		foreach (var change in changes) {
 			var command = connection.CreateCommand();
-			command.CommandText = @"
-				INSERT INTO Changes (DocumentId, Path, Type, OldValue, NewValue, Timestamp, GroupId)
+			command.CommandText = $@"
+				INSERT INTO {_changesTableSql} (DocumentId, Path, Type, OldValue, NewValue, Timestamp, GroupId)
 				VALUES (@documentId, @path, @type, @oldValue, @newValue, @timestamp, @groupId)
 			";
 			command.Parameters.AddWithValue("@documentId", documentId);
@@ -127,7 +194,7 @@ public class SqliteStorage<T> : IChangelogStorage<T> where T : class {
 
 		var sql = $@"
 			SELECT Path, Type, OldValue, NewValue, Timestamp, GroupId
-			FROM Changes
+			FROM {_changesTableSql}
 			WHERE {string.Join(" AND ", whereConditions)}
 			ORDER BY Id";
 
@@ -199,7 +266,7 @@ public class SqliteStorage<T> : IChangelogStorage<T> where T : class {
 
 		var sql = $@"
 			SELECT Path, Type, OldValue, NewValue, Timestamp, GroupId
-			FROM Changes
+			FROM {_changesTableSql}
 			WHERE {string.Join(" AND ", whereConditions)}
 			ORDER BY Id";
 
@@ -258,7 +325,7 @@ public class SqliteStorage<T> : IChangelogStorage<T> where T : class {
 		await connection.OpenAsync();
 
 		var command = connection.CreateCommand();
-		command.CommandText = "SELECT State FROM States WHERE DocumentId = @documentId";
+		command.CommandText = $"SELECT State FROM {_statesTableSql} WHERE DocumentId = @documentId";
 		command.Parameters.AddWithValue("@documentId", documentId);
 
 		var stateJson = await command.ExecuteScalarAsync() as string;
@@ -280,8 +347,8 @@ public class SqliteStorage<T> : IChangelogStorage<T> where T : class {
 		await connection.OpenAsync();
 
 		var command = connection.CreateCommand();
-		command.CommandText = @"
-			INSERT INTO States (DocumentId, State, LastUpdated, Version)
+		command.CommandText = $@"
+			INSERT INTO {_statesTableSql} (DocumentId, State, LastUpdated, Version)
 			VALUES (@documentId, @state, @lastUpdated, 1)
 			ON CONFLICT(DocumentId) DO UPDATE SET
 				State = @state,
@@ -301,7 +368,7 @@ public class SqliteStorage<T> : IChangelogStorage<T> where T : class {
 		await connection.OpenAsync();
 
 		var command = connection.CreateCommand();
-		command.CommandText = "SELECT State, Version FROM States WHERE DocumentId = @documentId";
+		command.CommandText = $"SELECT State, Version FROM {_statesTableSql} WHERE DocumentId = @documentId";
 		command.Parameters.AddWithValue("@documentId", documentId);
 
 		using var reader = await command.ExecuteReaderAsync();
@@ -329,7 +396,7 @@ public class SqliteStorage<T> : IChangelogStorage<T> where T : class {
 		if (expectedVersion.HasValue) {
 			// Check current version
 			var checkCommand = connection.CreateCommand();
-			checkCommand.CommandText = "SELECT Version FROM States WHERE DocumentId = @documentId";
+			checkCommand.CommandText = $"SELECT Version FROM {_statesTableSql} WHERE DocumentId = @documentId";
 			checkCommand.Parameters.AddWithValue("@documentId", documentId);
 			var currentVersionObj = await checkCommand.ExecuteScalarAsync();
 
@@ -346,8 +413,8 @@ public class SqliteStorage<T> : IChangelogStorage<T> where T : class {
 		}
 
 		var command = connection.CreateCommand();
-		command.CommandText = @"
-			INSERT INTO States (DocumentId, State, LastUpdated, Version)
+		command.CommandText = $@"
+			INSERT INTO {_statesTableSql} (DocumentId, State, LastUpdated, Version)
 			VALUES (@documentId, @state, @lastUpdated, 1)
 			ON CONFLICT(DocumentId) DO UPDATE SET
 				State = @state,
@@ -368,8 +435,8 @@ public class SqliteStorage<T> : IChangelogStorage<T> where T : class {
 		var groupId = Guid.NewGuid().ToString();
 
 		var command = connection.CreateCommand();
-		command.CommandText = @"
-			INSERT INTO Groups (Id, DocumentId, Timestamp, ChangeCount, Metadata)
+		command.CommandText = $@"
+			INSERT INTO {_groupsTableSql} (Id, DocumentId, Timestamp, ChangeCount, Metadata)
 			VALUES (@id, @documentId, @timestamp, 0, @metadata)
 		";
 		command.Parameters.AddWithValue("@id", groupId);
@@ -386,9 +453,9 @@ public class SqliteStorage<T> : IChangelogStorage<T> where T : class {
 		await connection.OpenAsync();
 
 		var command = connection.CreateCommand();
-		command.CommandText = @"
+		command.CommandText = $@"
 			SELECT Id, Timestamp, ChangeCount, Metadata
-			FROM Groups
+			FROM {_groupsTableSql}
 			WHERE DocumentId = @documentId
 			ORDER BY Timestamp
 		";
@@ -416,9 +483,9 @@ public class SqliteStorage<T> : IChangelogStorage<T> where T : class {
 		await connection.OpenAsync(cancellationToken);
 
 		var command = connection.CreateCommand();
-		command.CommandText = @"
+		command.CommandText = $@"
 			SELECT Id, Timestamp, ChangeCount, Metadata
-			FROM Groups
+			FROM {_groupsTableSql}
 			WHERE DocumentId = @documentId
 			ORDER BY Timestamp
 		";
@@ -442,8 +509,8 @@ public class SqliteStorage<T> : IChangelogStorage<T> where T : class {
 		await connection.OpenAsync();
 
 		var command = connection.CreateCommand();
-		command.CommandText = @"
-			UPDATE Groups
+		command.CommandText = $@"
+			UPDATE {_groupsTableSql}
 			SET ChangeCount = @count
 			WHERE DocumentId = @documentId AND Id = @groupId
 		";
@@ -460,7 +527,7 @@ public class SqliteStorage<T> : IChangelogStorage<T> where T : class {
 
 		// Get count of groups
 		var countCommand = connection.CreateCommand();
-		countCommand.CommandText = "SELECT COUNT(*) FROM Groups WHERE DocumentId = @documentId";
+		countCommand.CommandText = $"SELECT COUNT(*) FROM {_groupsTableSql} WHERE DocumentId = @documentId";
 		countCommand.Parameters.AddWithValue("@documentId", documentId);
 		var groupCount = Convert.ToInt32(await countCommand.ExecuteScalarAsync());
 
@@ -470,8 +537,8 @@ public class SqliteStorage<T> : IChangelogStorage<T> where T : class {
 
 		// Get IDs of oldest groups to delete
 		var selectCommand = connection.CreateCommand();
-		selectCommand.CommandText = @"
-			SELECT Id FROM Groups
+		selectCommand.CommandText = $@"
+			SELECT Id FROM {_groupsTableSql}
 			WHERE DocumentId = @documentId
 			ORDER BY Timestamp
 			LIMIT @count
@@ -491,7 +558,7 @@ public class SqliteStorage<T> : IChangelogStorage<T> where T : class {
 		var deleteChangesCommand = connection.CreateCommand();
 		var placeholders = string.Join(",", groupIds.Select((_, i) => $"@groupId{i}"));
 		deleteChangesCommand.CommandText = $@"
-			DELETE FROM Changes
+			DELETE FROM {_changesTableSql}
 			WHERE DocumentId = @documentId AND GroupId IN ({placeholders})
 		";
 		deleteChangesCommand.Parameters.AddWithValue("@documentId", documentId);
@@ -503,7 +570,7 @@ public class SqliteStorage<T> : IChangelogStorage<T> where T : class {
 		// Delete the groups
 		var deleteGroupsCommand = connection.CreateCommand();
 		deleteGroupsCommand.CommandText = $@"
-			DELETE FROM Groups
+			DELETE FROM {_groupsTableSql}
 			WHERE Id IN ({placeholders})
 		";
 		for (int i = 0; i < groupIds.Count; i++) {
@@ -519,17 +586,17 @@ public class SqliteStorage<T> : IChangelogStorage<T> where T : class {
 		var transaction = await connection.BeginTransactionAsync();
 		try {
 			var deleteChanges = connection.CreateCommand();
-			deleteChanges.CommandText = "DELETE FROM Changes WHERE DocumentId = @documentId";
+			deleteChanges.CommandText = $"DELETE FROM {_changesTableSql} WHERE DocumentId = @documentId";
 			deleteChanges.Parameters.AddWithValue("@documentId", documentId);
 			await deleteChanges.ExecuteNonQueryAsync();
 
 			var deleteGroups = connection.CreateCommand();
-			deleteGroups.CommandText = "DELETE FROM Groups WHERE DocumentId = @documentId";
+			deleteGroups.CommandText = $"DELETE FROM {_groupsTableSql} WHERE DocumentId = @documentId";
 			deleteGroups.Parameters.AddWithValue("@documentId", documentId);
 			await deleteGroups.ExecuteNonQueryAsync();
 
 			var deleteState = connection.CreateCommand();
-			deleteState.CommandText = "DELETE FROM States WHERE DocumentId = @documentId";
+			deleteState.CommandText = $"DELETE FROM {_statesTableSql} WHERE DocumentId = @documentId";
 			deleteState.Parameters.AddWithValue("@documentId", documentId);
 			await deleteState.ExecuteNonQueryAsync();
 
@@ -552,8 +619,8 @@ public class SqliteStorage<T> : IChangelogStorage<T> where T : class {
 				foreach (var change in changes) {
 					var command = connection.CreateCommand();
 					command.Transaction = (Microsoft.Data.Sqlite.SqliteTransaction)transaction;
-					command.CommandText = @"
-						INSERT INTO Changes (DocumentId, Path, Type, OldValue, NewValue, Timestamp, GroupId)
+					command.CommandText = $@"
+						INSERT INTO {_changesTableSql} (DocumentId, Path, Type, OldValue, NewValue, Timestamp, GroupId)
 						VALUES (@documentId, @path, @type, @oldValue, @newValue, @timestamp, @groupId)
 					";
 					command.Parameters.AddWithValue("@documentId", documentId);
@@ -570,8 +637,8 @@ public class SqliteStorage<T> : IChangelogStorage<T> where T : class {
 				// 2. Update group change count
 				var updateCommand = connection.CreateCommand();
 				updateCommand.Transaction = (Microsoft.Data.Sqlite.SqliteTransaction)transaction;
-				updateCommand.CommandText = @"
-					UPDATE Groups
+				updateCommand.CommandText = $@"
+					UPDATE {_groupsTableSql}
 					SET ChangeCount = @count
 					WHERE DocumentId = @documentId AND Id = @groupId
 				";
@@ -584,8 +651,8 @@ public class SqliteStorage<T> : IChangelogStorage<T> where T : class {
 				if (state != null) {
 					var saveStateCommand = connection.CreateCommand();
 					saveStateCommand.Transaction = (Microsoft.Data.Sqlite.SqliteTransaction)transaction;
-					saveStateCommand.CommandText = @"
-					INSERT INTO States (DocumentId, State, LastUpdated, Version)
+					saveStateCommand.CommandText = $@"
+					INSERT INTO {_statesTableSql} (DocumentId, State, LastUpdated, Version)
 					VALUES (@documentId, @state, @lastUpdated, 1)
 					ON CONFLICT(DocumentId) DO UPDATE SET
 						State = @state,
@@ -605,5 +672,210 @@ public class SqliteStorage<T> : IChangelogStorage<T> where T : class {
 			await transaction.RollbackAsync();
 			throw;
 		}
+	}
+
+	public async Task<IChangelogTransaction> BeginTransactionAsync() {
+		var connection = new SqliteConnection(_connectionString);
+		await connection.OpenAsync();
+		var transaction = (Microsoft.Data.Sqlite.SqliteTransaction)await connection.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+		return new SqliteTransaction<T>(connection, transaction);
+	}
+
+	public async Task<HealthCheckResult> CheckHealthAsync() {
+		var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+		using var activity = ChangelogTelemetry.ActivitySource.StartActivity(
+			"SqliteStorage.HealthCheck",
+			ActivityKind.Internal
+		);
+
+		activity?.SetTag("storage.type", "sqlite");
+		activity?.SetTag("db.system", "sqlite");
+
+		try {
+			using var connection = new SqliteConnection(_connectionString);
+			await connection.OpenAsync();
+
+			// Check if required tables exist
+			var checkTablesCmd = connection.CreateCommand();
+			checkTablesCmd.CommandText = @"
+				SELECT COUNT(*)
+				FROM sqlite_master
+				WHERE type='table' AND name IN (@statesTable, @changesTable, @groupsTable)
+			";
+			checkTablesCmd.Parameters.AddWithValue("@statesTable", _statesTable);
+			checkTablesCmd.Parameters.AddWithValue("@changesTable", _changesTable);
+			checkTablesCmd.Parameters.AddWithValue("@groupsTable", _groupsTable);
+			var tableCount = (long)(await checkTablesCmd.ExecuteScalarAsync())!;
+
+			if (tableCount < 3) {
+				stopwatch.Stop();
+
+				activity?.SetTag("health.status", "unhealthy");
+				activity?.SetTag("health.latencyMs", stopwatch.ElapsedMilliseconds);
+				activity?.SetStatus(ActivityStatusCode.Error, "Missing required tables");
+
+				return new HealthCheckResult {
+					Status = HealthStatus.Unhealthy,
+					Description = "Missing required database tables",
+					Duration = stopwatch.Elapsed,
+					Data = new() {
+						["expectedTables"] = 3,
+						["actualTables"] = tableCount,
+						["latencyMs"] = stopwatch.ElapsedMilliseconds
+					}
+				};
+			}
+
+			// Check database integrity
+			var integrityCmd = connection.CreateCommand();
+			integrityCmd.CommandText = "PRAGMA integrity_check";
+			var integrity = (string)(await integrityCmd.ExecuteScalarAsync())!;
+
+			if (integrity != "ok") {
+				stopwatch.Stop();
+
+				activity?.SetTag("health.status", "unhealthy");
+				activity?.SetTag("health.latencyMs", stopwatch.ElapsedMilliseconds);
+				activity?.SetStatus(ActivityStatusCode.Error, "Integrity check failed");
+
+				return new HealthCheckResult {
+					Status = HealthStatus.Unhealthy,
+					Description = $"Database integrity check failed: {integrity}",
+					Duration = stopwatch.Elapsed,
+					Data = new() {
+						["integrityResult"] = integrity,
+						["latencyMs"] = stopwatch.ElapsedMilliseconds
+					}
+				};
+			}
+
+			// Get database statistics
+			var statsCmd = connection.CreateCommand();
+			statsCmd.CommandText = $@"
+				SELECT
+					(SELECT COUNT(*) FROM {_statesTableSql}) as StateCount,
+					(SELECT COUNT(*) FROM {_changesTableSql}) as ChangeCount,
+					(SELECT COUNT(*) FROM {_groupsTableSql}) as GroupCount
+			";
+
+			long stateCount = 0, changeCount = 0, groupCount = 0;
+			using (var reader = await statsCmd.ExecuteReaderAsync()) {
+				if (await reader.ReadAsync()) {
+					stateCount = reader.GetInt64(0);
+					changeCount = reader.GetInt64(1);
+					groupCount = reader.GetInt64(2);
+				}
+			}
+
+			stopwatch.Stop();
+
+			// Determine health status based on latency
+			var status = stopwatch.ElapsedMilliseconds > 100
+				? HealthStatus.Degraded
+				: HealthStatus.Healthy;
+
+			var description = status == HealthStatus.Healthy
+				? "Storage is healthy"
+				: "Storage is operational but slow";
+
+			activity?.SetTag("health.status", status.ToString().ToLowerInvariant());
+			activity?.SetTag("health.latencyMs", stopwatch.ElapsedMilliseconds);
+			activity?.SetStatus(ActivityStatusCode.Ok);
+
+			return new HealthCheckResult {
+				Status = status,
+				Description = description,
+				Duration = stopwatch.Elapsed,
+				Data = new() {
+					["latencyMs"] = stopwatch.ElapsedMilliseconds,
+					["stateCount"] = stateCount,
+					["changeCount"] = changeCount,
+					["groupCount"] = groupCount,
+					["tableCount"] = tableCount
+				}
+			};
+		}
+		catch (Exception ex) {
+			stopwatch.Stop();
+
+			activity?.SetTag("health.status", "unhealthy");
+			activity?.SetTag("health.latencyMs", stopwatch.ElapsedMilliseconds);
+			activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+
+			return new HealthCheckResult {
+				Status = HealthStatus.Unhealthy,
+				Description = $"Health check failed: {ex.Message}",
+				Exception = ex,
+				Duration = stopwatch.Elapsed,
+				Data = new() {
+					["latencyMs"] = stopwatch.ElapsedMilliseconds
+				}
+			};
+		}
+	}
+
+	private class SqliteTransaction<TDoc> : IChangelogTransaction where TDoc : class {
+		private readonly SqliteConnection _connection;
+		private readonly Microsoft.Data.Sqlite.SqliteTransaction _transaction;
+		private bool _committed;
+		private bool _rolledBack;
+
+		public SqliteTransaction(SqliteConnection connection, Microsoft.Data.Sqlite.SqliteTransaction transaction) {
+			_connection = connection;
+			_transaction = transaction;
+		}
+
+		public async Task CommitAsync() {
+			using var activity = ChangelogTelemetry.ActivitySource.StartActivity(
+				"SqliteTransaction.Commit",
+				ActivityKind.Internal
+			);
+
+			activity?.SetTag("storage.type", "sqlite");
+			activity?.SetTag("db.system", "sqlite");
+
+			if (_committed)
+				throw new InvalidOperationException("Transaction already committed");
+			if (_rolledBack)
+				throw new InvalidOperationException("Transaction already rolled back");
+
+			await _transaction.CommitAsync();
+			_committed = true;
+
+			activity?.SetStatus(ActivityStatusCode.Ok);
+		}
+
+		public async Task RollbackAsync() {
+			using var activity = ChangelogTelemetry.ActivitySource.StartActivity(
+				"SqliteTransaction.Rollback",
+				ActivityKind.Internal
+			);
+
+			activity?.SetTag("storage.type", "sqlite");
+			activity?.SetTag("db.system", "sqlite");
+
+			if (_committed)
+				throw new InvalidOperationException("Cannot rollback committed transaction");
+			if (_rolledBack)
+				return; // Already rolled back
+
+			await _transaction.RollbackAsync();
+			_rolledBack = true;
+
+			activity?.SetStatus(ActivityStatusCode.Ok);
+		}
+
+		public async ValueTask DisposeAsync() {
+			if (!_committed && !_rolledBack) {
+				await RollbackAsync();
+			}
+
+			await _transaction.DisposeAsync();
+			await _connection.DisposeAsync();
+		}
+
+		object IChangelogTransaction.GetStorage() => throw new NotSupportedException(
+			"SqliteTransaction does not support GetStorage(). Create Changelog instances before beginning transaction.");
 	}
 }

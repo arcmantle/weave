@@ -7,16 +7,19 @@ This guide explains how to monitor, trace, and measure the Changelog library in 
 The Changelog library uses:
 - **`System.Diagnostics.Activity`** for distributed tracing
 - **`System.Diagnostics.Metrics`** for performance metrics
+- **`Microsoft.Extensions.Logging.ILogger`** for structured logging
 
-These are **zero-dependency** .NET APIs that work with OpenTelemetry, Application Insights, AWS X-Ray, and other APM tools.
+These are **zero/minimal-dependency** .NET APIs that work with OpenTelemetry, Application Insights, AWS X-Ray, and other APM tools.
 
 ## Table of Contents
 
 - [Quick Start](#quick-start)
 - [Distributed Tracing](#distributed-tracing)
 - [Metrics](#metrics)
+- [Structured Logging](#structured-logging)
 - [Integration Examples](#integration-examples)
 - [Production Best Practices](#production-best-practices)
+- [Reliability Features](#reliability-features)
 - [Troubleshooting](#troubleshooting)
 
 ## Quick Start
@@ -194,6 +197,140 @@ WHERE operation='ApplyChanges'
 SELECT PERCENTILE(95, value) FROM changelog.operation.duration
 ```
 
+## Structured Logging
+
+### Overview
+
+The library supports optional structured logging via `ILogger<Changelog<T>>`. Logging is **opt-in** and defaults to `NullLogger` for zero overhead.
+
+**Why minimal logging?**
+- Distributed tracing (Activity) already provides detailed operation visibility
+- Metrics already track counts, durations, and errors
+- Excessive logging creates redundancy and log spam
+
+**What gets logged:**
+- **Debug**: Method entry, operation details (disabled in production by default)
+- **Error**: Exceptions with full context and structured data
+
+### Basic Usage
+
+```csharp
+using Microsoft.Extensions.Logging;
+
+// Create logger factory
+var loggerFactory = LoggerFactory.Create(builder => {
+    builder
+        .AddConsole()
+        .SetMinimumLevel(LogLevel.Debug);  // Or Information for production
+});
+
+// Create logger
+var logger = loggerFactory.CreateLogger<Changelog<MyDocument>>();
+
+// Pass to Changelog
+var changelog = new Changelog<MyDocument>(storage, "doc-1", logger);
+
+// Logs are automatically included
+await changelog.GetDocumentAsync();  // Logs at Debug level
+```
+
+### Log Structure
+
+All logs include structured data:
+
+```json
+{
+  "Timestamp": "2026-01-02T10:30:00Z",
+  "Level": "Debug",
+  "Message": "Getting document doc-1",
+  "DocumentId": "doc-1",
+  "Operation": "GetDocument",
+  "TraceId": "abc123...",  // Correlates with distributed traces
+  "SpanId": "xyz789..."
+}
+```
+
+### Trace Correlation
+
+Logs automatically include `TraceId` from the current `Activity`, enabling correlation between logs and distributed traces:
+
+```csharp
+// In your application
+using var activity = new Activity("ProcessOrder").Start();
+
+// Library logs will include this TraceId
+await changelog.ApplyChangesAsync(newState);
+
+// Query logs by TraceId to see all operations in this request
+// SELECT * FROM logs WHERE TraceId = 'abc123...'
+```
+
+### Integration with Serilog
+
+```csharp
+using Serilog;
+
+Log.Logger = new LoggerConfiguration()
+    .Enrich.FromLogContext()
+    .WriteTo.Console()
+    .WriteTo.Seq("http://localhost:5341")
+    .CreateLogger();
+
+var loggerFactory = LoggerFactory.Create(builder => builder.AddSerilog());
+var logger = loggerFactory.CreateLogger<Changelog<MyDocument>>();
+
+var changelog = new Changelog<MyDocument>(storage, "doc-1", logger);
+```
+
+### Integration with ASP.NET Core
+
+```csharp
+// In Program.cs
+builder.Services.AddLogging(logging => {
+    logging.AddConsole();
+    logging.AddDebug();
+    logging.AddApplicationInsights();
+});
+
+// Inject logger via DI
+builder.Services.AddScoped(sp => {
+    var storage = sp.GetRequiredService<IChangelogStorage<MyDocument>>();
+    var logger = sp.GetRequiredService<ILogger<Changelog<MyDocument>>>();
+    return new Changelog<MyDocument>(storage, "doc-1", logger);
+});
+```
+
+### Example Log Output
+
+With Debug logging enabled:
+
+```
+[DBG] Getting document user-123
+      DocumentId="user-123" Operation="GetDocument" TraceId="abc123..." DurationMs=5
+
+[ERR] Failed to get document user-123
+      DocumentId="user-123" Operation="GetDocument" TraceId="abc123..."
+      Exception: System.InvalidOperationException: Database connection failed
+```
+
+### Best Practices
+
+1. **Use Information or Warning in production** - Debug logs can be verbose
+2. **Enable Debug selectively** - Use log level filters for specific operations
+3. **Correlate with traces** - Use TraceId to link logs to distributed traces
+4. **Prefer traces over logs** - Activity spans provide better structured operation visibility
+5. **Use metrics for aggregation** - Counters/histograms better than counting log lines
+
+### When to Use Each Tool
+
+| Need | Use | Why |
+|------|-----|-----|
+| Operation flow visibility | **Tracing** (Activity) | Shows call hierarchy, timing, tags |
+| Performance monitoring | **Metrics** (Meter) | Aggregatable, efficient, P95/P99 |
+| Error investigation | **Logging** (ILogger) | Exception details, stack traces |
+| Development debugging | **Logging Debug** | Quick insight during development |
+| Production troubleshooting | **All three** | Traces + metrics + error logs |
+
 ## Integration Examples
 
 ### OpenTelemetry with Jaeger
@@ -312,6 +449,143 @@ var meterProvider = Sdk.CreateMeterProviderBuilder()
 ```
 
 Metrics available at `http://localhost:9090/metrics`.
+
+## Reliability Features
+
+### Circular Reference Detection
+
+The Changelog library automatically detects and handles circular references in object graphs, preventing stack overflow errors when diffing objects with bidirectional relationships (common in ORM entities).
+
+#### How It Works
+
+The `DiffEngine` maintains a reference-equality dictionary to track objects already visited during diff computation:
+
+```csharp
+// Internal implementation
+private static void DiffValues(
+    object? a,
+    object? b,
+    string[] path,
+    List<DiffRecord> output,
+    DiffOptions options,
+    Dictionary<object, object> seen)  // Tracks visited pairs
+{
+    // ... comparison logic ...
+
+    // Check for circular references
+    if (a != null && b != null && seen.TryGetValue(a, out var seenValue) && ReferenceEquals(seenValue, b))
+        return;  // Already visited this pair, skip to prevent infinite recursion
+
+    if (a != null && b != null)
+        seen[a] = b;  // Track this pair
+
+    // ... continue diffing ...
+}
+```
+
+#### Use Cases
+
+**Entity Framework / ORM Scenarios:**
+```csharp
+public class User {
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public List<Post> Posts { get; set; }  // Navigation property
+}
+
+public class Post {
+    public int Id { get; set; }
+    public string Title { get; set; }
+    public User Author { get; set; }  // Back-reference creates cycle
+}
+
+// Load entity with circular references
+var user = dbContext.Users.Include(u => u.Posts).First();
+
+// Safe to diff - no stack overflow
+var oldSnapshot = user;
+user.Name = "Updated";
+var diffs = DiffEngine.Diff(oldSnapshot, user);
+// Returns: [{ Path: ["Name"], Kind: Changed, OldValue: "...", NewValue: "Updated" }]
+```
+
+**Self-Referencing Structures:**
+```csharp
+public class TreeNode {
+    public string Value { get; set; }
+    public TreeNode? Parent { get; set; }  // Parent reference
+    public List<TreeNode> Children { get; set; } = new();
+}
+
+var root = new TreeNode { Value = "Root" };
+var child = new TreeNode { Value = "Child", Parent = root };
+root.Children.Add(child);  // Creates cycle: root -> child -> root
+
+// Safe to diff - circular reference handled
+var diffs = DiffEngine.Diff(root, root);  // Returns empty (no changes)
+```
+
+**Mutually Referencing Objects:**
+```csharp
+var a = new Dictionary<string, object?> { { "id", 1 } };
+var b = new Dictionary<string, object?> { { "id", 2 } };
+a["partner"] = b;
+b["partner"] = a;  // Mutual reference
+
+// Safe to diff
+var diffs = DiffEngine.Diff(a, a);  // Returns empty
+```
+
+#### Performance
+
+- **Zero overhead for acyclic graphs** - Dictionary lookup only happens for objects (not primitives)
+- **O(1) cycle detection** - Uses `ReferenceEqualityComparer` with `RuntimeHelpers.GetHashCode`
+- **Memory efficient** - Only tracks object pairs actually visited during diff traversal
+
+#### Observability Integration
+
+Circular reference handling is transparent to observability:
+
+```csharp
+// Tracing example
+using var activity = Activity.Current;
+var diffs = DiffEngine.Diff(userWithCycles, updatedUser);
+
+// Activity tags show diff complexity, not cycle detection details
+activity?.GetTagItem("diff.count");  // Number of actual changes
+```
+
+The `diff.count` metric reflects real changes, not skipped circular references.
+
+#### Testing
+
+The library includes comprehensive tests for circular reference scenarios:
+
+```csharp
+[Fact]
+public void Diff_WithEntityLikeCircularReferences_ShouldHandleOrmScenario() {
+    var user = new Dictionary<string, object?> {
+        { "id", 1 },
+        { "name", "Alice" },
+        { "posts", new List<object?>() }
+    };
+
+    var post = new Dictionary<string, object?> {
+        { "id", 100 },
+        { "title", "First Post" },
+        { "author", user }
+    };
+
+    ((List<object?>)user["posts"]!).Add(post);
+
+    // Should not throw StackOverflowException
+    var diffs = DiffEngine.Diff(user, user);
+
+    Assert.Empty(diffs);  // Same object graph, no changes
+}
+```
+
+See [CircularReferenceTests.cs](Changelog.Tests/CircularReferenceTests.cs) for 9 comprehensive test cases.
 
 ## Production Best Practices
 

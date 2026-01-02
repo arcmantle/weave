@@ -125,4 +125,18 @@ public interface IChangelogStorage<T> where T : class {
 	/// <param name="changes">List of changes to append</param>
 	/// <param name="state">New state to save (optional)</param>
 	Task CommitGroupAsync(string documentId, string groupId, List<ChangeRecord> changes, T? state);
+
+	/// <summary>
+	/// Begin a new multi-document transaction.
+	/// All operations within the transaction are atomic - they all succeed or all fail together.
+	/// </summary>
+	/// <returns>A transaction instance</returns>
+	Task<IChangelogTransaction> BeginTransactionAsync();
+
+	/// <summary>
+	/// Check if the storage backend is healthy and operational.
+	/// Returns detailed health status including latency and diagnostic information.
+	/// </summary>
+	/// <returns>Health check result with status and diagnostic data</returns>
+	Task<HealthCheckResult> CheckHealthAsync();
 }

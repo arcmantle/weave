@@ -140,4 +140,12 @@ public class CachedStorage<T> : IChangelogStorage<T> where T : class {
 	public void ClearCache() {
 		_cache.Clear();
 	}
+
+	public Task<IChangelogTransaction> BeginTransactionAsync() {
+		return _inner.BeginTransactionAsync();
+	}
+
+	public Task<HealthCheckResult> CheckHealthAsync() {
+		return _inner.CheckHealthAsync();
+	}
 }

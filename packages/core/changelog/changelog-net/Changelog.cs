@@ -8,6 +8,8 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Changelog.Storage;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Changelog;
 
@@ -36,13 +38,19 @@ public class Changelog<T> where T : class {
 	private readonly IChangelogStorage<T> _storage;
 	private readonly string _documentId;
 	private readonly Stack<BatchFrame<T>> _batchStack = new();
+	private readonly ILogger _logger;
 
-	public Changelog(IChangelogStorage<T> storage, string documentId) {
+	public Changelog(
+		IChangelogStorage<T> storage,
+		string documentId,
+		ILogger<Changelog<T>>? logger = null
+	) {
 		if (string.IsNullOrWhiteSpace(documentId))
 			throw new ArgumentException("documentId must be a non-empty string", nameof(documentId));
 
 		_storage = storage;
 		_documentId = documentId;
+		_logger = logger ?? NullLogger<Changelog<T>>.Instance;
 	}
 
 	/// <summary>
@@ -50,6 +58,14 @@ public class Changelog<T> where T : class {
 	/// </summary>
 	/// <returns>The current document state or null if not found</returns>
 	public async Task<T?> GetDocumentAsync() {
+		using var logScope = _logger.BeginScope(new Dictionary<string, object> {
+			["DocumentId"] = _documentId,
+			["Operation"] = "GetDocument",
+			["TraceId"] = Activity.Current?.TraceId.ToString() ?? "none"
+		});
+
+		_logger.LogDebug("Getting document {DocumentId}", _documentId);
+
 		var stopwatch = Stopwatch.StartNew();
 		var tags = new TagList {
 		{ ChangelogMetrics.OperationKey, "get_document" },
@@ -72,6 +88,13 @@ public class Changelog<T> where T : class {
 			ChangelogMetrics.OperationCount.Add(1, tags);
 			ChangelogMetrics.OperationDuration.Record(stopwatch.ElapsedMilliseconds, tags);
 
+			_logger.LogDebug(
+				"Retrieved document {DocumentId} in {DurationMs}ms. Found: {Found}",
+				_documentId,
+				stopwatch.ElapsedMilliseconds,
+				result != null
+			);
+
 			return result;
 		}
 		catch (Exception ex) {
@@ -80,6 +103,12 @@ public class Changelog<T> where T : class {
 
 			tags.Add(ChangelogMetrics.ErrorTypeKey, ex.GetType().Name);
 			ChangelogMetrics.ErrorCount.Add(1, tags);
+
+			_logger.LogError(
+				ex,
+				"Failed to get document {DocumentId}",
+				_documentId
+			);
 			throw;
 		}
 	}
@@ -128,37 +157,53 @@ public class Changelog<T> where T : class {
 	/// <param name="metadata">Optional metadata for the group (e.g., author, message)</param>
 	/// <returns>The group ID</returns>
 	public async Task<string> BeginGroupAsync(Dictionary<string, object>? metadata = null) {
-		var groupId = await _storage.CreateGroupAsync(_documentId, metadata);
-		var currentState = await GetDocumentAsync();
+		var stopwatch = Stopwatch.StartNew();
+		var tags = new TagList {
+			{ ChangelogMetrics.OperationKey, "begin_group" },
+			{ ChangelogMetrics.DocumentIdKey, _documentId }
+		};
 
-		T? oldState;
-		T? pendingState;
+		try {
+			var groupId = await _storage.CreateGroupAsync(_documentId, metadata);
+			var currentState = await GetDocumentAsync();
 
-		if (currentState != null) {
-			try {
-				oldState = DeepClone(currentState);
-				pendingState = DeepClone(currentState);
+			T? oldState;
+			T? pendingState;
+
+			if (currentState != null) {
+				try {
+					oldState = DeepClone(currentState);
+					pendingState = DeepClone(currentState);
+				}
+				catch (Exception ex) {
+					throw new InvalidOperationException(
+						$"Failed to clone current state for document '{_documentId}': {ex.Message}. " +
+						"Ensure document state contains only serializable data.",
+						ex);
+				}
 			}
-			catch (Exception ex) {
-				throw new InvalidOperationException(
-					$"Failed to clone current state for document '{_documentId}': {ex.Message}. " +
-					"Ensure document state contains only serializable data.",
-					ex);
+			else {
+				oldState = null;
+				pendingState = null;
 			}
-		}
-		else {
-			oldState = null;
-			pendingState = null;
-		}
 
-		_batchStack.Push(new BatchFrame<T> {
-			GroupId = groupId,
-			Changes = new List<ChangeRecord>(),
-			OldState = oldState,
-			PendingState = pendingState
-		});
+			_batchStack.Push(new BatchFrame<T> {
+				GroupId = groupId,
+				Changes = new List<ChangeRecord>(),
+				OldState = oldState,
+				PendingState = pendingState
+			});
 
-		return groupId;
+			stopwatch.Stop();
+			ChangelogMetrics.OperationCount.Add(1, tags);
+			ChangelogMetrics.OperationDuration.Record(stopwatch.ElapsedMilliseconds, tags);
+			return groupId;
+		}
+		catch (Exception ex) {
+			tags.Add(ChangelogMetrics.ErrorTypeKey, ex.GetType().Name);
+			ChangelogMetrics.ErrorCount.Add(1, tags);
+			throw;
+		}
 	}
 
 	/// <summary>
@@ -166,14 +211,32 @@ public class Changelog<T> where T : class {
 	/// Saves all changes made since BeginGroupAsync() to storage atomically
 	/// </summary>
 	public async Task CommitGroupAsync() {
-		if (_batchStack.Count == 0)
-			throw new InvalidOperationException("No active group to commit");
+		var stopwatch = Stopwatch.StartNew();
+		var tags = new TagList {
+			{ ChangelogMetrics.OperationKey, "commit_group" },
+			{ ChangelogMetrics.DocumentIdKey, _documentId }
+		};
 
-		var frame = _batchStack.Pop();
+		try {
+			if (_batchStack.Count == 0)
+				throw new InvalidOperationException("No active group to commit");
 
-		// Atomically commit the group with all changes and state
-		if (frame.Changes.Count > 0) {
-			await _storage.CommitGroupAsync(_documentId, frame.GroupId, frame.Changes, frame.PendingState);
+			var frame = _batchStack.Pop();
+
+			// Atomically commit the group with all changes and state
+			if (frame.Changes.Count > 0) {
+				await _storage.CommitGroupAsync(_documentId, frame.GroupId, frame.Changes, frame.PendingState);
+			}
+
+			stopwatch.Stop();
+			ChangelogMetrics.OperationCount.Add(1, tags);
+			ChangelogMetrics.ChangeCount.Add(frame.Changes.Count, tags);
+			ChangelogMetrics.OperationDuration.Record(stopwatch.ElapsedMilliseconds, tags);
+		}
+		catch (Exception ex) {
+			tags.Add(ChangelogMetrics.ErrorTypeKey, ex.GetType().Name);
+			ChangelogMetrics.ErrorCount.Add(1, tags);
+			throw;
 		}
 	}
 
@@ -182,14 +245,31 @@ public class Changelog<T> where T : class {
 	/// Discards all changes made since BeginGroupAsync() and restores old state
 	/// </summary>
 	public async Task RollbackGroupAsync() {
-		if (_batchStack.Count == 0)
-			throw new InvalidOperationException("No active group to rollback");
+		var stopwatch = Stopwatch.StartNew();
+		var tags = new TagList {
+			{ ChangelogMetrics.OperationKey, "rollback_group" },
+			{ ChangelogMetrics.DocumentIdKey, _documentId }
+		};
 
-		var frame = _batchStack.Pop();
+		try {
+			if (_batchStack.Count == 0)
+				throw new InvalidOperationException("No active group to rollback");
 
-		// Restore old state
-		if (frame.OldState != null)
-			await _storage.SaveStateAsync(_documentId, frame.OldState);
+			var frame = _batchStack.Pop();
+
+			// Restore old state
+			if (frame.OldState != null)
+				await _storage.SaveStateAsync(_documentId, frame.OldState);
+
+			stopwatch.Stop();
+			ChangelogMetrics.OperationCount.Add(1, tags);
+			ChangelogMetrics.OperationDuration.Record(stopwatch.ElapsedMilliseconds, tags);
+		}
+		catch (Exception ex) {
+			tags.Add(ChangelogMetrics.ErrorTypeKey, ex.GetType().Name);
+			ChangelogMetrics.ErrorCount.Add(1, tags);
+			throw;
+		}
 	}
 
 	/// <summary>
@@ -375,6 +455,12 @@ public class Changelog<T> where T : class {
 	/// <param name="groupId">The group ID to get changes for</param>
 	/// <returns>List of change records for that group</returns>
 	public async Task<List<ChangeRecord>> GetGroupChangesAsync(string groupId) {
+		var stopwatch = Stopwatch.StartNew();
+		var tags = new TagList {
+			{ ChangelogMetrics.OperationKey, "get_group_changes" },
+			{ ChangelogMetrics.DocumentIdKey, _documentId }
+		};
+
 		using var activity = ChangelogTelemetry.ActivitySource.StartActivity(
 			"GetGroupChanges",
 			ActivityKind.Internal
@@ -388,6 +474,11 @@ public class Changelog<T> where T : class {
 			var result = await _storage.GetChangesAsync(_documentId, new QueryOptions { GroupId = groupId });
 			activity?.SetTag(ChangelogTelemetry.ChangeCountKey, result.Count);
 			activity?.SetStatus(ActivityStatusCode.Ok);
+
+			stopwatch.Stop();
+			ChangelogMetrics.OperationCount.Add(1, tags);
+			ChangelogMetrics.HistorySize.Record(result.Count, tags);
+			ChangelogMetrics.OperationDuration.Record(stopwatch.ElapsedMilliseconds, tags);
 			return result;
 		}
 		catch (Exception ex) {

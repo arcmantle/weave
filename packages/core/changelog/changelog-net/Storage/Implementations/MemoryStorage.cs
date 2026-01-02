@@ -415,4 +415,161 @@ public class MemoryStorage<T> : IChangelogStorage<T> where T : class {
 			_ => element.ToString()!
 		};
 	}
+
+	public Task<IChangelogTransaction> BeginTransactionAsync() {
+		return Task.FromResult<IChangelogTransaction>(new MemoryTransaction(this));
+	}
+
+	public Task<HealthCheckResult> CheckHealthAsync() {
+		var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+		using var activity = ChangelogTelemetry.ActivitySource.StartActivity(
+			"MemoryStorage.HealthCheck",
+			ActivityKind.Internal
+		);
+
+		activity?.SetTag("storage.type", "memory");
+
+		try {
+			lock (_lock) {
+				var documentCount = _states.Count;
+				var changeCount = _changes.Values.Sum(list => list.Count);
+				var groupCount = _groups.Values.Sum(list => list.Count);
+
+				stopwatch.Stop();
+
+				activity?.SetTag("health.status", "healthy");
+				activity?.SetTag("health.latencyMs", stopwatch.ElapsedMilliseconds);
+				activity?.SetStatus(ActivityStatusCode.Ok);
+
+				return Task.FromResult(new HealthCheckResult {
+					Status = HealthStatus.Healthy,
+					Description = "Memory storage is operational",
+					Duration = stopwatch.Elapsed,
+					Data = new() {
+						["documentCount"] = documentCount,
+						["totalChanges"] = changeCount,
+						["totalGroups"] = groupCount,
+						["latencyMs"] = stopwatch.ElapsedMilliseconds
+					}
+				});
+			}
+		}
+		catch (Exception ex) {
+			stopwatch.Stop();
+
+			activity?.SetTag("health.status", "unhealthy");
+			activity?.SetTag("health.latencyMs", stopwatch.ElapsedMilliseconds);
+			activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+
+			return Task.FromResult(new HealthCheckResult {
+				Status = HealthStatus.Unhealthy,
+				Description = $"Memory storage check failed: {ex.Message}",
+				Exception = ex,
+				Duration = stopwatch.Elapsed
+			});
+		}
+	}
+
+	private class MemoryTransaction : IChangelogTransaction {
+		private readonly MemoryStorage<T> _storage;
+		private readonly Dictionary<string, T> _stateSnapshot = [];
+		private readonly Dictionary<string, int> _versionSnapshot = [];
+		private readonly Dictionary<string, List<ChangeRecord>> _changesSnapshot = [];
+		private readonly Dictionary<string, List<ChangeGroup>> _groupsSnapshot = [];
+		private bool _committed;
+		private bool _rolledBack;
+
+		public MemoryTransaction(MemoryStorage<T> storage) {
+			_storage = storage;
+
+			// Create snapshots
+			lock (_storage._lock) {
+				foreach (var (key, value) in _storage._states) {
+					_stateSnapshot[key] = DeepClone(value);
+				}
+				foreach (var (key, value) in _storage._versions) {
+					_versionSnapshot[key] = value;
+				}
+				foreach (var (key, value) in _storage._changes) {
+					_changesSnapshot[key] = new List<ChangeRecord>(value);
+				}
+				foreach (var (key, value) in _storage._groups) {
+					_groupsSnapshot[key] = new List<ChangeGroup>(value);
+				}
+			}
+		}
+
+		public Task CommitAsync() {
+			using var activity = ChangelogTelemetry.ActivitySource.StartActivity(
+				"MemoryTransaction.Commit",
+				ActivityKind.Internal
+			);
+
+			activity?.SetTag("storage.type", "memory");
+
+			if (_committed)
+				throw new InvalidOperationException("Transaction already committed");
+			if (_rolledBack)
+				throw new InvalidOperationException("Transaction already rolled back");
+
+			_committed = true;
+			activity?.SetStatus(ActivityStatusCode.Ok);
+			return Task.CompletedTask;
+		}
+
+		public Task RollbackAsync() {
+			using var activity = ChangelogTelemetry.ActivitySource.StartActivity(
+				"MemoryTransaction.Rollback",
+				ActivityKind.Internal
+			);
+
+			activity?.SetTag("storage.type", "memory");
+
+			if (_committed)
+				throw new InvalidOperationException("Cannot rollback committed transaction");
+			if (_rolledBack)
+				return Task.CompletedTask; // Already rolled back
+
+			lock (_storage._lock) {
+				// Restore snapshots
+				_storage._states.Clear();
+				foreach (var (key, value) in _stateSnapshot) {
+					_storage._states[key] = DeepClone(value);
+				}
+
+				_storage._versions.Clear();
+				foreach (var (key, value) in _versionSnapshot) {
+					_storage._versions[key] = value;
+				}
+
+				_storage._changes.Clear();
+				foreach (var (key, value) in _changesSnapshot) {
+					_storage._changes[key] = new List<ChangeRecord>(value);
+				}
+
+				_storage._groups.Clear();
+				foreach (var (key, value) in _groupsSnapshot) {
+					_storage._groups[key] = new List<ChangeGroup>(value);
+				}
+			}
+
+			_rolledBack = true;
+			activity?.SetStatus(ActivityStatusCode.Ok);
+			return Task.CompletedTask;
+		}
+
+		public async ValueTask DisposeAsync() {
+			if (!_committed && !_rolledBack) {
+				await RollbackAsync();
+			}
+		}
+
+		object IChangelogTransaction.GetStorage() => _storage;
+
+		private static T DeepClone(T value) {
+			var json = JsonSerializer.Serialize(value);
+			return JsonSerializer.Deserialize<T>(json)!;
+		}
+	}
 }

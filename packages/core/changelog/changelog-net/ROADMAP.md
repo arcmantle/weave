@@ -139,26 +139,28 @@ Database Schema:
 | Priority | Feature | Implementation | Impact |
 |----------|---------|----------------|--------|
 | **P2-1** | ✅ Distributed tracing | Add .NET Activity instrumentation | Debuggability |
-| **P2-2** | Metrics | Track query latency, storage size, error rates | Monitoring |
-| **P2-3** | Structured logging | Use `ILogger` with contextual data | Troubleshooting |
-| **P2-4** | Circular ref detection | Add visited set in diff recursion | Prevents crashes |
-| **P2-5** | Multi-document transactions | Add `IChangelogTransaction` interface | Atomicity |
-| **P2-6** | Health checks | Implement storage health endpoints | Reliability |
+| **P2-2** | ✅ Metrics | Track query latency, storage size, error rates | Monitoring |
+| **P2-3** | ✅ Structured logging | Use `ILogger` with contextual data | Troubleshooting |
+| **P2-4** | ✅ Circular ref detection | Add visited set in diff recursion | Prevents crashes |
+| **P2-5** | ✅ Multi-document transactions | Add `IChangelogTransaction` interface | Atomicity |
+| **P2-6** | ✅ Health checks | Implement storage health endpoints | Reliability |
 
 **Deliverables:**
 
 - [x] Add `ActivitySource` for tracing *(Complete: Jan 2, 2026 - All layers instrumented, docs complete)*
-- [ ] Expose metrics via `IMeterFactory`
-- [ ] Add structured logging throughout
-- [ ] Implement cycle detection in DiffEngine
-- [ ] Create transaction coordinator
-- [ ] Add health check middleware
+- [x] Expose metrics via `Meter` *(Complete: Jan 2, 2026 - 6 instruments, all core operations instrumented)*
+- [x] Add structured logging throughout *(Complete: Jan 2, 2026 - ILogger support, trace correlation, error logging)*
+- [x] Implement cycle detection in DiffEngine *(Complete: Jan 2, 2026 - Already implemented, added tests and docs)*
+- [x] Create transaction coordinator *(Complete: Jan 2, 2026 - MemoryStorage & SqliteStorage transaction support)*
+- [x] Add health check middleware *(Complete: Jan 2, 2026 - CheckHealthAsync() on all storage backends)*
 
 **Success Criteria:**
 
 - ✅ All operations traced end-to-end
-- ✅ Dashboards show P95/P99 latencies
+- ✅ Dashboards show P95/P99 latencies (metrics available via histograms)
 - ✅ Zero crashes from circular references
+- ✅ Multi-document operations are atomic
+- ✅ Storage health can be monitored programmatically
 
 ---
 

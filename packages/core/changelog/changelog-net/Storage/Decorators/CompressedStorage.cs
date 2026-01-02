@@ -114,6 +114,14 @@ public class CompressedStorage<T> : IChangelogStorage<T> where T : class {
 		await _innerStorage.CommitGroupAsync(documentId, groupId, compressedChanges, state);
 	}
 
+	public Task<IChangelogTransaction> BeginTransactionAsync() {
+		return _innerStorage.BeginTransactionAsync();
+	}
+
+	public Task<HealthCheckResult> CheckHealthAsync() {
+		return _innerStorage.CheckHealthAsync();
+	}
+
 	/// <summary>
 	/// Compress a change record's values.
 	/// </summary>
