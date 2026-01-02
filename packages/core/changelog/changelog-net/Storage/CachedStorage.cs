@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,16 +21,30 @@ public class CachedStorage<T> : IChangelogStorage<T> where T : class {
 	}
 
 	public async Task<T?> LoadStateAsync(string documentId) {
+		using var activity = ChangelogTelemetry.ActivitySource.StartActivity(
+			"CachedStorage.LoadState",
+			ActivityKind.Internal
+		);
+
+		activity?.SetTag("storage.type", "cached");
+		activity?.SetTag(ChangelogTelemetry.DocumentIdKey, documentId);
+
 		// Try cache first
 		var cached = _cache.Get(documentId);
-		if (cached != null)
+		if (cached != null) {
+			activity?.SetTag("cache.hit", true);
+			activity?.SetStatus(ActivityStatusCode.Ok);
 			return cached;
+		}
 
 		// Cache miss - load from storage
+		activity?.SetTag("cache.hit", false);
 		var state = await _inner.LoadStateAsync(documentId);
-		if (state != null)
+		if (state != null) {
 			_cache.Set(documentId, state);
+		}
 
+		activity?.SetStatus(ActivityStatusCode.Ok);
 		return state;
 	}
 
@@ -40,9 +55,19 @@ public class CachedStorage<T> : IChangelogStorage<T> where T : class {
 	}
 
 	public async Task SaveStateAsync(string documentId, T state) {
+		using var activity = ChangelogTelemetry.ActivitySource.StartActivity(
+			"CachedStorage.SaveState",
+			ActivityKind.Internal
+		);
+
+		activity?.SetTag("storage.type", "cached");
+		activity?.SetTag(ChangelogTelemetry.DocumentIdKey, documentId);
+
 		await _inner.SaveStateAsync(documentId, state);
 		// Invalidate cache on write
 		_cache.Invalidate(documentId);
+
+		activity?.SetStatus(ActivityStatusCode.Ok);
 	}
 
 	public async Task SaveVersionedStateAsync(string documentId, T state, int? expectedVersion) {

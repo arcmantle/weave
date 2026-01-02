@@ -119,8 +119,86 @@ var result = DiffEngine.ApplyDiff(oldDoc, differences);
 
 Currently available:
 - **MemoryStorage**: In-memory storage for testing and simple use cases
+- **SqliteStorage**: SQLite-based persistent storage
+- **CachedStorage**: Decorator that adds caching layer
+- **CompressedStorage**: Decorator that compresses change data
 
 You can implement your own storage backend by implementing the `IChangelogStorage<T>` interface.
+
+## Observability
+
+The Changelog library includes built-in distributed tracing and metrics support using .NET's standard `System.Diagnostics` APIs. This provides zero-dependency observability that works with OpenTelemetry, Application Insights, and other APM tools.
+
+### Distributed Tracing
+
+All public methods and storage operations are automatically instrumented with `Activity` spans:
+
+```csharp
+using OpenTelemetry;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+
+// Configure OpenTelemetry to collect traces
+var tracerProvider = Sdk.CreateTracerProviderBuilder()
+    .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("MyApp"))
+    .AddSource("Changelog.Library")  // Subscribe to Changelog traces
+    .AddConsoleExporter()  // Or Jaeger, Zipkin, etc.
+    .Build();
+
+// Use the library normally - tracing happens automatically
+var changelog = new Changelog<MyDocument>(storage, "doc-1");
+await changelog.ApplyChangesAsync(newState);  // This operation is traced!
+```
+
+### Metrics
+
+Key performance metrics are exposed via `System.Diagnostics.Metrics`:
+
+```csharp
+using OpenTelemetry;
+using OpenTelemetry.Metrics;
+
+// Configure OpenTelemetry to collect metrics
+var meterProvider = Sdk.CreateMeterProviderBuilder()
+    .AddMeter("Changelog.Library")  // Subscribe to Changelog metrics
+    .AddConsoleExporter()
+    .Build();
+
+// Metrics collected automatically:
+// - changelog.operation.count (counter)
+// - changelog.operation.duration (histogram)
+// - changelog.change.count (counter)
+// - changelog.error.count (counter)
+// - changelog.history.size (histogram)
+// - changelog.diff.complexity (histogram)
+```
+
+### Available Trace Spans
+
+- `Changelog.ApplyChanges` - Change application with diff computation
+- `Changelog.GetDocument` - Document retrieval
+- `Changelog.GetHistory` - History query
+- `Changelog.StreamHistory` - Streaming history query
+- `DiffEngine.Diff` - Diff computation
+- `{Storage}.LoadState` - Storage read operations
+- `{Storage}.SaveState` - Storage write operations
+- `{Storage}.AppendChanges` - Change persistence
+- `{Storage}.GetChanges` - Change retrieval
+
+### Trace Tags/Attributes
+
+All spans include relevant tags:
+- `document_id` - Document identifier
+- `operation` - Operation name
+- `storage.type` - Storage backend type (memory, sqlite, cached, compressed)
+- `db.system` - Database system (for SqliteStorage)
+- `cache.hit` - Cache hit/miss (for CachedStorage)
+- `compression.type` - Compression algorithm (for CompressedStorage)
+- `diff.type` - Diff operation type
+- `change.count` - Number of changes
+- `error` - Error flag on failures
+
+For more details, see [OBSERVABILITY.md](OBSERVABILITY.md).
 
 ## License
 

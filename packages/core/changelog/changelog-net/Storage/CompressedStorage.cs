@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -36,16 +37,38 @@ public class CompressedStorage<T> : IChangelogStorage<T> where T : class {
 	}
 
 	public async Task AppendChangesAsync(string documentId, List<ChangeRecord> changes, string groupId) {
-		// Compress change values before storing
+		using var activity = ChangelogTelemetry.ActivitySource.StartActivity(
+			"CompressedStorage.AppendChanges",
+			ActivityKind.Internal
+		);
+
+		activity?.SetTag("storage.type", "compressed");
+		activity?.SetTag(ChangelogTelemetry.DocumentIdKey, documentId);
+		activity?.SetTag("compression.type", "gzip");
+
+		// Compress change values before storage
 		var compressedChanges = changes.Select(CompressChange).ToList();
 		await _innerStorage.AppendChangesAsync(documentId, compressedChanges, groupId);
+
+		activity?.SetStatus(ActivityStatusCode.Ok);
 	}
 
 	public async Task<List<ChangeRecord>> GetChangesAsync(string documentId, QueryOptions? options = null) {
+		using var activity = ChangelogTelemetry.ActivitySource.StartActivity(
+			"CompressedStorage.GetChanges",
+			ActivityKind.Internal
+		);
+
+		activity?.SetTag("storage.type", "compressed");
+		activity?.SetTag(ChangelogTelemetry.DocumentIdKey, documentId);
+		activity?.SetTag("compression.type", "gzip");
+
 		var changes = await _innerStorage.GetChangesAsync(documentId, options);
 
 		// Decompress change values after retrieval
-		return changes.Select(DecompressChange).ToList();
+		var result = changes.Select(DecompressChange).ToList();
+		activity?.SetStatus(ActivityStatusCode.Ok);
+		return result;
 	}
 
 	public async IAsyncEnumerable<ChangeRecord> StreamChangesAsync(

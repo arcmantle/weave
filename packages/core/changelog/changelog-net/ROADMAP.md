@@ -138,7 +138,7 @@ Database Schema:
 
 | Priority | Feature | Implementation | Impact |
 |----------|---------|----------------|--------|
-| **P2-1** | Distributed tracing | Add OpenTelemetry instrumentation | Debuggability |
+| **P2-1** | ✅ Distributed tracing | Add .NET Activity instrumentation | Debuggability |
 | **P2-2** | Metrics | Track query latency, storage size, error rates | Monitoring |
 | **P2-3** | Structured logging | Use `ILogger` with contextual data | Troubleshooting |
 | **P2-4** | Circular ref detection | Add visited set in diff recursion | Prevents crashes |
@@ -147,7 +147,7 @@ Database Schema:
 
 **Deliverables:**
 
-- [ ] Add `ActivitySource` for tracing
+- [x] Add `ActivitySource` for tracing *(Complete: Jan 2, 2026 - All layers instrumented, docs complete)*
 - [ ] Expose metrics via `IMeterFactory`
 - [ ] Add structured logging throughout
 - [ ] Implement cycle detection in DiffEngine

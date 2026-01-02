@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -244,6 +245,15 @@ public class SqliteStorage<T> : IChangelogStorage<T> where T : class {
 	}
 
 	public async Task<T?> LoadStateAsync(string documentId) {
+		using var activity = ChangelogTelemetry.ActivitySource.StartActivity(
+			"SqliteStorage.LoadState",
+			ActivityKind.Internal
+		);
+
+		activity?.SetTag("storage.type", "sqlite");
+		activity?.SetTag("db.system", "sqlite");
+		activity?.SetTag(ChangelogTelemetry.DocumentIdKey, documentId);
+
 		using var connection = new SqliteConnection(_connectionString);
 		await connection.OpenAsync();
 
@@ -252,10 +262,20 @@ public class SqliteStorage<T> : IChangelogStorage<T> where T : class {
 		command.Parameters.AddWithValue("@documentId", documentId);
 
 		var stateJson = await command.ExecuteScalarAsync() as string;
+		activity?.SetStatus(ActivityStatusCode.Ok);
 		return stateJson != null ? JsonSerializer.Deserialize<T>(stateJson) : null;
 	}
 
 	public async Task SaveStateAsync(string documentId, T state) {
+		using var activity = ChangelogTelemetry.ActivitySource.StartActivity(
+			"SqliteStorage.SaveState",
+			ActivityKind.Internal
+		);
+
+		activity?.SetTag("storage.type", "sqlite");
+		activity?.SetTag("db.system", "sqlite");
+		activity?.SetTag(ChangelogTelemetry.DocumentIdKey, documentId);
+
 		using var connection = new SqliteConnection(_connectionString);
 		await connection.OpenAsync();
 
@@ -273,6 +293,7 @@ public class SqliteStorage<T> : IChangelogStorage<T> where T : class {
 		command.Parameters.AddWithValue("@lastUpdated", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
 
 		await command.ExecuteNonQueryAsync();
+		activity?.SetStatus(ActivityStatusCode.Ok);
 	}
 
 	public async Task<VersionedDocument<T>?> LoadVersionedStateAsync(string documentId) {

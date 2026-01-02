@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -21,17 +22,28 @@ public class MemoryStorage<T> : IChangelogStorage<T> where T : class {
 	private readonly object _lock = new();
 
 	public Task<T?> LoadStateAsync(string documentId) {
+		using var activity = ChangelogTelemetry.ActivitySource.StartActivity(
+			"MemoryStorage.LoadState",
+			ActivityKind.Internal
+		);
+
+		activity?.SetTag("storage.type", "memory");
+		activity?.SetTag(ChangelogTelemetry.DocumentIdKey, documentId);
+
 		lock (_lock) {
 			if (!_states.TryGetValue(documentId, out var state))
 				return Task.FromResult<T?>(null);
 
 			try {
+				activity?.SetStatus(ActivityStatusCode.Ok);
 				return Task.FromResult<T?>(DeepClone(state));
 			}
 			catch (Exception ex) {
+				activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
 				throw new InvalidOperationException(
 					$"Failed to clone state for document '{documentId}': {ex.Message}. State may have been corrupted.",
-					ex);
+					ex
+				);
 			}
 		}
 	}
@@ -57,17 +69,26 @@ public class MemoryStorage<T> : IChangelogStorage<T> where T : class {
 	}
 
 	public Task SaveStateAsync(string documentId, T state) {
+		using var activity = ChangelogTelemetry.ActivitySource.StartActivity(
+			"MemoryStorage.SaveState",
+			ActivityKind.Internal
+		);
+
+		activity?.SetTag("storage.type", "memory");
+		activity?.SetTag(ChangelogTelemetry.DocumentIdKey, documentId);
+
 		lock (_lock) {
 			try {
 				_states[documentId] = DeepClone(state);
 				_versions[documentId] = _versions.GetValueOrDefault(documentId, 0) + 1;
+				activity?.SetStatus(ActivityStatusCode.Ok);
 				return Task.CompletedTask;
 			}
 			catch (Exception ex) {
+				activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
 				throw new InvalidOperationException(
 					$"Failed to clone state for document '{documentId}': {ex.Message}. " +
-					"Ensure state contains only serializable data (no functions, delegates, etc.)",
-					ex);
+						ex);
 			}
 		}
 	}

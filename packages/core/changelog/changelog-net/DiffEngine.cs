@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -31,9 +32,20 @@ public static class DiffEngine {
 	/// <param name="options">Optional diff options</param>
 	/// <returns>List of diff records</returns>
 	public static List<DiffRecord> Diff(object? oldValue, object? newValue, DiffOptions? options = null) {
+		using var activity = ChangelogTelemetry.ActivitySource.StartActivity(
+			"Diff",
+			ActivityKind.Internal
+		);
+
+		activity?.SetTag("diff.type", oldValue?.GetType().Name ?? newValue?.GetType().Name ?? "null");
+
 		var result = new List<DiffRecord>();
 		var seen = new Dictionary<object, object>(ReferenceEqualityComparer.Instance);
 		DiffValues(oldValue, newValue, Array.Empty<string>(), result, options ?? new DiffOptions(), seen);
+
+		activity?.SetTag("diff.count", result.Count);
+		activity?.SetStatus(ActivityStatusCode.Ok);
+
 		return result;
 	}
 

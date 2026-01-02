@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -48,7 +50,38 @@ public class Changelog<T> where T : class {
 	/// </summary>
 	/// <returns>The current document state or null if not found</returns>
 	public async Task<T?> GetDocumentAsync() {
-		return await _storage.LoadStateAsync(_documentId);
+		var stopwatch = Stopwatch.StartNew();
+		var tags = new TagList {
+		{ ChangelogMetrics.OperationKey, "get_document" },
+		{ ChangelogMetrics.DocumentIdKey, _documentId }
+	};
+
+		using var activity = ChangelogTelemetry.ActivitySource.StartActivity(
+			"GetDocument",
+			ActivityKind.Internal
+		);
+
+		activity?.SetTag(ChangelogTelemetry.DocumentIdKey, _documentId);
+		activity?.SetTag(ChangelogTelemetry.OperationKey, "get_document");
+
+		try {
+			var result = await _storage.LoadStateAsync(_documentId);
+			activity?.SetStatus(ActivityStatusCode.Ok);
+
+			stopwatch.Stop();
+			ChangelogMetrics.OperationCount.Add(1, tags);
+			ChangelogMetrics.OperationDuration.Record(stopwatch.ElapsedMilliseconds, tags);
+
+			return result;
+		}
+		catch (Exception ex) {
+			activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+			RecordException(activity, ex);
+
+			tags.Add(ChangelogMetrics.ErrorTypeKey, ex.GetType().Name);
+			ChangelogMetrics.ErrorCount.Add(1, tags);
+			throw;
+		}
 	}
 
 	/// <summary>
@@ -56,7 +89,36 @@ public class Changelog<T> where T : class {
 	/// </summary>
 	/// <param name="state">The new state to save</param>
 	public async Task SetDocumentAsync(T state) {
-		await _storage.SaveStateAsync(_documentId, state);
+		var stopwatch = Stopwatch.StartNew();
+		var tags = new TagList {
+			{ ChangelogMetrics.OperationKey, "set_document" },
+			{ ChangelogMetrics.DocumentIdKey, _documentId }
+		};
+
+		using var activity = ChangelogTelemetry.ActivitySource.StartActivity(
+			"SetDocument",
+			ActivityKind.Internal
+		);
+
+		activity?.SetTag(ChangelogTelemetry.DocumentIdKey, _documentId);
+		activity?.SetTag(ChangelogTelemetry.OperationKey, "set_document");
+
+		try {
+			await _storage.SaveStateAsync(_documentId, state);
+			activity?.SetStatus(ActivityStatusCode.Ok);
+
+			stopwatch.Stop();
+			ChangelogMetrics.OperationCount.Add(1, tags);
+			ChangelogMetrics.OperationDuration.Record(stopwatch.ElapsedMilliseconds, tags);
+		}
+		catch (Exception ex) {
+			activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+			RecordException(activity, ex);
+
+			tags.Add(ChangelogMetrics.ErrorTypeKey, ex.GetType().Name);
+			ChangelogMetrics.ErrorCount.Add(1, tags);
+			throw;
+		}
 	}
 
 	/// <summary>
@@ -136,55 +198,88 @@ public class Changelog<T> where T : class {
 	/// </summary>
 	/// <param name="newState">The new state after changes</param>
 	public async Task ApplyChangesAsync(T newState) {
+		var stopwatch = Stopwatch.StartNew();
+		var tags = new TagList {
+		{ ChangelogMetrics.OperationKey, "apply_changes" },
+		{ ChangelogMetrics.DocumentIdKey, _documentId }
+	};
+
+		using var activity = ChangelogTelemetry.ActivitySource.StartActivity(
+			"ApplyChanges",
+			ActivityKind.Internal
+		);
+
+		activity?.SetTag(ChangelogTelemetry.DocumentIdKey, _documentId);
+		activity?.SetTag(ChangelogTelemetry.OperationKey, "apply_changes");
+
 		if (newState == null)
 			throw new ArgumentNullException(nameof(newState), "newState cannot be null");
 
-		var oldState = await GetDocumentAsync();
+		try {
 
-		// Compute diff
-		var diffs = DiffEngine.Diff(oldState, newState);
-		if (diffs.Count == 0)
-			return; // No changes
+			var oldState = await GetDocumentAsync();
 
-		// Convert diffs to change records
-		var changes = DiffsToChangeRecords(diffs);
+			// Compute diff
+			var diffs = DiffEngine.Diff(oldState, newState);
+			if (diffs.Count == 0)
+				return; // No changes
 
-		// Check if we're in a batch
-		if (_batchStack.Count > 0) {
-			var frame = _batchStack.Peek();
+			// Convert diffs to change records
+			var changes = DiffsToChangeRecords(diffs);
 
-			// Set groupId on changes before adding to frame
-			var changesWithGroup = changes.Select(c => new ChangeRecord {
-				Path = c.Path,
-				Type = c.Type,
-				OldValue = c.OldValue,
-				NewValue = c.NewValue,
-				Timestamp = c.Timestamp,
-				GroupId = frame.GroupId
-			}).ToList();
+			// Check if we're in a batch
+			if (_batchStack.Count > 0) {
+				var frame = _batchStack.Peek();
 
-			frame.Changes.AddRange(changesWithGroup);
-			// Update pending state in the frame
-			frame.PendingState = newState;
-			// Don't save state yet - will be saved on CommitGroupAsync
+				// Set groupId on changes before adding to frame
+				var changesWithGroup = changes.Select(c => new ChangeRecord {
+					Path = c.Path,
+					Type = c.Type,
+					OldValue = c.OldValue,
+					NewValue = c.NewValue,
+					Timestamp = c.Timestamp,
+					GroupId = frame.GroupId
+				}).ToList();
+
+				frame.Changes.AddRange(changesWithGroup);
+				// Update pending state in the frame
+				frame.PendingState = newState;
+				// Don't save state yet - will be saved on CommitGroupAsync
+			}
+			else {
+				// Auto-create and commit a group
+				var groupId = await _storage.CreateGroupAsync(_documentId);
+				var changesWithGroup = changes.Select(c => new ChangeRecord {
+					Path = c.Path,
+					Type = c.Type,
+					OldValue = c.OldValue,
+					NewValue = c.NewValue,
+					Timestamp = c.Timestamp,
+					GroupId = groupId
+				}).ToList();
+
+				await _storage.AppendChangesAsync(_documentId, changesWithGroup, groupId);
+				await _storage.UpdateGroupChangeCountAsync(_documentId, groupId, changes.Count);
+
+				// Save state immediately when not in batch
+				await _storage.SaveStateAsync(_documentId, newState);
+			}
+
+			activity?.SetTag(ChangelogTelemetry.ChangeCountKey, changes.Count);
+			activity?.SetStatus(ActivityStatusCode.Ok);
+
+			stopwatch.Stop();
+			ChangelogMetrics.OperationCount.Add(1, tags);
+			ChangelogMetrics.ChangeCount.Add(changes.Count, tags);
+			ChangelogMetrics.DiffComplexity.Record(diffs.Count, tags);
+			ChangelogMetrics.OperationDuration.Record(stopwatch.ElapsedMilliseconds, tags);
 		}
-		else {
-			// Auto-create and commit a group
-			var groupId = await _storage.CreateGroupAsync(_documentId);
-			var changesWithGroup = changes.Select(c => new ChangeRecord {
-				Path = c.Path,
-				Type = c.Type,
-				OldValue = c.OldValue,
-				NewValue = c.NewValue,
-				Timestamp = c.Timestamp,
-				GroupId = groupId
-			}).ToList();
+		catch (Exception ex) {
+			activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+			RecordException(activity, ex);
 
-			await _storage.AppendChangesAsync(_documentId, changesWithGroup, groupId);
-			await _storage.UpdateGroupChangeCountAsync(_documentId, groupId, changes.Count);
-
-			// Save state immediately when not in batch
-			await _storage.SaveStateAsync(_documentId, newState);
+			tags.Add(ChangelogMetrics.ErrorTypeKey, ex.GetType().Name);
+			ChangelogMetrics.ErrorCount.Add(1, tags);
 		}
 	}
 
@@ -194,7 +289,44 @@ public class Changelog<T> where T : class {
 	/// <param name="options">Query options (since, limit, groupId)</param>
 	/// <returns>List of change records</returns>
 	public async Task<List<ChangeRecord>> GetHistoryAsync(QueryOptions? options = null) {
-		return await _storage.GetChangesAsync(_documentId, options);
+		var stopwatch = Stopwatch.StartNew();
+		var tags = new TagList {
+		{ ChangelogMetrics.OperationKey, "get_history" },
+		{ ChangelogMetrics.DocumentIdKey, _documentId }
+	};
+
+		using var activity = ChangelogTelemetry.ActivitySource.StartActivity(
+			"GetHistory",
+			ActivityKind.Internal
+		);
+
+		activity?.SetTag(ChangelogTelemetry.DocumentIdKey, _documentId);
+		activity?.SetTag(ChangelogTelemetry.OperationKey, "get_history");
+		if (options?.Skip != null)
+			activity?.SetTag(ChangelogTelemetry.QuerySkipKey, options.Skip);
+		if (options?.Limit != null)
+			activity?.SetTag(ChangelogTelemetry.QueryLimitKey, options.Limit);
+
+		try {
+			var result = await _storage.GetChangesAsync(_documentId, options);
+			activity?.SetTag(ChangelogTelemetry.ChangeCountKey, result.Count);
+			activity?.SetStatus(ActivityStatusCode.Ok);
+
+			stopwatch.Stop();
+			ChangelogMetrics.OperationCount.Add(1, tags);
+			ChangelogMetrics.HistorySize.Record(result.Count, tags);
+			ChangelogMetrics.OperationDuration.Record(stopwatch.ElapsedMilliseconds, tags);
+
+			return result;
+		}
+		catch (Exception ex) {
+			activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+			RecordException(activity, ex);
+
+			tags.Add(ChangelogMetrics.ErrorTypeKey, ex.GetType().Name);
+			ChangelogMetrics.ErrorCount.Add(1, tags);
+			throw;
+		}
 	}
 
 	/// <summary>
@@ -203,11 +335,38 @@ public class Changelog<T> where T : class {
 	/// <param name="options">Query options (since, limit, groupId)</param>
 	/// <param name="cancellationToken">Cancellation token</param>
 	/// <returns>Async stream of change records</returns>
-	public IAsyncEnumerable<ChangeRecord> GetHistoryStreamAsync(
+	public async IAsyncEnumerable<ChangeRecord> GetHistoryStreamAsync(
 		QueryOptions? options = null,
-		CancellationToken cancellationToken = default
+		[EnumeratorCancellation] CancellationToken cancellationToken = default
 	) {
-		return _storage.StreamChangesAsync(_documentId, options, cancellationToken);
+		using var activity = ChangelogTelemetry.ActivitySource.StartActivity(
+			"GetHistoryStream",
+			ActivityKind.Internal
+		);
+
+		activity?.SetTag(ChangelogTelemetry.DocumentIdKey, _documentId);
+		activity?.SetTag(ChangelogTelemetry.OperationKey, "get_history_stream");
+		if (options?.Skip != null)
+			activity?.SetTag(ChangelogTelemetry.QuerySkipKey, options.Skip);
+		if (options?.Limit != null)
+			activity?.SetTag(ChangelogTelemetry.QueryLimitKey, options.Limit);
+
+		var count = 0;
+		Exception? capturedException = null;
+
+		await foreach (var change in _storage.StreamChangesAsync(_documentId, options, cancellationToken).ConfigureAwait(false)) {
+			count++;
+			yield return change;
+		}
+
+		activity?.SetTag(ChangelogTelemetry.ChangeCountKey, count);
+		if (capturedException != null) {
+			activity?.SetStatus(ActivityStatusCode.Error, capturedException.Message);
+			RecordException(activity, capturedException);
+		}
+		else {
+			activity?.SetStatus(ActivityStatusCode.Ok);
+		}
 	}
 
 	/// <summary>
@@ -216,7 +375,26 @@ public class Changelog<T> where T : class {
 	/// <param name="groupId">The group ID to get changes for</param>
 	/// <returns>List of change records for that group</returns>
 	public async Task<List<ChangeRecord>> GetGroupChangesAsync(string groupId) {
-		return await _storage.GetChangesAsync(_documentId, new QueryOptions { GroupId = groupId });
+		using var activity = ChangelogTelemetry.ActivitySource.StartActivity(
+			"GetGroupChanges",
+			ActivityKind.Internal
+		);
+
+		activity?.SetTag(ChangelogTelemetry.DocumentIdKey, _documentId);
+		activity?.SetTag(ChangelogTelemetry.GroupIdKey, groupId);
+		activity?.SetTag(ChangelogTelemetry.OperationKey, "get_group_changes");
+
+		try {
+			var result = await _storage.GetChangesAsync(_documentId, new QueryOptions { GroupId = groupId });
+			activity?.SetTag(ChangelogTelemetry.ChangeCountKey, result.Count);
+			activity?.SetStatus(ActivityStatusCode.Ok);
+			return result;
+		}
+		catch (Exception ex) {
+			activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+			RecordException(activity, ex);
+			throw;
+		}
 	}
 
 	/// <summary>
@@ -225,11 +403,35 @@ public class Changelog<T> where T : class {
 	/// <param name="groupId">The group ID to get changes for</param>
 	/// <param name="cancellationToken">Cancellation token</param>
 	/// <returns>Async stream of change records for that group</returns>
-	public IAsyncEnumerable<ChangeRecord> GetGroupChangesStreamAsync(
+	public async IAsyncEnumerable<ChangeRecord> GetGroupChangesStreamAsync(
 		string groupId,
-		CancellationToken cancellationToken = default
+		[EnumeratorCancellation] CancellationToken cancellationToken = default
 	) {
-		return _storage.StreamChangesAsync(_documentId, new QueryOptions { GroupId = groupId }, cancellationToken);
+		using var activity = ChangelogTelemetry.ActivitySource.StartActivity(
+			"GetGroupChangesStream",
+			ActivityKind.Internal
+		);
+
+		activity?.SetTag(ChangelogTelemetry.DocumentIdKey, _documentId);
+		activity?.SetTag(ChangelogTelemetry.GroupIdKey, groupId);
+		activity?.SetTag(ChangelogTelemetry.OperationKey, "get_group_changes_stream");
+
+		var count = 0;
+		Exception? capturedException = null;
+
+		await foreach (var change in _storage.StreamChangesAsync(_documentId, new QueryOptions { GroupId = groupId }, cancellationToken).ConfigureAwait(false)) {
+			count++;
+			yield return change;
+		}
+
+		activity?.SetTag(ChangelogTelemetry.ChangeCountKey, count);
+		if (capturedException != null) {
+			activity?.SetStatus(ActivityStatusCode.Error, capturedException.Message);
+			RecordException(activity, capturedException);
+		}
+		else {
+			activity?.SetStatus(ActivityStatusCode.Ok);
+		}
 	}
 
 	/// <summary>
@@ -237,7 +439,25 @@ public class Changelog<T> where T : class {
 	/// </summary>
 	/// <returns>List of change groups</returns>
 	public async Task<List<ChangeGroup>> GetGroupsAsync() {
-		return await _storage.GetGroupsAsync(_documentId);
+		using var activity = ChangelogTelemetry.ActivitySource.StartActivity(
+			"GetGroups",
+			ActivityKind.Internal
+		);
+
+		activity?.SetTag(ChangelogTelemetry.DocumentIdKey, _documentId);
+		activity?.SetTag(ChangelogTelemetry.OperationKey, "get_groups");
+
+		try {
+			var result = await _storage.GetGroupsAsync(_documentId);
+			activity?.SetTag("changelog.group.count", result.Count);
+			activity?.SetStatus(ActivityStatusCode.Ok);
+			return result;
+		}
+		catch (Exception ex) {
+			activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+			RecordException(activity, ex);
+			throw;
+		}
 	}
 
 	/// <summary>
@@ -245,10 +465,33 @@ public class Changelog<T> where T : class {
 	/// </summary>
 	/// <param name="cancellationToken">Cancellation token</param>
 	/// <returns>Async stream of change groups</returns>
-	public IAsyncEnumerable<ChangeGroup> GetGroupsStreamAsync(
-		CancellationToken cancellationToken = default
+	public async IAsyncEnumerable<ChangeGroup> GetGroupsStreamAsync(
+		[EnumeratorCancellation] CancellationToken cancellationToken = default
 	) {
-		return _storage.StreamGroupsAsync(_documentId, cancellationToken);
+		using var activity = ChangelogTelemetry.ActivitySource.StartActivity(
+			"GetGroupsStream",
+			ActivityKind.Internal
+		);
+
+		activity?.SetTag(ChangelogTelemetry.DocumentIdKey, _documentId);
+		activity?.SetTag(ChangelogTelemetry.OperationKey, "get_groups_stream");
+
+		var count = 0;
+		Exception? capturedException = null;
+
+		await foreach (var group in _storage.StreamGroupsAsync(_documentId, cancellationToken).ConfigureAwait(false)) {
+			count++;
+			yield return group;
+		}
+
+		activity?.SetTag("changelog.group.count", count);
+		if (capturedException != null) {
+			activity?.SetStatus(ActivityStatusCode.Error, capturedException.Message);
+			RecordException(activity, capturedException);
+		}
+		else {
+			activity?.SetStatus(ActivityStatusCode.Ok);
+		}
 	}
 
 	/// <summary>
@@ -349,5 +592,19 @@ public class Changelog<T> where T : class {
 		var json = System.Text.Json.JsonSerializer.Serialize(obj);
 		return System.Text.Json.JsonSerializer.Deserialize<T>(json)
 			?? throw new InvalidOperationException("Failed to deserialize cloned object");
+	}
+
+	/// <summary>
+	/// Helper method to record exceptions in Activity using standard .NET API
+	/// </summary>
+	private static void RecordException(Activity? activity, Exception ex) {
+		if (activity == null) return;
+
+		activity.AddEvent(new ActivityEvent("exception",
+			tags: new ActivityTagsCollection {
+				{ "exception.type", ex.GetType().FullName },
+				{ "exception.message", ex.Message },
+				{ "exception.stacktrace", ex.StackTrace }
+			}));
 	}
 }
