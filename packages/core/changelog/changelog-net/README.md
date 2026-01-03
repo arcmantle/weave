@@ -1,6 +1,6 @@
-# Weave.Changelog
+# Changelog
 
-A C# .NET library for tracking and managing changes to objects over time. This is a port of the TypeScript `@weave/changelog` library.
+A C# .NET library for tracking and managing changes to objects over time. This is a port of the TypeScript `@arcmantle/changelog` library.
 
 ## Features
 
