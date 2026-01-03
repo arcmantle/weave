@@ -20,7 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Changelog.csproj" />
+    <ProjectReference Include="..\Changelog.Core\Changelog.csproj" />
   </ItemGroup>
 
 </Project>

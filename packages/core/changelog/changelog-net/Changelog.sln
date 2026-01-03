@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Changelog", "Changelog.csproj", "{E43A8817-B999-4E3B-A7F1-56B10D58C7BE}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Changelog", "Changelog.Core\Changelog.csproj", "{E43A8817-B999-4E3B-A7F1-56B10D58C7BE}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Changelog.Tests", "Changelog.Tests\Changelog.Tests.csproj", "{7C231451-6F39-4010-86F8-CD99C83EEB3C}"
 EndProject

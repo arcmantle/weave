@@ -14,12 +14,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Changelog.Tests/**" />
-    <Compile Remove="Changelog.Demo/**" />
-	 <Compile Remove="Changelog.Benchmarks/**" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
     <PackageReference Include="MongoDB.Driver" Version="3.5.2" />
