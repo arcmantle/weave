@@ -1,3 +1,7 @@
+# Archived Roadmap
+
+> Archived on 2026-01-03 — library considered feature-complete. Kept for historical context.
+
 # Changelog Library - Production Roadmap
 
 ## Executive Summary

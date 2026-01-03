@@ -1,3 +1,7 @@
+# Archived Ticket
+
+> Archived on 2026-01-03 — library considered feature-complete. Kept for historical context.
+
 # Ticket P1-6: No Streaming Support - Memory Issues on Large Queries
 
 **Priority**: P1 (Performance & Scalability)
@@ -329,4 +333,5 @@ P1-6 was the final item in Phase 1: Performance & Scalability. All 6 deliverable
 - ✅ P1-6: IAsyncEnumerable streaming
 
 The library is now ready for Phase 2: Production Hardening.
+
 

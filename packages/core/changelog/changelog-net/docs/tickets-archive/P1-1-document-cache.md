@@ -1,3 +1,7 @@
+# Archived Ticket
+
+> Archived on 2026-01-03 — library considered feature-complete. Kept for historical context.
+
 # Ticket P1-1: Double Serialization Overhead
 
 **Priority**: P1 (Performance)
@@ -127,3 +131,4 @@ This is an optional optimization layer - existing code continues to work without
 - Zero breaking changes - completely optional optimization
 
 **Result**: ✅ Successfully implemented. Expected 2x performance improvement for repeated reads of the same document.
+

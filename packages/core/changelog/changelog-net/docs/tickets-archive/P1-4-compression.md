@@ -1,3 +1,7 @@
+# Archived Ticket
+
+> Archived on 2026-01-03 — library considered feature-complete. Kept for historical context.
+
 # Ticket P1-4: No Compression
 
 **Priority**: P1 (Performance)
@@ -197,3 +201,4 @@ T value = JsonSerializer.Deserialize<T>(json);
 - Backward compatible with uncompressed data
 
 **Status:** COMPLETED ✅
+

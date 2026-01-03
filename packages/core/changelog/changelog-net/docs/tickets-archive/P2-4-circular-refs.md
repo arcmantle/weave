@@ -1,3 +1,7 @@
+# Archived Ticket
+
+> Archived on 2026-01-03 — library considered feature-complete. Kept for historical context.
+
 # Ticket P2-4: No Circular Reference Detection - Stack Overflow Risk
 
 **Priority**: P2 (Production Hardening)
@@ -249,3 +253,4 @@ Measured impact: **<1% overhead** (within margin of error)
 - ✅ New tests verify cycle detection
 - ✅ Performance impact < 5% (measured)
 - ✅ Documentation updated
+

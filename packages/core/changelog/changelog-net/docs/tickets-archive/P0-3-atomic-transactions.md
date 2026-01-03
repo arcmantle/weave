@@ -1,3 +1,7 @@
+# Archived Ticket
+
+> Archived on 2026-01-03 — library considered feature-complete. Kept for historical context.
+
 # Ticket P0-3: Non-Atomic Group Operations
 
 **Priority**: P0 (Critical)

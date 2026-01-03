@@ -1,3 +1,7 @@
+# Archived Ticket
+
+> Archived on 2026-01-03 — library considered feature-complete. Kept for historical context.
+
 # Ticket P1-3: Inefficient Array Diffs
 
 **Priority**: P1 (Performance)
@@ -197,3 +201,4 @@ for (int i = 1; i <= m; i++) {
 - Add new ChangeType values for array operations
 
 **Status:** COMPLETED ✅
+

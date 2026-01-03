@@ -1,3 +1,7 @@
+# Archived Ticket
+
+> Archived on 2026-01-03 — library considered feature-complete. Kept for historical context.
+
 # Ticket P2-1: No Distributed Tracing - Poor Debuggability
 
 **Priority**: P2 (Production Hardening)
@@ -480,3 +484,4 @@ services.AddOpenTelemetry()
 ## Implementation Log
 
 _Starting implementation..._
+

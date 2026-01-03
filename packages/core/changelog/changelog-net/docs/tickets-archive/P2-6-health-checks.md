@@ -1,3 +1,7 @@
+# Archived Ticket
+
+> Archived on 2026-01-03 — library considered feature-complete. Kept for historical context.
+
 # Ticket P2-6: Health Checks
 
 **Priority**: P2 (Production Hardening)
@@ -418,3 +422,4 @@ ChangelogMetrics.HealthCheckLatency.Record(
 - ✅ All existing tests still pass
 - ✅ New tests verify all health states
 - ✅ Documentation includes ASP.NET Core integration example
+

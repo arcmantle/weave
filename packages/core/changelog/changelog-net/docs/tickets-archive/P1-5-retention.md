@@ -1,3 +1,7 @@
+# Archived Ticket
+
+> Archived on 2026-01-03 — library considered feature-complete. Kept for historical context.
+
 # Ticket P1-5: Unbounded Growth - No Retention Policies
 
 **Priority**: P1 (Performance & Scalability)
@@ -215,3 +219,4 @@ await service.ApplyRetentionPolicyAsync("doc1", policy);
 - ✅ Flexible policy configuration
 - ✅ Safe with MinGroups protection
 - ✅ Works with both storage implementations
+

@@ -1,3 +1,7 @@
+# Archived Ticket
+
+> Archived on 2026-01-03 — library considered feature-complete. Kept for historical context.
+
 # Ticket P2-5: Multi-document Transactions
 
 **Priority**: P2 (Production Hardening)
@@ -359,3 +363,4 @@ Expected overhead: <5% for typical multi-document scenarios
 - ✅ New tests verify transaction semantics
 - ✅ Performance impact < 5%
 - ✅ Documentation updated with transaction examples
+
