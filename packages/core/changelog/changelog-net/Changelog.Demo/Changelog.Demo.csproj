@@ -9,10 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Changelog.Core\Changelog.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.0" />
+    <ProjectReference Include="..\Changelog.Sqlite\Changelog.Sqlite.csproj" />
   </ItemGroup>
 
 </Project>

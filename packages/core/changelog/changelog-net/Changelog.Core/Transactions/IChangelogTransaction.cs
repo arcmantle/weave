@@ -23,5 +23,5 @@ public interface IChangelogTransaction : IAsyncDisposable {
 	/// Get the underlying storage instance for this transaction.
 	/// Used internally by Changelog instances to participate in the transaction.
 	/// </summary>
-	internal object GetStorage();
+	object GetStorage();
 }

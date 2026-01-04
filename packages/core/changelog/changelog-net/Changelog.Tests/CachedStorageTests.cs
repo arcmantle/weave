@@ -1,9 +1,7 @@
-using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Xunit;
 using FluentAssertions;
-using Changelog;
 using Changelog.Storage;
 
 namespace Changelog.Tests;

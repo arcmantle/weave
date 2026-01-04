@@ -21,6 +21,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Changelog.Core\Changelog.csproj" />
+    <ProjectReference Include="..\Changelog.Sqlite\Changelog.Sqlite.csproj" />
+    <ProjectReference Include="..\Changelog.PostgreSQL\Changelog.PostgreSQL.csproj" />
+    <ProjectReference Include="..\Changelog.MongoDB\Changelog.MongoDB.csproj" />
   </ItemGroup>
 
 </Project>

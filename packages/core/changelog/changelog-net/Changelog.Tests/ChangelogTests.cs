@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
 using FluentAssertions;
-using Changelog;
 using Changelog.Storage;
 
 namespace Changelog.Tests;

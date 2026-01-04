@@ -1,10 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Changelog.Storage;
@@ -38,7 +36,7 @@ public class Changelog<T> where T : class {
 	private readonly IChangelogStorage<T> _storage;
 	private readonly string _documentId;
 	private readonly Stack<BatchFrame<T>> _batchStack = new();
-	private readonly ILogger _logger;
+	private readonly ILogger<Changelog<T>> _logger;
 
 	public Changelog(
 		IChangelogStorage<T> storage,
@@ -278,6 +276,18 @@ public class Changelog<T> where T : class {
 	/// </summary>
 	/// <param name="newState">The new state after changes</param>
 	public async Task ApplyChangesAsync(T newState) {
+		var oldState = await GetDocumentAsync();
+		await ApplyChangesAsync(oldState, newState);
+	}
+
+	/// <summary>
+	/// Apply changes to the document with explicit old state
+	/// Use this when the changelog is not the source of truth and you're managing state in your own database.
+	/// If in a batch, changes are tracked; otherwise, a new group is auto-created.
+	/// </summary>
+	/// <param name="oldState">The previous state (e.g., from your main database)</param>
+	/// <param name="newState">The new state after changes</param>
+	public async Task ApplyChangesAsync(T? oldState, T newState) {
 		var stopwatch = Stopwatch.StartNew();
 		var tags = new TagList {
 		{ ChangelogMetrics.OperationKey, "apply_changes" },
@@ -296,8 +306,6 @@ public class Changelog<T> where T : class {
 			throw new ArgumentNullException(nameof(newState), "newState cannot be null");
 
 		try {
-
-			var oldState = await GetDocumentAsync();
 
 			// Compute diff
 			var diffs = DiffEngine.Diff(oldState, newState);
@@ -360,6 +368,7 @@ public class Changelog<T> where T : class {
 
 			tags.Add(ChangelogMetrics.ErrorTypeKey, ex.GetType().Name);
 			ChangelogMetrics.ErrorCount.Add(1, tags);
+			throw;
 		}
 	}
 

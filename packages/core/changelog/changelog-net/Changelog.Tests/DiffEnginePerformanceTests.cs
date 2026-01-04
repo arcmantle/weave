@@ -4,7 +4,6 @@ using System.Diagnostics;
 using Xunit;
 using Xunit.Abstractions;
 using FluentAssertions;
-using Changelog;
 
 namespace Changelog.Tests;
 
