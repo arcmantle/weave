@@ -1,28 +1,14 @@
-using Proxy.Services;
-using Yarp.ReverseProxy.Configuration;
+using Pivot.Extensions;
 
 
 var builder = WebApplication.CreateSlimBuilder(args);
 
-// Create in-memory config provider for dynamic updates
-var inMemoryConfig = new InMemoryConfigProvider([], []);
-
-builder.Services
-	.AddSingleton<IProxyConfigProvider>(inMemoryConfig)
-	.AddReverseProxy();
-
-// Add the coordinator client service
-builder.Services.AddSingleton<CoordinatorClient>();
-builder.Services.AddHostedService(sp => sp.GetRequiredService<CoordinatorClient>());
+builder.AddPivotProxy(options => {
+	options.CoordinatorUrl = "http://localhost:5100";
+});
 
 var app = builder.Build();
 
-// Health check endpoint
-app.MapGet("/health", () => Results.Ok(new {
-	status = "healthy",
-	timestamp = DateTime.UtcNow
-}));
-
-app.MapReverseProxy();
+app.MapPivotProxy();
 
 app.Run();

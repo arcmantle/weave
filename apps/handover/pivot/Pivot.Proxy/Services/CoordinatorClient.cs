@@ -1,31 +1,39 @@
+using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Proxy.Models;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Pivot.Orchestration.Models;
 using Yarp.ReverseProxy.Configuration;
 
 
-namespace Proxy.Services;
+namespace Pivot.Proxy.Services;
 
 [JsonSerializable(typeof(List<BackendInfo>))]
 internal partial class BackendJsonContext : JsonSerializerContext { }
 
 
-public class CoordinatorClient : BackgroundService {
+public class CoordinatorClient : BackgroundService
+{
+	private static readonly ActivitySource ActivitySource = new("Pivot.Proxy");
+
 	private readonly ILogger<CoordinatorClient> _logger;
 	private readonly HttpClient _httpClient;
 	private readonly IProxyConfigProvider _proxyConfigProvider;
-	private readonly string _coordinatorUrl;
+	private readonly PivotProxyOptions _options;
 	private readonly List<RouteConfig> _routes;
 
 	public CoordinatorClient(
 		ILogger<CoordinatorClient> logger,
-		IConfiguration config,
+		PivotProxyOptions options,
 		IProxyConfigProvider proxyConfigProvider
-	) {
+	)
+	{
 		_logger = logger;
 		_httpClient = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
 		_proxyConfigProvider = proxyConfigProvider;
-		_coordinatorUrl = config.GetValue<string>("CoordinatorUrl") ?? "http://localhost:5100";
+		_options = options;
 
 		// Define the routes once
 		_routes = [
@@ -37,48 +45,72 @@ public class CoordinatorClient : BackgroundService {
 		];
 	}
 
-	protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
-		_logger.LogInformation("Connecting to coordinator at {Url}", _coordinatorUrl);
+	protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+	{
+		using var activity = ActivitySource.StartActivity("CoordinatorConnection");
+		activity?.SetTag("coordinator.url", _options.CoordinatorUrl);
 
-		while (!stoppingToken.IsCancellationRequested) {
-			try {
+		_logger.LogInformation("Connecting to coordinator at {Url}", _options.CoordinatorUrl);
+
+		while (!stoppingToken.IsCancellationRequested)
+		{
+			try
+			{
+				activity?.AddEvent(new ActivityEvent("ConnectionAttempt"));
+
 				await using var stream = await _httpClient.GetStreamAsync(
-					$"{_coordinatorUrl}/backends/stream",
+					$"{_options.CoordinatorUrl}/backends/stream",
 					stoppingToken
 				);
 
 				using var reader = new StreamReader(stream);
 
 				_logger.LogInformation("Connected to coordinator SSE stream");
+				activity?.AddEvent(new ActivityEvent("Connected"));
 
-				while (!stoppingToken.IsCancellationRequested) {
+				while (!stoppingToken.IsCancellationRequested)
+				{
 					var line = await reader.ReadLineAsync(stoppingToken);
 
-					if (line == null) {
+					if (line == null)
+					{
 						_logger.LogWarning("Coordinator stream ended");
+						activity?.AddEvent(new ActivityEvent("StreamEnded"));
 						break;
 					}
 
-					if (line.StartsWith("data: ")) {
+					if (line.StartsWith("data: "))
+					{
 						var json = line[6..]; // Remove "data: " prefix
-						try {
+						try
+						{
 							var backends = JsonSerializer.Deserialize(json, BackendJsonContext.Default.ListBackendInfo);
-							if (backends != null) {
+							if (backends != null)
+							{
 								UpdateProxyConfiguration(backends);
 							}
 						}
-						catch (JsonException ex) {
+						catch (JsonException ex)
+						{
 							_logger.LogError(ex, "Failed to parse backend update");
 						}
 					}
 				}
 			}
-			catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) {
+			catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+			{
 				// Graceful shutdown
+				activity?.AddEvent(new ActivityEvent("Shutdown"));
 				break;
 			}
-			catch (Exception ex) {
-				_logger.LogError(ex, "Lost connection to coordinator, reconnecting in 2s...");
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "Error communicating with coordinator, retrying in 5s");
+				activity?.AddEvent(new ActivityEvent("ConnectionError", tags: new ActivityTagsCollection
+				{
+					{ "error.type", ex.GetType().Name },
+					{ "error.message", ex.Message }
+				}));
 				await Task.Delay(2000, stoppingToken);
 			}
 		}
@@ -86,9 +118,15 @@ public class CoordinatorClient : BackgroundService {
 		_logger.LogInformation("Coordinator client stopped");
 	}
 
-	private void UpdateProxyConfiguration(List<BackendInfo> backends) {
-		if (backends.Count == 0) {
+	private void UpdateProxyConfiguration(List<BackendInfo> backends)
+	{
+		using var activity = ActivitySource.StartActivity("UpdateProxyConfig");
+		activity?.SetTag("backends.count", backends.Count);
+
+		if (backends.Count == 0)
+		{
 			_logger.LogWarning("No backends available");
+			activity?.SetTag("config.empty", true);
 			return;
 		}
 
@@ -96,6 +134,8 @@ public class CoordinatorClient : BackgroundService {
 			b => $"backend-{b.Port}",
 			b => new DestinationConfig { Address = b.Address }
 		);
+
+		activity?.SetTag("destinations.count", destinations.Count);
 
 		var clusters = new[] {
 			new ClusterConfig {
@@ -119,5 +159,15 @@ public class CoordinatorClient : BackgroundService {
 			backends.Count,
 			string.Join(", ", backends.Select(b => $"port {b.Port}"))
 		);
+
+		activity?.SetTag("config.updated", true);
+		foreach (var backend in backends)
+		{
+			activity?.AddEvent(new ActivityEvent("BackendConfigured", tags: new ActivityTagsCollection
+			{
+				{ "backend.port", backend.Port },
+				{ "backend.status", backend.Status }
+			}));
+		}
 	}
 }

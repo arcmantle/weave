@@ -1,30 +1,22 @@
-using Core.Plugin;
+using Pivot.Extensions;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 if (builder.Environment.IsDevelopment()) {
-	// Add services to the container.
-	// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 	builder.Services.AddOpenApi();
 }
 
-builder.LoadAndInitializePlugins(builder.Environment.IsDevelopment());
-
-builder.Services.AddHealthChecks()
-	.AddCheck("Database", () => {
-		// Check database connection
-		return new(HealthStatus.Healthy) { };
-	})
-	.AddCheck("Plugin System", () => {
-		// Check plugin system health
-		return new(HealthStatus.Healthy) { };
-	});
+builder.AddPivotBackend(options => {
+	options.LoadFromReferencedAssemblies = builder.Environment.IsDevelopment();
+	options.PluginDirectory = Path.Combine(AppContext.BaseDirectory, "plugins");
+	options.EnableAutoReload = builder.Environment.IsDevelopment();
+});
 
 WebApplication app = builder.Build();
 
-app.ConfigurePlugins();
+app.MapPivotBackend();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment()) {
@@ -32,8 +24,6 @@ if (app.Environment.IsDevelopment()) {
 }
 
 app.UseHttpsRedirection();
-
-app.MapHealthChecks("/health");
 
 // Demo endpoints
 app.MapGet("/", () => Results.Ok(new {

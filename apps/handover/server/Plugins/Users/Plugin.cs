@@ -1,4 +1,4 @@
-using Core.Plugin;
+using Pivot.Plugin;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 

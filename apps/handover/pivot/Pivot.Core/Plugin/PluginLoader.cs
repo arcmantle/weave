@@ -2,13 +2,19 @@ using System.Runtime.Loader;
 using System.Reflection;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
-namespace Core.Plugin;
+namespace Pivot.Plugin;
 
 
-public class PluginLoader {
+public class PluginLoader
+{
 
-	public static IReadOnlyCollection<IPlugin> LoadFromReferencedAssemblies(WebApplicationBuilder builder) {
+	public static IReadOnlyCollection<IPlugin> LoadFromReferencedAssemblies(
+		WebApplicationBuilder builder,
+		ILogger? logger = null
+	)
+	{
 		// Get all currently loaded assemblies first
 		Dictionary<string, Assembly> loadedAssemblies = GetFilteredAssemblies()
 			.ToDictionary(a => a.GetName().FullName);
@@ -18,17 +24,20 @@ public class PluginLoader {
 			?? throw new DirectoryNotFoundException("Could not find the bin directory.");
 
 		// Only load assemblies that might contain plugins and aren't already loaded
-		foreach (string path in Directory.GetFiles(binPath, "*.dll")) {
+		foreach (string path in Directory.GetFiles(binPath, "*.dll"))
+		{
 			// Skip system assemblies and already loaded ones
 			string filename = Path.GetFileName(path);
 			if (filename.StartsWith("System.", StringComparison.Ordinal) ||
 				 filename.StartsWith("Microsoft.", StringComparison.Ordinal))
 				continue;
 
-			try {
+			try
+			{
 				// Try to load the assembly if it's not already loaded
 				AssemblyName assemblyName = AssemblyName.GetAssemblyName(path);
-				if (!loadedAssemblies.ContainsKey(assemblyName.FullName)) {
+				if (!loadedAssemblies.ContainsKey(assemblyName.FullName))
+				{
 					Assembly assembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(path);
 					loadedAssemblies[assemblyName.FullName] = assembly;
 				}
@@ -41,7 +50,8 @@ public class PluginLoader {
 		// This is necessary because some assemblies may load other assemblies as dependencies.
 		// We do this repeatedly until no new assemblies are found.
 		HashSet<string> loadedNames = [.. loadedAssemblies.Keys];
-		while (true) {
+		while (true)
+		{
 			List<Assembly> unloadedAssemblies = [
 				.. GetFilteredAssemblies()
 				.Where(a => !loadedNames.Contains(a.GetName().FullName))
@@ -59,32 +69,39 @@ public class PluginLoader {
 
 		List<IPlugin> plugins = [];
 
-		foreach (Assembly assembly in assemblies) {
-			try {
+		foreach (Assembly assembly in assemblies)
+		{
+			try
+			{
 				// Find all types implementing IPlugin
 				IEnumerable<Type> pluginTypes = assembly
 					.GetTypes()
 					.Where(t => typeof(IPlugin)
 						.IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract);
 
-				foreach (Type pluginType in pluginTypes) {
-					try {
+				foreach (Type pluginType in pluginTypes)
+				{
+					try
+					{
 						// Faster than Activator.CreateInstance for repeated calls
 						ConstructorInfo? constructor = pluginType.GetConstructor(Type.EmptyTypes);
-						if (constructor is not null) {
+						if (constructor is not null)
+						{
 							IPlugin plugin = (IPlugin)constructor.Invoke(null);
 							plugins.Add(plugin);
 
-							Console.WriteLine($"Loading plugin: {plugin.Name}");
+							logger?.LogInformation("Loading plugin: {PluginName}", plugin.Name);
 						}
 					}
-					catch (Exception ex) {
-						Console.WriteLine($"Failed to instantiate plugin {pluginType.FullName}: {ex.Message}");
+					catch (Exception ex)
+					{
+						logger?.LogError(ex, "Failed to instantiate plugin {PluginType}", pluginType.FullName);
 					}
 				}
 			}
-			catch (Exception ex) {
-				Console.WriteLine($"Error loading plugin from assembly {assembly.FullName}: {ex.Message}");
+			catch (Exception ex)
+			{
+				logger?.LogError(ex, "Error loading plugin from assembly {AssemblyName}", assembly.FullName);
 			}
 		}
 
@@ -94,15 +111,67 @@ public class PluginLoader {
 		return plugins;
 	}
 
-	public static IReadOnlyCollection<IPlugin> LoadFromDirectory(string directory, WebApplicationBuilder builder) {
-		// Implementation for loading plugins from physical DLLs in a directory
-		// Similar to above but using Assembly.LoadFrom for each .dll file
+	public static IReadOnlyCollection<IPlugin> LoadFromDirectory(
+		string directory,
+		WebApplicationBuilder builder,
+		ILogger? logger = null
+	)
+	{
+		if (!Directory.Exists(directory))
+		{
+			logger?.LogWarning("Plugin directory not found: {Directory}", directory);
+			return Array.Empty<IPlugin>();
+		}
+
 		List<IPlugin> plugins = [];
+
+		foreach (string dllPath in Directory.GetFiles(directory, "*.dll"))
+		{
+			try
+			{
+				// Load assembly from file (shared context, no isolation)
+				Assembly assembly = Assembly.LoadFrom(dllPath);
+
+				// Find IPlugin implementations
+				var pluginTypes = assembly
+					.GetTypes()
+					.Where(t => typeof(IPlugin).IsAssignableFrom(t)
+						&& !t.IsInterface
+						&& !t.IsAbstract);
+
+				foreach (var pluginType in pluginTypes)
+				{
+					try
+					{
+						var constructor = pluginType.GetConstructor(Type.EmptyTypes);
+						if (constructor is not null)
+						{
+							var plugin = (IPlugin)constructor.Invoke(null);
+							plugins.Add(plugin);
+							logger?.LogInformation("Loading plugin: {PluginName} from {FileName}",
+								plugin.Name, Path.GetFileName(dllPath));
+						}
+					}
+					catch (Exception ex)
+					{
+						logger?.LogError(ex, "Failed to instantiate plugin {PluginType}", pluginType.FullName);
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				logger?.LogError(ex, "Failed to load assembly {DllPath}", dllPath);
+			}
+		}
+
+		// Store for later configuration
+		builder.Services.AddSingleton(plugins as IReadOnlyCollection<IPlugin>);
 
 		return plugins;
 	}
 
-	protected static IEnumerable<Assembly> GetFilteredAssemblies() {
+	protected static IEnumerable<Assembly> GetFilteredAssemblies()
+	{
 		IEnumerable<Assembly> assemblies = AppDomain.CurrentDomain.GetAssemblies()
 			.Where(a => !a.IsDynamic
 				&& !(a.FullName?.StartsWith("System.", StringComparison.Ordinal) ?? false)
@@ -110,68 +179,4 @@ public class PluginLoader {
 
 		return assemblies;
 	}
-
-}
-
-public static class WebApplicationExtensions {
-
-	public static void LoadAndInitializePlugins(
-		this WebApplicationBuilder builder,
-		bool isDevelopment
-	) {
-		IReadOnlyCollection<IPlugin>? plugins = null;
-
-		if (isDevelopment) {
-			plugins = PluginLoader.LoadFromReferencedAssemblies(builder);
-		}
-		// In production mode, load plugins from the "plugins" directory
-		else {
-			var pluginsDir = Path.Combine(AppContext.BaseDirectory, "plugins");
-			if (Directory.Exists(pluginsDir))
-				plugins = PluginLoader.LoadFromDirectory(pluginsDir, builder);
-		}
-
-		builder.InitializePlugins(plugins);
-	}
-
-	public static void InitializePlugins(
-		this WebApplicationBuilder builder,
-		IReadOnlyCollection<IPlugin>? plugins
-	) {
-		if (plugins is null)
-			return;
-
-		foreach (var plugin in plugins) {
-			try {
-				Console.WriteLine($"Initializing plugin: {plugin.Name}");
-				plugin.Initialize(builder);
-			}
-			catch (Exception ex) {
-				Console.WriteLine($"Error initializing plugin {plugin.Name}: {ex.Message}");
-			}
-		}
-
-		return;
-	}
-
-	public static WebApplication ConfigurePlugins(this WebApplication app) {
-		IReadOnlyCollection<IPlugin>? plugins = app.Services
-			.GetService<IReadOnlyCollection<IPlugin>>();
-
-		if (plugins is null)
-			return app;
-
-		foreach (var plugin in plugins) {
-			try {
-				Console.WriteLine($"Configuring plugin: {plugin.Name}");
-				plugin.Configure(app);
-			}
-			catch (Exception ex) {
-				Console.WriteLine($"Error configuring plugin {plugin.Name}: {ex.Message}");
-			}
-		}
-
-		return app;
-	}
-
 }

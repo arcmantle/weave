@@ -12,4 +12,8 @@
     <PackageReference Include="Yarp.ReverseProxy" Version="2.3.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\pivot\Pivot.Proxy\Pivot.Proxy.csproj" />
+  </ItemGroup>
+
 </Project>
