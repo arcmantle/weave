@@ -1,34 +1,27 @@
-using Proxy;
+using Proxy.Services;
 using Yarp.ReverseProxy.Configuration;
 
 
-WebApplicationBuilder builder = WebApplication.CreateSlimBuilder(args);
+var builder = WebApplication.CreateSlimBuilder(args);
+
+// Create in-memory config provider for dynamic updates
+var inMemoryConfig = new InMemoryConfigProvider([], []);
 
 builder.Services
-	.AddReverseProxy()
-	.LoadFromMemory(
-		[ new() {
-			RouteId = "default-route",
-			ClusterId = "application-cluster",
-			Match = new RouteMatch { Path = "{**catch-all}" }
-		} ],
-		[ new() {
-			ClusterId = "application-cluster",
-			Destinations = new Dictionary<string, DestinationConfig>
-			{
-				{
-					"app-instance",
-					new () { Address = $"http://localhost:{AppInstanceManager.initialPort}" }
-				}
-			},
-		} ]
-	);
+	.AddSingleton<IProxyConfigProvider>(inMemoryConfig)
+	.AddReverseProxy();
 
-// Add the instance manager service
-builder.Services.AddSingleton<AppInstanceManager>();
-builder.Services.AddHostedService(sp => sp.GetRequiredService<AppInstanceManager>());
+// Add the coordinator client service
+builder.Services.AddSingleton<CoordinatorClient>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<CoordinatorClient>());
 
-WebApplication app = builder.Build();
+var app = builder.Build();
+
+// Health check endpoint
+app.MapGet("/health", () => Results.Ok(new {
+	status = "healthy",
+	timestamp = DateTime.UtcNow
+}));
 
 app.MapReverseProxy();
 
