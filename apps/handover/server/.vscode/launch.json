@@ -55,6 +55,23 @@
 				"/build/": "${workspaceFolder}/"
 			},
 			"justMyCode": false
+		},
+		{
+			"name": "Debug Server (Simple - No Hot Reload)",
+			"type": "coreclr",
+			"request": "launch",
+			"preLaunchTask": "build-server-and-plugins",
+			"program": "${workspaceFolder}/Server/bin/Debug/net9.0/Server.dll",
+			"args": [],
+			"cwd": "${workspaceFolder}/Server",
+			"stopAtEntry": false,
+			"env": {
+				"ASPNETCORE_ENVIRONMENT": "Development",
+				"ASPNETCORE_URLS": "http://localhost:5001"
+			},
+			"sourceFileMap": {
+				"/Views": "${workspaceFolder}/Views"
+			}
 		}
 	],
 	"compounds": [
@@ -67,6 +84,20 @@
 				"group": "Handover",
 				"order": 1
 			}
+		},
+		{
+			"name": "🔥 Full System with Hot Reload (Debug)",
+			"configurations": [
+				"Launch Coordinator",
+				"Launch Proxy"
+			],
+			"stopAll": true,
+			"presentation": {
+				"hidden": false,
+				"group": "Handover",
+				"order": 2
+			},
+			"preLaunchTask": "build-plugins"
 		}
 	]
 }

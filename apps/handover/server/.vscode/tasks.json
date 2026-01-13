@@ -31,12 +31,23 @@
 		},
 		{
 			"label": "build-plugins",
-			"command": "dotnet",
-			"type": "process",
-			"args": [
-				"build",
-				"${workspaceFolder}/Plugins/Users/Users.csproj",
-				"/property:GenerateFullPaths=true"
+			"type": "shell",
+			"command": "Get-ChildItem -Path '${workspaceFolder}/Plugins' -Directory | ForEach-Object { dotnet build \"$($_.FullName)/$($_.Name).csproj\" }",
+			"problemMatcher": "$msCompile",
+			"group": "build",
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared"
+			}
+		},
+		{
+			"label": "build-server-and-plugins",
+			"dependsOrder": "sequence",
+			"dependsOn": [
+				"build-plugins",
+				"build"
 			],
 			"problemMatcher": "$msCompile",
 			"group": "build"
