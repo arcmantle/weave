@@ -5,11 +5,13 @@ using Microsoft.AspNetCore.Http;
 namespace Users;
 
 
-public class UsersPlugin : IPlugin {
+public class UsersPlugin : IPlugin
+{
 
 	public string Name => "Users";
 
-	public void Initialize(WebApplicationBuilder builder) {
+	public void Initialize(WebApplicationBuilder builder)
+	{
 		//  services.AddScoped<IUserService, UserService>();
 		//  services.AddScoped<IUserRepository, UserRepository>();
 		//  services.AddScoped<IUserMapper, UserMapper>();
@@ -17,7 +19,8 @@ public class UsersPlugin : IPlugin {
 		//  services.AddScoped<IUserController, UserController>();
 	}
 
-	public void Configure(WebApplication app) {
+	public void Configure(WebApplication app)
+	{
 		//  app.UseEndpoints(endpoints =>
 		//  {
 		//		endpoints.MapGet("/users", async context =>
@@ -28,11 +31,12 @@ public class UsersPlugin : IPlugin {
 		//		});
 		//  });
 
-		app.MapGet("/users", async context => {
+		app.MapGet("/users", async context =>
+		{
 			// var userService = context.RequestServices.GetRequiredService<IUserService>();
 			// var users = await userService.GetAllUsersAsync();
 			// await context.Response.WriteAsJsonAsync(users);
-			await context.Response.WriteAsync("Hello from Users plugin! this actually worked... kind of cool");
+			await context.Response.WriteAsync("Hello from Users plugin! 2");
 		});
 	}
 

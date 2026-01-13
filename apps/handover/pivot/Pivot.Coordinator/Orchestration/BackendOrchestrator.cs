@@ -11,6 +11,7 @@ public class BackendOrchestrator : BackgroundService
 {
 	private static readonly ActivitySource ActivitySource = new("Pivot.Orchestration");
 
+	// Job object APIs
 	[DllImport("kernel32.dll", SetLastError = true)]
 	private static extern IntPtr CreateJobObject(IntPtr lpJobAttributes, string? lpName);
 
@@ -19,6 +20,10 @@ public class BackendOrchestrator : BackgroundService
 
 	[DllImport("kernel32.dll", SetLastError = true)]
 	private static extern bool AssignProcessToJobObject(IntPtr hJob, IntPtr hProcess);
+
+	// Hard link API
+	[DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+	private static extern bool CreateHardLink(string lpFileName, string lpExistingFileName, IntPtr lpSecurityAttributes);
 
 	[StructLayout(LayoutKind.Sequential)]
 	private struct JOBOBJECT_BASIC_LIMIT_INFORMATION
@@ -67,6 +72,8 @@ public class BackendOrchestrator : BackgroundService
 	private readonly SemaphoreSlim _deploymentLock = new(1, 1);
 	private int _nextPort;
 	private string? _coordinatorAddress;
+	private string? _stableServerBuildPath; // Stable location for Server.dll
+	private DateTime _lastServerBuildTime = DateTime.MinValue;
 
 	public BackendOrchestrator(
 		ILogger<BackendOrchestrator> logger,
@@ -188,26 +195,32 @@ public class BackendOrchestrator : BackgroundService
 				return false;
 			}
 
-			// Add to registry (proxies get notified via SSE)
-			_instances.Add(newBackend);
-			await _registry.UpdateAsync(_instances.Select(i => i.Info).ToList());
+			_logger.LogInformation("New backend is healthy, switching traffic");
 
-			_logger.LogInformation("New backend is healthy, draining old backend");
-
-			// Drain old backend (allow existing requests to complete)
-			if (_instances.Count > 1)
+			// Switch traffic to new backend immediately
+			if (_instances.Count > 0)
 			{
 				var oldBackend = _instances[0];
-				await Task.Delay(_options.ShutdownDrainTimeMs);
+				_logger.LogInformation("Removing old backend on port {Port} from routing", oldBackend.Info.Port);
 
-				// Remove from registry
+				// Remove old backend from registry BEFORE adding new one
 				_instances.Remove(oldBackend);
+				_instances.Add(newBackend);
 				await _registry.UpdateAsync(_instances.Select(i => i.Info).ToList());
 
-				_logger.LogInformation("Shutting down old backend on port {Port}", oldBackend.Info.Port);
+				_logger.LogInformation("Traffic switched to new backend on port {Port}, draining old backend", newBackend.Info.Port);
 
-				// Shutdown old backend
+				// Wait for in-flight requests to old backend to complete
+				await Task.Delay(_options.ShutdownDrainTimeMs);
+
+				_logger.LogInformation("Shutting down old backend on port {Port}", oldBackend.Info.Port);
 				await oldBackend.ShutdownAsync(_logger);
+			}
+			else
+			{
+				// First backend - just add it
+				_instances.Add(newBackend);
+				await _registry.UpdateAsync(_instances.Select(i => i.Info).ToList());
 			}
 
 			var duration = (DateTime.UtcNow - startTime).TotalMilliseconds;
@@ -317,6 +330,7 @@ public class BackendOrchestrator : BackgroundService
 		return new BackendInstance
 		{
 			Process = process,
+			DeploymentPath = outputDir,
 			Info = new BackendInfo
 			{
 				Address = $"http://localhost:{port}",
@@ -385,62 +399,211 @@ public class BackendOrchestrator : BackgroundService
 		var projectDir = Path.GetDirectoryName(projectPath)!;
 		var projectName = Path.GetFileNameWithoutExtension(projectPath);
 
-		// Build to timestamped directory to avoid locking issues
-		var timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss-fff");
-		var outputDir = Path.Combine(projectDir, "bin", "Deployments", timestamp);
+		// Check if we need to rebuild the Server project
+		var needsRebuild = await CheckIfServerNeedsRebuild(projectDir);
 
-		_logger.LogInformation("Building Server project to: {Dir}", outputDir);
-
-		var startInfo = new ProcessStartInfo
+		if (needsRebuild)
 		{
-			FileName = "dotnet",
-			Arguments = $"build \"{projectPath}\" --output \"{outputDir}\"",
-			RedirectStandardOutput = true,
-			RedirectStandardError = true,
-			UseShellExecute = false,
-			CreateNoWindow = true
-		};
+			_logger.LogInformation("Server code changed, rebuilding Server project");
 
-		try
-		{
-			using var process = Process.Start(startInfo);
-			if (process == null)
+			// Build to stable location
+			var stableBuildDir = Path.Combine(projectDir, "bin", "ServerBuild");
+			Directory.CreateDirectory(stableBuildDir);
+
+			var startInfo = new ProcessStartInfo
 			{
-				_logger.LogError("Failed to start build process");
-				return null;
+				FileName = "dotnet",
+				Arguments = $"build \"{projectPath}\" --output \"{stableBuildDir}\"",
+				RedirectStandardOutput = true,
+				RedirectStandardError = true,
+				UseShellExecute = false,
+				CreateNoWindow = true
+			};
+
+			try
+			{
+				using var process = Process.Start(startInfo);
+				if (process == null)
+				{
+					_logger.LogError("Failed to start build process");
+					return null;
+				}
+
+				var output = await process.StandardOutput.ReadToEndAsync();
+				var error = await process.StandardError.ReadToEndAsync();
+
+				await process.WaitForExitAsync();
+
+				if (process.ExitCode != 0)
+				{
+					_logger.LogError("Server build failed with exit code {Code}\n{Output}\n{Error}",
+						process.ExitCode, output, error);
+					return null;
+				}
+
+				_logger.LogInformation("Server build succeeded");
+				_stableServerBuildPath = stableBuildDir;
+				_lastServerBuildTime = DateTime.UtcNow;
 			}
-
-			var output = await process.StandardOutput.ReadToEndAsync();
-			var error = await process.StandardError.ReadToEndAsync();
-
-			await process.WaitForExitAsync();
-
-			if (process.ExitCode == 0)
+			catch (Exception ex)
 			{
-				_logger.LogInformation("Server build succeeded: {Dir}", outputDir);
-
-				// Copy plugin DLLs since they have Private="false"
-				CopyPluginDlls(projectDir, outputDir);
-
-				return outputDir;
-			}
-			else
-			{
-				_logger.LogError("Server build failed with exit code {Code}\n{Output}\n{Error}",
-					process.ExitCode, output, error);
+				_logger.LogError(ex, "Error building Server project");
 				return null;
 			}
 		}
-		catch (Exception ex)
+		else
 		{
-			_logger.LogError(ex, "Error building Server project");
-			return null;
+			_logger.LogInformation("Server code unchanged, reusing existing build");
+		}
+
+		// Create timestamped deployment directory
+		var timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss-fff");
+		var deploymentDir = Path.Combine(projectDir, "bin", "Deployments", timestamp);
+		Directory.CreateDirectory(deploymentDir);
+
+		// Copy Server.dll and dependencies from stable build
+		CopyServerFiles(_stableServerBuildPath!, deploymentDir, projectName);
+
+		// Copy plugin DLLs to plugins/ subdirectory
+		CopyPluginDlls(projectDir, deploymentDir);
+
+		_logger.LogInformation("Deployment prepared at: {Dir}", deploymentDir);
+		return deploymentDir;
+	}
+
+	private async Task<bool> CheckIfServerNeedsRebuild(string projectDir)
+	{
+		// First build always needed
+		if (_stableServerBuildPath == null || !Directory.Exists(_stableServerBuildPath))
+		{
+			return true;
+		}
+
+		// Check if any .cs files in Server project have been modified since last build
+		var serverSourceDir = projectDir;
+		var csFiles = Directory.GetFiles(serverSourceDir, "*.cs", SearchOption.AllDirectories)
+			.Where(f => !f.Contains("\\bin\\") && !f.Contains("\\obj\\"));
+
+		foreach (var file in csFiles)
+		{
+			var lastWrite = File.GetLastWriteTimeUtc(file);
+			if (lastWrite > _lastServerBuildTime)
+			{
+				_logger.LogInformation("Server file changed: {File}", Path.GetFileName(file));
+				return true;
+			}
+		}
+
+		// Also check .csproj file
+		var csprojPath = Path.Combine(projectDir, $"{Path.GetFileName(projectDir)}.csproj");
+		if (File.Exists(csprojPath))
+		{
+			var lastWrite = File.GetLastWriteTimeUtc(csprojPath);
+			if (lastWrite > _lastServerBuildTime)
+			{
+				_logger.LogInformation("Server .csproj changed");
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private void CopyServerFiles(string sourceDir, string targetDir, string projectName)
+	{
+		_logger.LogInformation("Hard linking Server files from {Source} to {Target}", sourceDir, targetDir);
+
+		// Hard link all files recursively (Server.dll, dependencies, config files, etc.)
+		HardLinkDirectory(sourceDir, targetDir, recursive: true);
+
+		_logger.LogInformation("Server files hard linked successfully");
+	}
+
+	private void HardLinkDirectory(string sourceDir, string targetDir, bool recursive)
+	{
+		var dir = new DirectoryInfo(sourceDir);
+
+		if (!dir.Exists)
+		{
+			throw new DirectoryNotFoundException($"Source directory not found: {dir.FullName}");
+		}
+
+		// Create target directory
+		Directory.CreateDirectory(targetDir);
+
+		// Hard link files
+		foreach (FileInfo file in dir.GetFiles())
+		{
+			string targetFilePath = Path.Combine(targetDir, file.Name);
+			CreateHardLinkSafe(targetFilePath, file.FullName);
+		}
+
+		// Process subdirectories recursively
+		if (recursive)
+		{
+			foreach (DirectoryInfo subDir in dir.GetDirectories())
+			{
+				// Skip plugins directory if it exists - we'll create fresh one
+				if (subDir.Name.Equals("plugins", StringComparison.OrdinalIgnoreCase))
+				{
+					continue;
+				}
+
+				string newTargetDir = Path.Combine(targetDir, subDir.Name);
+				HardLinkDirectory(subDir.FullName, newTargetDir, recursive: true);
+			}
+		}
+	}
+
+	private void CreateHardLinkSafe(string linkPath, string targetPath)
+	{
+		if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+		{
+			if (!CreateHardLink(linkPath, targetPath, IntPtr.Zero))
+			{
+				var error = Marshal.GetLastWin32Error();
+				_logger.LogWarning("Failed to create hard link {Link} -> {Target}, falling back to copy (error: {Error})",
+					linkPath, targetPath, error);
+				File.Copy(targetPath, linkPath, overwrite: true);
+			}
+		}
+		else
+		{
+			// Linux/Mac: use File API or fall back to ln command
+			try
+			{
+				// Try using File.CreateSymbolicLink (requires elevated permissions for symlinks, but hard links don't)
+				// For now, fall back to ln command which is more reliable
+				var process = Process.Start(new ProcessStartInfo
+				{
+					FileName = "ln",
+					Arguments = $"\"{targetPath}\" \"{linkPath}\"",
+					UseShellExecute = false,
+					RedirectStandardError = true,
+					CreateNoWindow = true
+				});
+
+				if (process != null)
+				{
+					process.WaitForExit();
+					if (process.ExitCode != 0)
+					{
+						_logger.LogWarning("Failed to create hard link, falling back to copy");
+						File.Copy(targetPath, linkPath, overwrite: true);
+					}
+				}
+			}
+			catch
+			{
+				_logger.LogWarning("Failed to create hard link, falling back to copy");
+				File.Copy(targetPath, linkPath, overwrite: true);
+			}
 		}
 	}
 
 	private void CopyPluginDlls(string projectDir, string outputDir)
 	{
-		// Copy plugin DLLs from their build output to the timestamped deployment directory
+		// Hard link plugin DLLs from their build output to the timestamped deployment directory
 		var pluginsDir = Path.Combine(projectDir, "..", "Plugins");
 		if (!Directory.Exists(pluginsDir))
 		{
@@ -456,18 +619,30 @@ public class BackendOrchestrator : BackgroundService
 		foreach (var pluginProject in pluginProjects)
 		{
 			var pluginName = Path.GetFileName(pluginProject);
-			var pluginDll = Path.Combine(pluginProject, "bin", "Debug", "net9.0", $"{pluginName}.dll");
+			var pluginOutputDir = Path.Combine(pluginProject, "bin", "Debug", "net9.0");
 
-			if (File.Exists(pluginDll))
+			if (!Directory.Exists(pluginOutputDir))
 			{
-				var targetPath = Path.Combine(targetPluginsDir, $"{pluginName}.dll");
-				File.Copy(pluginDll, targetPath, overwrite: true);
-				_logger.LogInformation("Copied plugin to {Path}", targetPath);
+				_logger.LogWarning("Plugin output directory not found: {Path}", pluginOutputDir);
+				continue;
 			}
-			else
+
+			// Hard link all plugin output files (dll, pdb, deps.json, etc.)
+			var pluginFiles = Directory.GetFiles(pluginOutputDir, $"{pluginName}.*");
+			if (pluginFiles.Length == 0)
 			{
-				_logger.LogWarning("Plugin DLL not found: {Path}", pluginDll);
+				_logger.LogWarning("No plugin files found for: {Plugin}", pluginName);
+				continue;
 			}
+
+			foreach (var pluginFile in pluginFiles)
+			{
+				var fileName = Path.GetFileName(pluginFile);
+				var targetPath = Path.Combine(targetPluginsDir, fileName);
+				CreateHardLinkSafe(targetPath, pluginFile);
+			}
+
+			_logger.LogInformation("Hard linked {Count} files for plugin: {Plugin}", pluginFiles.Length, pluginName);
 		}
 	}
 

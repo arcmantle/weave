@@ -15,11 +15,6 @@
 		<ProjectReference Include="..\..\pivot\Pivot.Core\Pivot.Core.csproj" />
 	</ItemGroup>
 
-	<ItemGroup Condition="'$(Configuration)' == 'Debug'">
-		<!-- Reference for IntelliSense only - don't copy DLL (it goes to plugins/ folder instead) -->
-		<ProjectReference Include="..\Plugins\Users\Users.csproj" Private="false" />
-	</ItemGroup>
-
 </Project>
 
 
