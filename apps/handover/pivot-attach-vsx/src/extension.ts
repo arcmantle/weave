@@ -122,37 +122,33 @@ async function checkForNewProcesses() {
 	try {
 		const processList = await findDotnetProcesses(processName);
 
+		// First, clean up tracked processes that no longer exist
+		const pidsToRemove: number[] = [];
+		for (const pid of attachedProcesses.keys()) {
+			const stillExists = processList.some(p => p.Id === pid);
+			if (!stillExists)
+				pidsToRemove.push(pid);
+		}
+
+		// Remove dead processes
+		for (const pid of pidsToRemove) {
+			// Don't try to stop the debug session - just clean up our tracking
+			// The session will terminate naturally when the process exits
+			console.log(`Process ${ pid } no longer exists, removing from tracking`);
+			attachedProcesses.delete(pid);
+			if (currentBackendPid === pid) {
+				console.log(`Clearing current backend PID ${ currentBackendPid }`);
+				currentBackendPid = undefined;
+			}
+		}
+
+		// Then, attach to any new processes
 		for (const process of processList) {
 			const pid = process.Id;
 
 			if (!attachedProcesses.has(pid)) {
 				console.log(`Found new Server.dll process: ${ pid }`);
-
-				// Detach from old backend before attaching to new one
-				if (currentBackendPid !== undefined && attachedProcesses.has(currentBackendPid)) {
-					const oldSession = attachedProcesses.get(currentBackendPid);
-					if (oldSession) {
-						console.log(`Detaching from old backend PID ${ currentBackendPid }`);
-						await vscode.debug.stopDebugging(oldSession);
-						attachedProcesses.delete(currentBackendPid);
-					}
-				}
-
 				await attachDebugger(pid);
-			}
-		}
-
-		// Clean up tracked processes that no longer exist
-		for (const pid of attachedProcesses.keys()) {
-			const stillExists = processList.some(p => p.Id === pid);
-			if (!stillExists) {
-				const session = attachedProcesses.get(pid);
-				if (session) {
-					console.log(`Process ${ pid } no longer exists, stopping debug session`);
-					await vscode.debug.stopDebugging(session);
-				}
-
-				attachedProcesses.delete(pid);
 			}
 		}
 	}
