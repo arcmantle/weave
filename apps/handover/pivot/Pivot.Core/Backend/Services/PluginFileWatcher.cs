@@ -68,9 +68,9 @@ public class PluginFileWatcher : BackgroundService
 	{
 		_logger.LogInformation("Plugin change detected: {File}", e.Name);
 
-		// Debounce changes (500ms)
+		// Debounce changes using configured delay
 		_debounceTimer?.Dispose();
-		_debounceTimer = new Timer(_ => TriggerReload(), null, 500, Timeout.Infinite);
+		_debounceTimer = new Timer(_ => TriggerReload(), null, _options.WatchDebounceMs, Timeout.Infinite);
 	}
 
 	private async void TriggerReload()

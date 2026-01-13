@@ -32,7 +32,7 @@ public class UsersPlugin : IPlugin {
 			// var userService = context.RequestServices.GetRequiredService<IUserService>();
 			// var users = await userService.GetAllUsersAsync();
 			// await context.Response.WriteAsJsonAsync(users);
-			await context.Response.WriteAsync("Hello from Users plugin!");
+			await context.Response.WriteAsync("Hello from Users plugin! this actually worked... kind of cool");
 		});
 	}
 

@@ -9,9 +9,10 @@ if (builder.Environment.IsDevelopment()) {
 }
 
 builder.AddPivotBackend(options => {
-	options.LoadFromReferencedAssemblies = builder.Environment.IsDevelopment();
+	options.LoadFromReferencedAssemblies = false; // Always load from directory for true hot reload
 	options.PluginDirectory = Path.Combine(AppContext.BaseDirectory, "plugins");
 	options.EnableAutoReload = builder.Environment.IsDevelopment();
+	options.WatchDebounceMs = 1000; // Wait for build to complete before triggering reload
 });
 
 WebApplication app = builder.Build();
@@ -53,10 +54,10 @@ app.MapPost("/api/echo", async (HttpContext context) => {
 	});
 });
 
-app.MapGet("/shutdown", () => {
+app.MapPost("/shutdown", () => {
 	_ = Task.Run(async () => {
+		await Task.Delay(100); // Small delay to allow response to be sent
 		await app.StopAsync();
-
 		Environment.Exit(0);
 	});
 	return Results.Ok("Shutting down...");

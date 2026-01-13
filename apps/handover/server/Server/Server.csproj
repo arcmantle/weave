@@ -16,7 +16,8 @@
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(Configuration)' == 'Debug'">
-		<ProjectReference Include="..\Plugins\Users\Users.csproj" />
+		<!-- Reference for IntelliSense only - don't copy DLL (it goes to plugins/ folder instead) -->
+		<ProjectReference Include="..\Plugins\Users\Users.csproj" Private="false" />
 	</ItemGroup>
 
 </Project>

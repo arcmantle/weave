@@ -1,0 +1,69 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "build",
+			"command": "dotnet",
+			"type": "process",
+			"args": [
+				"build",
+				"${workspaceFolder}/Handover.sln",
+				"/property:GenerateFullPaths=true",
+				"/consoleloggerparameters:NoSummary;ForceNoAlign"
+			],
+			"problemMatcher": "$msCompile",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
+		},
+		{
+			"label": "watch",
+			"command": "dotnet",
+			"type": "process",
+			"args": [
+				"watch",
+				"run",
+				"--project",
+				"${workspaceFolder}/Server/Server.csproj"
+			],
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "build-plugins",
+			"command": "dotnet",
+			"type": "process",
+			"args": [
+				"build",
+				"${workspaceFolder}/Plugins/Users/Users.csproj",
+				"/property:GenerateFullPaths=true"
+			],
+			"problemMatcher": "$msCompile",
+			"group": "build"
+		},
+		{
+			"label": "trigger-reload",
+			"type": "shell",
+			"command": "curl",
+			"args": [
+				"-X",
+				"POST",
+				"http://localhost:5100/reload"
+			],
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "silent"
+			}
+		},
+		{
+			"label": "build-and-reload",
+			"dependsOrder": "sequence",
+			"dependsOn": [
+				"build-plugins",
+				"trigger-reload"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		}
+	]
+}

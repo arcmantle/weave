@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Pivot.Orchestration.Models;
@@ -10,6 +11,55 @@ public class BackendOrchestrator : BackgroundService
 {
 	private static readonly ActivitySource ActivitySource = new("Pivot.Orchestration");
 
+	[DllImport("kernel32.dll", SetLastError = true)]
+	private static extern IntPtr CreateJobObject(IntPtr lpJobAttributes, string? lpName);
+
+	[DllImport("kernel32.dll", SetLastError = true)]
+	private static extern bool SetInformationJobObject(IntPtr hJob, int JobObjectInfoClass, IntPtr lpJobObjectInfo, uint cbJobObjectInfoLength);
+
+	[DllImport("kernel32.dll", SetLastError = true)]
+	private static extern bool AssignProcessToJobObject(IntPtr hJob, IntPtr hProcess);
+
+	[StructLayout(LayoutKind.Sequential)]
+	private struct JOBOBJECT_BASIC_LIMIT_INFORMATION
+	{
+		public long PerProcessUserTimeLimit;
+		public long PerJobUserTimeLimit;
+		public uint LimitFlags;
+		public UIntPtr MinimumWorkingSetSize;
+		public UIntPtr MaximumWorkingSetSize;
+		public uint ActiveProcessLimit;
+		public UIntPtr Affinity;
+		public uint PriorityClass;
+		public uint SchedulingClass;
+	}
+
+	[StructLayout(LayoutKind.Sequential)]
+	private struct IO_COUNTERS
+	{
+		public ulong ReadOperationCount;
+		public ulong WriteOperationCount;
+		public ulong OtherOperationCount;
+		public ulong ReadTransferCount;
+		public ulong WriteTransferCount;
+		public ulong OtherTransferCount;
+	}
+
+	[StructLayout(LayoutKind.Sequential)]
+	private struct JOBOBJECT_EXTENDED_LIMIT_INFORMATION
+	{
+		public JOBOBJECT_BASIC_LIMIT_INFORMATION BasicLimitInformation;
+		public IO_COUNTERS IoInfo;
+		public UIntPtr ProcessMemoryLimit;
+		public UIntPtr JobMemoryLimit;
+		public UIntPtr PeakProcessMemoryUsed;
+		public UIntPtr PeakJobMemoryUsed;
+	}
+
+	private const int JobObjectExtendedLimitInformation = 9;
+	private const uint JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000;
+
+	private readonly IntPtr _jobHandle;
 	private readonly ILogger<BackendOrchestrator> _logger;
 	private readonly PivotCoordinatorOptions _options;
 	private readonly BackendRegistry _registry;
@@ -28,6 +78,30 @@ public class BackendOrchestrator : BackgroundService
 		_options = options;
 		_registry = registry;
 		_nextPort = options.InitialPort;
+
+		// Create job object to ensure all child processes die when coordinator dies
+		if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+		{
+			_jobHandle = CreateJobObject(IntPtr.Zero, null);
+			var info = new JOBOBJECT_EXTENDED_LIMIT_INFORMATION
+			{
+				BasicLimitInformation = new JOBOBJECT_BASIC_LIMIT_INFORMATION
+				{
+					LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+				}
+			};
+
+			int length = Marshal.SizeOf(typeof(JOBOBJECT_EXTENDED_LIMIT_INFORMATION));
+			IntPtr extendedInfoPtr = Marshal.AllocHGlobal(length);
+			Marshal.StructureToPtr(info, extendedInfoPtr, false);
+
+			if (!SetInformationJobObject(_jobHandle, JobObjectExtendedLimitInformation, extendedInfoPtr, (uint)length))
+			{
+				_logger.LogWarning("Failed to set job object information");
+			}
+
+			Marshal.FreeHGlobal(extendedInfoPtr);
+		}
 	}
 
 	public void SetCoordinatorAddress(string address)
@@ -37,12 +111,22 @@ public class BackendOrchestrator : BackgroundService
 
 	protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 	{
+		_logger.LogInformation("Building initial backend");
+
+		// Build the Server project first
+		var buildOutputDir = await BuildServerAsync();
+		if (buildOutputDir == null)
+		{
+			_logger.LogError("Initial build failed");
+			throw new InvalidOperationException("Initial build failed");
+		}
+
 		_logger.LogInformation("Starting initial backend instance on port {Port}", _nextPort);
 
 		try
 		{
 			// Start initial backend
-			var initial = await StartBackendAsync(_nextPort++, stoppingToken);
+			var initial = await StartBackendAsync(_nextPort++, buildOutputDir, stoppingToken);
 
 			// Wait for it to be healthy
 			if (!await WaitForHealthyAsync(initial))
@@ -78,11 +162,21 @@ public class BackendOrchestrator : BackgroundService
 
 		try
 		{
+			// Build the Server project to a timestamped directory to avoid file locking
+			var buildOutputDir = await BuildServerAsync();
+			if (buildOutputDir == null)
+			{
+				_logger.LogError("Server build failed, aborting reload");
+				activity?.SetTag("reload.success", false);
+				activity?.SetTag("reload.failure_reason", "build_failed");
+				return false;
+			}
+
 			_logger.LogInformation("Starting backend reload on port {Port}", _nextPort);
 			activity?.SetTag("backend.port", _nextPort);
 
-			// Start new backend
-			var newBackend = await StartBackendAsync(_nextPort++, CancellationToken.None);
+			// Start new backend using DLL from the timestamped build directory
+			var newBackend = await StartBackendAsync(_nextPort++, buildOutputDir, CancellationToken.None);
 
 			// Wait for health check
 			if (!await WaitForHealthyAsync(newBackend))
@@ -139,61 +233,28 @@ public class BackendOrchestrator : BackgroundService
 		}
 	}
 
-	private async Task<BackendInstance> StartBackendAsync(int port, CancellationToken cancellationToken)
+	private async Task<BackendInstance> StartBackendAsync(int port, string outputDir, CancellationToken cancellationToken)
 	{
 		using var activity = ActivitySource.StartActivity("StartBackend");
 		activity?.SetTag("backend.port", port);
 
-		string command, args, workingDir;
-
-		// Auto-detect executable or project
-		if (!string.IsNullOrEmpty(_options.ServerExecutablePath))
+		// Use the provided output directory
+		var projectName = Path.GetFileName(_options.ServerProjectPath ?? "Server");
+		if (projectName.EndsWith(".csproj"))
 		{
-			// Explicit executable path provided
-			command = "dotnet";
-			args = $"exec \"{_options.ServerExecutablePath}\" --urls=http://localhost:{port}";
-			workingDir = Path.GetDirectoryName(_options.ServerExecutablePath)!;
-			_logger.LogInformation("Starting backend from executable: {Path}", _options.ServerExecutablePath);
+			projectName = Path.GetFileNameWithoutExtension(projectName);
 		}
-		else if (!string.IsNullOrEmpty(_options.ServerProjectPath))
-		{
-			// Project path provided - auto-detect compiled DLL
-			// Resolve relative path from current directory
-			var projectPath = Path.GetFullPath(_options.ServerProjectPath);
-			var projectDir = Path.GetDirectoryName(projectPath)!;
-			var projectName = Path.GetFileNameWithoutExtension(projectPath);
 
-			var binDebug = Path.Combine(projectDir, "bin", "Debug", "net9.0", $"{projectName}.dll");
-			var binRelease = Path.Combine(projectDir, "bin", "Release", "net9.0", $"{projectName}.dll");
-
-			if (File.Exists(binDebug))
-			{
-				command = "dotnet";
-				args = $"exec \"{binDebug}\" --urls=http://localhost:{port}";
-				workingDir = Path.GetDirectoryName(binDebug)!;
-				_logger.LogInformation("Starting backend from Debug DLL: {Path}", binDebug);
-			}
-			else if (File.Exists(binRelease))
-			{
-				command = "dotnet";
-				args = $"exec \"{binRelease}\" --urls=http://localhost:{port}";
-				workingDir = Path.GetDirectoryName(binRelease)!;
-				_logger.LogInformation("Starting backend from Release DLL: {Path}", binRelease);
-			}
-			else
-			{
-				// Fall back to dotnet run
-				command = "dotnet";
-				args = $"run --project \"{projectPath}\" --no-launch-profile --urls=http://localhost:{port}";
-				workingDir = projectDir;
-				_logger.LogInformation("Starting backend via dotnet run: {Path}", _options.ServerProjectPath);
-			}
-		}
-		else
+		var binPath = Path.Combine(outputDir, $"{projectName}.dll");
+		if (!File.Exists(binPath))
 		{
-			throw new InvalidOperationException(
-				"Must configure ServerProjectPath or ServerExecutablePath in PivotCoordinatorOptions");
+			throw new InvalidOperationException($"Server DLL not found at {binPath}");
 		}
+
+		var command = "dotnet";
+		var args = $"exec \"{binPath}\" --urls=http://localhost:{port}";
+		var workingDir = outputDir;
+		_logger.LogInformation("Starting backend from: {Path}", binPath);
 
 		var startInfo = new ProcessStartInfo
 		{
@@ -216,6 +277,15 @@ public class BackendOrchestrator : BackgroundService
 		if (process == null)
 		{
 			throw new InvalidOperationException($"Failed to start backend process on port {port}");
+		}
+
+		// Assign process to job object so it dies when coordinator dies (Windows only)
+		if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && _jobHandle != IntPtr.Zero)
+		{
+			if (!AssignProcessToJobObject(_jobHandle, process.Handle))
+			{
+				_logger.LogWarning("Failed to assign process {Port} to job object", port);
+			}
 		}
 
 		// Log output for debugging
@@ -302,6 +372,105 @@ public class BackendOrchestrator : BackgroundService
 		return false;
 	}
 
+	private async Task<string?> BuildServerAsync()
+	{
+		if (string.IsNullOrEmpty(_options.ServerProjectPath))
+		{
+			// Using pre-built executable, return standard output dir
+			var exePath = _options.ServerExecutablePath!;
+			return Path.GetDirectoryName(exePath);
+		}
+
+		var projectPath = Path.GetFullPath(_options.ServerProjectPath);
+		var projectDir = Path.GetDirectoryName(projectPath)!;
+		var projectName = Path.GetFileNameWithoutExtension(projectPath);
+
+		// Build to timestamped directory to avoid locking issues
+		var timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss-fff");
+		var outputDir = Path.Combine(projectDir, "bin", "Deployments", timestamp);
+
+		_logger.LogInformation("Building Server project to: {Dir}", outputDir);
+
+		var startInfo = new ProcessStartInfo
+		{
+			FileName = "dotnet",
+			Arguments = $"build \"{projectPath}\" --output \"{outputDir}\"",
+			RedirectStandardOutput = true,
+			RedirectStandardError = true,
+			UseShellExecute = false,
+			CreateNoWindow = true
+		};
+
+		try
+		{
+			using var process = Process.Start(startInfo);
+			if (process == null)
+			{
+				_logger.LogError("Failed to start build process");
+				return null;
+			}
+
+			var output = await process.StandardOutput.ReadToEndAsync();
+			var error = await process.StandardError.ReadToEndAsync();
+
+			await process.WaitForExitAsync();
+
+			if (process.ExitCode == 0)
+			{
+				_logger.LogInformation("Server build succeeded: {Dir}", outputDir);
+
+				// Copy plugin DLLs since they have Private="false"
+				CopyPluginDlls(projectDir, outputDir);
+
+				return outputDir;
+			}
+			else
+			{
+				_logger.LogError("Server build failed with exit code {Code}\n{Output}\n{Error}",
+					process.ExitCode, output, error);
+				return null;
+			}
+		}
+		catch (Exception ex)
+		{
+			_logger.LogError(ex, "Error building Server project");
+			return null;
+		}
+	}
+
+	private void CopyPluginDlls(string projectDir, string outputDir)
+	{
+		// Copy plugin DLLs from their build output to the timestamped deployment directory
+		var pluginsDir = Path.Combine(projectDir, "..", "Plugins");
+		if (!Directory.Exists(pluginsDir))
+		{
+			_logger.LogWarning("Plugins directory not found: {Dir}", pluginsDir);
+			return;
+		}
+
+		// Create plugins subdirectory in deployment output
+		var targetPluginsDir = Path.Combine(outputDir, "plugins");
+		Directory.CreateDirectory(targetPluginsDir);
+
+		var pluginProjects = Directory.GetDirectories(pluginsDir);
+		foreach (var pluginProject in pluginProjects)
+		{
+			var pluginName = Path.GetFileName(pluginProject);
+			var pluginDll = Path.Combine(pluginProject, "bin", "Debug", "net9.0", $"{pluginName}.dll");
+
+			if (File.Exists(pluginDll))
+			{
+				var targetPath = Path.Combine(targetPluginsDir, $"{pluginName}.dll");
+				File.Copy(pluginDll, targetPath, overwrite: true);
+				_logger.LogInformation("Copied plugin to {Path}", targetPath);
+			}
+			else
+			{
+				_logger.LogWarning("Plugin DLL not found: {Path}", pluginDll);
+			}
+		}
+	}
+
 	public override async Task StopAsync(CancellationToken cancellationToken)
 	{
 		_logger.LogInformation("Shutting down all backend instances");
@@ -312,5 +481,31 @@ public class BackendOrchestrator : BackgroundService
 		}
 
 		await base.StopAsync(cancellationToken);
+	}
+
+	public override void Dispose()
+	{
+		// Ensure cleanup happens even if StopAsync wasn't called
+		_logger.LogInformation("Disposing BackendOrchestrator, cleaning up {Count} backend instances", _instances.Count);
+
+		foreach (var instance in _instances.ToList())
+		{
+			try
+			{
+				if (!instance.Process.HasExited)
+				{
+					_logger.LogInformation("Force killing backend on port {Port}", instance.Info.Port);
+					instance.Process.Kill(entireProcessTree: true);
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "Error killing backend process on port {Port}", instance.Info.Port);
+			}
+		}
+
+		_instances.Clear();
+		_deploymentLock.Dispose();
+		base.Dispose();
 	}
 }

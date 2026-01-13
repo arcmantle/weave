@@ -1,0 +1,43 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "Launch Coordinator",
+			"type": "coreclr",
+			"request": "launch",
+			"preLaunchTask": "build",
+			"program": "${workspaceFolder}/Coordinator/bin/Debug/net9.0/Coordinator.dll",
+			"args": [],
+			"cwd": "${workspaceFolder}/Coordinator",
+			"stopAtEntry": false,
+			"env": {
+				"ASPNETCORE_ENVIRONMENT": "Development"
+			}
+		},
+		{
+			"name": "Launch Proxy",
+			"type": "coreclr",
+			"request": "launch",
+			"preLaunchTask": "build",
+			"program": "${workspaceFolder}/Proxy/bin/Debug/net9.0/Proxy.dll",
+			"args": [],
+			"cwd": "${workspaceFolder}/Proxy",
+			"stopAtEntry": false,
+			"env": {
+				"ASPNETCORE_ENVIRONMENT": "Development"
+			}
+		}
+	],
+	"compounds": [
+		{
+			"name": "Handover System (Coordinator + Proxy)",
+			"configurations": ["Launch Coordinator", "Launch Proxy"],
+			"stopAll": true,
+			"presentation": {
+				"hidden": false,
+				"group": "Handover",
+				"order": 1
+			}
+		}
+	]
+}

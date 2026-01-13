@@ -1,3 +1,10 @@
 {
 	"dotnet.defaultSolution": "Handover.sln",
+	"workbench.editorAssociations": {
+		"*.copilotmd": "vscode.markdown.preview.editor",
+		"*.ipynb": "jupyter-notebook",
+		"*.db": "sqlite-viewer.option",
+		"*.svg": "default",
+		"*.sprite": "d2rmodding.spriteViewer"
+	},
 }

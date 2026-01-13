@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Pivot.Development;
 using Pivot.Orchestration;
 
 namespace Pivot.Extensions;
@@ -27,7 +29,11 @@ public static class PivotCoordinatorExtensions
 		builder.Services.AddSingleton<BackendRegistry>();
 		builder.Services.AddSingleton<BackendOrchestrator>();
 		builder.Services.AddHostedService(sp => sp.GetRequiredService<BackendOrchestrator>());
-
+		// Add development-only plugin source watcher
+		if (builder.Environment.IsDevelopment())
+		{
+			builder.Services.AddHostedService<PluginSourceWatcher>();
+		}
 		// Add CORS for development
 		builder.Services.AddCors(options =>
 		{
