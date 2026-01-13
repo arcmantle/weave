@@ -12,7 +12,18 @@
 			"stopAtEntry": false,
 			"env": {
 				"ASPNETCORE_ENVIRONMENT": "Development"
-			}
+			},
+			"symbolOptions": {
+				"searchPaths": [
+					"${workspaceFolder}/Server/bin/Deployments",
+					"${workspaceFolder}/Plugins/Users/bin/Debug/net9.0"
+				],
+				"searchMicrosoftSymbolServer": false
+			},
+			"sourceFileMap": {
+				"/build/": "${workspaceFolder}/"
+			},
+			"justMyCode": false
 		},
 		{
 			"name": "Launch Proxy",
@@ -26,6 +37,24 @@
 			"env": {
 				"ASPNETCORE_ENVIRONMENT": "Development"
 			}
+		},
+		{
+			"name": "Attach to Backend Server",
+			"type": "coreclr",
+			"request": "attach",
+			"processId": "${command:pickProcess}",
+			"symbolOptions": {
+				"searchPaths": [
+					"${workspaceFolder}/Plugins/Users/bin/Debug/net9.0",
+					"${workspaceFolder}/Plugins",
+					"${workspaceFolder}/Server/bin/Deployments"
+				],
+				"searchMicrosoftSymbolServer": false
+			},
+			"sourceFileMap": {
+				"/build/": "${workspaceFolder}/"
+			},
+			"justMyCode": false
 		}
 	],
 	"compounds": [
