@@ -17,7 +17,7 @@ func main() {
 
 	// Configure the coordinator
 	options := &core.CoordinatorOptions{
-		ServerBinaryPath:       "../server/server",
+		ServerBinaryPath:       "./bin/server",
 		InitialPort:            5001,
 		HealthCheckMaxAttempts: 30,
 		HealthCheckIntervalMs:  500,
