@@ -161,7 +161,10 @@ func getEnv(key, defaultValue string) string {
 func getEnvInt(key string, defaultValue int) int {
 	if value := os.Getenv(key); value != "" {
 		var result int
-		fmt.Sscanf(value, "%d", &result)
+		if _, err := fmt.Sscanf(value, "%d", &result); err != nil {
+			// Invalid integer, return default
+			return defaultValue
+		}
 		return result
 	}
 	return defaultValue

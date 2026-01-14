@@ -126,6 +126,8 @@ func (bo *BackendOrchestrator) startBackend(port int) (*BackendInstance, error) 
 	bo.logger.Printf("Starting backend on port %d", port)
 
 	cmd := exec.Command(bo.options.ServerBinaryPath, fmt.Sprintf("--port=%d", port))
+	// Redirect backend output to coordinator's stdout/stderr for unified logging
+	// In production, consider using a structured logging approach
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	
@@ -179,8 +181,31 @@ func (bo *BackendOrchestrator) waitForHealthy(backend *BackendInstance) bool {
 func (bo *BackendOrchestrator) shutdownBackend(backend *BackendInstance) {
 	if backend.Process != nil {
 		bo.logger.Printf("Shutting down backend on port %d (PID: %d)", backend.Info.Port, backend.Process.Pid)
-		if err := backend.Process.Kill(); err != nil {
-			bo.logger.Printf("Error killing backend process: %v", err)
+		
+		// Try graceful shutdown first with SIGTERM (Unix-like systems)
+		if err := backend.Process.Signal(os.Interrupt); err != nil {
+			bo.logger.Printf("Failed to send interrupt signal, killing process: %v", err)
+			if err := backend.Process.Kill(); err != nil {
+				bo.logger.Printf("Error killing backend process: %v", err)
+			}
+			return
+		}
+		
+		// Wait up to 5 seconds for graceful shutdown
+		done := make(chan error, 1)
+		go func() {
+			_, err := backend.Process.Wait()
+			done <- err
+		}()
+		
+		select {
+		case <-time.After(5 * time.Second):
+			bo.logger.Printf("Backend did not exit gracefully, forcing kill")
+			if err := backend.Process.Kill(); err != nil {
+				bo.logger.Printf("Error killing backend process: %v", err)
+			}
+		case <-done:
+			bo.logger.Printf("Backend exited gracefully")
 		}
 	}
 }
