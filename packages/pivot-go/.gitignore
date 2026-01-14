@@ -1,0 +1,19 @@
+# Binaries
+bin/
+*.so
+*.exe
+*.dll
+
+# Go build artifacts
+*.test
+*.out
+
+# Dependencies
+go.sum
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
