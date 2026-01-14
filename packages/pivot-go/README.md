@@ -2,6 +2,18 @@
 
 A zero-downtime hot-reload framework for Go applications with plugin support. Enables blue-green deployments with automatic backend lifecycle management.
 
+## Quick Start
+
+**Want to see it in action?** Check out the [sample application](./sample/README.md) that demonstrates using Pivot as a third-party dependency.
+
+```bash
+cd packages/pivot-go/sample
+./build.sh
+./bin/coordinator  # Terminal 1
+./bin/proxy        # Terminal 2
+# Visit http://localhost:5000
+```
+
 ## Overview
 
 Pivot is a distributed system with three main components:
@@ -205,6 +217,27 @@ Result: Zero user-facing downtime, seamless plugin reload.
 5. Rebuild plugin: `go build -buildmode=plugin -o plugins/hello.so ./examples/hello-plugin`
 6. Trigger reload: `curl -X POST http://localhost:5100/reload`
 7. See changes: Refresh browser
+
+## Sample Application
+
+A complete sample application is included in the `sample/` directory. It demonstrates:
+
+- Using Pivot as a third-party package dependency
+- Building custom coordinator, proxy, and server applications
+- Creating real-world plugins (e.g., Users API)
+- Hot-reload functionality
+- Production-ready structure
+
+**See [sample/README.md](./sample/README.md) for full documentation.**
+
+Quick start:
+```bash
+cd sample
+./build.sh
+./bin/coordinator  # Terminal 1
+./bin/proxy        # Terminal 2
+curl http://localhost:5000/api/users
+```
 
 ## Differences from C# Version
 

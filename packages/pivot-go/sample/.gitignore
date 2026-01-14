@@ -1,0 +1,11 @@
+# Binaries
+bin/
+*.so
+
+# Go
+*.test
+*.out
+
+# IDE
+.vscode/
+.idea/
