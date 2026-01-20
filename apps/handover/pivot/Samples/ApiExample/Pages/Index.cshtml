@@ -1,0 +1,79 @@
+@page
+@using ApiExample.Pages
+@model IndexModel
+@{
+    ViewData["Title"] = "Pivot Plugin Manager";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"]</title>
+    <link rel="stylesheet" href="~/css/admin.css" />
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🔌 Pivot Plugin Manager</h1>
+            <p class="subtitle">Dynamically enable or disable plugins in real-time</p>
+            <div class="header-actions">
+                <a href="/swagger" class="btn btn-secondary">📚 API Documentation</a>
+            </div>
+        </header>
+
+        <div class="stats-bar">
+            <div class="stat">
+                <span class="stat-label">Total Plugins</span>
+                <span class="stat-value" id="total-plugins">@Model.Plugins.Count()</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">Enabled</span>
+                <span class="stat-value stat-success" id="enabled-plugins">@Model.Plugins.Count(p => p.IsEnabled)</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">Disabled</span>
+                <span class="stat-value stat-danger" id="disabled-plugins">@Model.Plugins.Count(p => !p.IsEnabled)</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">Status</span>
+                <span class="stat-value">
+                    <span class="status-indicator" id="connection-status">●</span>
+                    <span id="connection-text">Connected</span>
+                </span>
+            </div>
+        </div>
+
+        <div class="plugin-grid" id="plugin-grid">
+            @foreach (var plugin in Model.Plugins)
+            {
+                <div class="plugin-card" data-plugin="@plugin.Name">
+                    <div class="plugin-header">
+                        <h3 class="plugin-name">@plugin.Name</h3>
+                        <label class="toggle-switch">
+                            <input type="checkbox"
+                                   class="plugin-toggle"
+                                   data-plugin="@plugin.Name"
+                                   @(plugin.IsEnabled ? "checked" : "")>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="plugin-status @(plugin.IsEnabled ? "enabled" : "disabled")">
+                        @(plugin.IsEnabled ? "✓ Enabled" : "○ Disabled")
+                    </div>
+                    <div class="plugin-meta">
+                        <small>Last modified: <time class="plugin-time">@plugin.LastModified.ToString("g")</time></small>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <footer class="footer">
+            <p>Pivot Framework Sample Application • <a href="https://github.com/arcmantle/weave" target="_blank">GitHub</a></p>
+        </footer>
+    </div>
+
+    <script src="~/js/admin.js"></script>
+</body>
+</html>

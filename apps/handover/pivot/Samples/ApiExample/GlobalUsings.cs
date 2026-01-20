@@ -1,0 +1,9 @@
+global using Microsoft.EntityFrameworkCore;
+global using Microsoft.AspNetCore.Mvc;
+global using Microsoft.AspNetCore.Mvc.RazorPages;
+global using Microsoft.AspNetCore.Http.HttpResults;
+global using ApiExample.Data;
+global using ApiExample.Services;
+global using Pivot.Plugin;
+global using Pivot.Backend;
+global using Pivot.Extensions;
