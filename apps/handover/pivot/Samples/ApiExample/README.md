@@ -38,6 +38,7 @@ The application will start on `http://localhost:5200`.
 - **GET /swagger** - Swagger UI for API documentation
 - **GET /api/plugins** - List all plugins and their states
 - **POST /api/plugins/{name}/toggle** - Enable/disable a specific plugin
+- **POST /api/plugins/deploy** - Deploy enabled plugins from repository (production mode)
 - **GET /api/plugins/events** - SSE stream for real-time plugin state updates
 
 ### Plugin Endpoints (when enabled)
@@ -64,7 +65,21 @@ The application will start on `http://localhost:5200`.
 
 ### Plugin Loading
 
-Plugins are automatically discovered from referenced assemblies using the Pivot framework's `PluginLoader`. Each plugin implements the `IPlugin` interface:
+Plugins are automatically discovered using one of two modes:
+
+**Development Mode (default):**
+
+- Loads plugins from referenced assemblies
+- Fast iteration without file management
+- Configured with `options.LoadFromReferencedAssemblies = true`
+
+**Production Mode:**
+
+- Loads plugins from a directory
+- Supports dynamic plugin deployment
+- Configured with `options.LoadFromReferencedAssemblies = false`
+
+Each plugin implements the `IPlugin` interface:
 
 ```csharp
 public interface IPlugin
@@ -75,6 +90,43 @@ public interface IPlugin
 }
 ```
 
+### Plugin Repository Architecture
+
+In production environments, the Pivot framework supports a **plugin repository** pattern:
+
+1. **Plugin Repository Directory**: Contains all available plugin DLLs (the source of truth)
+2. **Active Plugins Directory**: Contains only the enabled plugins that should be loaded
+3. **Plugin Deployment**: When a plugin is enabled/disabled, the deployment manager copies or removes it from the active directory
+
+**How it works:**
+
+```
+plugin-repository/          ← All available plugins
+├── Todos.dll
+├── Weather.dll
+└── Users.dll
+
+                ↓ (deployment based on enabled state)
+
+active-plugins/             ← Only enabled plugins
+├── Todos.dll               ✓ Enabled
+└── Weather.dll             ✓ Enabled
+    (Users.dll not copied)  ✗ Disabled
+```
+
+**Triggering deployment:**
+
+```bash
+curl -X POST http://localhost:5200/api/plugins/deploy
+```
+
+This demonstrates the architecture for production deployments where:
+
+- Plugins are stored in a central repository
+- Only enabled plugins are deployed to the active directory
+- Application restart loads the new plugin set
+- Blue-green deployment ensures zero downtime
+
 ### Plugin State Management
 
 Plugin states (enabled/disabled) are stored in a SQLite database and synchronized on application startup. When you toggle a plugin:
@@ -82,6 +134,7 @@ Plugin states (enabled/disabled) are stored in a SQLite database and synchronize
 1. The state is updated in the database
 2. All connected SSE clients receive the updated state
 3. The admin UI updates in real-time
+4. In production mode, call `/api/plugins/deploy` to sync the active plugins directory
 
 Note: Currently, endpoint routing happens at startup. Disabling a plugin updates the UI but doesn't remove the endpoints until app restart. This could be enhanced with middleware to check plugin state before routing.
 
@@ -102,24 +155,25 @@ eventSource.onmessage = (event) => {
 ```
 ApiExample/
 ├── Data/
-│   ├── PluginDbContext.cs        # EF Core database context
-│   └── PluginState.cs             # Plugin state entity
+│   ├── PluginDbContext.cs             # EF Core database context
+│   └── PluginState.cs                 # Plugin state entity
 ├── Services/
-│   ├── IPluginManager.cs          # Plugin manager interface
-│   └── PluginManager.cs           # Plugin state management & SSE
+│   ├── IPluginManager.cs              # Plugin manager interface
+│   ├── PluginManager.cs               # Plugin state management & SSE
+│   └── DatabasePluginStateProvider.cs # Database-backed state provider
 ├── Plugins/
-│   ├── TodosPlugin.cs             # Todo API plugin
-│   ├── WeatherPlugin.cs           # Weather API plugin
-│   └── UsersPlugin.cs             # User management plugin
+│   ├── TodosPlugin.cs                 # Todo API plugin
+│   ├── WeatherPlugin.cs               # Weather API plugin
+│   └── UsersPlugin.cs                 # User management plugin
 ├── Pages/
-│   ├── Index.cshtml               # Admin UI view
-│   └── Index.cshtml.cs            # Admin UI page model
+│   ├── Index.cshtml                   # Admin UI view
+│   └── Index.cshtml.cs                # Admin UI page model
 ├── wwwroot/
-│   ├── css/admin.css              # Custom styling
-│   └── js/admin.js                # SSE client & interactions
-├── Migrations/                     # EF Core migrations
-├── Program.cs                      # Application entry point
-└── ApiExample.csproj              # Project file
+│   ├── css/admin.css                  # Custom styling
+│   └── js/admin.js                    # SSE client & interactions
+├── Migrations/                         # EF Core migrations
+├── Program.cs                          # Application entry point
+└── ApiExample.csproj                  # Project file
 ```
 
 ## Technologies Used

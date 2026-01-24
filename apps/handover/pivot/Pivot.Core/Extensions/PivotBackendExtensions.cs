@@ -11,18 +11,24 @@ using Pivot.Plugin;
 namespace Pivot.Extensions;
 
 
-public static class PivotBackendExtensions
-{
+public static class PivotBackendExtensions {
 	public static WebApplicationBuilder AddPivotBackend(
 		this WebApplicationBuilder builder,
 		Action<PivotBackendOptions>? configure = null
-	)
-	{
+	) {
 		var options = new PivotBackendOptions();
 		builder.Configuration.GetSection("Pivot:Backend").Bind(options);
 		configure?.Invoke(options);
 
 		builder.Services.AddSingleton(options);
+
+		// Register default plugin state provider if none is registered
+		if (!builder.Services.Any(s => s.ServiceType == typeof(IPluginStateProvider))) {
+			builder.Services.AddSingleton<IPluginStateProvider, DefaultPluginStateProvider>();
+		}
+
+		// Register plugin deployment manager
+		builder.Services.AddSingleton<PluginDeploymentManager>();
 
 		// Create a logger factory for plugin loading
 		using var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
@@ -31,37 +37,30 @@ public static class PivotBackendExtensions
 		// Load plugins based on configuration
 		IReadOnlyCollection<IPlugin>? plugins = null;
 
-		if (options.LoadFromReferencedAssemblies)
-		{
+		if (options.LoadFromReferencedAssemblies) {
 			logger.LogInformation("Loading plugins from referenced assemblies");
 			plugins = PluginLoader.LoadFromReferencedAssemblies(builder, logger);
 		}
-		else if (!string.IsNullOrEmpty(options.PluginDirectory))
-		{
+		else if (!string.IsNullOrEmpty(options.PluginDirectory)) {
 			logger.LogInformation("Loading plugins from directory: {Dir}", options.PluginDirectory);
 			plugins = PluginLoader.LoadFromDirectory(options.PluginDirectory, builder, logger);
 		}
 
 		// Initialize plugins
-		if (plugins != null && plugins.Count > 0)
-		{
-			foreach (var plugin in plugins)
-			{
-				try
-				{
+		if (plugins != null && plugins.Count > 0) {
+			foreach (var plugin in plugins) {
+				try {
 					logger.LogInformation("Initializing plugin: {Name}", plugin.Name);
 					plugin.Initialize(builder);
 				}
-				catch (Exception ex)
-				{
+				catch (Exception ex) {
 					logger.LogError(ex, "Error initializing plugin {Name}", plugin.Name);
 				}
 			}
 		}
 
 		// Add file watcher if enabled
-		if (options.EnableAutoReload)
-		{
+		if (options.EnableAutoReload) {
 			builder.Services.AddHostedService<PluginFileWatcher>();
 		}
 
@@ -71,23 +70,18 @@ public static class PivotBackendExtensions
 		return builder;
 	}
 
-	public static WebApplication MapPivotBackend(this WebApplication app)
-	{
+	public static WebApplication MapPivotBackend(this WebApplication app) {
 		var plugins = app.Services.GetService<IReadOnlyCollection<IPlugin>>();
 		var logger = app.Services.GetRequiredService<ILogger<WebApplication>>();
 
 		// Configure plugins
-		if (plugins != null && plugins.Count > 0)
-		{
-			foreach (var plugin in plugins)
-			{
-				try
-				{
+		if (plugins != null && plugins.Count > 0) {
+			foreach (var plugin in plugins) {
+				try {
 					logger.LogInformation("Configuring plugin: {Name}", plugin.Name);
 					plugin.Configure(app);
 				}
-				catch (Exception ex)
-				{
+				catch (Exception ex) {
 					logger.LogError(ex, "Error configuring plugin {Name}", plugin.Name);
 				}
 			}

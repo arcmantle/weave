@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pivot.Coordinator", "Pivot.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pivot.Proxy", "Pivot.Proxy\Pivot.Proxy.csproj", "{26D216D8-863B-479C-A05B-B263064832AB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ApiExample", "Samples\ApiExample\ApiExample.csproj", "{A7B3E4F1-9C2D-4E8A-B5F6-C1D7E8F9A0B1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -55,6 +57,18 @@ Global
 		{26D216D8-863B-479C-A05B-B263064832AB}.Release|x64.Build.0 = Release|Any CPU
 		{26D216D8-863B-479C-A05B-B263064832AB}.Release|x86.ActiveCfg = Release|Any CPU
 		{26D216D8-863B-479C-A05B-B263064832AB}.Release|x86.Build.0 = Release|Any CPU
+		{A7B3E4F1-9C2D-4E8A-B5F6-C1D7E8F9A0B1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A7B3E4F1-9C2D-4E8A-B5F6-C1D7E8F9A0B1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A7B3E4F1-9C2D-4E8A-B5F6-C1D7E8F9A0B1}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A7B3E4F1-9C2D-4E8A-B5F6-C1D7E8F9A0B1}.Debug|x64.Build.0 = Debug|Any CPU
+		{A7B3E4F1-9C2D-4E8A-B5F6-C1D7E8F9A0B1}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{A7B3E4F1-9C2D-4E8A-B5F6-C1D7E8F9A0B1}.Debug|x86.Build.0 = Debug|Any CPU
+		{A7B3E4F1-9C2D-4E8A-B5F6-C1D7E8F9A0B1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A7B3E4F1-9C2D-4E8A-B5F6-C1D7E8F9A0B1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A7B3E4F1-9C2D-4E8A-B5F6-C1D7E8F9A0B1}.Release|x64.ActiveCfg = Release|Any CPU
+		{A7B3E4F1-9C2D-4E8A-B5F6-C1D7E8F9A0B1}.Release|x64.Build.0 = Release|Any CPU
+		{A7B3E4F1-9C2D-4E8A-B5F6-C1D7E8F9A0B1}.Release|x86.ActiveCfg = Release|Any CPU
+		{A7B3E4F1-9C2D-4E8A-B5F6-C1D7E8F9A0B1}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

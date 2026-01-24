@@ -1,73 +1,30 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Pivot.Coordinator;
+using Pivot.Coordinator.Services;
 using Pivot.Orchestration.Models;
 
 namespace Pivot.Orchestration;
 
 
-public class BackendOrchestrator : BackgroundService
-{
+public partial class BackendOrchestrator : BackgroundService {
 	private static readonly ActivitySource ActivitySource = new("Pivot.Orchestration");
 
-	// Job object APIs
-	[DllImport("kernel32.dll", SetLastError = true)]
-	private static extern IntPtr CreateJobObject(IntPtr lpJobAttributes, string? lpName);
+	// Cross-platform hard link APIs
+	[LibraryImport("kernel32.dll", StringMarshalling = StringMarshalling.Utf16, SetLastError = true)]
+	[return: MarshalAs(UnmanagedType.Bool)]
+	private static partial bool CreateHardLink(string lpFileName, string lpExistingFileName, IntPtr lpSecurityAttributes);
 
-	[DllImport("kernel32.dll", SetLastError = true)]
-	private static extern bool SetInformationJobObject(IntPtr hJob, int JobObjectInfoClass, IntPtr lpJobObjectInfo, uint cbJobObjectInfoLength);
+	[LibraryImport("libc", StringMarshalling = StringMarshalling.Utf8, SetLastError = true)]
+	private static partial int Link(string oldpath, string newpath);
 
-	[DllImport("kernel32.dll", SetLastError = true)]
-	private static extern bool AssignProcessToJobObject(IntPtr hJob, IntPtr hProcess);
-
-	// Hard link API
-	[DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-	private static extern bool CreateHardLink(string lpFileName, string lpExistingFileName, IntPtr lpSecurityAttributes);
-
-	[StructLayout(LayoutKind.Sequential)]
-	private struct JOBOBJECT_BASIC_LIMIT_INFORMATION
-	{
-		public long PerProcessUserTimeLimit;
-		public long PerJobUserTimeLimit;
-		public uint LimitFlags;
-		public UIntPtr MinimumWorkingSetSize;
-		public UIntPtr MaximumWorkingSetSize;
-		public uint ActiveProcessLimit;
-		public UIntPtr Affinity;
-		public uint PriorityClass;
-		public uint SchedulingClass;
-	}
-
-	[StructLayout(LayoutKind.Sequential)]
-	private struct IO_COUNTERS
-	{
-		public ulong ReadOperationCount;
-		public ulong WriteOperationCount;
-		public ulong OtherOperationCount;
-		public ulong ReadTransferCount;
-		public ulong WriteTransferCount;
-		public ulong OtherTransferCount;
-	}
-
-	[StructLayout(LayoutKind.Sequential)]
-	private struct JOBOBJECT_EXTENDED_LIMIT_INFORMATION
-	{
-		public JOBOBJECT_BASIC_LIMIT_INFORMATION BasicLimitInformation;
-		public IO_COUNTERS IoInfo;
-		public UIntPtr ProcessMemoryLimit;
-		public UIntPtr JobMemoryLimit;
-		public UIntPtr PeakProcessMemoryUsed;
-		public UIntPtr PeakJobMemoryUsed;
-	}
-
-	private const int JobObjectExtendedLimitInformation = 9;
-	private const uint JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000;
-
-	private readonly IntPtr _jobHandle;
 	private readonly ILogger<BackendOrchestrator> _logger;
 	private readonly PivotCoordinatorOptions _options;
 	private readonly BackendRegistry _registry;
+	private readonly IServiceProvider _serviceProvider;
 	private readonly List<BackendInstance> _instances = new();
 	private readonly SemaphoreSlim _deploymentLock = new(1, 1);
 	private int _nextPort;
@@ -78,66 +35,38 @@ public class BackendOrchestrator : BackgroundService
 	public BackendOrchestrator(
 		ILogger<BackendOrchestrator> logger,
 		PivotCoordinatorOptions options,
-		BackendRegistry registry
-	)
-	{
+		BackendRegistry registry,
+		IServiceProvider serviceProvider
+	) {
 		_logger = logger;
 		_options = options;
 		_registry = registry;
+		_serviceProvider = serviceProvider;
 		_nextPort = options.InitialPort;
-
-		// Create job object to ensure all child processes die when coordinator dies
-		if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-		{
-			_jobHandle = CreateJobObject(IntPtr.Zero, null);
-			var info = new JOBOBJECT_EXTENDED_LIMIT_INFORMATION
-			{
-				BasicLimitInformation = new JOBOBJECT_BASIC_LIMIT_INFORMATION
-				{
-					LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
-				}
-			};
-
-			int length = Marshal.SizeOf(typeof(JOBOBJECT_EXTENDED_LIMIT_INFORMATION));
-			IntPtr extendedInfoPtr = Marshal.AllocHGlobal(length);
-			Marshal.StructureToPtr(info, extendedInfoPtr, false);
-
-			if (!SetInformationJobObject(_jobHandle, JobObjectExtendedLimitInformation, extendedInfoPtr, (uint)length))
-			{
-				_logger.LogWarning("Failed to set job object information");
-			}
-
-			Marshal.FreeHGlobal(extendedInfoPtr);
-		}
 	}
 
-	public void SetCoordinatorAddress(string address)
-	{
+	public void SetCoordinatorAddress(string address) {
 		_coordinatorAddress = address;
 	}
 
-	protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-	{
+	protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
 		_logger.LogInformation("Building initial backend");
 
 		// Build the Server project first
 		var buildOutputDir = await BuildServerAsync();
-		if (buildOutputDir == null)
-		{
+		if (buildOutputDir == null) {
 			_logger.LogError("Initial build failed");
 			throw new InvalidOperationException("Initial build failed");
 		}
 
 		_logger.LogInformation("Starting initial backend instance on port {Port}", _nextPort);
 
-		try
-		{
+		try {
 			// Start initial backend
 			var initial = await StartBackendAsync(_nextPort++, buildOutputDir, stoppingToken);
 
 			// Wait for it to be healthy
-			if (!await WaitForHealthyAsync(initial))
-			{
+			if (!await WaitForHealthyAsync(initial)) {
 				_logger.LogError("Initial backend failed health checks");
 				throw new InvalidOperationException("Initial backend failed to start");
 			}
@@ -147,32 +76,27 @@ public class BackendOrchestrator : BackgroundService
 
 			_logger.LogInformation("Initial backend instance started successfully");
 		}
-		catch (Exception ex)
-		{
+		catch (Exception ex) {
 			_logger.LogError(ex, "Failed to start initial backend instance");
 			throw;
 		}
 	}
 
-	public async Task<bool> ReloadBackendsAsync()
-	{
+	public async Task<bool> ReloadBackendsAsync() {
 		using var activity = ActivitySource.StartActivity("ReloadBackends");
 		var startTime = DateTime.UtcNow;
 
 		// Prevent concurrent reloads
-		if (!await _deploymentLock.WaitAsync(0))
-		{
+		if (!await _deploymentLock.WaitAsync(0)) {
 			_logger.LogWarning("Reload already in progress, skipping");
 			activity?.SetTag("reload.skipped", true);
 			return false;
 		}
 
-		try
-		{
+		try {
 			// Build the Server project to a timestamped directory to avoid file locking
 			var buildOutputDir = await BuildServerAsync();
-			if (buildOutputDir == null)
-			{
+			if (buildOutputDir == null) {
 				_logger.LogError("Server build failed, aborting reload");
 				activity?.SetTag("reload.success", false);
 				activity?.SetTag("reload.failure_reason", "build_failed");
@@ -186,20 +110,22 @@ public class BackendOrchestrator : BackgroundService
 			var newBackend = await StartBackendAsync(_nextPort++, buildOutputDir, CancellationToken.None);
 
 			// Wait for health check
-			if (!await WaitForHealthyAsync(newBackend))
-			{
+			if (!await WaitForHealthyAsync(newBackend)) {
 				_logger.LogError("New backend failed health checks, aborting reload");
 				await newBackend.ShutdownAsync(_logger);
 				activity?.SetTag("reload.success", false);
 				activity?.SetTag("reload.failure_reason", "health_check_failed");
+
+				// Attempt auto-recovery if plugin management is enabled
+				await AttemptAutoRecoveryAsync();
+
 				return false;
 			}
 
 			_logger.LogInformation("New backend is healthy, switching traffic");
 
 			// Switch traffic to new backend immediately
-			if (_instances.Count > 0)
-			{
+			if (_instances.Count > 0) {
 				var oldBackend = _instances[0];
 				_logger.LogInformation("Removing old backend on port {Port} from routing", oldBackend.Info.Port);
 
@@ -216,8 +142,7 @@ public class BackendOrchestrator : BackgroundService
 				_logger.LogInformation("Shutting down old backend on port {Port}", oldBackend.Info.Port);
 				await oldBackend.ShutdownAsync(_logger);
 			}
-			else
-			{
+			else {
 				// First backend - just add it
 				_instances.Add(newBackend);
 				await _registry.UpdateAsync(_instances.Select(i => i.Info).ToList());
@@ -232,35 +157,30 @@ public class BackendOrchestrator : BackgroundService
 
 			return true;
 		}
-		catch (Exception ex)
-		{
+		catch (Exception ex) {
 			_logger.LogError(ex, "Failed to reload backends");
 			activity?.SetTag("reload.success", false);
 			activity?.SetTag("error.type", ex.GetType().Name);
 			activity?.SetTag("error.message", ex.Message);
 			return false;
 		}
-		finally
-		{
+		finally {
 			_deploymentLock.Release();
 		}
 	}
 
-	private async Task<BackendInstance> StartBackendAsync(int port, string outputDir, CancellationToken cancellationToken)
-	{
+	private async Task<BackendInstance> StartBackendAsync(int port, string outputDir, CancellationToken cancellationToken) {
 		using var activity = ActivitySource.StartActivity("StartBackend");
 		activity?.SetTag("backend.port", port);
 
 		// Use the provided output directory
 		var projectName = Path.GetFileName(_options.ServerProjectPath ?? "Server");
-		if (projectName.EndsWith(".csproj"))
-		{
+		if (projectName.EndsWith(".csproj")) {
 			projectName = Path.GetFileNameWithoutExtension(projectName);
 		}
 
 		var binPath = Path.Combine(outputDir, $"{projectName}.dll");
-		if (!File.Exists(binPath))
-		{
+		if (!File.Exists(binPath)) {
 			throw new InvalidOperationException($"Server DLL not found at {binPath}");
 		}
 
@@ -269,8 +189,7 @@ public class BackendOrchestrator : BackgroundService
 		var workingDir = outputDir;
 		_logger.LogInformation("Starting backend from: {Path}", binPath);
 
-		var startInfo = new ProcessStartInfo
-		{
+		var startInfo = new ProcessStartInfo {
 			FileName = command,
 			Arguments = args,
 			UseShellExecute = false,
@@ -281,58 +200,39 @@ public class BackendOrchestrator : BackgroundService
 		};
 
 		// Set PIVOT_COORDINATOR_URL environment variable for file watcher
-		if (!string.IsNullOrEmpty(_coordinatorAddress))
-		{
+		if (!string.IsNullOrEmpty(_coordinatorAddress)) {
 			startInfo.Environment["PIVOT_COORDINATOR_URL"] = _coordinatorAddress;
 		}
 
 		var process = Process.Start(startInfo);
-		if (process == null)
-		{
+		if (process == null) {
 			throw new InvalidOperationException($"Failed to start backend process on port {port}");
 		}
 
-		// Assign process to job object so it dies when coordinator dies (Windows only)
-		if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && _jobHandle != IntPtr.Zero)
-		{
-			if (!AssignProcessToJobObject(_jobHandle, process.Handle))
-			{
-				_logger.LogWarning("Failed to assign process {Port} to job object", port);
-			}
-		}
-
 		// Log output for debugging
-		_ = Task.Run(async () =>
-		{
-			while (!process.HasExited)
-			{
+		_ = Task.Run(async () => {
+			while (!process.HasExited) {
 				var line = await process.StandardOutput.ReadLineAsync(cancellationToken);
-				if (!string.IsNullOrEmpty(line))
-				{
+				if (!string.IsNullOrEmpty(line)) {
 					_logger.LogInformation("[Backend:{Port}] {Output}", port, line);
 				}
 			}
 		}, cancellationToken);
 
 		// Log errors
-		_ = Task.Run(async () =>
-		{
-			while (!process.HasExited)
-			{
+		_ = Task.Run(async () => {
+			while (!process.HasExited) {
 				var line = await process.StandardError.ReadLineAsync(cancellationToken);
-				if (!string.IsNullOrEmpty(line))
-				{
+				if (!string.IsNullOrEmpty(line)) {
 					_logger.LogError("[Backend:{Port}] ERROR: {Output}", port, line);
 				}
 			}
 		}, cancellationToken);
 
-		return new BackendInstance
-		{
+		return new BackendInstance {
 			Process = process,
 			DeploymentPath = outputDir,
-			Info = new BackendInfo
-			{
+			Info = new BackendInfo {
 				Address = $"http://localhost:{port}",
 				Port = port,
 				StartedAt = DateTime.UtcNow,
@@ -341,8 +241,7 @@ public class BackendOrchestrator : BackgroundService
 		};
 	}
 
-	private async Task<bool> WaitForHealthyAsync(BackendInstance backend)
-	{
+	private async Task<bool> WaitForHealthyAsync(BackendInstance backend) {
 		using var activity = ActivitySource.StartActivity("HealthCheck");
 		activity?.SetTag("backend.port", backend.Info.Port);
 		activity?.SetTag("backend.address", backend.Info.Address);
@@ -350,13 +249,10 @@ public class BackendOrchestrator : BackgroundService
 		using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
 		int attempt = 0;
 
-		while (attempt < _options.HealthCheckMaxAttempts)
-		{
-			try
-			{
+		while (attempt < _options.HealthCheckMaxAttempts) {
+			try {
 				var response = await httpClient.GetAsync($"{backend.Info.Address}/health");
-				if (response.IsSuccessStatusCode)
-				{
+				if (response.IsSuccessStatusCode) {
 					_logger.LogInformation("Backend on port {Port} is healthy after {Attempts} attempts",
 						backend.Info.Port, attempt + 1);
 					// Update status to healthy
@@ -368,8 +264,7 @@ public class BackendOrchestrator : BackgroundService
 					return true;
 				}
 			}
-			catch
-			{
+			catch {
 				// Still starting up
 			}
 
@@ -386,10 +281,8 @@ public class BackendOrchestrator : BackgroundService
 		return false;
 	}
 
-	private async Task<string?> BuildServerAsync()
-	{
-		if (string.IsNullOrEmpty(_options.ServerProjectPath))
-		{
+	private async Task<string?> BuildServerAsync() {
+		if (string.IsNullOrEmpty(_options.ServerProjectPath)) {
 			// Using pre-built executable, return standard output dir
 			var exePath = _options.ServerExecutablePath!;
 			return Path.GetDirectoryName(exePath);
@@ -402,16 +295,14 @@ public class BackendOrchestrator : BackgroundService
 		// Check if we need to rebuild the Server project
 		var needsRebuild = await CheckIfServerNeedsRebuild(projectDir);
 
-		if (needsRebuild)
-		{
+		if (needsRebuild) {
 			_logger.LogInformation("Server code changed, rebuilding Server project");
 
 			// Build to stable location
 			var stableBuildDir = Path.Combine(projectDir, "bin", "ServerBuild");
 			Directory.CreateDirectory(stableBuildDir);
 
-			var startInfo = new ProcessStartInfo
-			{
+			var startInfo = new ProcessStartInfo {
 				FileName = "dotnet",
 				Arguments = $"build \"{projectPath}\" --output \"{stableBuildDir}\"",
 				RedirectStandardOutput = true,
@@ -420,11 +311,9 @@ public class BackendOrchestrator : BackgroundService
 				CreateNoWindow = true
 			};
 
-			try
-			{
+			try {
 				using var process = Process.Start(startInfo);
-				if (process == null)
-				{
+				if (process == null) {
 					_logger.LogError("Failed to start build process");
 					return null;
 				}
@@ -434,8 +323,7 @@ public class BackendOrchestrator : BackgroundService
 
 				await process.WaitForExitAsync();
 
-				if (process.ExitCode != 0)
-				{
+				if (process.ExitCode != 0) {
 					_logger.LogError("Server build failed with exit code {Code}\n{Output}\n{Error}",
 						process.ExitCode, output, error);
 					return null;
@@ -445,16 +333,17 @@ public class BackendOrchestrator : BackgroundService
 				_stableServerBuildPath = stableBuildDir;
 				_lastServerBuildTime = DateTime.UtcNow;
 			}
-			catch (Exception ex)
-			{
+			catch (Exception ex) {
 				_logger.LogError(ex, "Error building Server project");
 				return null;
 			}
 		}
-		else
-		{
+		else {
 			_logger.LogInformation("Server code unchanged, reusing existing build");
 		}
+
+		// Deploy enabled plugins if plugin management is enabled
+		await DeployEnabledPluginsAsync();
 
 		// Create timestamped deployment directory
 		var timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss-fff");
@@ -471,11 +360,65 @@ public class BackendOrchestrator : BackgroundService
 		return deploymentDir;
 	}
 
-	private async Task<bool> CheckIfServerNeedsRebuild(string projectDir)
-	{
+	/// <summary>
+	/// Deploy enabled plugins from repository to active directory if plugin management is enabled
+	/// </summary>
+	private async Task DeployEnabledPluginsAsync() {
+		var pluginStateService = _serviceProvider.GetService<PluginStateService>();
+		if (pluginStateService == null) {
+			// Plugin management not enabled
+			return;
+		}
+
+		try {
+			await pluginStateService.DeployEnabledPluginsAsync();
+			_logger.LogInformation("Enabled plugins deployed successfully");
+		}
+		catch (Exception ex) {
+			_logger.LogError(ex, "Failed to deploy enabled plugins");
+			// Continue anyway - might be using development mode
+		}
+	}
+
+	/// <summary>
+	/// Attempt to recover from backend failure by disabling recently modified plugins
+	/// </summary>
+	private async Task AttemptAutoRecoveryAsync() {
+		var pluginStateService = _serviceProvider.GetService<PluginStateService>();
+		var pluginOptions = _serviceProvider.GetService<PluginManagementOptions>();
+
+		if (pluginStateService == null || pluginOptions == null || !pluginOptions.AutoDisableOnFailure) {
+			_logger.LogWarning("Auto-recovery not configured. Manual intervention required.");
+			return;
+		}
+
+		try {
+			// Get recently modified plugins
+			var recentPlugins = await pluginStateService.GetRecentlyModifiedPluginsAsync();
+
+			if (!recentPlugins.Any()) {
+				_logger.LogWarning("No recently modified plugins found. Backend failure may not be plugin-related.");
+				return;
+			}
+
+			_logger.LogWarning("Attempting auto-recovery by disabling {Count} recently modified plugins: {Plugins}",
+				recentPlugins.Count(), string.Join(", ", recentPlugins));
+
+			// Disable the recently modified plugins
+			await pluginStateService.DisablePluginsAsync(recentPlugins);
+
+			_logger.LogInformation("Auto-recovery completed. Disabled plugins: {Plugins}. " +
+				"Trigger a manual reload to deploy the updated configuration.",
+				string.Join(", ", recentPlugins));
+		}
+		catch (Exception ex) {
+			_logger.LogError(ex, "Auto-recovery attempt failed");
+		}
+	}
+
+	private async Task<bool> CheckIfServerNeedsRebuild(string projectDir) {
 		// First build always needed
-		if (_stableServerBuildPath == null || !Directory.Exists(_stableServerBuildPath))
-		{
+		if (_stableServerBuildPath == null || !Directory.Exists(_stableServerBuildPath)) {
 			return true;
 		}
 
@@ -484,11 +427,9 @@ public class BackendOrchestrator : BackgroundService
 		var csFiles = Directory.GetFiles(serverSourceDir, "*.cs", SearchOption.AllDirectories)
 			.Where(f => !f.Contains("\\bin\\") && !f.Contains("\\obj\\"));
 
-		foreach (var file in csFiles)
-		{
+		foreach (var file in csFiles) {
 			var lastWrite = File.GetLastWriteTimeUtc(file);
-			if (lastWrite > _lastServerBuildTime)
-			{
+			if (lastWrite > _lastServerBuildTime) {
 				_logger.LogInformation("Server file changed: {File}", Path.GetFileName(file));
 				return true;
 			}
@@ -496,11 +437,9 @@ public class BackendOrchestrator : BackgroundService
 
 		// Also check .csproj file
 		var csprojPath = Path.Combine(projectDir, $"{Path.GetFileName(projectDir)}.csproj");
-		if (File.Exists(csprojPath))
-		{
+		if (File.Exists(csprojPath)) {
 			var lastWrite = File.GetLastWriteTimeUtc(csprojPath);
-			if (lastWrite > _lastServerBuildTime)
-			{
+			if (lastWrite > _lastServerBuildTime) {
 				_logger.LogInformation("Server .csproj changed");
 				return true;
 			}
@@ -509,8 +448,7 @@ public class BackendOrchestrator : BackgroundService
 		return false;
 	}
 
-	private void CopyServerFiles(string sourceDir, string targetDir, string projectName)
-	{
+	private void CopyServerFiles(string sourceDir, string targetDir, string projectName) {
 		_logger.LogInformation("Hard linking Server files from {Source} to {Target}", sourceDir, targetDir);
 
 		// Hard link all files recursively (Server.dll, dependencies, config files, etc.)
@@ -519,12 +457,10 @@ public class BackendOrchestrator : BackgroundService
 		_logger.LogInformation("Server files hard linked successfully");
 	}
 
-	private void HardLinkDirectory(string sourceDir, string targetDir, bool recursive)
-	{
+	private void HardLinkDirectory(string sourceDir, string targetDir, bool recursive) {
 		var dir = new DirectoryInfo(sourceDir);
 
-		if (!dir.Exists)
-		{
+		if (!dir.Exists) {
 			throw new DirectoryNotFoundException($"Source directory not found: {dir.FullName}");
 		}
 
@@ -532,20 +468,16 @@ public class BackendOrchestrator : BackgroundService
 		Directory.CreateDirectory(targetDir);
 
 		// Hard link files
-		foreach (FileInfo file in dir.GetFiles())
-		{
+		foreach (FileInfo file in dir.GetFiles()) {
 			string targetFilePath = Path.Combine(targetDir, file.Name);
 			CreateHardLinkSafe(targetFilePath, file.FullName);
 		}
 
 		// Process subdirectories recursively
-		if (recursive)
-		{
-			foreach (DirectoryInfo subDir in dir.GetDirectories())
-			{
+		if (recursive) {
+			foreach (DirectoryInfo subDir in dir.GetDirectories()) {
 				// Skip plugins directory if it exists - we'll create fresh one
-				if (subDir.Name.Equals("plugins", StringComparison.OrdinalIgnoreCase))
-				{
+				if (subDir.Name.Equals("plugins", StringComparison.OrdinalIgnoreCase)) {
 					continue;
 				}
 
@@ -555,58 +487,34 @@ public class BackendOrchestrator : BackgroundService
 		}
 	}
 
-	private void CreateHardLinkSafe(string linkPath, string targetPath)
-	{
-		if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-		{
-			if (!CreateHardLink(linkPath, targetPath, IntPtr.Zero))
-			{
-				var error = Marshal.GetLastWin32Error();
-				_logger.LogWarning("Failed to create hard link {Link} -> {Target}, falling back to copy (error: {Error})",
-					linkPath, targetPath, error);
-				File.Copy(targetPath, linkPath, overwrite: true);
-			}
-		}
-		else
-		{
-			// Linux/Mac: use File API or fall back to ln command
-			try
-			{
-				// Try using File.CreateSymbolicLink (requires elevated permissions for symlinks, but hard links don't)
-				// For now, fall back to ln command which is more reliable
-				var process = Process.Start(new ProcessStartInfo
-				{
-					FileName = "ln",
-					Arguments = $"\"{targetPath}\" \"{linkPath}\"",
-					UseShellExecute = false,
-					RedirectStandardError = true,
-					CreateNoWindow = true
-				});
-
-				if (process != null)
-				{
-					process.WaitForExit();
-					if (process.ExitCode != 0)
-					{
-						_logger.LogWarning("Failed to create hard link, falling back to copy");
-						File.Copy(targetPath, linkPath, overwrite: true);
-					}
+	private void CreateHardLinkSafe(string linkPath, string targetPath) {
+		try {
+			if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
+				// Windows: use kernel32.dll CreateHardLink
+				if (!CreateHardLink(linkPath, targetPath, IntPtr.Zero)) {
+					var error = Marshal.GetLastWin32Error();
+					throw new IOException($"CreateHardLink failed with error code {error}");
 				}
 			}
-			catch
-			{
-				_logger.LogWarning("Failed to create hard link, falling back to copy");
-				File.Copy(targetPath, linkPath, overwrite: true);
+			else {
+				// Linux/macOS: use libc link()
+				if (Link(targetPath, linkPath) != 0) {
+					var error = Marshal.GetLastWin32Error();
+					throw new IOException($"link() failed with error code {error}");
+				}
 			}
+		}
+		catch (Exception ex) {
+			// Fall back to copy if hard link fails (e.g., filesystem doesn't support it, or cross-volume)
+			_logger.LogWarning(ex, "Failed to create hard link {Link} -> {Target}, falling back to copy", linkPath, targetPath);
+			File.Copy(targetPath, linkPath, overwrite: true);
 		}
 	}
 
-	private void CopyPluginDlls(string projectDir, string outputDir)
-	{
+	private void CopyPluginDlls(string projectDir, string outputDir) {
 		// Hard link plugin DLLs from their build output to the timestamped deployment directory
 		var pluginsDir = Path.Combine(projectDir, "..", "Plugins");
-		if (!Directory.Exists(pluginsDir))
-		{
+		if (!Directory.Exists(pluginsDir)) {
 			_logger.LogWarning("Plugins directory not found: {Dir}", pluginsDir);
 			return;
 		}
@@ -616,27 +524,23 @@ public class BackendOrchestrator : BackgroundService
 		Directory.CreateDirectory(targetPluginsDir);
 
 		var pluginProjects = Directory.GetDirectories(pluginsDir);
-		foreach (var pluginProject in pluginProjects)
-		{
+		foreach (var pluginProject in pluginProjects) {
 			var pluginName = Path.GetFileName(pluginProject);
 			var pluginOutputDir = Path.Combine(pluginProject, "bin", "Debug", "net9.0");
 
-			if (!Directory.Exists(pluginOutputDir))
-			{
+			if (!Directory.Exists(pluginOutputDir)) {
 				_logger.LogWarning("Plugin output directory not found: {Path}", pluginOutputDir);
 				continue;
 			}
 
 			// Hard link all plugin output files (dll, pdb, deps.json, etc.)
 			var pluginFiles = Directory.GetFiles(pluginOutputDir, $"{pluginName}.*");
-			if (pluginFiles.Length == 0)
-			{
+			if (pluginFiles.Length == 0) {
 				_logger.LogWarning("No plugin files found for: {Plugin}", pluginName);
 				continue;
 			}
 
-			foreach (var pluginFile in pluginFiles)
-			{
+			foreach (var pluginFile in pluginFiles) {
 				var fileName = Path.GetFileName(pluginFile);
 				var targetPath = Path.Combine(targetPluginsDir, fileName);
 				CreateHardLinkSafe(targetPath, pluginFile);
@@ -646,35 +550,28 @@ public class BackendOrchestrator : BackgroundService
 		}
 	}
 
-	public override async Task StopAsync(CancellationToken cancellationToken)
-	{
+	public override async Task StopAsync(CancellationToken cancellationToken) {
 		_logger.LogInformation("Shutting down all backend instances");
 
-		foreach (var instance in _instances.ToList())
-		{
+		foreach (var instance in _instances.ToList()) {
 			await instance.ShutdownAsync(_logger);
 		}
 
 		await base.StopAsync(cancellationToken);
 	}
 
-	public override void Dispose()
-	{
+	public override void Dispose() {
 		// Ensure cleanup happens even if StopAsync wasn't called
 		_logger.LogInformation("Disposing BackendOrchestrator, cleaning up {Count} backend instances", _instances.Count);
 
-		foreach (var instance in _instances.ToList())
-		{
-			try
-			{
-				if (!instance.Process.HasExited)
-				{
+		foreach (var instance in _instances.ToList()) {
+			try {
+				if (!instance.Process.HasExited) {
 					_logger.LogInformation("Force killing backend on port {Port}", instance.Info.Port);
 					instance.Process.Kill(entireProcessTree: true);
 				}
 			}
-			catch (Exception ex)
-			{
+			catch (Exception ex) {
 				_logger.LogError(ex, "Error killing backend process on port {Port}", instance.Info.Port);
 			}
 		}

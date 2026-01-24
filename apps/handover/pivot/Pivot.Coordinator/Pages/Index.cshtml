@@ -1,0 +1,84 @@
+@page
+@using Pivot.Coordinator.Pages
+@model IndexModel
+@{
+    ViewData["Title"] = "Pivot Plugin Manager";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"]</title>
+    <link rel="stylesheet" href="~/css/admin.css" />
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🔌 Pivot Plugin Manager</h1>
+            <p class="subtitle">Manage plugins across all backend instances</p>
+            <div class="header-actions">
+                <button id="deploy-btn" class="btn btn-primary">🚀 Deploy Plugins</button>
+                <button id="reload-backends-btn" class="btn btn-secondary">🔄 Reload Backends</button>
+            </div>
+        </header>
+
+        <div class="alert alert-info">
+            <strong>ℹ️ Note:</strong> This management panel runs independently of backend instances. You can use it to recover from failed backends by disabling problematic plugins.
+        </div>
+
+        <div class="stats-bar">
+            <div class="stat">
+                <span class="stat-label">Total Plugins</span>
+                <span class="stat-value" id="total-plugins">@Model.Plugins.Count()</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">Enabled</span>
+                <span class="stat-value stat-success" id="enabled-plugins">@Model.Plugins.Count(p => p.IsEnabled)</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">Disabled</span>
+                <span class="stat-value stat-danger" id="disabled-plugins">@Model.Plugins.Count(p => !p.IsEnabled)</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">Status</span>
+                <span class="stat-value">
+                    <span class="status-indicator" id="connection-status">●</span>
+                    <span id="connection-text">Connected</span>
+                </span>
+            </div>
+        </div>
+
+        <div class="plugin-grid" id="plugin-grid">
+            @foreach (var plugin in Model.Plugins)
+            {
+                <div class="plugin-card" data-plugin="@plugin.Name">
+                    <div class="plugin-header">
+                        <h3 class="plugin-name">@plugin.Name</h3>
+                        <label class="toggle-switch">
+                            <input type="checkbox"
+                                   class="plugin-toggle"
+                                   data-plugin="@plugin.Name"
+                                   @(plugin.IsEnabled ? "checked" : "")>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="plugin-status @(plugin.IsEnabled ? "enabled" : "disabled")">
+                        @(plugin.IsEnabled ? "✓ Enabled" : "○ Disabled")
+                    </div>
+                    <div class="plugin-meta">
+                        <small>Last modified: <time class="plugin-time">@plugin.LastModified.ToString("g")</time></small>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <footer class="footer">
+            <p>Pivot Framework • <a href="https://github.com/arcmantle/weave" target="_blank">GitHub</a></p>
+        </footer>
+    </div>
+
+    <script src="~/js/admin.js"></script>
+</body>
+</html>

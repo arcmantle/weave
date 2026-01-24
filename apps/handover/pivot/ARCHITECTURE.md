@@ -177,7 +177,9 @@ namespace Pivot.Plugin;
 
 public interface IPlugin
 {
-    void Register(WebApplication app);
+    string Name { get; }
+    void Initialize(WebApplicationBuilder builder);
+    void Configure(WebApplication app);
 }
 ```
 
@@ -196,6 +198,45 @@ public interface IPlugin
 - Uses `Assembly.LoadFrom` for shared context
 - Enables runtime plugin deployment
 - All plugins share dependency resolution
+
+### Plugin Repository Architecture
+
+For production deployments, Pivot supports a **plugin repository** pattern that separates plugin storage from deployment:
+
+- **Plugin Repository Directory**: Central storage for all available plugins (source of truth)
+- **Active Plugins Directory**: Contains only enabled plugins that should be loaded
+- **Plugin State Provider**: Database or other mechanism tracking enabled/disabled state
+- **Deployment Manager**: Copies enabled plugins from repository to active directory
+
+**Architecture Flow**:
+
+```
+plugin-repository/     →  [Plugin Deployment]  →  active-plugins/  →  [Blue-Green Deploy]  →  Backend Instance
+(all plugins)             (based on state)        (enabled only)         (Coordinator)           (loads plugins)
+```
+
+This enables:
+
+- Dynamic plugin enabling/disabling without modifying source files
+- Selective deployment of only required plugins
+- Integration with blue-green deployments for zero-downtime updates
+- Database-backed audit trail of plugin state changes
+
+See [PLUGIN_REPOSITORY.md](PLUGIN_REPOSITORY.md) for detailed documentation and examples.
+
+### Plugin Management System (Optional)
+
+The Coordinator can host an **optional plugin management UI** that provides:
+
+- **Web-based Admin Panel**: Manage plugins from any browser
+- **Survives Backend Failures**: Always accessible, even when backends crash
+- **Auto-Recovery**: Automatically disables recently modified plugins when backends fail
+- **Real-Time Updates**: SSE-powered live UI showing plugin states
+- **Centralized Control**: Single source of truth for all backend instances
+
+**Key benefit**: If a bad plugin causes backend startup to fail, the admin panel (running in the Coordinator) remains accessible, allowing you to disable the problematic plugin and trigger a new deployment.
+
+See [PLUGIN_MANAGEMENT.md](PLUGIN_MANAGEMENT.md) for setup and usage guide.
 
 ### Auto-Reload
 
