@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Pivot.Plugin;
 
-namespace ApiExample.Plugins;
+namespace UsersPlugin;
 
 /// <summary>
 /// User model
@@ -15,80 +17,82 @@ public class User
 }
 
 /// <summary>
-/// Plugin providing user management API
+/// Service interface exposed by UsersPlugin for other plugins to consume
 /// </summary>
-public class UsersPlugin : IPlugin
+public interface IUserService
+{
+	User? GetUserById(int id);
+	IEnumerable<User> GetAllUsers();
+	User CreateUser(string username, string email);
+}
+
+/// <summary>
+/// Implementation of user service
+/// </summary>
+public class UserService : IUserService
 {
 	private static readonly List<User> _users = new()
 	{
 		new User { Id = 1, Username = "admin", Email = "admin@example.com" },
 		new User { Id = 2, Username = "user", Email = "user@example.com" }
 	};
+
 	private static int _nextId = 3;
 
+	public User? GetUserById(int id) => _users.FirstOrDefault(u => u.Id == id);
+
+	public IEnumerable<User> GetAllUsers() => _users;
+
+	public User CreateUser(string username, string email)
+	{
+		var user = new User { Id = _nextId++, Username = username, Email = email };
+		_users.Add(user);
+		return user;
+	}
+}
+
+/// <summary>
+/// Plugin providing user management API
+/// </summary>
+public class UsersPlugin : IPlugin
+{
 	public string Name => "Users";
 
 	public void Initialize(WebApplicationBuilder builder)
 	{
-		// No services needed for this simple example
+		// Register IUserService so other plugins can consume it
+		builder.Services.AddSingleton<IUserService, UserService>();
 	}
 
 	public void Configure(WebApplication app)
 	{
+		var userService = app.Services.GetRequiredService<IUserService>();
+
 		var users = app.MapGroup("/api/users")
 			.WithTags("Users")
 			.WithOpenApi();
 
-		users.MapGet("/", () => _users)
+		users.MapGet("/", () => userService.GetAllUsers())
 			.WithName("GetUsers")
 			.WithSummary("Get all users")
 			.WithDescription("Returns all registered users");
 
 		users.MapGet("/{id}", (int id) =>
 		{
-			var user = _users.FirstOrDefault(u => u.Id == id);
+			var user = userService.GetUserById(id);
 			return user != null ? Results.Ok(user) : Results.NotFound();
 		})
 		.WithName("GetUserById")
 		.WithSummary("Get a specific user by ID")
 		.WithDescription("Returns a single user by their ID");
 
-		users.MapPost("/", (User user) =>
+		users.MapPost("/", (string username, string email) =>
 		{
-			user.Id = _nextId++;
-			user.CreatedAt = DateTime.UtcNow;
-			_users.Add(user);
+			var user = userService.CreateUser(username, email);
 			return Results.Created($"/api/users/{user.Id}", user);
 		})
 		.WithName("CreateUser")
 		.WithSummary("Create a new user")
 		.WithDescription("Registers a new user in the system");
-
-		users.MapPut("/{id}", (int id, User updatedUser) =>
-		{
-			var user = _users.FirstOrDefault(u => u.Id == id);
-			if (user == null)
-				return Results.NotFound();
-
-			user.Username = updatedUser.Username;
-			user.Email = updatedUser.Email;
-			return Results.Ok(user);
-		})
-		.WithName("UpdateUser")
-		.WithSummary("Update an existing user")
-		.WithDescription("Updates a user's information");
-
-		users.MapDelete("/{id}", (int id) =>
-		{
-			var user = _users.FirstOrDefault(u => u.Id == id);
-			if (user == null)
-				return Results.NotFound();
-
-			_users.Remove(user);
-			return Results.NoContent();
-		})
-		.WithName("DeleteUser")
-		.WithSummary("Delete a user")
-		.WithDescription("Removes a user from the system");
 	}
 }

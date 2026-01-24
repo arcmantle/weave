@@ -1,0 +1,17 @@
+<Project>
+	<!--
+		Local development plugin references - provides IntelliSense and debugging support.
+
+		Add plugins you're actively working on here to get:
+		- Full IntelliSense/code completion
+		- Breakpoint debugging
+		- Automatic rebuild when plugin changes
+	-->
+
+	<ItemGroup>
+		<!-- Sample plugins demonstrating the plugin architecture -->
+		<ProjectReference Include="..\Plugins\TodosPlugin\TodosPlugin.csproj" />
+		<ProjectReference Include="..\Plugins\UsersPlugin\UsersPlugin.csproj" />
+		<ProjectReference Include="..\Plugins\WeatherPlugin\WeatherPlugin.csproj" />
+	</ItemGroup>
+</Project>

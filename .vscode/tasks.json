@@ -1,0 +1,38 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "watch:apiexample",
+			"command": "dotnet",
+			"type": "process",
+			"args": [
+				"watch",
+				"--project",
+				"${workspaceFolder}/apps/handover/pivot/Samples/ApiExample/ApiExample.csproj"
+			],
+			"isBackground": true,
+			"problemMatcher": {
+				"owner": "csharp",
+				"pattern": {
+					"regexp": "^([^\\s].*):([0-9]+):([0-9]+):\\s+(error|warning)\\s+([^:]+):\\s+(.*)$",
+					"file": 1,
+					"line": 2,
+					"column": 3,
+					"severity": 4,
+					"code": 5,
+					"message": 6
+				},
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": "^dotnet watch",
+					"endsPattern": "^\\s*Now listening on:|Application started\\."
+				}
+			},
+			"options": {
+				"env": {
+					"ASPNETCORE_ENVIRONMENT": "Development"
+				}
+			}
+		}
+	]
+}

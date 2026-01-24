@@ -1,32 +1,18 @@
-using ApiExample.Data;
-using ApiExample.Services;
-using Microsoft.EntityFrameworkCore;
+using Pivot.Extensions;
 using Pivot.Plugin;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add Razor Pages
-builder.Services.AddRazorPages();
-
-// Add EF Core with SQLite
-builder.Services.AddDbContext<PluginDbContext>(options =>
-	options.UseSqlite("Data Source=plugins.db"));
-
-// Register database-backed plugin state provider
-builder.Services.AddSingleton<IPluginStateProvider, DatabasePluginStateProvider>();
-
 // Add Pivot backend with plugin loading
 builder.AddPivotBackend(options => {
-	options.LoadFromReferencedAssemblies = true;
+	// Development: Load plugins from referenced assemblies (enables IntelliSense, debugging)
+	// Production: Load from directory (enables hot reload without restart)
+	options.LoadFromReferencedAssemblies = builder.Environment.IsDevelopment();
 	options.EnableAutoReload = builder.Environment.IsDevelopment();
-	// In production, you would set:
-	// options.LoadFromReferencedAssemblies = false;
-	// options.PluginRepositoryDirectory = "path/to/plugin-repository";
-	// options.PluginDirectory = "path/to/active-plugins";
-});
 
-// Add Plugin Manager
-builder.Services.AddSingleton<IPluginManager, PluginManager>();
+	// For directory-based loading (production or when LoadFromReferencedAssemblies = false):
+	options.PluginDirectory = Path.Combine(AppContext.BaseDirectory, "plugins");
+});
 
 // Add Swagger
 builder.Services.AddEndpointsApiExplorer();
@@ -34,7 +20,7 @@ builder.Services.AddSwaggerGen(c => {
 	c.SwaggerDoc("v1", new() {
 		Title = "Pivot Sample API",
 		Version = "v1",
-		Description = "Sample application demonstrating Pivot plugin system with dynamic plugin management"
+		Description = "Simple sample demonstrating the Pivot plugin system"
 	});
 
 	var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
@@ -46,23 +32,10 @@ builder.Services.AddSwaggerGen(c => {
 
 var app = builder.Build();
 
-// Ensure database is created and migrated
-using (var scope = app.Services.CreateScope()) {
-	var db = scope.ServiceProvider.GetRequiredService<PluginDbContext>();
-	db.Database.Migrate();
-
-	// Initialize plugin manager to sync plugins with database
-	var pluginManager = scope.ServiceProvider.GetRequiredService<IPluginManager>();
-	await pluginManager.InitializeAsync();
-}
-
 // Configure middleware
 if (app.Environment.IsDevelopment()) {
 	app.UseDeveloperExceptionPage();
 }
-
-app.UseStaticFiles();
-app.UseRouting();
 
 // Enable Swagger
 app.UseSwagger();
@@ -73,70 +46,5 @@ app.UseSwaggerUI(c => {
 
 // Map Pivot backend (includes plugin configuration)
 app.MapPivotBackend();
-
-// Map Razor Pages
-app.MapRazorPages();
-
-// Map Plugin Management API
-var pluginApi = app.MapGroup("/api/plugins")
-	.WithTags("Plugin Management");
-
-pluginApi.MapGet("/", async (IPluginManager manager) => {
-	var plugins = await manager.GetAllPluginsAsync();
-	return Results.Ok(plugins);
-})
-.WithName("GetAllPlugins")
-.WithSummary("Get all plugins and their current state")
-.WithOpenApi();
-
-pluginApi.MapPost("/{name}/toggle", async (string name, IPluginManager manager) => {
-	var success = await manager.TogglePluginAsync(name);
-	if (!success)
-		return Results.NotFound(new { message = $"Plugin '{name}' not found" });
-
-	return Results.Ok(new { message = $"Plugin '{name}' toggled successfully" });
-})
-.WithName("TogglePlugin")
-.WithSummary("Enable or disable a plugin")
-.WithOpenApi();
-
-pluginApi.MapPost("/deploy", async (
-	PluginDeploymentManager deploymentManager,
-	IPluginStateProvider stateProvider,
-	ILogger<Program> logger) => {
-		try {
-			// Example: In a real scenario, these would come from configuration
-			var repositoryDir = Path.Combine(app.Environment.ContentRootPath, "plugin-repository");
-			var activeDir = Path.Combine(app.Environment.ContentRootPath, "active-plugins");
-
-			await deploymentManager.DeployEnabledPluginsAsync(repositoryDir, activeDir, stateProvider);
-
-			return Results.Ok(new {
-				message = "Plugin deployment completed successfully",
-				note = "Application restart required for changes to take effect"
-			});
-		}
-		catch (Exception ex) {
-			logger.LogError(ex, "Failed to deploy plugins");
-			return Results.Problem("Failed to deploy plugins: " + ex.Message);
-		}
-	})
-.WithName("DeployPlugins")
-.WithSummary("Deploy enabled plugins from repository to active directory")
-.WithDescription("Copies enabled plugin DLLs from the plugin repository to the active plugins directory. " +
-	"This demonstrates how plugins can be managed when using directory-based loading in production.")
-.WithOpenApi();
-
-pluginApi.MapGet("/events", async (HttpContext context, IPluginManager manager) => {
-	context.Response.Headers.Append("Content-Type", "text/event-stream");
-	context.Response.Headers.Append("Cache-Control", "no-cache");
-	context.Response.Headers.Append("Connection", "keep-alive");
-
-	await manager.StreamPluginEventsAsync(context.Response.Body, context.RequestAborted);
-})
-.WithName("PluginEvents")
-.WithSummary("Server-Sent Events stream for real-time plugin state updates")
-.WithOpenApi()
-.ExcludeFromDescription(); // Hide from Swagger UI since SSE doesn't work well there
 
 app.Run();

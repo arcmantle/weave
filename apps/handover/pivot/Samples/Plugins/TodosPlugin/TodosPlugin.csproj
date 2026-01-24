@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+	<ItemGroup>
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- Framework reference - host provides this, don't bundle -->
+		<ProjectReference Include="../../../Pivot.Core/Pivot.Core.csproj" Private="false" />
+		<!-- Plugin dependency - for IntelliSense only, don't bundle -->
+		<ProjectReference Include="../UsersPlugin/UsersPlugin.csproj" Private="false" />
+	</ItemGroup>
+</Project>

@@ -1,0 +1,12 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "Watch & Debug ApiExample",
+			"type": "coreclr",
+			"request": "attach",
+			"preLaunchTask": "watch:apiexample",
+			"processName": "ApiExample"
+		}
+	]
+}

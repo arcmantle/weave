@@ -1,85 +1,75 @@
 # Pivot API Example
 
-A comprehensive sample application demonstrating the Pivot plugin framework with dynamic plugin management, Swagger API documentation, and a real-time admin interface.
+A simple standalone sample demonstrating the Pivot plugin framework with Swagger API documentation.
 
 ## Features
 
-- ✨ **Dynamic Plugin System**: Enable/disable plugins at runtime
+- 🔌 **Simple Plugin System**: Three example plugins showing different API patterns
 - 📚 **Swagger/OpenAPI Documentation**: Interactive API explorer at `/swagger`
-- 🎨 **Modern Admin UI**: Real-time plugin management interface
-- 🔄 **Live Updates**: Server-Sent Events (SSE) for real-time state synchronization
-- 💾 **SQLite Persistence**: Plugin states persisted across restarts
-- 🔌 **Example Plugins**:
-  - **Todos Plugin**: CRUD operations for todo items
-  - **Weather Plugin**: Weather forecast API endpoints
-  - **Users Plugin**: User management API
+- 🔄 **Hot Reload**: File watching in development mode
+- 🎯 **Standalone**: No Coordinator or Proxy needed for development
 
-## Getting Started
+## Example Plugins
+
+- **Todos Plugin**: CRUD operations for todo items (`/api/todos`)
+- **Weather Plugin**: Weather forecast API endpoints (`/api/weather`)
+- **Users Plugin**: User management API (`/api/users`)
+
+## Quick Start
 
 ### Prerequisites
 
 - .NET 9.0 SDK
 
-### Running the Application
+### Running
 
 ```bash
 cd apps/handover/pivot/Samples/ApiExample
 dotnet run
 ```
 
-The application will start on `http://localhost:5200`.
+Application starts on `http://localhost:5200`
 
-## Endpoints
+**Access Swagger:** `http://localhost:5200/swagger`
 
-### Admin Interface
-- **GET /** - Plugin management dashboard with real-time updates
+## Development
 
-### API Endpoints
-- **GET /swagger** - Swagger UI for API documentation
-- **GET /api/plugins** - List all plugins and their states
-- **POST /api/plugins/{name}/toggle** - Enable/disable a specific plugin
-- **POST /api/plugins/deploy** - Deploy enabled plugins from repository (production mode)
-- **GET /api/plugins/events** - SSE stream for real-time plugin state updates
+See [DEVELOPMENT.md](DEVELOPMENT.md) for:
 
-### Plugin Endpoints (when enabled)
+- Working with inline plugins (current setup)
+- Creating separate plugin projects
+- Using Local.props for IntelliSense
+- Debugging workflows
+- Production deployment
 
-#### Todos Plugin
-- **GET /api/todos** - Get all todos
-- **GET /api/todos/{id}** - Get a specific todo
-- **POST /api/todos** - Create a new todo
-- **PUT /api/todos/{id}** - Update a todo
-- **DELETE /api/todos/{id}** - Delete a todo
+## API Endpoints
 
-#### Weather Plugin
-- **GET /api/weather/forecast** - Get 5-day weather forecast
-- **GET /api/weather/current** - Get current weather
+### Todos Plugin
 
-#### Users Plugin
-- **GET /api/users** - Get all users
-- **GET /api/users/{id}** - Get a specific user
-- **POST /api/users** - Create a new user
-- **PUT /api/users/{id}** - Update a user
-- **DELETE /api/users/{id}** - Delete a user
+- `GET /api/todos` - Get all todos
+- `GET /api/todos/{id}` - Get a specific todo
+- `POST /api/todos` - Create a new todo
+- `PUT /api/todos/{id}` - Update a todo
+- `DELETE /api/todos/{id}` - Delete a todo
+
+### Weather Plugin
+
+- `GET /api/weather/forecast` - Get 5-day weather forecast
+- `GET /api/weather/current` - Get current weather
+
+### Users Plugin
+
+- `GET /api/users` - Get all users
+- `GET /api/users/{id}` - Get a specific user
+- `POST /api/users` - Create a new user
+- `PUT /api/users/{id}` - Update a user
+- `DELETE /api/users/{id}` - Delete a user
 
 ## How It Works
 
-### Plugin Loading
+### Plugin System
 
-Plugins are automatically discovered using one of two modes:
-
-**Development Mode (default):**
-
-- Loads plugins from referenced assemblies
-- Fast iteration without file management
-- Configured with `options.LoadFromReferencedAssemblies = true`
-
-**Production Mode:**
-
-- Loads plugins from a directory
-- Supports dynamic plugin deployment
-- Configured with `options.LoadFromReferencedAssemblies = false`
-
-Each plugin implements the `IPlugin` interface:
+Each plugin implements `IPlugin`:
 
 ```csharp
 public interface IPlugin
@@ -90,142 +80,34 @@ public interface IPlugin
 }
 ```
 
-### Plugin Repository Architecture
+### Loading Modes
 
-In production environments, the Pivot framework supports a **plugin repository** pattern:
+**Development (default):**
 
-1. **Plugin Repository Directory**: Contains all available plugin DLLs (the source of truth)
-2. **Active Plugins Directory**: Contains only the enabled plugins that should be loaded
-3. **Plugin Deployment**: When a plugin is enabled/disabled, the deployment manager copies or removes it from the active directory
+- Loads from `bin/` directory (compiled assemblies)
+- Enables hot reload with file watching
+- Full IntelliSense and debugging
 
-**How it works:**
+**Production:**
 
-```
-plugin-repository/          ← All available plugins
-├── Todos.dll
-├── Weather.dll
-└── Users.dll
-
-                ↓ (deployment based on enabled state)
-
-active-plugins/             ← Only enabled plugins
-├── Todos.dll               ✓ Enabled
-└── Weather.dll             ✓ Enabled
-    (Users.dll not copied)  ✗ Disabled
-```
-
-**Triggering deployment:**
-
-```bash
-curl -X POST http://localhost:5200/api/plugins/deploy
-```
-
-This demonstrates the architecture for production deployments where:
-
-- Plugins are stored in a central repository
-- Only enabled plugins are deployed to the active directory
-- Application restart loads the new plugin set
-- Blue-green deployment ensures zero downtime
-
-### Plugin State Management
-
-Plugin states (enabled/disabled) are stored in a SQLite database and synchronized on application startup. When you toggle a plugin:
-
-1. The state is updated in the database
-2. All connected SSE clients receive the updated state
-3. The admin UI updates in real-time
-4. In production mode, call `/api/plugins/deploy` to sync the active plugins directory
-
-Note: Currently, endpoint routing happens at startup. Disabling a plugin updates the UI but doesn't remove the endpoints until app restart. This could be enhanced with middleware to check plugin state before routing.
-
-### Real-Time Updates
-
-The admin interface uses Server-Sent Events (SSE) to receive real-time updates:
-
-```javascript
-const eventSource = new EventSource('/api/plugins/events');
-eventSource.onmessage = (event) => {
-    const plugins = JSON.parse(event.data);
-    updateUI(plugins);
-};
-```
+- Loads from `plugins/` directory
+- Can enable/disable plugins without restart
+- Set `ASPNETCORE_ENVIRONMENT=Production`
 
 ## Project Structure
 
 ```
 ApiExample/
-├── Data/
-│   ├── PluginDbContext.cs             # EF Core database context
-│   └── PluginState.cs                 # Plugin state entity
-├── Services/
-│   ├── IPluginManager.cs              # Plugin manager interface
-│   ├── PluginManager.cs               # Plugin state management & SSE
-│   └── DatabasePluginStateProvider.cs # Database-backed state provider
-├── Plugins/
-│   ├── TodosPlugin.cs                 # Todo API plugin
-│   ├── WeatherPlugin.cs               # Weather API plugin
-│   └── UsersPlugin.cs                 # User management plugin
-├── Pages/
-│   ├── Index.cshtml                   # Admin UI view
-│   └── Index.cshtml.cs                # Admin UI page model
-├── wwwroot/
-│   ├── css/admin.css                  # Custom styling
-│   └── js/admin.js                    # SSE client & interactions
-├── Migrations/                         # EF Core migrations
-├── Program.cs                          # Application entry point
-└── ApiExample.csproj                  # Project file
+├── Program.cs              # Application startup
+├── Plugins/                # Inline plugin implementations
+│   ├── TodosPlugin.cs
+│   ├── UsersPlugin.cs
+│   └── WeatherPlugin.cs
+└── ApiExample.Local.props  # Optional: for separate plugin projects (gitignored)
 ```
 
-## Technologies Used
+## Next Steps
 
-- **ASP.NET Core 9.0** - Web framework
-- **Entity Framework Core** - Database ORM
-- **SQLite** - Embedded database
-- **Swashbuckle** - OpenAPI/Swagger documentation
-- **Razor Pages** - Server-side rendering
-- **Server-Sent Events (SSE)** - Real-time updates
-- **Pivot Framework** - Plugin system
-
-## Extending the Application
-
-### Creating a New Plugin
-
-1. Create a new class implementing `IPlugin`:
-
-```csharp
-public class MyPlugin : IPlugin
-{
-    public string Name => "MyPlugin";
-
-    public void Initialize(WebApplicationBuilder builder)
-    {
-        // Register services
-        builder.Services.AddScoped<IMyService, MyService>();
-    }
-
-    public void Configure(WebApplication app)
-    {
-        // Register endpoints
-        app.MapGet("/api/myplugin", () => "Hello from MyPlugin")
-            .WithTags("MyPlugin")
-            .WithOpenApi();
-    }
-}
-```
-
-2. The plugin will automatically be:
-   - Discovered on startup
-   - Registered in the database
-   - Visible in the admin UI
-   - Documented in Swagger
-
-## Notes
-
-- The database file `plugins.db` is created automatically on first run
-- Plugin states persist across application restarts
-- The application uses in-memory storage for plugin data (todos, users, etc.)
-- Hot reload is enabled in development mode for code changes
-
-## License
-
-This is a sample application for demonstration purposes.
+- **Add your own plugin**: Create new `.cs` file in `Plugins/` folder
+- **Separate projects**: See [DEVELOPMENT.md](DEVELOPMENT.md) for advanced setup
+- **Full stack**: See main Pivot docs for Coordinator/Proxy integration

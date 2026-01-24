@@ -1,7 +1,8 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Pivot.Plugin;
 
-namespace ApiExample.Plugins;
+namespace WeatherPlugin;
 
 /// <summary>
 /// Weather forecast model
