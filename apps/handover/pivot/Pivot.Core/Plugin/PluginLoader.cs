@@ -128,22 +128,65 @@ public class PluginLoader {
 			return Array.Empty<IPlugin>();
 		}
 
+		// Load manifests and resolve dependencies
+		logger?.LogInformation("Loading plugin manifests from {Directory}", directory);
+		List<PluginManifest> manifests;
+		try {
+			manifests = PluginDependencyResolver.LoadManifests(directory);
+			logger?.LogInformation("Found {Count} plugin(s) with manifests", manifests.Count);
+		}
+		catch (Exception ex) {
+			logger?.LogError(ex, "Failed to load plugin manifests");
+			return Array.Empty<IPlugin>();
+		}
+
+		// Resolve load order
+		List<PluginManifest> loadOrder;
+		try {
+			loadOrder = PluginDependencyResolver.ResolveLoadOrder(manifests);
+			logger?.LogInformation("Plugin load order resolved: {Plugins}",
+				string.Join(" → ", loadOrder.Select(m => m.Name)));
+		}
+		catch (Exception ex) {
+			logger?.LogError(ex, "Failed to resolve plugin dependencies");
+			return Array.Empty<IPlugin>();
+		}
+
+		// Detect package conflicts
+		var conflicts = PluginDependencyResolver.DetectPackageConflicts(manifests);
+		if (conflicts.Count > 0) {
+			logger?.LogWarning("Detected {Count} third-party package conflict(s):", conflicts.Count);
+			foreach (var conflict in conflicts) {
+				var usageDetails = string.Join(", ", conflict.Usages.Select(u => $"{u.PluginName} needs {u.Version}"));
+				logger?.LogWarning("  {PackageName}: {Details}", conflict.PackageName, usageDetails);
+			}
+			logger?.LogWarning("Plugins may fail at runtime due to version conflicts. First loaded version will be used.");
+		}
+
 		List<IPlugin> plugins = [];
 
-		foreach (string dllPath in Directory.GetFiles(directory, "*.dll")) {
+		// Load plugins in dependency order - all in default context
+		foreach (var manifest in loadOrder) {
 			try {
-				// Load assembly from file (shared context, no isolation)
-				Assembly assembly = Assembly.LoadFrom(dllPath);
+				var assemblyPath = manifest.GetMainAssemblyPath();
 
-				// Find IPlugin implementations
+				if (!File.Exists(assemblyPath)) {
+					logger?.LogError("Plugin assembly not found: {Path}", assemblyPath);
+					continue;
+				}
+
+				logger?.LogInformation("Loading plugin: {Name} v{Version}", manifest.Name, manifest.Version);
+
+				// Load in default context
+				var assembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(assemblyPath);
 				Type[] types;
 				try {
 					types = assembly.GetTypes();
 				}
 				catch (ReflectionTypeLoadException ex) {
-					// Partial failure - use types that did load successfully
 					types = ex.Types.Where(t => t is not null).ToArray()!;
-					logger?.LogWarning("Assembly {AssemblyName} from {DllPath} had type load failures, processing available types", assembly.FullName, dllPath);
+					logger?.LogWarning("Assembly {AssemblyName} had type load failures, processing available types",
+						assembly.FullName);
 				}
 
 				var pluginTypes = types
@@ -157,8 +200,7 @@ public class PluginLoader {
 						if (constructor is not null) {
 							var plugin = (IPlugin)constructor.Invoke(Array.Empty<object>());
 							plugins.Add(plugin);
-							logger?.LogInformation("Loading plugin: {PluginName} from {FileName}",
-								plugin.Name, Path.GetFileName(dllPath));
+							logger?.LogInformation("Initialized plugin: {PluginName}", plugin.Name);
 						}
 					}
 					catch (Exception ex) {
@@ -167,7 +209,7 @@ public class PluginLoader {
 				}
 			}
 			catch (Exception ex) {
-				logger?.LogError(ex, "Failed to load assembly {DllPath}", dllPath);
+				logger?.LogError(ex, "Failed to load plugin {PluginName}", manifest.Name);
 			}
 		}
 

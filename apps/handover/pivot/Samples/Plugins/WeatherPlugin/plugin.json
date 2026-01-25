@@ -1,0 +1,10 @@
+{
+	"name": "WeatherPlugin",
+	"version": "1.0.0",
+	"description": "Sample weather forecast API",
+	"author": "Sample Author",
+	"pluginDependencies": {},
+	"packageDependencies": {
+		"Newtonsoft.Json": "13.0.3"
+	}
+}

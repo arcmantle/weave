@@ -8,8 +8,7 @@ namespace UsersPlugin;
 /// <summary>
 /// User model
 /// </summary>
-public class User
-{
+public class User {
 	public int Id { get; set; }
 	public required string Username { get; set; }
 	public required string Email { get; set; }
@@ -19,8 +18,7 @@ public class User
 /// <summary>
 /// Service interface exposed by UsersPlugin for other plugins to consume
 /// </summary>
-public interface IUserService
-{
+public interface IUserService {
 	User? GetUserById(int id);
 	IEnumerable<User> GetAllUsers();
 	User CreateUser(string username, string email);
@@ -29,8 +27,7 @@ public interface IUserService
 /// <summary>
 /// Implementation of user service
 /// </summary>
-public class UserService : IUserService
-{
+public class UserService : IUserService {
 	private static readonly List<User> _users = new()
 	{
 		new User { Id = 1, Username = "admin", Email = "admin@example.com" },
@@ -43,8 +40,7 @@ public class UserService : IUserService
 
 	public IEnumerable<User> GetAllUsers() => _users;
 
-	public User CreateUser(string username, string email)
-	{
+	public User CreateUser(string username, string email) {
 		var user = new User { Id = _nextId++, Username = username, Email = email };
 		_users.Add(user);
 		return user;
@@ -54,18 +50,15 @@ public class UserService : IUserService
 /// <summary>
 /// Plugin providing user management API
 /// </summary>
-public class UsersPlugin : IPlugin
-{
+public class UsersPlugin : IPlugin {
 	public string Name => "Users";
 
-	public void Initialize(WebApplicationBuilder builder)
-	{
+	public void Initialize(WebApplicationBuilder builder) {
 		// Register IUserService so other plugins can consume it
 		builder.Services.AddSingleton<IUserService, UserService>();
 	}
 
-	public void Configure(WebApplication app)
-	{
+	public void Configure(WebApplication app) {
 		var userService = app.Services.GetRequiredService<IUserService>();
 
 		var users = app.MapGroup("/api/users")
@@ -77,8 +70,7 @@ public class UsersPlugin : IPlugin
 			.WithSummary("Get all users")
 			.WithDescription("Returns all registered users");
 
-		users.MapGet("/{id}", (int id) =>
-		{
+		users.MapGet("/{id}", (int id) => {
 			var user = userService.GetUserById(id);
 			return user != null ? Results.Ok(user) : Results.NotFound();
 		})
@@ -86,8 +78,7 @@ public class UsersPlugin : IPlugin
 		.WithSummary("Get a specific user by ID")
 		.WithDescription("Returns a single user by their ID");
 
-		users.MapPost("/", (string username, string email) =>
-		{
+		users.MapPost("/", (string username, string email) => {
 			var user = userService.CreateUser(username, email);
 			return Results.Created($"/api/users/{user.Id}", user);
 		})

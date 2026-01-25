@@ -5,9 +5,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add Pivot backend with plugin loading
 builder.AddPivotBackend(options => {
+	// TEMPORARY: Force directory loading to test manifest system
 	// Development: Load plugins from referenced assemblies (enables IntelliSense, debugging)
 	// Production: Load from directory (enables hot reload without restart)
-	options.LoadFromReferencedAssemblies = builder.Environment.IsDevelopment();
+	options.LoadFromReferencedAssemblies = false; // builder.Environment.IsDevelopment();
 	options.EnableAutoReload = builder.Environment.IsDevelopment();
 
 	// For directory-based loading (production or when LoadFromReferencedAssemblies = false):

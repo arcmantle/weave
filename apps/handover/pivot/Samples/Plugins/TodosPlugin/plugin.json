@@ -1,0 +1,13 @@
+{
+	"name": "TodosPlugin",
+	"version": "1.0.0",
+	"description": "Todo list API that depends on UsersPlugin for user validation",
+	"author": "Sample Author",
+	"pluginDependencies": {
+		"UsersPlugin": "^1.0.0"
+	},
+	"packageDependencies": {
+		"Newtonsoft.Json": "12.0.3",
+		"Dapper": "2.0.0"
+	}
+}

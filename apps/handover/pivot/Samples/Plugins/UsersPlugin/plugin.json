@@ -1,0 +1,7 @@
+{
+	"name": "UsersPlugin",
+	"version": "1.0.0",
+	"description": "User management API with IUserService for other plugins to consume",
+	"author": "Sample Author",
+	"pluginDependencies": {}
+}
