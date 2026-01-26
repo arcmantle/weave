@@ -1,0 +1,133 @@
+{
+  "schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Application Configuration",
+  "description": "Composite configuration schema from multiple frameworks",
+  "type": "object",
+  "properties": {
+    "Logging": {
+      "type": "object",
+      "description": "ASP.NET Core logging configuration",
+      "properties": {
+        "LogLevel": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "enum": [
+              "Trace",
+              "Debug",
+              "Information",
+              "Warning",
+              "Error",
+              "Critical",
+              "None"
+            ]
+          }
+        }
+      }
+    },
+    "AllowedHosts": {
+      "type": "string",
+      "description": "Semicolon-separated list of allowed host names"
+    },
+    "Urls": {
+      "type": "string",
+      "description": "Server URLs to listen on (e.g., \u0027http://localhost:5000\u0027)"
+    },
+    "ApplicationName": {
+      "type": "string",
+      "description": "Application name for data directory isolation"
+    },
+    "Pivot": {
+      "type": "object",
+      "description": "Pivot Framework configuration",
+      "properties": {
+        "Registry": {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "title": "RegistryOptions",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "Enabled": {
+              "type": "boolean"
+            },
+            "ApplicationName": {
+              "type": "string"
+            },
+            "ConnectionString": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "StorageProvider": {
+              "type": "string"
+            },
+            "FileSystemBasePath": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "MinioEndpoint": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "MinioAccessKey": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "MinioSecretKey": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "MinioUseSsl": {
+              "type": "boolean"
+            },
+            "MinioBucketName": {
+              "type": "string"
+            }
+          }
+        },
+        "PluginManagement": {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "title": "PluginManagementOptions",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "Enabled": {
+              "type": "boolean"
+            },
+            "ConnectionString": {
+              "type": "string"
+            },
+            "PluginRepositoryDirectory": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "ActivePluginsDirectory": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "AutoDisableOnFailure": {
+              "type": "boolean"
+            },
+            "RecentlyModifiedWindowMinutes": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        }
+      }
+    }
+  }
+}

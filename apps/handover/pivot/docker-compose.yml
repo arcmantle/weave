@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  pivot-registry:
+    build:
+      context: .
+      dockerfile: Pivot.Registry/Dockerfile
+    ports:
+      - "5100:8080"
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - StorageProvider=MinIO
+      - MinIO__Endpoint=minio:9000
+      - MinIO__AccessKey=minioadmin
+      - MinIO__SecretKey=minioadmin
+      - MinIO__UseSsl=false
+      - MinIO__BucketName=pivot-plugins
+    volumes:
+      - registry-data:/app/data
+
+  minio:
+    image: quay.io/minio/minio:latest
+    container_name: pivot-minio
+    ports:
+      - "9000:9000"   # API
+      - "9001:9001"   # Console UI
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  registry-data:
+  minio-data:

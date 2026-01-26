@@ -52,6 +52,36 @@ public class PluginManifest {
 	public string? Main { get; set; }
 
 	/// <summary>
+	/// License identifier (e.g., "MIT", "Apache-2.0", "GPL-3.0")
+	/// </summary>
+	[JsonPropertyName("license")]
+	public string? License { get; set; }
+
+	/// <summary>
+	/// Tags for categorization and searchability
+	/// </summary>
+	[JsonPropertyName("tags")]
+	public List<string>? Tags { get; set; }
+
+	/// <summary>
+	/// README content in markdown format
+	/// </summary>
+	[JsonPropertyName("readme")]
+	public string? Readme { get; set; }
+
+	/// <summary>
+	/// Repository URL (e.g., GitHub repo)
+	/// </summary>
+	[JsonPropertyName("repository")]
+	public string? Repository { get; set; }
+
+	/// <summary>
+	/// Homepage URL
+	/// </summary>
+	[JsonPropertyName("homepage")]
+	public string? Homepage { get; set; }
+
+	/// <summary>
 	/// Path to the manifest file (populated when loading)
 	/// </summary>
 	[JsonIgnore]

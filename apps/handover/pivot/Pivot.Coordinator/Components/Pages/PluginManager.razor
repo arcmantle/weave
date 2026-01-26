@@ -1,0 +1,360 @@
+@page "/"
+@rendermode InteractiveServer
+@inject IPluginStateProvider PluginStateProvider
+@inject ILogger<PluginManager> Logger
+@implements IAsyncDisposable
+
+<PageTitle>Pivot Plugin Manager</PageTitle>
+
+<div class="container">
+    <header class="header">
+        <h1>🔌 Pivot Plugin Manager</h1>
+        <p class="subtitle">Manage plugins across all backend instances</p>
+        <div class="header-actions">
+            <button class="btn btn-primary" @onclick="DeployPlugins" disabled="@isDeploying">
+                @(isDeploying ? "⏳ Deploying..." : "🚀 Deploy Plugins")
+            </button>
+            <button class="btn btn-secondary" @onclick="ReloadBackends" disabled="@isReloading">
+                @(isReloading ? "⏳ Reloading..." : "🔄 Reload Backends")
+            </button>
+        </div>
+    </header>
+
+    <div class="alert alert-info">
+        <strong>ℹ️ Note:</strong> This management panel runs independently of backend instances. You can use it to recover from failed backends by disabling problematic plugins.
+    </div>
+
+    <div class="tabs">
+        <button class="tab-button @(activeTab == "installed" ? "active" : "")" @onclick='() => activeTab = "installed"'>Installed Plugins</button>
+        <button class="tab-button @(activeTab == "registry" ? "active" : "")" @onclick='() => activeTab = "registry"'>Plugin Registry</button>
+    </div>
+
+    @if (activeTab == "installed")
+    {
+        <div class="tab-content active">
+            <div class="stats-bar">
+                <div class="stat">
+                    <span class="stat-label">Total Plugins</span>
+                    <span class="stat-value">@plugins.Count</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Enabled</span>
+                    <span class="stat-value stat-success">@plugins.Count(p => p.IsEnabled)</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Disabled</span>
+                    <span class="stat-value stat-danger">@plugins.Count(p => !p.IsEnabled)</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Status</span>
+                    <span class="stat-value">
+                        <span class="status-indicator @(isConnected ? "" : "disconnected")">●</span>
+                        <span>@(isConnected ? "Connected" : "Disconnected")</span>
+                    </span>
+                </div>
+            </div>
+
+            <div class="plugin-grid">
+                @foreach (var plugin in plugins)
+                {
+                    <div class="plugin-card" data-enabled="@plugin.IsEnabled">
+                        <div class="plugin-header">
+                            <h3 class="plugin-name">@plugin.Name</h3>
+                            <label class="toggle-switch">
+                                <input type="checkbox"
+                                       class="plugin-toggle"
+                                       checked="@plugin.IsEnabled"
+                                       @onchange="async () => await TogglePlugin(plugin.Name)"
+                                       disabled="@toggleStates.GetValueOrDefault(plugin.Name, false)" />
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="plugin-status @(plugin.IsEnabled ? "enabled" : "disabled")">
+                            @(plugin.IsEnabled ? "✓ Enabled" : "○ Disabled")
+                        </div>
+                        <div class="plugin-meta">
+                            @if (!string.IsNullOrEmpty(plugin.InstalledVersion))
+                            {
+                                <small><strong>Version:</strong> @plugin.InstalledVersion</small><br />
+                            }
+                            <small>Last modified: <time>@plugin.LastModified.ToString("g")</time></small>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="tab-content active">
+            <div class="registry-controls">
+                <input type="text" @bind="registryUrl" @bind:event="oninput" placeholder="Registry URL (e.g., http://localhost:5100)" class="registry-input" />
+                <button class="btn btn-primary" @onclick="LoadRegistry" disabled="@isLoadingRegistry">
+                    @(isLoadingRegistry ? "⏳ Loading..." : "Load Registry")
+                </button>
+                <input type="text" @bind="searchTerm" @bind:event="oninput" @oninput="OnSearchInput" placeholder="Search plugins..." class="registry-input" />
+            </div>
+
+            @if (isLoadingRegistry)
+            {
+                <div class="loading">Loading plugins from registry...</div>
+            }
+            else if (registryError != null)
+            {
+                <div class="error">Failed to load registry: @registryError</div>
+            }
+            else if (registryPlugins.Count == 0 && hasLoadedRegistry)
+            {
+                <div class="empty">No plugins found in registry</div>
+            }
+            else
+            {
+                <div class="plugin-grid">
+                    @foreach (var plugin in registryPlugins)
+                    {
+                        <div class="plugin-card registry-plugin">
+                            <div class="plugin-header">
+                                <h3 class="plugin-name">@plugin.Name</h3>
+                                <button class="btn btn-sm btn-primary"
+                                        @onclick="async () => await InstallPlugin(plugin.Name, plugin.LatestVersion)"
+                                        disabled="@installStates.GetValueOrDefault(plugin.Name, false)">
+                                    @(installStates.GetValueOrDefault(plugin.Name, false) ? "⏳ Installing..." : "📥 Install")
+                                </button>
+                            </div>
+                            <p class="plugin-description">@(plugin.Description ?? "No description available")</p>
+                            <div class="plugin-meta">
+                                <small><strong>Latest:</strong> @(plugin.LatestVersion ?? "N/A")</small><br />
+                                <small><strong>Author:</strong> @(plugin.Author ?? "Unknown")</small><br />
+                                <small><strong>Downloads:</strong> @plugin.TotalDownloads</small><br />
+                                <small><strong>Versions:</strong> @plugin.VersionCount</small>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    <footer class="footer">
+        <p>Pivot Framework • <a href="https://github.com/arcmantle/weave" target="_blank">GitHub</a></p>
+    </footer>
+</div>
+
+@code {
+    private List<PluginState> plugins = new();
+    private List<RegistryPlugin> registryPlugins = new();
+    private Dictionary<string, bool> toggleStates = new();
+    private Dictionary<string, bool> installStates = new();
+    private string activeTab = "installed";
+    private bool isConnected = true;
+    private bool isDeploying = false;
+    private bool isReloading = false;
+    private bool isLoadingRegistry = false;
+    private bool hasLoadedRegistry = false;
+    private string? registryError = null;
+    private string registryUrl = "http://localhost:5100";
+    private string searchTerm = "";
+    private System.Threading.Timer? searchTimer;
+    private CancellationTokenSource? cts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPlugins();
+        cts = new CancellationTokenSource();
+        _ = SubscribeToUpdates(cts.Token);
+    }
+
+    private async Task LoadPlugins()
+    {
+        try
+        {
+            plugins = (await PluginStateProvider.GetAllPluginsAsync()).ToList();
+            isConnected = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load plugins");
+            isConnected = false;
+        }
+    }
+
+    private async Task SubscribeToUpdates(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(2000, cancellationToken);
+                await LoadPlugins();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (TaskCanceledException)
+        {
+            // Expected when disposing
+        }
+    }
+
+    private async Task TogglePlugin(string pluginName)
+    {
+        if (toggleStates.GetValueOrDefault(pluginName, false))
+            return;
+
+        toggleStates[pluginName] = true;
+
+        try
+        {
+            var plugin = plugins.FirstOrDefault(p => p.Name == pluginName);
+            if (plugin != null)
+            {
+                await PluginStateProvider.SetPluginStateAsync(pluginName, !plugin.IsEnabled);
+                await LoadPlugins();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to toggle plugin {PluginName}", pluginName);
+        }
+        finally
+        {
+            toggleStates[pluginName] = false;
+        }
+    }
+
+    private async Task DeployPlugins()
+    {
+        isDeploying = true;
+        try
+        {
+            // TODO: Implement deployment API call
+            await Task.Delay(1000);
+            Logger.LogInformation("Plugins deployed");
+        }
+        finally
+        {
+            isDeploying = false;
+        }
+    }
+
+    private async Task ReloadBackends()
+    {
+        isReloading = true;
+        try
+        {
+            // TODO: Implement reload API call
+            await Task.Delay(1000);
+            Logger.LogInformation("Backends reloaded");
+        }
+        finally
+        {
+            isReloading = false;
+        }
+    }
+
+    private async Task LoadRegistry()
+    {
+        if (string.IsNullOrWhiteSpace(registryUrl))
+            return;
+
+        isLoadingRegistry = true;
+        registryError = null;
+        hasLoadedRegistry = false;
+
+        try
+        {
+            using var http = new HttpClient();
+            var url = $"{registryUrl.TrimEnd('/')}/api/plugins?search={Uri.EscapeDataString(searchTerm)}";
+            var response = await http.GetFromJsonAsync<RegistryResponse>(url);
+
+            if (response != null)
+            {
+                registryPlugins = response.Plugins ?? new List<RegistryPlugin>();
+                hasLoadedRegistry = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load registry");
+            registryError = ex.Message;
+        }
+        finally
+        {
+            isLoadingRegistry = false;
+        }
+    }
+
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        searchTerm = e.Value?.ToString() ?? "";
+        searchTimer?.Dispose();
+        searchTimer = new System.Threading.Timer(_ =>
+        {
+            InvokeAsync(async () =>
+            {
+                await LoadRegistry();
+                StateHasChanged();
+            });
+        }, null, 300, Timeout.Infinite);
+    }
+
+    private async Task InstallPlugin(string pluginName, string? version)
+    {
+        if (string.IsNullOrEmpty(version) || installStates.GetValueOrDefault(pluginName, false))
+            return;
+
+        installStates[pluginName] = true;
+
+        try
+        {
+            using var http = new HttpClient();
+            var downloadUrl = $"{registryUrl.TrimEnd('/')}/api/plugins/{pluginName}/versions/{version}/download";
+
+            var packageData = await http.GetByteArrayAsync(downloadUrl);
+
+            // Save to temp file and install
+            var tempFile = Path.GetTempFileName();
+            await File.WriteAllBytesAsync(tempFile, packageData);
+
+            try
+            {
+                await PluginStateProvider.InstallPluginFromPackageAsync(tempFile, registryUrl);
+                await LoadPlugins();
+                Logger.LogInformation("Plugin {PluginName} version {Version} installed successfully", pluginName, version);
+            }
+            finally
+            {
+                File.Delete(tempFile);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to install plugin {PluginName}", pluginName);
+        }
+        finally
+        {
+            installStates[pluginName] = false;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        cts?.Cancel();
+        cts?.Dispose();
+        searchTimer?.Dispose();
+    }
+
+    private class RegistryResponse
+    {
+        public List<RegistryPlugin>? Plugins { get; set; }
+    }
+
+    private class RegistryPlugin
+    {
+        public string Name { get; set; } = "";
+        public string? Description { get; set; }
+        public string? Author { get; set; }
+        public string? LatestVersion { get; set; }
+        public int TotalDownloads { get; set; }
+        public int VersionCount { get; set; }
+    }
+}

@@ -1,7 +1,11 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Logging;
 using Pivot.Coordinator.Data;
 using Pivot.Coordinator.Services;
 using Pivot.Plugin;
@@ -27,17 +31,14 @@ public static class PluginManagementExtensions {
 		// Register options
 		builder.Services.AddSingleton(options);
 
-		// Add database context
-		builder.Services.AddDbContext<PluginDbContext>(opts =>
-			opts.UseSqlite(options.ConnectionString));
-
 		// Add plugin state service
 		builder.Services.AddSingleton<PluginStateService>();
 		builder.Services.AddSingleton<IPluginStateProvider>(sp =>
 			sp.GetRequiredService<PluginStateService>());
 
-		// Add Razor Pages for admin UI
-		builder.Services.AddRazorPages();
+		// Add Blazor Server for admin UI
+		builder.Services.AddRazorComponents()
+			.AddInteractiveServerComponents();
 
 		return builder;
 	}
@@ -51,17 +52,29 @@ public static class PluginManagementExtensions {
 			return app;
 		}
 
-		// Ensure database is created
-		using (var scope = app.Services.CreateScope()) {
-			var db = scope.ServiceProvider.GetRequiredService<PluginDbContext>();
-			db.Database.Migrate();
+		// Ensure plugin directories exist
+		if (!string.IsNullOrEmpty(options.PluginRepositoryDirectory)) {
+			Directory.CreateDirectory(options.PluginRepositoryDirectory);
+		}
+		if (!string.IsNullOrEmpty(options.ActivePluginsDirectory)) {
+			Directory.CreateDirectory(options.ActivePluginsDirectory);
 		}
 
-		// Map static files (for admin UI)
-		app.UseStaticFiles();
+		// Serve static files from embedded resources (wwwroot)
+		var assembly = typeof(PluginManagementExtensions).Assembly;
+		var embeddedProvider = new ManifestEmbeddedFileProvider(assembly, "wwwroot");
 
-		// Map Razor Pages
-		app.MapRazorPages();
+		app.UseStaticFiles(new StaticFileOptions {
+			FileProvider = embeddedProvider,
+			RequestPath = "" // Serve from root path
+		});
+
+		// Enable antiforgery for Blazor
+		app.UseAntiforgery();
+
+		// Map Blazor components
+		app.MapRazorComponents<Components.App>()
+			.AddInteractiveServerRenderMode();
 
 		// Map Plugin Management API
 		var pluginApi = app.MapGroup("/api/plugins")
@@ -120,6 +133,49 @@ public static class PluginManagementExtensions {
 		.WithName("DeployPlugins")
 		.WithSummary("Deploy enabled plugins from repository to active directory");
 
+		pluginApi.MapPost("/install", async (
+			HttpContext context,
+			PluginStateService service,
+			ILogger<PluginStateService> logger) => {
+				try {
+					var registryUrl = context.Request.Query["registryUrl"].FirstOrDefault();
+					var pluginName = context.Request.Query["name"].FirstOrDefault();
+					var version = context.Request.Query["version"].FirstOrDefault();
+
+					if (string.IsNullOrEmpty(registryUrl) || string.IsNullOrEmpty(pluginName) || string.IsNullOrEmpty(version)) {
+						return Results.BadRequest(new { message = "registryUrl, name, and version are required" });
+					}
+
+					// Download package from registry
+					var downloadUrl = $"{registryUrl}/api/plugins/{pluginName}/versions/{version}/download";
+					using var httpClient = new HttpClient();
+					var response = await httpClient.GetAsync(downloadUrl);
+
+					if (!response.IsSuccessStatusCode) {
+						return Results.Problem($"Failed to download plugin from registry: {response.ReasonPhrase}");
+					}
+
+					await using var packageStream = await response.Content.ReadAsStreamAsync();
+
+					var success = await service.InstallPluginFromPackageAsync(pluginName, version, packageStream, registryUrl);
+
+					if (!success) {
+						return Results.Problem("Failed to install plugin");
+					}
+
+					return Results.Ok(new {
+						message = $"Plugin '{pluginName}' v{version} installed successfully",
+						note = "Enable the plugin and deploy to activate it"
+					});
+				}
+				catch (Exception ex) {
+					logger.LogError(ex, "Failed to install plugin from registry");
+					return Results.Problem("Failed to install plugin: " + ex.Message);
+				}
+			})
+		.WithName("InstallPluginFromRegistry")
+		.WithSummary("Install a plugin from a remote registry");
+
 		pluginApi.MapGet("/events", async (HttpContext context, PluginStateService service) => {
 			context.Response.Headers.Append("Content-Type", "text/event-stream");
 			context.Response.Headers.Append("Cache-Control", "no-cache");
@@ -152,15 +208,39 @@ public static class PluginManagementExtensions {
 		}
 
 		// Discover plugins from repository
-		var pluginFiles = Directory.GetFiles(options.PluginRepositoryDirectory, "*.dll");
-		var pluginNames = pluginFiles
-			.Select(Path.GetFileNameWithoutExtension)
-			.Where(name => !string.IsNullOrEmpty(name))
-			.Cast<string>()
-			.ToList();
+		// Plugins are now organized in subdirectories with their full package content
+		var pluginDirs = Directory.GetDirectories(options.PluginRepositoryDirectory);
+		var discoveredPlugins = new List<(string Name, string? Version)>();
 
-		app.Logger.LogInformation("Discovered {Count} plugins in repository", pluginNames.Count);
+		foreach (var pluginDir in pluginDirs) {
+			var pluginName = Path.GetFileName(pluginDir);
 
-		await service.InitializeAsync(pluginNames);
+			// Look for server DLLs in the server/ subdirectory
+			var serverDir = Path.Combine(pluginDir, "server");
+			if (Directory.Exists(serverDir)) {
+				var dll = Path.Combine(serverDir, $"{pluginName}.dll");
+				if (File.Exists(dll)) {
+					// Try to read version from manifest.json
+					string? version = null;
+					var manifestPath = Path.Combine(pluginDir, "manifest.json");
+					if (File.Exists(manifestPath)) {
+						try {
+							var manifestJson = await File.ReadAllTextAsync(manifestPath);
+							var manifest = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(manifestJson);
+							if (manifest != null && manifest.TryGetValue("version", out var versionObj)) {
+								version = versionObj?.ToString();
+							}
+						}
+						catch (Exception ex) {
+							app.Logger.LogWarning(ex, "Failed to read manifest for {PluginName}", pluginName);
+						}
+					}
+
+					discoveredPlugins.Add((pluginName, version));
+				}
+			}
+		}
+
+		app.Logger.LogInformation("Discovered {Count} plugins in repository", discoveredPlugins.Count);
 	}
 }

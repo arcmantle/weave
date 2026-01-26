@@ -1,4 +1,111 @@
-# Pivot API Example
+# Backend Example (ApiExample)
+
+This sample demonstrates how to set up a **Pivot Backend** application that loads plugins and serves APIs.
+
+## What It Does
+
+The Backend is responsible for:
+
+- **Plugin Loading**: Dynamically loads plugin DLLs
+- **Dependency Resolution**: Resolves plugin dependencies
+- **API Hosting**: Serves endpoints defined by plugins
+- **Hot Reload**: Reloads when plugin directory changes (dev mode)
+
+## Running the Sample
+
+```bash
+dotnet run
+```
+
+The Backend will start at **<http://localhost:5010>** (or as configured)
+
+## How It Works
+
+1. Backend scans `plugins/` directory for plugin DLLs
+2. Reads `plugin.json` manifests
+3. Resolves dependencies (topological sort)
+4. Loads plugins in correct order
+5. Calls `Initialize()` and `Configure()` on each plugin
+6. Plugins register their services and endpoints
+
+## Configuration
+
+Edit `appsettings.json` or configure in code:
+
+```json
+{
+  "Urls": "http://localhost:5010"
+}
+```
+
+Program.cs:
+
+```csharp
+builder.AddPivotBackend(options => {
+    // Development: Load from referenced assemblies
+    options.LoadFromReferencedAssemblies = builder.Environment.IsDevelopment();
+
+    // Production: Load from directory
+    options.PluginDirectory = "plugins";
+
+    // Enable auto-reload in development
+    options.EnableAutoReload = builder.Environment.IsDevelopment();
+});
+```
+
+## Plugin Directory Structure
+
+```
+Backend/
+├── plugins/
+│   ├── WeatherPlugin.dll
+│   ├── plugin.json          # WeatherPlugin manifest
+│   ├── TodosPlugin.dll
+│   └── plugin.json          # TodosPlugin manifest
+└── Program.cs
+```
+
+## Typical Workflow
+
+### Development Mode (IntelliSense + Debugging)
+
+1. Reference plugin projects in Backend.csproj
+2. Set `LoadFromReferencedAssemblies = true`
+3. Plugins load from bin/ with full debugging support
+
+### Production Mode (Hot Reload)
+
+1. Copy plugin DLLs to `plugins/` directory
+2. Set `LoadFromReferencedAssemblies = false`
+3. Backend auto-reloads when plugins change
+4. Coordinator manages blue-green deployment
+
+## Coordinated Deployment
+
+When running with Coordinator:
+
+1. Coordinator spawns Backend instances
+2. Backend loads plugins from `active-plugins/`
+3. When plugins change, Backend POSTs to `/reload` on Coordinator
+4. Coordinator triggers blue-green deployment
+5. New Backend starts with updated plugins
+6. Proxy switches traffic, zero downtime
+
+## Health Endpoint
+
+Backend automatically provides `/health`:
+
+```bash
+curl http://localhost:5010/health
+```
+
+Used by Proxy for health checking.
+
+## See Also
+
+- [CoordinatorExample](../CoordinatorExample/README.md) - Manages plugins and backends
+- [ProxyExample](../ProxyExample/README.md) - Routes traffic to backends
+- [Plugin Samples](../Plugins/README.md) - Example plugin implementations
 
 A simple standalone sample demonstrating the Pivot plugin framework with Swagger API documentation.
 

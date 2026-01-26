@@ -1,0 +1,239 @@
+@page "/"
+@using Pivot.Registry.Services
+@using Pivot.Registry.Models
+@using Microsoft.EntityFrameworkCore
+@inject IPluginStorage PluginStorage
+@inject PluginPackageService PackageService
+@inject Data.RegistryDbContext DbContext
+@inject IJSRuntime JSRuntime
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
+
+<h1>Registry Manager</h1>
+
+<div class="tabs">
+    <button class="@(activeTab == "browse" ? "active" : "")" @onclick='() => activeTab = "browse"'>
+        Browse Plugins
+    </button>
+    <button class="@(activeTab == "upload" ? "active" : "")" @onclick='() => activeTab = "upload"'>
+        Upload Plugin
+    </button>
+    <button class="@(activeTab == "storage" ? "active" : "")" @onclick='() => activeTab = "storage"'>
+        Storage Info
+    </button>
+</div>
+
+<div class="tab-content">
+    @if (activeTab == "browse")
+    {
+        <div class="browse-section">
+            <h2>Available Plugins</h2>
+
+            @if (plugins == null)
+            {
+                <p>Loading...</p>
+            }
+            else if (!plugins.Any())
+            {
+                <p>No plugins in registry.</p>
+            }
+            else
+            {
+                <table class="plugins-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Version</th>
+                            <th>Author</th>
+                            <th>Description</th>
+                            <th>Size</th>
+                            <th>Downloads</th>
+                            <th>Uploaded</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var plugin in plugins)
+                        {
+                            @foreach (var version in plugin.Versions.OrderByDescending(v => v.UploadedAt))
+                            {
+                                <tr>
+                                    <td><strong>@plugin.Name</strong></td>
+                                    <td>@version.Version</td>
+                                    <td>@plugin.Author</td>
+                                    <td>@plugin.Description</td>
+                                    <td>@FormatFileSize(version.FileSize)</td>
+                                    <td>@version.DownloadCount</td>
+                                    <td>@version.UploadedAt.ToString("g")</td>
+                                    <td>
+                                        <button class="btn-small btn-danger" @onclick="() => DeleteVersion(plugin.Name, version)">Delete</button>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    }
+    else if (activeTab == "upload")
+    {
+        <div class="upload-section">
+            <h2>Upload Plugin Package</h2>
+
+            <div class="upload-form">
+                <InputFile OnChange="HandleFileSelected" accept=".pivotpkg,.zip" />
+
+                @if (selectedFile != null)
+                {
+                    <p>Selected: @selectedFile.Name (@FormatFileSize(selectedFile.Size))</p>
+                }
+
+                <button class="btn-primary" @onclick="UploadPlugin" disabled="@(selectedFile == null || isUploading)">
+                    @(isUploading ? "Uploading..." : "Upload Plugin")
+                </button>
+            </div>
+
+            @if (!string.IsNullOrEmpty(uploadMessage))
+            {
+                <div class="alert @(uploadSuccess ? "alert-success" : "alert-error")">
+                    @uploadMessage
+                </div>
+            }
+        </div>
+    }
+    else if (activeTab == "storage")
+    {
+        <div class="storage-section">
+            <h2>Storage Information</h2>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Plugins</h3>
+                    <p class="stat-value">@(plugins?.Count ?? 0)</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Versions</h3>
+                    <p class="stat-value">@(plugins?.Sum(p => p.Versions.Count) ?? 0)</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Size</h3>
+                    <p class="stat-value">@FormatFileSize(plugins?.SelectMany(p => p.Versions).Sum(v => v.FileSize) ?? 0)</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Storage Provider</h3>
+                    <p class="stat-value">@(PluginStorage.GetType().Name.Replace("PluginStorage", ""))</p>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private string activeTab = "browse";
+    private List<Plugin>? plugins;
+    private IBrowserFile? selectedFile;
+    private string uploadMessage = "";
+    private bool uploadSuccess = false;
+    private bool isUploading = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPlugins();
+    }
+
+    private async Task LoadPlugins()
+    {
+        plugins = await Task.Run(() => DbContext.Plugins
+            .Include(p => p.Versions)
+            .OrderBy(p => p.Name)
+            .ToList());
+    }
+
+    private void HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+        uploadMessage = "";
+    }
+
+    private async Task UploadPlugin()
+    {
+        if (selectedFile == null) return;
+
+        try
+        {
+            isUploading = true;
+            uploadMessage = "";
+
+            // Create a memory stream from the browser file
+            using var stream = selectedFile.OpenReadStream(maxAllowedSize: 50 * 1024 * 1024); // 50MB max
+            using var packageStream = new MemoryStream();
+            await stream.CopyToAsync(packageStream);
+            packageStream.Position = 0;
+
+            // Upload the plugin package
+            var validationResult = await PackageService.UploadPackageAsync(packageStream);
+
+            if (!validationResult.Success)
+            {
+                uploadMessage = "Upload failed: " + validationResult.Error;
+                uploadSuccess = false;
+                return;
+            }
+
+            uploadMessage = $"Successfully uploaded plugin package";
+            uploadSuccess = true;
+            selectedFile = null;
+
+            // Reload plugins list
+            await LoadPlugins();
+        }
+        catch (Exception ex)
+        {
+            uploadMessage = $"Upload failed: {ex.Message}";
+            uploadSuccess = false;
+        }
+        finally
+        {
+            isUploading = false;
+        }
+    }
+
+    private async Task DeleteVersion(string pluginName, PluginVersion version)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", $"Delete {pluginName} version {version.Version}?"))
+            return;
+
+        try
+        {
+            // Remove from database
+            DbContext.PluginVersions.Remove(version);
+            await DbContext.SaveChangesAsync();
+
+            // Delete from storage using the name and version
+            await PluginStorage.DeleteAsync(pluginName, version.Version);
+
+            uploadMessage = $"Deleted {pluginName} version {version.Version}";
+            uploadSuccess = true;
+
+            await LoadPlugins();
+        }
+        catch (Exception ex)
+        {
+            uploadMessage = $"Delete failed: {ex.Message}";
+            uploadSuccess = false;
+        }
+    }
+
+    private string FormatFileSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB" };
+        double len = bytes;
+        int order = 0;
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len = len / 1024;
+        }
+        return $"{len:0.##} {sizes[order]}";
+    }
+}
