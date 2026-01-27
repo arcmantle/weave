@@ -114,10 +114,11 @@ public static class RegistryExtensions {
 		app.UseSwagger();
 		app.UseSwaggerUI();
 
-		// Enable static files for Blazor framework files (must be before embedded files)
+		// Enable serving of static files including Blazor framework files
+		// UseStaticFiles() should automatically include static web assets from NuGet packages
 		app.UseStaticFiles();
 
-		// Serve embedded static files from library (custom CSS, etc.)
+		// Serve embedded static files from the library (custom CSS, etc.)
 		var embeddedProvider = new ManifestEmbeddedFileProvider(
 			typeof(RegistryExtensions).Assembly,
 			"wwwroot"
