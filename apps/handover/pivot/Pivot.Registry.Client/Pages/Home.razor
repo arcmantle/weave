@@ -1,0 +1,151 @@
+@page "/"
+@using Pivot.Registry.Client.Models
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+
+<h1>Registry Manager</h1>
+
+<div class="tabs">
+    <button class="@(activeTab == "browse" ? "active" : "")" @onclick='() => activeTab = "browse"'>
+        Browse Plugins
+    </button>
+    <button class="@(activeTab == "upload" ? "active" : "")" @onclick='() => activeTab = "upload"'>
+        Upload Plugin
+    </button>
+    <button class="@(activeTab == "storage" ? "active" : "")" @onclick='() => activeTab = "storage"'>
+        Storage Info
+    </button>
+</div>
+
+<div class="tab-content">
+    @if (activeTab == "browse")
+    {
+        <div class="browse-section">
+            <h2>Available Plugins</h2>
+
+            @if (plugins == null)
+            {
+                <p>Loading...</p>
+            }
+            else if (!plugins.Any())
+            {
+                <p>No plugins in registry.</p>
+            }
+            else
+            {
+                <table class="plugins-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Version</th>
+                            <th>Author</th>
+                            <th>Description</th>
+                            <th>Size</th>
+                            <th>Downloads</th>
+                            <th>Uploaded</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var plugin in plugins)
+                        {
+                            @foreach (var version in plugin.Versions.OrderByDescending(v => v.UploadedAt))
+                            {
+                                <tr>
+                                    <td><strong>@plugin.Name</strong></td>
+                                    <td>@version.Version</td>
+                                    <td>@plugin.Author</td>
+                                    <td>@plugin.Description</td>
+                                    <td>@FormatFileSize(version.FileSize)</td>
+                                    <td>@version.DownloadCount</td>
+                                    <td>@version.UploadedAt.ToString("g")</td>
+                                    <td>
+                                        <button class="btn-small btn-danger" @onclick="() => DeleteVersion(plugin.Name, version.Version)">Delete</button>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    }
+    else if (activeTab == "upload")
+    {
+        <div class="upload-section">
+            <h2>Upload Plugin Package</h2>
+            <p class="alert alert-info">TODO: Implement upload via API</p>
+        </div>
+    }
+    else if (activeTab == "storage")
+    {
+        <div class="storage-section">
+            <h2>Storage Information</h2>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Plugins</h3>
+                    <p class="stat-value">@(plugins?.Count ?? 0)</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Versions</h3>
+                    <p class="stat-value">@(plugins?.Sum(p => p.Versions.Count) ?? 0)</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Size</h3>
+                    <p class="stat-value">@FormatFileSize(plugins?.SelectMany(p => p.Versions).Sum(v => v.FileSize) ?? 0)</p>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private string activeTab = "browse";
+    private List<Plugin>? plugins;
+
+    private class PluginListResponse
+    {
+        public List<Plugin> Plugins { get; set; } = new();
+        public int Total { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+        public int TotalPages { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPlugins();
+    }
+
+    private async Task LoadPlugins()
+    {
+        var response = await Http.GetFromJsonAsync<PluginListResponse>("api/plugins");
+        plugins = response?.Plugins;
+    }
+
+    private async Task DeleteVersion(string pluginName, string version)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", $"Delete {pluginName} version {version}?"))
+            return;
+
+        var response = await Http.DeleteAsync($"api/plugins/{pluginName}/versions/{version}");
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadPlugins();
+        }
+    }
+
+    private string FormatFileSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB" };
+        double len = bytes;
+        int order = 0;
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len = len / 1024;
+        }
+        return $"{len:0.##} {sizes[order]}";
+    }
+}

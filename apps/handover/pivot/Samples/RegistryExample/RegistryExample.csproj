@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Pivot.Registry\Pivot.Registry.csproj"
                       AdditionalProperties="StaticWebAssetBasePath=/" />
+    <ProjectReference Include="..\..\Pivot.Registry.Client\Pivot.Registry.Client.csproj" />
   </ItemGroup>
 
 </Project>

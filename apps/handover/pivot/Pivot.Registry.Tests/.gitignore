@@ -1,0 +1,6 @@
+bin/
+obj/
+playwright/
+.playwright/
+*.log
+TestResults/

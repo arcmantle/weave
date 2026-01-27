@@ -1,0 +1,55 @@
+@using Pivot.Registry.Client.Services
+@inject AuthenticationService AuthService
+@inherits LayoutComponentBase
+
+<div class="page">
+    <div class="sidebar">
+        <h1>Pivot Registry</h1>
+        <nav>
+            <a href="/">Registry Manager</a>
+        </nav>
+
+        <div class="user-section">
+            @if (!string.IsNullOrEmpty(currentUser))
+            {
+                <div class="user-info">
+                    <div class="user-name">👤 @currentUser</div>
+                    <button class="btn-logout" @onclick="HandleLogout">Logout</button>
+                </div>
+            }
+        </div>
+    </div>
+
+    <main>
+        @Body
+    </main>
+</div>
+
+@code {
+    private string? currentUser;
+
+    protected override async Task OnInitializedAsync()
+    {
+        currentUser = await AuthService.GetCurrentUserAsync();
+        AuthService.OnAuthenticationStateChanged += HandleAuthenticationStateChanged;
+    }
+
+    private async Task HandleLogout()
+    {
+        await AuthService.LogoutAsync();
+    }
+
+    private void HandleAuthenticationStateChanged()
+    {
+        InvokeAsync(async () =>
+        {
+            currentUser = await AuthService.GetCurrentUserAsync();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        AuthService.OnAuthenticationStateChanged -= HandleAuthenticationStateChanged;
+    }
+}

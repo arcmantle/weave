@@ -1,11 +1,13 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.FileProviders;
+using Microsoft.IdentityModel.Tokens;
 using Pivot.Registry.Data;
 using Pivot.Registry.Services;
+using System.Text;
 
 namespace Pivot.Registry.Extensions;
 
@@ -44,10 +46,6 @@ public static class RegistryExtensions {
 		builder.Services.AddEndpointsApiExplorer();
 		builder.Services.AddSwaggerGen();
 
-		// Add Blazor services
-		builder.Services.AddRazorComponents()
-			.AddInteractiveServerComponents();
-
 		// Add CORS support
 		builder.Services.AddCors(opts => {
 			opts.AddDefaultPolicy(policy => {
@@ -82,6 +80,45 @@ public static class RegistryExtensions {
 		builder.Services.AddScoped<PluginPackageService>();
 		builder.Services.AddScoped<PluginValidationService>();
 
+		// Configure JWT authentication
+		var jwtKey = builder.Configuration["Jwt:Key"] ?? "pivot-registry-super-secret-key-change-in-production-min-32-chars";
+		var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "PivotRegistry";
+		var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "PivotRegistryClient";
+
+		builder.Services.AddAuthentication(options =>
+		{
+			options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+			options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+		})
+		.AddJwtBearer(options =>
+		{
+			options.TokenValidationParameters = new TokenValidationParameters
+			{
+				ValidateIssuer = true,
+				ValidateAudience = true,
+				ValidateLifetime = true,
+				ValidateIssuerSigningKey = true,
+				ValidIssuer = jwtIssuer,
+				ValidAudience = jwtAudience,
+				IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+			};
+
+			// Support token from cookie
+			options.Events = new JwtBearerEvents
+			{
+				OnMessageReceived = context =>
+				{
+					if (context.Request.Cookies.ContainsKey("auth_token"))
+					{
+						context.Token = context.Request.Cookies["auth_token"];
+					}
+					return Task.CompletedTask;
+				}
+			};
+		});
+
+		builder.Services.AddAuthorization();
+
 		return builder;
 	}
 
@@ -111,32 +148,23 @@ public static class RegistryExtensions {
 		}
 
 		app.UseCors();
-		app.UseSwagger();
-		app.UseSwaggerUI();
 
-		// Enable serving of static files including Blazor framework files
-		// UseStaticFiles() should automatically include static web assets from NuGet packages
+		app.UseAuthentication();
+		app.UseAuthorization();
+
+		// Enable development-time static web assets
+		if (app.Environment.IsDevelopment()) {
+			app.UseWebAssemblyDebugging();
+		}
+
+		// Serve Blazor WebAssembly framework files and static assets from the client project
+		app.UseBlazorFrameworkFiles();
 		app.UseStaticFiles();
-
-		// Serve embedded static files from the library (custom CSS, etc.)
-		var embeddedProvider = new ManifestEmbeddedFileProvider(
-			typeof(RegistryExtensions).Assembly,
-			"wwwroot"
-		);
-
-		app.UseStaticFiles(new StaticFileOptions {
-			FileProvider = embeddedProvider,
-			RequestPath = "" // Serve at root level
-		});
-
-		// Ensure antiforgery is set up before components
-		app.UseAntiforgery();
 
 		app.MapControllers();
 
-		// Map Blazor components from the library
-		app.MapRazorComponents<Components.App>()
-			.AddInteractiveServerRenderMode();
+		// Fallback to index.html for client-side routing
+		app.MapFallbackToFile("/index.html");
 
 		return app;
 	}
