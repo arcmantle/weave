@@ -2,7 +2,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Pivot.Registry\Pivot.Registry.csproj" />
-    <ProjectReference Include="..\Pivot.Registry.Client\Pivot.Registry.Client.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

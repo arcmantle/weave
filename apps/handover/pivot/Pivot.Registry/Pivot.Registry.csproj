@@ -6,10 +6,10 @@
     <Nullable>enable</Nullable>
     <OutputType>Library</OutputType>
     <RazorLangVersion>Latest</RazorLangVersion>
+    <EnableDefaultContentItems>false</EnableDefaultContentItems>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.2" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0">
@@ -23,7 +23,33 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Pivot.Core\Pivot.Core.csproj" />
-    <ProjectReference Include="..\Pivot.Registry.Client\Pivot.Registry.Client.csproj" />
+  </ItemGroup>
+
+  <!-- Build the Lit/TypeScript client during build -->
+  <PropertyGroup>
+    <ClientDir>$(MSBuildProjectDirectory)\..\Pivot.Registry.Client</ClientDir>
+    <ClientPublishDir>$(ClientDir)\dist</ClientPublishDir>
+    <WwwRootDir>$(MSBuildProjectDirectory)\wwwroot</WwwRootDir>
+  </PropertyGroup>
+
+  <Target Name="BuildClient" BeforeTargets="Build">
+    <Message Text="Building Lit client..." Importance="high" />
+    <Exec Command="pnpm install" WorkingDirectory="$(ClientDir)" />
+    <Exec Command="pnpm build" WorkingDirectory="$(ClientDir)" />
+
+    <!-- Copy built client to wwwroot -->
+    <RemoveDir Directories="$(WwwRootDir)" />
+    <MakeDir Directories="$(WwwRootDir)" />
+    <ItemGroup>
+      <ClientFiles Include="$(ClientPublishDir)\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ClientFiles)" DestinationFolder="$(WwwRootDir)\%(RecursiveDir)" />
+    <Message Text="Copied client files to wwwroot" Importance="high" />
+  </Target>
+
+  <!-- Include client build output in publish -->
+  <ItemGroup>
+    <Content Include="wwwroot\**\*" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

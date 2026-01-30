@@ -1,0 +1,23 @@
+# Node
+node_modules/
+dist/
+
+# Build outputs
+bin/
+obj/
+
+# IDE
+.vs/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Blazor (deprecated - being replaced with Lit)
+*.blazor.*
+_framework/
+
+# OS
+.DS_Store
+Thumbs.db

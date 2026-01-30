@@ -1,6 +1,6 @@
 # Pivot Registry Example
 
-A sample application demonstrating how to use the Pivot.Registry library.
+A sample application demonstrating how to use the Pivot.Registry library with the Lit-based web client.
 
 ## Running the Registry
 
@@ -8,7 +8,17 @@ A sample application demonstrating how to use the Pivot.Registry library.
 dotnet run
 ```
 
-The registry will start on `http://localhost:5100` with Swagger UI available at `http://localhost:5100/swagger`.
+The registry will start on `http://localhost:5100` with:
+
+- **Web UI** at `http://localhost:5100/` (Lit + TypeScript client)
+- **Swagger UI** at `http://localhost:5100/swagger`
+
+## Features
+
+- Browse, upload, and download plugin packages
+- JWT-based authentication with refresh tokens
+- SQLite database for metadata
+- File system or MinIO storage for plugin packages
 
 ## Configuration
 

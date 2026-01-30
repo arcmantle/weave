@@ -85,15 +85,12 @@ public static class RegistryExtensions {
 		var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "PivotRegistry";
 		var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "PivotRegistryClient";
 
-		builder.Services.AddAuthentication(options =>
-		{
+		builder.Services.AddAuthentication(options => {
 			options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
 			options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 		})
-		.AddJwtBearer(options =>
-		{
-			options.TokenValidationParameters = new TokenValidationParameters
-			{
+		.AddJwtBearer(options => {
+			options.TokenValidationParameters = new TokenValidationParameters {
 				ValidateIssuer = true,
 				ValidateAudience = true,
 				ValidateLifetime = true,
@@ -104,13 +101,10 @@ public static class RegistryExtensions {
 			};
 
 			// Support token from cookie
-			options.Events = new JwtBearerEvents
-			{
-				OnMessageReceived = context =>
-				{
-					if (context.Request.Cookies.ContainsKey("auth_token"))
-					{
-						context.Token = context.Request.Cookies["auth_token"];
+			options.Events = new JwtBearerEvents {
+				OnMessageReceived = context => {
+					if (context.Request.Cookies.ContainsKey("access_token")) {
+						context.Token = context.Request.Cookies["access_token"];
 					}
 					return Task.CompletedTask;
 				}
@@ -154,11 +148,11 @@ public static class RegistryExtensions {
 
 		// Enable development-time static web assets
 		if (app.Environment.IsDevelopment()) {
-			app.UseWebAssemblyDebugging();
+			app.UseSwagger();
+			app.UseSwaggerUI();
 		}
 
-		// Serve Blazor WebAssembly framework files and static assets from the client project
-		app.UseBlazorFrameworkFiles();
+		// Serve static files from wwwroot (client build output)
 		app.UseStaticFiles();
 
 		app.MapControllers();

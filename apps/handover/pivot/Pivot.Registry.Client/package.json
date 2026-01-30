@@ -1,0 +1,21 @@
+{
+	"name": "@arcmantle/pivot-registry-client",
+	"version": "1.0.0",
+	"description": "Pivot Registry Client - Web UI for managing plugin registry",
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"preview": "vite preview"
+	},
+	"dependencies": {
+		"lit": "catalog:",
+		"@lit/context": "catalog:",
+		"tslib": "catalog:"
+	},
+	"devDependencies": {
+		"@arcmantle/tsconfig": "workspace:^",
+		"typescript": "catalog:",
+		"vite": "catalog:"
+	}
+}

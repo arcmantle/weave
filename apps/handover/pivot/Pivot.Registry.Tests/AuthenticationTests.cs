@@ -2,37 +2,31 @@ using Microsoft.Playwright;
 
 namespace Pivot.Registry.Tests;
 
-public class AuthenticationTests : IClassFixture<ServerFixture>, IAsyncLifetime
-{
+public class AuthenticationTests : IClassFixture<ServerFixture>, IAsyncLifetime {
 	private readonly ServerFixture _serverFixture;
 	private IPlaywright? _playwright;
 	private IBrowser? _browser;
 	private string BaseUrl => ServerFixture.BaseUrl;
 
-	public AuthenticationTests(ServerFixture serverFixture)
-	{
+	public AuthenticationTests(ServerFixture serverFixture) {
 		_serverFixture = serverFixture;
 	}
 
-	public async Task InitializeAsync()
-	{
+	public async Task InitializeAsync() {
 		_playwright = await Playwright.CreateAsync();
-		_browser = await _playwright.Chromium.LaunchAsync(new()
-		{
+		_browser = await _playwright.Chromium.LaunchAsync(new() {
 			Headless = true
 		});
 	}
 
-	public async Task DisposeAsync()
-	{
+	public async Task DisposeAsync() {
 		if (_browser != null)
 			await _browser.DisposeAsync();
 		_playwright?.Dispose();
 	}
 
 	[Fact]
-	public async Task ShouldRedirectToLoginWhenNotAuthenticated()
-	{
+	public async Task ShouldRedirectToLoginWhenNotAuthenticated() {
 		var page = await _browser!.NewPageAsync();
 
 
@@ -46,8 +40,7 @@ public class AuthenticationTests : IClassFixture<ServerFixture>, IAsyncLifetime
 	}
 
 	[Fact]
-	public async Task ShouldLoginWithUsernameAndRedirect()
-	{
+	public async Task ShouldLoginWithUsernameAndRedirect() {
 		var page = await _browser!.NewPageAsync();
 		await page.GotoAsync(BaseUrl);
 
@@ -61,12 +54,11 @@ public class AuthenticationTests : IClassFixture<ServerFixture>, IAsyncLifetime
 		await loginButton.ClickAsync();
 
 		await Assertions.Expect(page).ToHaveURLAsync(BaseUrl + "/");
-		await Assertions.Expect(page.Locator("main h1")).ToContainTextAsync("Registry Manager");
+		await Assertions.Expect(page.Locator("h1")).ToContainTextAsync("Registry Manager");
 	}
 
 	[Fact]
-	public async Task ShouldDisplayUsernameInSidebarAfterLogin()
-	{
+	public async Task ShouldDisplayUsernameInSidebarAfterLogin() {
 		var page = await _browser!.NewPageAsync();
 		await page.GotoAsync($"{BaseUrl}/login");
 
@@ -74,12 +66,11 @@ public class AuthenticationTests : IClassFixture<ServerFixture>, IAsyncLifetime
 		await page.GetByRole(AriaRole.Button, new() { Name = "Login" }).ClickAsync();
 
 		await Assertions.Expect(page).ToHaveURLAsync(BaseUrl + "/");
-		await Assertions.Expect(page.Locator(".user-name")).ToContainTextAsync("john.doe");
+		await Assertions.Expect(page.Locator(".header-bar")).ToContainTextAsync("john.doe");
 	}
 
 	[Fact]
-	public async Task ShouldLogoutAndRedirectToLogin()
-	{
+	public async Task ShouldLogoutAndRedirectToLogin() {
 		var page = await _browser!.NewPageAsync();
 
 		// Login first
@@ -89,7 +80,7 @@ public class AuthenticationTests : IClassFixture<ServerFixture>, IAsyncLifetime
 		await Assertions.Expect(page).ToHaveURLAsync(BaseUrl + "/");
 
 		// Logout
-		var logoutButton = page.Locator("button.btn-logout");
+		var logoutButton = page.GetByRole(AriaRole.Button, new() { NameRegex = new System.Text.RegularExpressions.Regex("Logout") });
 		await Assertions.Expect(logoutButton).ToBeVisibleAsync();
 		await logoutButton.ClickAsync();
 
@@ -97,8 +88,7 @@ public class AuthenticationTests : IClassFixture<ServerFixture>, IAsyncLifetime
 	}
 
 	[Fact]
-	public async Task ShouldPersistAuthenticationAcrossReloads()
-	{
+	public async Task ShouldPersistAuthenticationAcrossReloads() {
 		var page = await _browser!.NewPageAsync();
 
 		// Login
@@ -112,12 +102,11 @@ public class AuthenticationTests : IClassFixture<ServerFixture>, IAsyncLifetime
 
 		// Should still be authenticated
 		await Assertions.Expect(page).ToHaveURLAsync(BaseUrl + "/");
-		await Assertions.Expect(page.Locator(".user-name")).ToContainTextAsync("persistuser");
+		await Assertions.Expect(page.Locator(".header-bar")).ToContainTextAsync("persistuser");
 	}
 
 	[Fact]
-	public async Task ShouldShowErrorForEmptyUsername()
-	{
+	public async Task ShouldShowErrorForEmptyUsername() {
 		var page = await _browser!.NewPageAsync();
 		await page.GotoAsync($"{BaseUrl}/login");
 
@@ -130,8 +119,7 @@ public class AuthenticationTests : IClassFixture<ServerFixture>, IAsyncLifetime
 	}
 
 	[Fact]
-	public async Task ShouldSupportEnterKeyForLogin()
-	{
+	public async Task ShouldSupportEnterKeyForLogin() {
 		var page = await _browser!.NewPageAsync();
 		await page.GotoAsync($"{BaseUrl}/login");
 
@@ -143,8 +131,7 @@ public class AuthenticationTests : IClassFixture<ServerFixture>, IAsyncLifetime
 	}
 
 	[Fact]
-	public async Task ShouldProtectRoutesAfterLogout()
-	{
+	public async Task ShouldProtectRoutesAfterLogout() {
 		var page = await _browser!.NewPageAsync();
 
 		// Login
@@ -154,7 +141,7 @@ public class AuthenticationTests : IClassFixture<ServerFixture>, IAsyncLifetime
 		await Assertions.Expect(page).ToHaveURLAsync(BaseUrl + "/");
 
 		// Logout
-		await page.Locator("button.btn-logout").ClickAsync();
+		await page.GetByRole(AriaRole.Button, new() { NameRegex = new System.Text.RegularExpressions.Regex("Logout") }).ClickAsync();
 		await Assertions.Expect(page).ToHaveURLAsync($"{BaseUrl}/login");
 
 		// Try to navigate to home
@@ -165,8 +152,7 @@ public class AuthenticationTests : IClassFixture<ServerFixture>, IAsyncLifetime
 	}
 
 	[Fact]
-	public async Task ShouldSetHttpOnlyCookie()
-	{
+	public async Task ShouldSetHttpOnlyCookie() {
 		var context = await _browser!.NewContextAsync();
 		var page = await context.NewPageAsync();
 
@@ -178,16 +164,15 @@ public class AuthenticationTests : IClassFixture<ServerFixture>, IAsyncLifetime
 
 		// Check cookies
 		var cookies = await context.CookiesAsync();
-		var authCookie = cookies.FirstOrDefault(c => c.Name == "auth_token");
+		var accessCookie = cookies.FirstOrDefault(c => c.Name == "access_token");
 
-		Assert.NotNull(authCookie);
-		Assert.True(authCookie.HttpOnly);
-		Assert.Equal("Strict", authCookie.SameSite.ToString());
+		Assert.NotNull(accessCookie);
+		Assert.True(accessCookie.HttpOnly);
+		Assert.Equal("Strict", accessCookie.SameSite.ToString());
 	}
 
 	[Fact]
-	public async Task ShouldRedirectToLoginWhenSessionExpires()
-	{
+	public async Task ShouldRedirectToLoginWhenSessionExpires() {
 		var context = await _browser!.NewContextAsync();
 		var page = await context.NewPageAsync();
 
