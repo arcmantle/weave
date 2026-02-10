@@ -18,14 +18,14 @@ export class RouterLink extends LitElement {
 	@property({ attribute: false })
 	routerInstance: Router = router;
 
-	private routerController?: RouterController;
+	protected routerController?: RouterController;
 
 	override connectedCallback(): void {
 		super.connectedCallback();
 		this.routerController = new RouterController(this, this.routerInstance);
 	}
 
-	private async handleClick(e: Event): Promise<void> {
+	protected async handleClick(e: Event): Promise<void> {
 		e.preventDefault();
 
 		if (!this.routerController)

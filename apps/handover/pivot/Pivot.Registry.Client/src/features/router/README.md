@@ -2,7 +2,7 @@
 
 A production-grade client-side router for Lit web component applications. Built on the native [`URLPattern`](https://developer.mozilla.org/en-US/docs/Web/API/URLPattern) API with trie-based route matching, navigation guards, lazy loading, performance metrics, prefetching, and more.
 
-> **147 tests** across 10 test suites. Zero external routing dependencies.
+> **187 tests** across 11 test suites. Zero external routing dependencies.
 
 ---
 
@@ -52,6 +52,7 @@ That's it. The global `router` instance handles anchor interception, popstate ev
 - [Navigation Events](#navigation-events)
 - [Error Boundaries](#error-boundaries)
 - [Multiple Router Instances](#multiple-router-instances)
+- [Custom History Adapters](#custom-history-adapters)
 - [Performance Metrics](#performance-metrics)
 - [Prefetching](#prefetching)
 - [Code Splitting Statistics](#code-splitting-statistics)
@@ -85,7 +86,7 @@ import {
 
 ## Architecture
 
-```
+```text
 ┌──────────────────────────────────────────────────────┐
 │  router.ts          Core engine, all routing logic   │
 │    ├─ Router             Main class                  │
@@ -103,6 +104,7 @@ import {
 ```
 
 Key design decisions:
+
 - **`URLPattern` native API** — no `path-to-regexp` dependency.
 - **Trie-based route tree** with priority scoring (exact > param > wildcard).
 - **`WeakMap` lazy caches** — garbage-collected when route configs are removed.
@@ -191,6 +193,7 @@ await router.navigateByName('user-profile');
 ### Anchor Interception
 
 The router automatically intercepts clicks on `<a>` elements for internal links. The following are **not** intercepted:
+
 - External links (`http://...`, `//...`)
 - Links with `target="_blank"`
 - Links with `download` attribute
@@ -217,6 +220,7 @@ Renders the matched route's template at the current depth. Falls back to slot co
 ```
 
 Built-in states:
+
 - **Loading** — shown while lazy routes are loading.
 - **Error** — shown when a route match has an error.
 - **Slot fallback** — rendered when no route matches.
@@ -468,7 +472,7 @@ Attach error handling config to routes. When a navigation error occurs, the rout
 ```
 
 | Property | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `fallback` | `RouteTemplate` | — | Template rendered on error |
 | `onError` | `(error, match) => void` | — | Error callback |
 | `maxRetries` | `number` | `3` | Retry attempts before showing fallback |
@@ -505,6 +509,103 @@ myRouter.setRoutes([...]);
 
 ---
 
+## Custom History Adapters
+
+By default the router uses the browser's History API (`pushState`, `popstate`, `window.location`). You can replace this with any `HistoryAdapter` implementation, making the router usable in **Chrome extensions**, **service workers**, **tests**, or anywhere without a standard browser history stack.
+
+### Built-in Adapters
+
+| Adapter | Use Case |
+| --- | --- |
+| `BrowserHistoryAdapter` | Standard browser SPA (default) |
+| `MemoryHistoryAdapter` | Chrome extensions, SSR, unit tests, non-browser environments |
+
+### MemoryHistoryAdapter
+
+Stores all navigation state in memory. No `window`, `document`, or `history` required.
+
+```typescript
+import { MemoryHistoryAdapter, Router } from './features/router';
+
+const adapter = new MemoryHistoryAdapter({ initialPath: '/' });
+const router = new Router({ history: adapter });
+
+router.setRoutes([
+  { path: '/',         template: () => html`<div>Home</div>` },
+  { path: '/settings', template: () => html`<div>Settings</div>` },
+]);
+
+await router.navigate('/settings');
+console.log(router.getCurrentPath()); // '/settings'
+```
+
+### Chrome Extension with localStorage
+
+Persist the current route across popup reopens by supplying a `storage` backend:
+
+```typescript
+import { MemoryHistoryAdapter, Router } from './features/router';
+
+const adapter = new MemoryHistoryAdapter({
+  origin: 'chrome-extension://abc123',
+  storage: {
+    getPath:  () => localStorage.getItem('router-path'),
+    setPath:  (path) => localStorage.setItem('router-path', path),
+  },
+});
+
+const router = new Router({ history: adapter });
+```
+
+When the popup closes and reopens, the adapter reads the last path from storage and restores it automatically.
+
+### Custom Adapter
+
+Implement the `HistoryAdapter` interface for any environment:
+
+```typescript
+import type { HistoryAdapter } from './features/router';
+
+class ChromeStorageAdapter implements HistoryAdapter {
+  readonly origin = 'chrome-extension://my-id';
+
+  getCurrentPath(): string     { /* read from chrome.storage */ }
+  getCurrentURL(): string      { return this.origin + this.getCurrentPath(); }
+  getScrollPosition()          { return { x: 0, y: 0 }; }
+  pushState(state, url)        { /* write to chrome.storage */ }
+  replaceState(state, url)     { /* write to chrome.storage */ }
+  back()                       { /* optional: maintain a stack */ }
+  forward()                    { /* optional: maintain a stack */ }
+  onPopState(listener)         { /* subscribe to storage changes */ return () => {}; }
+  onLinkClick(listener)        { /* no-op if no DOM */ return () => {}; }
+  scrollTo(x, y)               { /* no-op */ }
+  scrollIntoView(elementId)    { /* no-op */ }
+  dispose()                    { /* cleanup */ }
+}
+```
+
+### HistoryAdapter Interface
+
+```typescript
+interface HistoryAdapter {
+  readonly origin: string;
+  getCurrentPath(): string;
+  getCurrentURL(): string;
+  getScrollPosition(): { x: number; y: number };
+  pushState(state: any, url: string): void;
+  replaceState(state: any, url: string): void;
+  back(): void;
+  forward(): void;
+  onPopState(listener: () => void): () => void;
+  onLinkClick(listener: (e: MouseEvent) => void): () => void;
+  scrollTo(x: number, y: number): void;
+  scrollIntoView(elementId: string): void;
+  dispose(): void;
+}
+```
+
+---
+
 ## Performance Metrics
 
 When `enableMetrics` is `true` (the default), every navigation records detailed timing breakdowns.
@@ -531,7 +632,7 @@ const router = new Router({
 Each recorded timing contains:
 
 | Field | Description |
-|---|---|
+| --- | --- |
 | `total` | Total navigation time (ms) |
 | `guards` | Time spent running guards |
 | `templateRender` | Template rendering time |
@@ -555,7 +656,7 @@ router.clearTimings();    // Clear all
 
 Preload lazy route bundles before the user navigates, for faster page transitions.
 
-### Configuration
+### Prefetch Configuration
 
 ```typescript
 const router = new Router({
@@ -570,7 +671,7 @@ const router = new Router({
 ### Strategies
 
 | Strategy | Behavior |
-|---|---|
+| --- | --- |
 | `hover` | Prefetch when user hovers a link. Debounced by `delay` ms. |
 | `visible` | Prefetch when a link enters the viewport via `IntersectionObserver`. Re-observes on DOM mutations. |
 | `idle` | Prefetch all lazy routes during browser idle time via `requestIdleCallback` (falls back to `setTimeout`). |
@@ -601,7 +702,7 @@ router.getAggregatedStats();
 ### RouteStats
 
 | Field | Description |
-|---|---|
+| --- | --- |
 | `path` | Route path |
 | `loadTime` | Time to load in ms |
 | `bundleSize` | Bundle size in bytes (if available) |
@@ -632,7 +733,7 @@ class MyView extends LitElement {
 ### Methods
 
 | Method | Returns | Description |
-|---|---|---|
+| --- | --- | --- |
 | `navigate(path, options?)` | `Promise<boolean>` | Navigate programmatically |
 | `navigateByName(name, options?)` | `Promise<boolean>` | Navigate by route name |
 | `match(path?)` | `RouteMatch \| null` | Get the match at this controller's depth |
@@ -652,8 +753,9 @@ new Router(config?: RouterConfig)
 ```
 
 | Option | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `basePath` | `string` | `''` | URL prefix for all routes |
+| `history` | `HistoryAdapter` | `BrowserHistoryAdapter` | Custom history adapter |
 | `scrollRestoration` | `boolean` | `true` | Save/restore scroll positions |
 | `useViewTransitions` | `boolean` | `false` | Use View Transitions API |
 | `fallbackRoute` | `RouteConfig` | — | 404 fallback route |
@@ -666,23 +768,25 @@ new Router(config?: RouterConfig)
 #### Route Management
 
 | Method | Description |
-|---|---|
+| --- | --- |
 | `setRoutes(routes: RouteConfig[])` | Set the route table (replaces existing) |
 | `match(path?: string)` | Match a path (or current URL) against routes |
 | `matchAtDepth(depth, path?)` | Match at a specific nesting depth |
 
-#### Navigation
+#### Navigation Methods
 
 | Method | Description |
-|---|---|
+| --- | --- |
 | `navigate(path, options?)` | Navigate to a path |
 | `navigateByName(name, options?)` | Navigate by route name |
-| `getCurrentPath()` | Get `window.location.pathname` |
+| `getCurrentPath()` | Get current pathname from the history adapter |
+| `getHistoryAdapter()` | Get the `HistoryAdapter` instance |
+| `dispose()` | Clean up all event listeners and dispose the adapter |
 
 #### Events
 
 | Method | Description |
-|---|---|
+| --- | --- |
 | `onBeforeNavigate(listener)` | Before guards run |
 | `onNavigateStart(listener)` | After guards, before DOM update |
 | `onNavigateEnd(listener)` | After navigation completes |
@@ -693,7 +797,7 @@ All return `() => void` (unsubscribe function).
 #### Metrics & Stats
 
 | Method | Description |
-|---|---|
+| --- | --- |
 | `getTimings()` | All recorded `NavigationTiming[]` |
 | `getLastTiming()` | Most recent timing |
 | `clearTimings()` | Clear timing data |
@@ -705,7 +809,7 @@ All return `() => void` (unsubscribe function).
 #### Prefetch
 
 | Method | Description |
-|---|---|
+| --- | --- |
 | `preload(path)` | Preload lazy routes for a path |
 | `preloadAll()` | Preload all lazy routes |
 
@@ -713,9 +817,10 @@ All return `() => void` (unsubscribe function).
 
 ## File Structure
 
-```
+```text
 features/router/
 ├── index.ts              Barrel export
+├── history-adapter.ts    HistoryAdapter interface, BrowserHistoryAdapter, MemoryHistoryAdapter
 ├── router.ts             Core: Router, RouterController, LRUCache, types
 ├── router-outlet.ts      <router-outlet> web component
 ├── router-link.ts        <router-link> web component
@@ -728,6 +833,7 @@ features/router/
     ├── router-controller.test.ts  RouterController lifecycle
     ├── router-errors.test.ts      Error handling & guards
     ├── router-guards.test.ts      beforeEnter & canDeactivate
+    ├── router-history.test.ts     MemoryHistoryAdapter & custom history
     ├── router-lazy.test.ts        Lazy loading & code splitting
     ├── router-link.test.ts        <router-link> component
     ├── router-metrics.test.ts     Performance metrics & analytics

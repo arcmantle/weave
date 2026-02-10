@@ -1,6 +1,8 @@
 import { createContext } from '@lit/context';
 import type { ReactiveController, ReactiveControllerHost, TemplateResult } from 'lit';
 
+import { BrowserHistoryAdapter, type HistoryAdapter } from './history-adapter.ts';
+
 
 export type RouteTemplate = (params: Record<string, string>) => TemplateResult;
 export type RouteLazy = () => Promise<RouteConfig[]>;
@@ -72,6 +74,8 @@ export interface RouterConfig {
 	scrollRestoration?:  boolean;
 	useViewTransitions?: boolean;
 	fallbackRoute?:      RouteConfig;
+	// History adapter (defaults to BrowserHistoryAdapter)
+	history?:            HistoryAdapter;
 	// Enterprise features
 	enableMetrics?:      boolean;        // Default: true
 	reportPerformance?:  (timing: NavigationTiming) => void;
@@ -134,8 +138,8 @@ interface RouteNode {
 // LRU Cache for memory-efficient metric/stats storage
 export class LRUCache<K, V> {
 
-	private cache:   Map<K, V> = new Map();
-	private maxSize: number;
+	protected cache:   Map<K, V> = new Map();
+	protected maxSize: number;
 
 	constructor(maxSize: number = 100) {
 		this.maxSize = maxSize;
@@ -156,7 +160,6 @@ export class LRUCache<K, V> {
 		// Delete if exists to re-insert at end
 		if (this.cache.has(key))
 			this.cache.delete(key);
-
 
 		// Evict oldest if at capacity
 		if (this.cache.size >= this.maxSize) {
@@ -188,39 +191,45 @@ export class LRUCache<K, V> {
 
 export class Router {
 
-	private routes:             RouteConfig[] = [];
-	private compiledRoutes:     CompiledRoute[] = [];
-	private routeTree:          RouteNode;
-	private namedRoutes:        Map<string, CompiledRoute> = new Map();
-	private controllers:        Set<RouterController> = new Set();
-	private baseUrl:            string;
-	private basePath:           string = '';
-	private lazyCache:          WeakMap<RouteConfig, RouteConfig[] | Promise<RouteConfig[]>> = new WeakMap();
-	private currentMatch:       RouteMatch | null = null;
-	private scrollPositions:    Map<string, { x: number; y: number; }> = new Map();
-	private scrollRestoration:  boolean = true;
-	private useViewTransitions: boolean = false;
-	private redirectCount:      number = 0;
-	private readonly MAX_REDIRECTS = 10;
-	private fallbackRoute?:     RouteConfig;
+	protected routes:             RouteConfig[] = [];
+	protected compiledRoutes:     CompiledRoute[] = [];
+	protected routeTree:          RouteNode;
+	protected namedRoutes:        Map<string, CompiledRoute> = new Map();
+	protected controllers:        Set<RouterController> = new Set();
+	protected baseUrl:            string;
+	protected basePath:           string = '';
+	protected lazyCache:          WeakMap<RouteConfig, RouteConfig[] | Promise<RouteConfig[]>> = new WeakMap();
+	protected currentMatch:       RouteMatch | null = null;
+	protected scrollPositions:    Map<string, { x: number; y: number; }> = new Map();
+	protected scrollRestoration:  boolean = true;
+	protected useViewTransitions: boolean = false;
+	protected redirectCount:      number = 0;
+	protected readonly MAX_REDIRECTS = 10;
+	protected fallbackRoute?:     RouteConfig;
+
+	// History adapter
+	protected historyAdapter:    HistoryAdapter;
+	protected cleanupPopState?:  () => void;
+	protected cleanupLinkClick?: () => void;
 
 	// Enterprise features
-	private enableMetrics:      boolean = true;
-	private reportPerformance?: (timing: NavigationTiming) => void;
-	private analyticsEndpoint?: string;
-	private timings:            LRUCache<string, NavigationTiming>;
-	private routeStats:         LRUCache<string, RouteStats>;
-	private prefetchConfig?:    PrefetchConfig;
-	private prefetchCache:      WeakMap<RouteConfig, Promise<RouteConfig[]>> = new WeakMap();
+	protected enableMetrics:      boolean = true;
+	protected reportPerformance?: (timing: NavigationTiming) => void;
+	protected analyticsEndpoint?: string;
+	protected timings:            LRUCache<string, NavigationTiming>;
+	protected routeStats:         LRUCache<string, RouteStats>;
+	protected prefetchConfig?:    PrefetchConfig;
+	protected prefetchCache:      WeakMap<RouteConfig, Promise<RouteConfig[]>> = new WeakMap();
 
 	// Event listeners
-	private beforeNavigateListeners: NavigationListener[] = [];
-	private navigateStartListeners:  NavigationListener[] = [];
-	private navigateEndListeners:    NavigationListener[] = [];
-	private navigateErrorListeners:  NavigationErrorListener[] = [];
+	protected beforeNavigateListeners: NavigationListener[] = [];
+	protected navigateStartListeners:  NavigationListener[] = [];
+	protected navigateEndListeners:    NavigationListener[] = [];
+	protected navigateErrorListeners:  NavigationErrorListener[] = [];
 
 	constructor(config: RouterConfig = {}) {
-		this.baseUrl = window.location.origin;
+		this.historyAdapter = config.history ?? new BrowserHistoryAdapter();
+		this.baseUrl = this.historyAdapter.origin;
 		this.basePath = config.basePath || '';
 		this.scrollRestoration = config.scrollRestoration ?? true;
 		this.useViewTransitions = config.useViewTransitions ?? false;
@@ -240,14 +249,14 @@ export class Router {
 			this.setupPrefetching();
 
 
-		// Intercept anchor clicks
-		document.addEventListener('click', this.handleClick.bind(this));
+		// Intercept anchor clicks via adapter
+		this.cleanupLinkClick = this.historyAdapter.onLinkClick(this.handleClick.bind(this));
 
-		// Handle popstate for back/forward navigation
-		window.addEventListener('popstate', this.handlePopState.bind(this));
+		// Handle popstate for back/forward navigation via adapter
+		this.cleanupPopState = this.historyAdapter.onPopState(this.handlePopState.bind(this));
 	}
 
-	private handleClick(e: MouseEvent): void {
+	protected handleClick(e: MouseEvent): void {
 		const anchor = (e.target as Element).closest('a');
 
 		if (!anchor)
@@ -281,13 +290,13 @@ export class Router {
 		this.navigate(href);
 	}
 
-	private handlePopState(): void {
+	protected handlePopState(): void {
 		// Restore scroll position if enabled
 		if (this.scrollRestoration) {
-			const key = window.location.pathname;
+			const key = this.historyAdapter.getCurrentPath();
 			const pos = this.scrollPositions.get(key);
 			if (pos)
-				window.scrollTo(pos.x, pos.y);
+				this.historyAdapter.scrollTo(pos.x, pos.y);
 		}
 
 		this.notifyControllers();
@@ -341,23 +350,23 @@ export class Router {
 		};
 	}
 
-	private emitBeforeNavigate(event: NavigationEvent): void {
+	protected emitBeforeNavigate(event: NavigationEvent): void {
 		this.beforeNavigateListeners.forEach(listener => listener(event));
 	}
 
-	private emitNavigateStart(event: NavigationEvent): void {
+	protected emitNavigateStart(event: NavigationEvent): void {
 		this.navigateStartListeners.forEach(listener => listener(event));
 	}
 
-	private emitNavigateEnd(event: NavigationEvent): void {
+	protected emitNavigateEnd(event: NavigationEvent): void {
 		this.navigateEndListeners.forEach(listener => listener(event));
 	}
 
-	private emitNavigateError(event: NavigationErrorEvent): void {
+	protected emitNavigateError(event: NavigationErrorEvent): void {
 		this.navigateErrorListeners.forEach(listener => listener(event));
 	}
 
-	private compileRoutes(routes: RouteConfig[], parentPath = ''): CompiledRoute[] {
+	protected compileRoutes(routes: RouteConfig[], parentPath = ''): CompiledRoute[] {
 		const compiled: CompiledRoute[] = [];
 
 		for (const route of routes) {
@@ -391,7 +400,7 @@ export class Router {
 		return compiled.sort((a, b) => b.priority - a.priority);
 	}
 
-	private calculateRoutePriority(path: string): number {
+	protected calculateRoutePriority(path: string): number {
 		let priority = 0;
 		const segments = path.split('/').filter(Boolean);
 
@@ -413,7 +422,7 @@ export class Router {
 		return priority;
 	}
 
-	private createNode(segment: string): RouteNode {
+	protected createNode(segment: string): RouteNode {
 		return {
 			segment,
 			routes:   [],
@@ -421,7 +430,7 @@ export class Router {
 		};
 	}
 
-	private buildRouteTree(routes: CompiledRoute[]): void {
+	protected buildRouteTree(routes: CompiledRoute[]): void {
 		this.routeTree = this.createNode('');
 
 		for (const route of routes) {
@@ -456,7 +465,7 @@ export class Router {
 		}
 	}
 
-	private buildNamedRoutesMap(routes: CompiledRoute[]): void {
+	protected buildNamedRoutesMap(routes: CompiledRoute[]): void {
 		this.namedRoutes.clear();
 		for (const route of routes) {
 			if (route.name)
@@ -464,7 +473,7 @@ export class Router {
 		}
 	}
 
-	private normalizePath(path: string): string {
+	protected normalizePath(path: string): string {
 		// Ensure path starts with / and doesn't end with / (unless it's root)
 		path = path.startsWith('/') ? path : '/' + path;
 
@@ -482,12 +491,8 @@ export class Router {
 
 		try {
 			// Save current scroll position
-			if (this.scrollRestoration && this.currentMatch) {
-				this.scrollPositions.set(this.currentMatch.path, {
-					x: window.scrollX,
-					y: window.scrollY,
-				});
-			}
+			if (this.scrollRestoration && this.currentMatch)
+				this.scrollPositions.set(this.currentMatch.path, this.historyAdapter.getScrollPosition());
 
 			// Build full URL
 			let url: URL;
@@ -586,10 +591,10 @@ export class Router {
 				// Update history
 				const fullUrl = url.pathname + url.search + url.hash;
 				if (options.replace)
-					window.history.replaceState(options.state || null, '', fullUrl);
+					this.historyAdapter.replaceState(options.state || null, fullUrl);
 
 				else
-					window.history.pushState(options.state || null, '', fullUrl);
+					this.historyAdapter.pushState(options.state || null, fullUrl);
 
 				// Handle exit animation
 				const animStart = performance.now();
@@ -623,13 +628,11 @@ export class Router {
 				if (this.scrollRestoration) {
 					if (url.hash) {
 						// Try to scroll to hash element
-						const el = document.getElementById(url.hash.slice(1));
-						if (el)
-							el.scrollIntoView({ behavior: 'smooth' });
+						this.historyAdapter.scrollIntoView(url.hash.slice(1));
 					}
 					else if (!options.replace) {
 						// Scroll to top on new navigation
-						window.scrollTo(0, 0);
+						this.historyAdapter.scrollTo(0, 0);
 					}
 				}
 
@@ -711,7 +714,7 @@ export class Router {
 		return this.navigate(route.fullPath, options);
 	}
 
-	private findRouteByPath(path: string): CompiledRoute | undefined {
+	protected findRouteByPath(path: string): CompiledRoute | undefined {
 		return this.compiledRoutes.find(r => r.fullPath === path);
 	}
 
@@ -722,7 +725,7 @@ export class Router {
 			return this.matchURL(url);
 		}
 
-		const url = new URL(window.location.href);
+		const url = new URL(this.historyAdapter.getCurrentURL());
 
 		return this.matchURL(url);
 	}
@@ -735,7 +738,7 @@ export class Router {
 		return match.chain[depth] || null;
 	}
 
-	private matchURL(url: URL): RouteMatch | null {
+	protected matchURL(url: URL): RouteMatch | null {
 		const pathname = this.stripBasePath(url.pathname);
 		const chain: RouteMatch[] = [];
 
@@ -845,17 +848,17 @@ export class Router {
 		return null;
 	}
 
-	private hasMatchingChildRoute(pathname: string, route: CompiledRoute): boolean {
+	protected hasMatchingChildRoute(pathname: string, route: CompiledRoute): boolean {
 		return this.compiledRoutes.some(r =>
 			r.fullPath.startsWith(route.fullPath) && r.fullPath !== route.fullPath);
 	}
 
-	private buildChain(chain: RouteMatch[], match: RouteMatch, pathname: string): void {
+	protected buildChain(chain: RouteMatch[], match: RouteMatch, pathname: string): void {
 		// Add the current match to the chain
 		chain.push(match);
 	}
 
-	private stripBasePath(pathname: string): string {
+	protected stripBasePath(pathname: string): string {
 		if (!this.basePath)
 			return pathname;
 
@@ -866,7 +869,19 @@ export class Router {
 	}
 
 	getCurrentPath(): string {
-		return window.location.pathname;
+		return this.historyAdapter.getCurrentPath();
+	}
+
+	/** Get the history adapter used by this router. */
+	getHistoryAdapter(): HistoryAdapter {
+		return this.historyAdapter;
+	}
+
+	/** Dispose of the router, cleaning up all event listeners. */
+	dispose(): void {
+		this.cleanupPopState?.();
+		this.cleanupLinkClick?.();
+		this.historyAdapter.dispose();
 	}
 
 	addController(controller: RouterController): void {
@@ -877,18 +892,21 @@ export class Router {
 		this.controllers.delete(controller);
 	}
 
-	private notifyControllers(): void {
+	protected notifyControllers(): void {
 		this.controllers.forEach(controller => controller.routeChanged());
 	}
 
 	// Enterprise Features - Prefetching
-	private setupPrefetching(): void {
+	protected setupPrefetching(): void {
 		if (!this.prefetchConfig)
 			return;
 
 		const { strategy, delay = 50, threshold = 0.1 } = this.prefetchConfig;
 
-		if (strategy === 'hover') {
+		// DOM-dependent strategies require a browser environment
+		const hasDom = typeof document !== 'undefined';
+
+		if (strategy === 'hover' && hasDom) {
 			// Prefetch on link hover
 			document.addEventListener('mouseover', (e) => {
 				const link = (e.target as HTMLElement).closest('a');
@@ -896,7 +914,7 @@ export class Router {
 					return;
 
 				const url = new URL(link.href);
-				if (url.origin !== window.location.origin)
+				if (url.origin !== this.historyAdapter.origin)
 					return;
 
 				// Debounce hover
@@ -905,7 +923,7 @@ export class Router {
 				}, delay);
 			}, { passive: true });
 		}
-		else if (strategy === 'visible') {
+		else if (strategy === 'visible' && hasDom) {
 			// Prefetch when link becomes visible
 			const observer = new IntersectionObserver((entries) => {
 				entries.forEach(entry => {
@@ -915,7 +933,7 @@ export class Router {
 							return;
 
 						const url = new URL(link.href);
-						if (url.origin === window.location.origin)
+						if (url.origin === this.historyAdapter.origin)
 							this.preload(url.pathname).catch(() => {});
 					}
 				});
@@ -935,7 +953,7 @@ export class Router {
 		}
 		else if (strategy === 'idle') {
 			// Prefetch during idle time
-			if ('requestIdleCallback' in window) {
+			if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
 				const idleCallback = () => {
 					this.preloadAll().catch(() => {});
 				};
@@ -1012,7 +1030,7 @@ export class Router {
 	}
 
 	// Enterprise Features - Error Boundaries
-	private async handleRouteError(error: Error, path: string, options: NavigationOptions): Promise<boolean> {
+	protected async handleRouteError(error: Error, path: string, options: NavigationOptions): Promise<boolean> {
 		// Get the failed route
 		const url = new URL(path, this.baseUrl);
 		const failedMatch = this.matchURL(url);
@@ -1066,7 +1084,7 @@ export class Router {
 		return true;
 	}
 
-	private findErrorBoundary(chain: RouteMatch[]): ErrorBoundary | undefined {
+	protected findErrorBoundary(chain: RouteMatch[]): ErrorBoundary | undefined {
 		// Search from innermost (current) to outermost (root)
 		for (let i = chain.length - 1; i >= 0; i--) {
 			const match = chain[i]!;
@@ -1126,9 +1144,9 @@ export class Router {
 
 export class RouterController implements ReactiveController {
 
-	private host:   ReactiveControllerHost;
-	private router: Router;
-	private depth:  number;
+	protected host:   ReactiveControllerHost;
+	protected router: Router;
+	protected depth:  number;
 
 	constructor(host: ReactiveControllerHost, router: Router, depth = 0) {
 		this.host = host;

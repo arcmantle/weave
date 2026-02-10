@@ -42,7 +42,7 @@ export class RouterOutlet extends LitElement {
 	@property({ type: Number })
 	currentDepth = 0;
 
-	private routerController?: RouterController;
+	protected routerController?: RouterController;
 
 	override connectedCallback(): void {
 		super.connectedCallback();
