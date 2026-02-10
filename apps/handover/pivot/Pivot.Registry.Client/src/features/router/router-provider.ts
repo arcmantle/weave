@@ -1,8 +1,8 @@
 import { provide } from '@lit/context';
-import { html, LitElement } from 'lit';
+import { html, LitElement, type TemplateResult } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
-import { Router, routerContext, type RouterConfig } from '../services/router.ts';
+import { Router, type RouterConfig, routerContext } from './router.ts';
 
 @customElement('router-provider')
 export class RouterProvider extends LitElement {
@@ -16,7 +16,7 @@ export class RouterProvider extends LitElement {
 		this.router = new Router(config);
 	}
 
-	override render() {
+	override render(): TemplateResult {
 		return html`<slot></slot>`;
 	}
 

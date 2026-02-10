@@ -1,26 +1,11 @@
 import { consume } from '@lit/context';
-import { css, html, LitElement } from 'lit';
+import { css, type CSSResultGroup, html, LitElement, type TemplateResult } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
-import { type NavigationOptions, Router, router, routerContext, RouterController } from '../services/router.ts';
+import { type NavigationOptions, Router, router, routerContext, RouterController } from './router.ts';
 
 @customElement('router-link')
 export class RouterLink extends LitElement {
-
-	static override styles = css`
-		:host {
-			display: inline;
-		}
-
-		a {
-			color: inherit;
-			text-decoration: inherit;
-		}
-
-		a.active {
-			font-weight: bold;
-		}
-	`;
 
 	@property({ type: String }) to = '';
 	@property({ type: String }) name = '';
@@ -59,7 +44,7 @@ export class RouterLink extends LitElement {
 			await this.routerController.navigate(this.to, options);
 	}
 
-	override render() {
+	override render(): TemplateResult {
 		if (!this.routerController)
 			return html`<slot></slot>`;
 
@@ -75,6 +60,19 @@ export class RouterLink extends LitElement {
 			</a>
 		`;
 	}
+
+	static override styles: CSSResultGroup = css`
+		:host {
+			display: inline;
+		}
+		a {
+			color: inherit;
+			text-decoration: inherit;
+		}
+		a.active {
+			font-weight: bold;
+		}
+	`;
 
 }
 

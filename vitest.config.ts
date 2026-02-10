@@ -8,6 +8,7 @@ export default defineConfig({
 			'packages/core/**/vitest.config.ts',
 			'packages/dev-tools/**/vitest.config.ts',
 			'packages/lit/**/vitest.config.ts',
+			'apps/handover/pivot/Pivot.Registry.Client/vitest.config.ts',
 		],
 	},
 });

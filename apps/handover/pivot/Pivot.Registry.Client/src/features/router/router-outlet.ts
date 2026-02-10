@@ -1,16 +1,17 @@
-import { consume, provide } from '@lit/context';
-import { css, html, LitElement } from 'lit';
+import { consume, createContext, provide } from '@lit/context';
+import { css, html, LitElement, type TemplateResult } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
-import { router, Router, routerContext, RouterController, type RouteMatch } from '../services/router.ts';
+import { type RouteMatch, Router, router, routerContext, RouterController } from './router.ts';
+
 
 // Context for tracking route depth
-export const routerDepthContext = Symbol('router-depth');
+export const routerDepthContext: ReturnType<typeof createContext<number>> = createContext<number>(Symbol('router-depth'));
 
 @customElement('router-outlet')
 export class RouterOutlet extends LitElement {
 
-	static override styles = css`
+	static override styles: ReturnType<typeof css> = css`
 		:host {
 			display: block;
 		}
@@ -51,35 +52,35 @@ export class RouterOutlet extends LitElement {
 		this.routerController = new RouterController(this, this.routerInstance, this.currentDepth);
 	}
 
-	override render() {
-		if (!this.routerController) {
+	override render(): TemplateResult | Element {
+		if (!this.routerController)
 			return html`<slot></slot>`;
-		}
+
 
 		const match: RouteMatch | null = this.routerController.match();
 
-		if (!match) {
+		if (!match)
 			return html`<slot></slot>`;
-		}
+
 
 		// Handle loading state
-		if (match.loading) {
+		if (match.loading)
 			return html`<div class="loading">Loading...</div>`;
-		}
+
 
 		// Handle error state
 		if (match.error) {
 			return html`
 				<div class="error">
-					<strong>Error:</strong> ${match.error.message}
+					<strong>Error:</strong> ${ match.error.message }
 				</div>
 			`;
 		}
 
 		// Prefer template over component
-		if (match.template) {
+		if (match.template)
 			return match.template(match.params);
-		}
+
 
 		// Fallback to component if no template
 		if (match.component) {
@@ -96,6 +97,7 @@ export class RouterOutlet extends LitElement {
 
 		return html`<slot></slot>`;
 	}
+
 }
 
 declare global {
