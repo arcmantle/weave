@@ -8,6 +8,14 @@ using Pivot.Coordinator;
 Console.WriteLine("Generating Pivot Configuration JSON Schemas...");
 Console.WriteLine();
 
+// Accept output directory as first argument, default to current directory
+var outputDir = args.Length > 0 ? args[0] : Directory.GetCurrentDirectory();
+outputDir = Path.GetFullPath(outputDir);
+Directory.CreateDirectory(outputDir);
+
+Console.WriteLine($"📂 Output directory: {outputDir}");
+Console.WriteLine();
+
 // Create schema generator settings
 var settings = new SystemTextJsonSchemaGeneratorSettings {
 	SchemaType = SchemaType.JsonSchema
@@ -44,19 +52,21 @@ new JsonSerializerOptions { WriteIndented = true }
 );
 
 // Write composite schema
-var outputPath = Path.Combine("..", "..", "..", "pivot-schema.json");
+var outputPath = Path.Combine(outputDir, "pivot-schema.json");
 await File.WriteAllTextAsync(outputPath, compositeSchemaJson);
 
-Console.WriteLine($"✓ Generated composite schema: {Path.GetFullPath(outputPath)}");
+Console.WriteLine($"✓ Generated composite schema: {outputPath}");
 Console.WriteLine();
 
 // Generate individual schemas for reference
-var registryOutputPath = Path.Combine("..", "..", "..", "schemas", "registry-schema.json");
-Directory.CreateDirectory(Path.GetDirectoryName(registryOutputPath)!);
-await File.WriteAllTextAsync(registryOutputPath, registrySchema.ToJson());
-Console.WriteLine($"✓ Generated Registry schema: {Path.GetFullPath(registryOutputPath)}");
+var schemasDir = Path.Combine(outputDir, "schemas");
+Directory.CreateDirectory(schemasDir);
 
-var coordinatorOutputPath = Path.Combine("..", "..", "..", "schemas", "coordinator-schema.json");
+var registryOutputPath = Path.Combine(schemasDir, "registry-schema.json");
+await File.WriteAllTextAsync(registryOutputPath, registrySchema.ToJson());
+Console.WriteLine($"✓ Generated Registry schema: {registryOutputPath}");
+
+var coordinatorOutputPath = Path.Combine(schemasDir, "coordinator-schema.json");
 await File.WriteAllTextAsync(coordinatorOutputPath, coordinatorSchema.ToJson());
 Console.WriteLine($"✓ Generated Coordinator schema: {Path.GetFullPath(coordinatorOutputPath)}");
 

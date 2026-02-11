@@ -85,6 +85,34 @@ export const routerContext: ReturnType<typeof createContext<Router>>
 	= createContext<Router>(Symbol('router'));
 
 /**
+ * Properties of RouteConfig that can be inherited via `reuseFrom`.
+ * Derived from RouteConfig, excluding identity fields (`path`, `name`) and `reuseFrom` itself.
+ */
+export type InheritableRouteProperty = Exclude<keyof RouteConfig, 'path' | 'name' | 'reuseFrom'>;
+
+/** Keys that are never inherited — identity keys plus compiled-only internals. */
+const NON_INHERITABLE_KEYS: ReadonlySet<string> = new Set<keyof CompiledRoute>([
+	'path',
+	'name',
+	'reuseFrom',
+	// CompiledRoute-only keys — never part of the public RouteConfig surface.
+	'pattern',
+	'fullPath',
+	'priority',
+]);
+
+/**
+ * Explicit configuration for `reuseFrom`.
+ * Lets you pick exactly which properties to inherit from the source route.
+ */
+export interface RouteReuseConfig {
+	/** Name of the route to inherit from. */
+	name:       string;
+	/** Properties to inherit from the source route. */
+	properties: InheritableRouteProperty[];
+}
+
+/**
  * Configuration for a single route.
  * At minimum, provide `path` and either `template`, `component`, or `redirect`.
  */
@@ -113,6 +141,36 @@ export interface RouteConfig {
 	animation?:     RouteAnimation;
 	/** Error boundary configuration for handling navigation errors */
 	errorBoundary?: ErrorBoundary;
+	/**
+	 * Inherit properties from another named route.
+	 *
+	 * - **String** — inherits all inheritable properties that are not explicitly
+	 *   set on this route (template, component, children, lazy, redirect,
+	 *   beforeEnter, canDeactivate, metadata, animation, errorBoundary).
+	 * - **Object** — inherits only the listed properties from the named route.
+	 * - **Array** — inherits listed properties from multiple named routes.
+	 *   Earlier entries take precedence (first-write-wins).
+	 *
+	 * In all forms, a property that is already defined on this route is never
+	 * overwritten.
+	 *
+	 * @example
+	 * ```typescript
+	 * // String shorthand — inherit everything not set locally
+	 * { path: '/explore',     name: 'explore', template: fn, beforeEnter: guard },
+	 * { path: '/explore/:id', reuseFrom: 'explore' },
+	 *
+	 * // Object form — inherit only specific properties
+	 * { path: '/explore/:id', reuseFrom: { name: 'explore', properties: ['template'] } },
+	 *
+	 * // Array form — inherit different properties from different routes
+	 * { path: '/combo', reuseFrom: [
+	 *   { name: 'explore',   properties: ['template'] },
+	 *   { name: 'dashboard', properties: ['beforeEnter', 'errorBoundary'] },
+	 * ]},
+	 * ```
+	 */
+	reuseFrom?:     string | RouteReuseConfig | RouteReuseConfig[];
 }
 
 export interface RouteMatch {
@@ -679,17 +737,24 @@ export class Router {
 			}
 		}
 
+		// Resolve reuseFrom references — copy template/component from the named source route
+		this.resolveReuseFrom(compiled);
+
 		// Sort by priority (higher priority first)
 		return compiled.sort((a, b) => b.priority - a.priority);
 	}
 
 	protected calculateRoutePriority(path: string): number {
+		// Root path `/` is an exact match and should have high priority
+		if (path === '/')
+			return 100;
+
 		let priority = 0;
 		const segments = path.split('/').filter(Boolean);
 
 		for (const segment of segments) {
-			if (segment === '*' || segment === '**') {
-				// Wildcard gets lowest priority
+			if (segment === '*' || segment === '**' || /^\(.*\)$/.test(segment)) {
+				// Wildcard or regex capture group gets lowest priority
 				priority += 1;
 			}
 			else if (segment.startsWith(':')) {
@@ -746,6 +811,106 @@ export class Router {
 
 			currentNode.routes.push(route);
 		}
+	}
+
+	/**
+	 * Resolves `reuseFrom` references in compiled routes.
+	 *
+	 * - **String form**: copies every inheritable property from the source that
+	 *   is not already defined on the target route.
+	 * - **Object form**: copies only the explicitly listed properties.
+	 * - **Array form**: applies multiple object-form entries in order.  Earlier
+	 *   entries take precedence (first-write-wins for each property).
+	 *
+	 * In all cases a property already set on the target is never overwritten.
+	 *
+	 * Chained `reuseFrom` is supported — if route C reuses from B which reuses
+	 * from A, the source chain is resolved recursively (depth-first) so
+	 * declaration order does not matter. Circular references are detected and
+	 * produce a warning.
+	 */
+	protected resolveReuseFrom(routes: CompiledRoute[]): void {
+		// Build a name → route lookup from the current batch
+		const byName: Map<string, CompiledRoute> = new Map();
+		for (const route of routes) {
+			if (route.name)
+				byName.set(route.name, route);
+		}
+
+		/** Tracks which routes have already been fully resolved. */
+		const resolved: Set<CompiledRoute> = new Set();
+		/** Tracks routes currently being resolved (cycle detection). */
+		const resolving: Set<CompiledRoute> = new Set();
+
+		const resolve = (route: CompiledRoute): void => {
+			if (resolved.has(route) || !route.reuseFrom)
+				return;
+
+			if (resolving.has(route)) {
+				console.warn(
+					`[Router] Circular reuseFrom detected on route '${ route.path }'. `
+					+ 'Inheritance chain aborted.',
+				);
+
+				return;
+			}
+
+			resolving.add(route);
+
+			const reuseFrom = route.reuseFrom;
+
+			if (typeof reuseFrom === 'string') {
+				// String shorthand — inherit everything from one source, skip blacklisted keys.
+				const source = byName.get(reuseFrom);
+				if (!source) {
+					console.warn(
+						`[Router] reuseFrom '${ reuseFrom }' on route '${ route.path }' `
+						+ 'references a route name that does not exist.',
+					);
+				}
+				else {
+					resolve(source);
+
+					for (const key of Object.keys(source)) {
+						if (NON_INHERITABLE_KEYS.has(key))
+							continue;
+
+						const prop = key as InheritableRouteProperty;
+						if (route[prop] === undefined && source[prop] !== undefined)
+							(route as unknown as Record<InheritableRouteProperty, unknown>)[prop] = source[prop];
+					}
+				}
+			}
+			else {
+				// Object or array form — normalize to array, inherit listed properties.
+				const configs = Array.isArray(reuseFrom) ? reuseFrom : [ reuseFrom ];
+
+				for (const config of configs) {
+					const source = byName.get(config.name);
+					if (!source) {
+						console.warn(
+							`[Router] reuseFrom '${ config.name }' on route '${ route.path }' `
+							+ 'references a route name that does not exist.',
+						);
+
+						continue;
+					}
+
+					resolve(source);
+
+					for (const prop of config.properties) {
+						if (route[prop] === undefined && source[prop] !== undefined)
+							(route as unknown as Record<InheritableRouteProperty, unknown>)[prop] = source[prop];
+					}
+				}
+			}
+
+			resolving.delete(route);
+			resolved.add(route);
+		};
+
+		for (const route of routes)
+			resolve(route);
 	}
 
 	protected buildNamedRoutesMap(routes: CompiledRoute[]): void {

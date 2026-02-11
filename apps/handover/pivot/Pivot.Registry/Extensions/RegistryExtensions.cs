@@ -21,6 +21,14 @@ public static class RegistryExtensions {
 
 		var options = new RegistryOptions();
 		builder.Configuration.GetSection("Pivot:Registry").Bind(options);
+
+		// Also try root-level AccessMode for self-hosting scenarios
+		var rootAccessMode = builder.Configuration["AccessMode"];
+		if (!string.IsNullOrEmpty(rootAccessMode)
+			&& Enum.TryParse<RegistryAccessMode>(rootAccessMode, ignoreCase: true, out var accessMode)) {
+			options.AccessMode = accessMode;
+		}
+
 		configure?.Invoke(options);
 
 		if (!options.Enabled) {
@@ -111,7 +119,22 @@ public static class RegistryExtensions {
 			};
 		});
 
-		builder.Services.AddAuthorization();
+		builder.Services.AddAuthorization(authOptions => {
+			// Write operations (upload, delete, storage) always require authentication
+			authOptions.AddPolicy("RegistryWrite", policy =>
+				policy.RequireAuthenticatedUser());
+
+			// Read operations are conditional on the access mode
+			authOptions.AddPolicy("RegistryRead", policy => {
+				if (options.AccessMode == RegistryAccessMode.Public) {
+					// In public mode anyone can read – always succeeds
+					policy.RequireAssertion(_ => true);
+				}
+				else {
+					policy.RequireAuthenticatedUser();
+				}
+			});
+		});
 
 		return builder;
 	}

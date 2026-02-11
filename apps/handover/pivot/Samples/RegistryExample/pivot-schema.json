@@ -37,6 +37,14 @@
       "type": "string",
       "description": "Application name for data directory isolation"
     },
+    "AccessMode": {
+      "type": "string",
+      "description": "Registry access mode: Public allows unauthenticated browsing/downloading, Private requires authentication for all operations",
+      "enum": [
+        "Public",
+        "Private"
+      ]
+    },
     "Pivot": {
       "type": "object",
       "description": "Pivot Framework configuration",
@@ -49,6 +57,18 @@
           "properties": {
             "Enabled": {
               "type": "boolean"
+            },
+            "AccessMode": {
+              "type": "string",
+              "description": "",
+              "x-enumNames": [
+                "Public",
+                "Private"
+              ],
+              "enum": [
+                "Public",
+                "Private"
+              ]
             },
             "ApplicationName": {
               "type": "string"

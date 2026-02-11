@@ -6,6 +6,8 @@ import { customElement, state } from 'lit/decorators.js';
 import { router } from './features/router/index.ts';
 import { routes } from './routes.ts';
 import { authService } from './services/auth-service.ts';
+import { configService } from './services/config-service.ts';
+
 
 @customElement('app-root')
 export class AppRoot extends LitElement {
@@ -42,6 +44,9 @@ export class AppRoot extends LitElement {
 	}
 
 	private async initialize(): Promise<void> {
+		// Pre-fetch config so routes can use it synchronously from cache
+		await configService.getConfig();
+
 		this.isInitialized = true;
 
 		// Navigate to current path (will trigger guards)

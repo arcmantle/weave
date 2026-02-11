@@ -1,24 +1,26 @@
-import { css, type CSSResultGroup, html, LitElement } from 'lit';
+import { css, type CSSResultGroup, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 
 import { router } from '../features/router/index.ts';
 import type { Plugin } from '../models/plugin.ts';
 import { authService } from '../services/auth-service.ts';
+import { type AccessMode, configService } from '../services/config-service.ts';
 import { pluginApi } from '../services/plugin-api-service.ts';
 
-type TabType = 'browse' | 'upload' | 'storage';
+type TabType = 'upload' | 'storage';
 
 
 @customElement('registry-manager')
 export class RegistryManager extends LitElement {
 
-	@state() private activeTab:      TabType = 'browse';
+	@state() private activeTab:      TabType = 'upload';
 	@state() private plugins:        Plugin[] = [];
 	@state() private loading:        boolean = false;
 	@state() private currentUser:    string | null = null;
 	@state() private uploadStatus:   string | null = null;
 	@state() private uploadError:    string | null = null;
 	@state() private uploadProgress: boolean = false;
+	@state() private accessMode:     AccessMode = 'private';
 
 	override connectedCallback(): void {
 		super.connectedCallback();
@@ -26,6 +28,8 @@ export class RegistryManager extends LitElement {
 	}
 
 	private async initialize(): Promise<void> {
+		const config = await configService.getConfig();
+		this.accessMode = config.accessMode;
 		this.currentUser = await authService.getCurrentUser();
 		await this.loadPlugins();
 	}
@@ -44,92 +48,23 @@ export class RegistryManager extends LitElement {
 		}
 	}
 
-	private async deleteVersion(pluginName: string, version: string) {
-		if (!confirm(`Delete ${ pluginName } version ${ version }?`))
-			return;
-
-
-		try {
-			await pluginApi.deleteVersion(pluginName, version);
-			await this.loadPlugins();
-		}
-		catch (err) {
-			console.error('Failed to delete version:', err);
-			alert('Failed to delete plugin version');
-		}
+	private get isAuthenticated(): boolean {
+		return !!this.currentUser;
 	}
 
-	private formatFileSize(bytes: number): string {
-		const sizes = [ 'B', 'KB', 'MB', 'GB' ];
-		let len = bytes;
-		let order = 0;
-		while (len >= 1024 && order < sizes.length - 1) {
-			order++;
-			len = len / 1024;
-		}
-
-		return `${ len.toFixed(2) } ${ sizes[order] }`;
-	}
-
-	private formatDate(date: Date): string {
-		return new Date(date).toLocaleString();
+	private async handleLogin() {
+		await router.navigate('/login');
 	}
 
 	private async handleLogout() {
 		await authService.logout();
-		await router.navigate('/login');
-	}
 
-	private renderBrowseTab() {
-		if (this.loading)
-			return html`<div class="loading">Loading...</div>`;
+		// In private mode redirect to login, in public mode stay on dashboard
+		if (this.accessMode === 'private')
+			await router.navigate('/login');
 
-
-		if (this.plugins.length === 0)
-			return html`<p>No plugins in registry.</p>`;
-
-
-		return html`
-			<h2>Available Plugins</h2>
-			<table class="plugins-table">
-				<thead>
-					<tr>
-						<th>Name</th>
-						<th>Latest Version</th>
-						<th>Author</th>
-						<th>Description</th>
-						<th>Total Downloads</th>
-						<th>Actions</th>
-					</tr>
-				</thead>
-				<tbody>
-					${ this.plugins.map(
-						plugin => html`
-							<tr>
-								<td><strong>${ plugin.name }</strong></td>
-								<td>${ plugin.latestVersion ?? 'N/A' }</td>
-								<td>${ plugin.author ?? '' }</td>
-								<td>${ plugin.description ?? '' }</td>
-								<td>${ plugin.totalDownloads ?? 0 }</td>
-								<td>
-									<button
-										class="btn-small btn-primary"
-										@click=${ () => this.viewPluginDetails(plugin.name) }
-									>
-										View Details
-									</button>
-								</td>
-							</tr>
-						`,
-					) }
-				</tbody>
-			</table>
-		`;
-	}
-
-	private async viewPluginDetails(name: string) {
-		// TODO: Implement plugin detail view
-		console.log('View details for:', name);
+		else
+			this.currentUser = null;
 	}
 
 	private renderUploadTab() {
@@ -248,39 +183,64 @@ export class RegistryManager extends LitElement {
 		return html`
 			<div class="header-bar">
 				<h1>Registry Manager</h1>
-				<button class="btn btn-secondary" @click=${ this.handleLogout }>
-					Logout (${ this.currentUser })
-				</button>
+				${ this.isAuthenticated
+					? html`
+						<button class="btn btn-secondary" @click=${ this.handleLogout }>
+							Logout (${ this.currentUser })
+						</button>
+					`
+					: this.accessMode === 'public'
+						? html`
+							<button class="btn btn-primary" @click=${ this.handleLogin }>
+								Login
+							</button>
+						`
+						: nothing }
 			</div>
 
-			<div class="tabs">
-				<button
-					class=${ this.activeTab === 'browse' ? 'active' : '' }
-					@click=${ () => (this.activeTab = 'browse') }
-				>
-					Browse Plugins
-				</button>
-				<button
-					class=${ this.activeTab === 'upload' ? 'active' : '' }
-					@click=${ () => (this.activeTab = 'upload') }
-				>
-					Upload Plugin
-				</button>
-				<button
-					class=${ this.activeTab === 'storage' ? 'active' : '' }
-					@click=${ () => (this.activeTab = 'storage') }
-				>
-					Storage Info
-				</button>
-			</div>
+			<nav class="nav-cards">
+				<router-link to="/browse" class="nav-card">
+					<h3>Browse Plugins</h3>
+					<p>Search and discover available plugins in the registry.</p>
+				</router-link>
+				<router-link to="/explore" class="nav-card">
+					<h3>Plugin Explorer</h3>
+					<p>Browse plugins with a side-by-side list and detail view.</p>
+				</router-link>
+				${ this.isAuthenticated
+					? html`
+						<router-link to="/admin" class="nav-card">
+							<h3>Plugin Admin</h3>
+							<p>Manage your plugins, upload new versions, and view statistics.</p>
+						</router-link>
+					`
+					: nothing }
+			</nav>
 
-			<div class="tab-content">
-				${ this.activeTab === 'browse'
-					? this.renderBrowseTab()
-					: this.activeTab === 'upload'
-						? this.renderUploadTab()
-						: this.renderStorageTab() }
-			</div>
+			${ this.isAuthenticated
+				? html`
+					<div class="tabs">
+						<button
+							class=${ this.activeTab === 'upload' ? 'active' : '' }
+							@click=${ () => (this.activeTab = 'upload') }
+						>
+							Upload Plugin
+						</button>
+						<button
+							class=${ this.activeTab === 'storage' ? 'active' : '' }
+							@click=${ () => (this.activeTab = 'storage') }
+						>
+							Storage Info
+						</button>
+					</div>
+
+					<div class="tab-content">
+						${ this.activeTab === 'upload'
+							? this.renderUploadTab()
+							: this.renderStorageTab() }
+					</div>
+				`
+				: nothing }
 		`;
 	}
 
@@ -302,6 +262,41 @@ export class RegistryManager extends LitElement {
 			gap: 10px;
 			margin-bottom: 20px;
 			border-bottom: 2px solid #eee;
+		}
+
+		.nav-cards {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+			gap: 16px;
+			margin-bottom: 32px;
+		}
+
+		.nav-card {
+			display: block;
+			background: white;
+			padding: 24px;
+			border-radius: 8px;
+			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+			text-decoration: none;
+			color: inherit;
+			transition: box-shadow 0.3s, transform 0.2s;
+			cursor: pointer;
+		}
+
+		.nav-card:hover {
+			box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+			transform: translateY(-2px);
+		}
+
+		.nav-card h3 {
+			margin: 0 0 8px;
+			color: #667eea;
+		}
+
+		.nav-card p {
+			margin: 0;
+			color: #666;
+			font-size: 14px;
 		}
 
 		.tabs button {

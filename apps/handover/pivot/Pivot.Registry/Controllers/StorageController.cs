@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,6 +10,7 @@ namespace Pivot.Registry.Controllers;
 
 [ApiController]
 [Route("api/storage")]
+[Authorize(Policy = "RegistryWrite")]
 public class StorageController : ControllerBase {
 	private readonly RegistryDbContext _dbContext;
 	private readonly IServiceProvider _serviceProvider;

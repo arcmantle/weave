@@ -45,6 +45,11 @@ public static class PivotSchemaGenerator {
 			["ApplicationName"] = new {
 				type = "string",
 				description = "Application name for data directory isolation"
+			},
+			["AccessMode"] = new {
+				type = "string",
+				description = "Registry access mode: Public allows unauthenticated browsing/downloading, Private requires authentication for all operations",
+				@enum = new[] { "Public", "Private" }
 			}
 		};
 

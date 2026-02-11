@@ -1,4 +1,24 @@
+using System.Text.Json.Serialization;
+
 namespace Pivot.Registry;
+
+
+/// <summary>
+/// Controls whether the registry requires authentication for read operations.
+/// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum RegistryAccessMode {
+	/// <summary>
+	/// Browse and download are open to everyone. Upload, delete, and storage
+	/// management still require authentication.
+	/// </summary>
+	Public,
+
+	/// <summary>
+	/// All operations require authentication (default).
+	/// </summary>
+	Private,
+}
 
 /// <summary>
 /// Configuration options for the Pivot Registry
@@ -8,6 +28,12 @@ public class RegistryOptions {
 	/// Whether the registry is enabled
 	/// </summary>
 	public bool Enabled { get; set; } = true;
+
+	/// <summary>
+	/// Access mode: "Public" allows unauthenticated browsing/downloading,
+	/// "Private" requires authentication for all operations.
+	/// </summary>
+	public RegistryAccessMode AccessMode { get; set; } = RegistryAccessMode.Private;
 
 	/// <summary>
 	/// Application name for data directory isolation

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -26,6 +27,7 @@ public class PluginsController : ControllerBase {
 	}
 
 	[HttpGet]
+	[Authorize(Policy = "RegistryRead")]
 	public async Task<IActionResult> GetPlugins(
 		 [FromQuery] string? search = null,
 		 [FromQuery] string? tag = null,
@@ -75,10 +77,11 @@ public class PluginsController : ControllerBase {
 	}
 
 	[HttpGet("{name}")]
+	[Authorize(Policy = "RegistryRead")]
 	public async Task<IActionResult> GetPlugin(string name) {
 		var plugin = await _dbContext.Plugins
 			 .Include(p => p.Versions)
-				  .ThenInclude(v => v.Dependencies)
+					.ThenInclude(v => v.Dependencies)
 			 .FirstOrDefaultAsync(p => p.Name == name);
 
 		if (plugin == null) {
@@ -107,6 +110,7 @@ public class PluginsController : ControllerBase {
 	}
 
 	[HttpGet("{name}/versions/{version}")]
+	[Authorize(Policy = "RegistryRead")]
 	public async Task<IActionResult> GetPluginVersion(string name, string version) {
 		var pluginVersion = await _dbContext.PluginVersions
 			 .Include(pv => pv.Plugin)
@@ -139,6 +143,7 @@ public class PluginsController : ControllerBase {
 	}
 
 	[HttpPost("upload")]
+	[Authorize(Policy = "RegistryWrite")]
 	[RequestSizeLimit(104857600)] // 100MB max
 	public async Task<IActionResult> UploadPlugin(IFormFile file) {
 		if (file == null || file.Length == 0) {
@@ -175,6 +180,7 @@ public class PluginsController : ControllerBase {
 	}
 
 	[HttpGet("{name}/versions/{version}/download")]
+	[Authorize(Policy = "RegistryRead")]
 	public async Task<IActionResult> DownloadPlugin(string name, string version) {
 		var stream = await _packageService.GetPackageStreamAsync(name, version);
 
@@ -186,6 +192,7 @@ public class PluginsController : ControllerBase {
 	}
 
 	[HttpDelete("{name}/versions/{version}")]
+	[Authorize(Policy = "RegistryWrite")]
 	public async Task<IActionResult> DeletePluginVersion(string name, string version) {
 		var deleted = await _packageService.DeleteVersionAsync(name, version);
 
@@ -197,6 +204,7 @@ public class PluginsController : ControllerBase {
 	}
 
 	[HttpGet("tags")]
+	[Authorize(Policy = "RegistryRead")]
 	public async Task<IActionResult> GetTags() {
 		var tags = await _dbContext.Plugins
 			 .Where(p => p.Tags != null)

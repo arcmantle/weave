@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "RegistryOptions",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "Enabled": {
+      "type": "boolean"
+    },
+    "AccessMode": {
+      "$ref": "#/definitions/RegistryAccessMode"
+    },
+    "ApplicationName": {
+      "type": "string"
+    },
+    "ConnectionString": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "StorageProvider": {
+      "type": "string"
+    },
+    "FileSystemBasePath": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "MinioEndpoint": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "MinioAccessKey": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "MinioSecretKey": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "MinioUseSsl": {
+      "type": "boolean"
+    },
+    "MinioBucketName": {
+      "type": "string"
+    }
+  },
+  "definitions": {
+    "RegistryAccessMode": {
+      "type": "string",
+      "description": "",
+      "x-enumNames": [
+        "Public",
+        "Private"
+      ],
+      "enum": [
+        "Public",
+        "Private"
+      ]
+    }
+  }
+}
