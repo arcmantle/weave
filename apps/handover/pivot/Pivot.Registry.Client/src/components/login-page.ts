@@ -1,6 +1,7 @@
 import { css, type CSSResultGroup, html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 
+import { router } from '../features/router/index.ts';
 import { authService } from '../services/auth-service.ts';
 
 @customElement('login-page')
@@ -24,8 +25,8 @@ export class LoginPage extends LitElement {
 			const result = await authService.login(this.username.trim());
 
 			if (result.success) {
-				// Trigger navigation via custom event
-				this.dispatchEvent(new CustomEvent('login-success', { bubbles: true, composed: true }));
+				// Navigate to dashboard
+				await router.navigate('/');
 			}
 			else {
 				this.errorMessage = result.error ?? 'Login failed';

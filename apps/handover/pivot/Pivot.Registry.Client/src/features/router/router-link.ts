@@ -4,6 +4,7 @@ import { customElement, property } from 'lit/decorators.js';
 
 import { type NavigationOptions, Router, router, routerContext, RouterController } from './router.ts';
 
+
 @customElement('router-link')
 export class RouterLink extends LitElement {
 

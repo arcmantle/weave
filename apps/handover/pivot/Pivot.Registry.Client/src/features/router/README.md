@@ -427,24 +427,30 @@ Falls back to instant navigation in browsers that don't support it.
 Subscribe to lifecycle events for logging, analytics, loading indicators, etc. Each listener returns an unsubscribe function.
 
 ```typescript
-// Before guards run
-const off1 = router.onBeforeNavigate((event) => {
+// Before navigation starts (before guards)
+const off1 = router.onBeforeNavigateStart((event) => {
   console.log(`Navigating from ${event.from?.path} to ${event.to.path}`);
 });
 
-// After guards pass, before DOM update
-const off2 = router.onNavigateStart((event) => {
+// After navigation starts (after guards pass, before DOM update)
+const off2 = router.onAfterNavigateStart((event) => {
   showLoadingBar();
 });
 
-// After navigation completes
-const off3 = router.onNavigateEnd((event) => {
+// Before navigation ends (after DOM update but before final metrics/cleanup)
+const off3 = router.onBeforeNavigateEnd((event) => {
+  // Perfect for DOM measurements, screenshot capture, or analytics that need the updated DOM
+  capturePageMetrics();
+});
+
+// After navigation ends (navigation fully completes)
+const off4 = router.onAfterNavigateEnd((event) => {
   hideLoadingBar();
   analytics.track('pageview', { path: event.to.path });
 });
 
 // On navigation error
-const off4 = router.onNavigateError((event) => {
+const off5 = router.onNavigateError((event) => {
   reportError(event.error);
 });
 
@@ -787,9 +793,10 @@ new Router(config?: RouterConfig)
 
 | Method | Description |
 | --- | --- |
-| `onBeforeNavigate(listener)` | Before guards run |
-| `onNavigateStart(listener)` | After guards, before DOM update |
-| `onNavigateEnd(listener)` | After navigation completes |
+| `onBeforeNavigateStart(listener)` | Before navigation starts (before guards) |
+| `onAfterNavigateStart(listener)` | After navigation starts (after guards, before DOM update) |
+| `onBeforeNavigateEnd(listener)` | Before navigation ends (after DOM update, before metrics) |
+| `onAfterNavigateEnd(listener)` | After navigation ends (fully complete) |
 | `onNavigateError(listener)` | On navigation error |
 
 All return `() => void` (unsubscribe function).

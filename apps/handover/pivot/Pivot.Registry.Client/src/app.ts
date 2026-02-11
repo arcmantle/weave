@@ -1,9 +1,10 @@
-import './components/login-page.ts';
-import './components/registry-manager.ts';
+import './features/router/router-outlet.ts';
 
 import { css, html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 
+import { router } from './features/router/index.ts';
+import { routes } from './routes.ts';
 import { authService } from './services/auth-service.ts';
 
 @customElement('app-root')
@@ -26,18 +27,14 @@ export class AppRoot extends LitElement {
 	`;
 
 	@state() private isInitialized = false;
-	@state() private isAuthenticated = false;
-	@state() private currentPath = '';
 
 	override connectedCallback(): void {
 		super.connectedCallback();
 
-		// Listen to popstate for browser back/forward
-		window.addEventListener('popstate', this.handlePopState);
+		// Configure the router
+		router.setRoutes(routes);
 
-		this.currentPath = this.getPath();
-
-		// Subscribe to auth changes
+		// Subscribe to auth changes and re-navigate to trigger guards
 		authService.onAuthenticationStateChanged(() => this.handleAuthChange());
 
 		// Initialize async operations
@@ -45,59 +42,27 @@ export class AppRoot extends LitElement {
 	}
 
 	private async initialize(): Promise<void> {
-		this.isAuthenticated = await authService.isAuthenticated();
 		this.isInitialized = true;
 
-		// Redirect to login if not authenticated
-		if (!this.isAuthenticated && this.currentPath !== '/login')
-			this.navigate('/login');
+		// Navigate to current path (will trigger guards)
+		await router.navigate(window.location.pathname);
 	}
 
 	override disconnectedCallback(): void {
 		super.disconnectedCallback();
-		window.removeEventListener('popstate', this.handlePopState);
+		router.dispose();
 	}
 
-	private getPath(): string {
-		return window.location.pathname;
-	}
-
-	private navigate(path: string): void {
-		window.history.pushState({}, '', path);
-		this.currentPath = path;
-	}
-
-	private handlePopState = () => {
-		this.currentPath = this.getPath();
-	};
-
-	private async handleAuthChange() {
-		this.isAuthenticated = await authService.isAuthenticated();
-
-		if (!this.isAuthenticated && this.currentPath !== '/login')
-			this.navigate('/login');
-	}
-
-	private handleLoginSuccess() {
-		this.isAuthenticated = true;
-		this.navigate('/');
-	}
-
-	private handleLogout() {
-		this.isAuthenticated = false;
-		this.navigate('/login');
+	private async handleAuthChange(): Promise<void> {
+		// Re-navigate to current path to re-evaluate guards
+		await router.navigate(window.location.pathname);
 	}
 
 	override render(): unknown {
 		if (!this.isInitialized)
 			return html`<div class="loading-screen">Loading...</div>`;
 
-
-		if (!this.isAuthenticated || this.currentPath === '/login')
-			return html`<login-page @login-success=${ this.handleLoginSuccess }></login-page>`;
-
-
-		return html`<registry-manager @logout=${ this.handleLogout }></registry-manager>`;
+		return html`<router-outlet></router-outlet>`;
 	}
 
 }

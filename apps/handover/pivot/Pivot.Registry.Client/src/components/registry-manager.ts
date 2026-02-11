@@ -1,11 +1,13 @@
 import { css, type CSSResultGroup, html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 
+import { router } from '../features/router/index.ts';
 import type { Plugin } from '../models/plugin.ts';
 import { authService } from '../services/auth-service.ts';
 import { pluginApi } from '../services/plugin-api-service.ts';
 
 type TabType = 'browse' | 'upload' | 'storage';
+
 
 @customElement('registry-manager')
 export class RegistryManager extends LitElement {
@@ -75,7 +77,7 @@ export class RegistryManager extends LitElement {
 
 	private async handleLogout() {
 		await authService.logout();
-		this.dispatchEvent(new CustomEvent('logout', { bubbles: true, composed: true }));
+		await router.navigate('/login');
 	}
 
 	private renderBrowseTab() {
@@ -182,11 +184,13 @@ export class RegistryManager extends LitElement {
 	private async handleUpload() {
 		if (!this.selectedFile) {
 			this.uploadError = 'Please select a file to upload';
+
 			return;
 		}
 
 		if (!this.selectedFile.name.endsWith('.pivotpkg')) {
 			this.uploadError = 'Please select a valid .pivotpkg file';
+
 			return;
 		}
 
@@ -207,9 +211,11 @@ export class RegistryManager extends LitElement {
 
 			// Reload plugins to show the new upload
 			await this.loadPlugins();
-		} catch (error) {
+		}
+		catch (error) {
 			this.uploadError = error instanceof Error ? error.message : 'Upload failed';
-		} finally {
+		}
+		finally {
 			this.uploadProgress = false;
 		}
 	}

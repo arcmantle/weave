@@ -4,120 +4,261 @@ import type { ReactiveController, ReactiveControllerHost, TemplateResult } from 
 import { BrowserHistoryAdapter, type HistoryAdapter } from './history-adapter.ts';
 
 
+/**
+ * A function that renders a route's template given matched URL parameters.
+ * @param params - URL parameters extracted from the route path (e.g., `{ id: '123' }` from `/users/:id`)
+ * @returns A Lit TemplateResult to render
+ */
 export type RouteTemplate = (params: Record<string, string>) => TemplateResult;
+
+/**
+ * A function that dynamically loads child routes (code splitting).
+ * The result is cached using a WeakMap keyed on the route config object.
+ * @returns Promise resolving to an array of child route configurations
+ */
 export type RouteLazy = () => Promise<RouteConfig[]>;
+
+/**
+ * A navigation guard that determines whether navigation should proceed.
+ * Return `true` to allow navigation, `false` to block it.
+ * For redirects, call `router.navigate()` manually and return `false`.
+ * @param to - The route being navigated to
+ * @param from - The route being navigated from (null if no previous route)
+ * @returns Boolean or Promise<boolean> indicating whether navigation should proceed
+ */
 export type RouteGuard = (to: RouteMatch, from: RouteMatch | null) => boolean | Promise<boolean>;
+
+/**
+ * Arbitrary metadata that can be attached to a route.
+ * Useful for storing things like page titles, breadcrumbs, permissions, etc.
+ */
 export type RouteMetadata = Record<string, any>;
+
+/**
+ * Animation callbacks for route transitions.
+ * Elements must have the `data-route-element` attribute to be targeted.
+ */
 export interface RouteAnimation {
+	/** Animation to play when entering this route */
 	enter?: (element: Element) => Promise<void> | void;
+	/** Animation to play when exiting this route */
 	exit?:  (element: Element) => Promise<void> | void;
 }
 
-// Navigation event types
+/**
+ * Event emitted during navigation lifecycle.
+ * Listen via onBeforeNavigateStart, onAfterNavigateStart, onBeforeNavigateEnd, onAfterNavigateEnd.
+ */
 export interface NavigationEvent {
+	/** The route being navigated from (null if no previous route) */
 	from:      RouteMatch | null;
+	/** The route being navigated to */
 	to:        RouteMatch;
+	/** Timestamp when navigation started (from Date.now()) */
 	timestamp: number;
 }
 
+/**
+ * Event emitted when navigation fails.
+ * Listen via onNavigateError.
+ */
 export interface NavigationErrorEvent extends NavigationEvent {
+	/** The error that occurred during navigation */
 	error: Error;
 }
 
-export type NavigationListener = (event: NavigationEvent) => void;
+/**
+ * Listener function for navigation lifecycle events.
+ * Return false or Promise<false> to block navigation from continuing.
+ * Return true, void, or undefined to allow navigation to proceed.
+ */
+export type NavigationListener = (event: NavigationEvent) => boolean | Promise<boolean> | void;
+
+/** Listener function for navigation error events */
 export type NavigationErrorListener = (event: NavigationErrorEvent) => void;
 
-// Context for dependency injection
-export const routerContext: ReturnType<typeof createContext<Router>> = createContext<Router>(Symbol('router'));
+/**
+ * Lit Context for dependency injection.
+ * Used by <router-outlet> and <router-link> to consume the nearest router instance.
+ */
+export const routerContext: ReturnType<typeof createContext<Router>>
+	= createContext<Router>(Symbol('router'));
 
+/**
+ * Configuration for a single route.
+ * At minimum, provide `path` and either `template`, `component`, or `redirect`.
+ */
 export interface RouteConfig {
+	/** URLPattern path string (e.g., '/', '/users/:id', '/files/*') */
 	path:           string;
+	/** Function that returns a Lit template to render (receives matched params) */
 	template?:      RouteTemplate;
+	/** Custom element tag name to create (alternative to template) */
 	component?:     string;
+	/** Static nested child routes */
 	children?:      RouteConfig[];
+	/** Function to dynamically load child routes (for code splitting) */
 	lazy?:          RouteLazy;
+	/** Unique name for this route (used with navigateByName) */
 	name?:          string;
+	/** Path to redirect to (uses history.replace to avoid polluting back stack) */
 	redirect?:      string;
+	/** Guard that runs before entering this route (return false to block navigation) */
 	beforeEnter?:   RouteGuard;
+	/** Guard that runs before leaving this route (return false to block navigation) */
 	canDeactivate?: RouteGuard;
+	/** Arbitrary metadata attached to this route */
 	metadata?:      RouteMetadata;
+	/** Enter/exit animations for this route */
 	animation?:     RouteAnimation;
-	errorBoundary?: ErrorBoundary; // Error boundary for this route
+	/** Error boundary configuration for handling navigation errors */
+	errorBoundary?: ErrorBoundary;
 }
 
 export interface RouteMatch {
+	/** The matched path */
 	path:       string;
+	/** URL parameters extracted from the path (e.g., { id: '123' } from /users/:id) */
 	params:     Record<string, string>;
+	/** Parsed query string parameters */
 	query:      URLSearchParams;
+	/** URL hash fragment (without the #) */
 	hash:       string;
+	/** Template function to render (if route uses template) */
 	template?:  RouteTemplate;
+	/** Component tag name (if route uses component) */
 	component?: string;
+	/** True if lazy routes are currently loading */
 	loading?:   boolean;
+	/** Error that occurred during route matching or loading */
 	error?:     Error;
+	/** Full chain of nested route matches from root to leaf */
 	chain:      RouteMatch[];
+	/** Metadata from the matched route */
 	metadata?:  RouteMetadata;
+	/** Name of the matched route (if defined) */
 	name?:      string;
+	/** Animation configuration for this route */
 	animation?: RouteAnimation;
 }
 
+/**
+ * Options for controlling navigation behavior.
+ */
 export interface NavigationOptions {
+	/** Use history.replace instead of history.push (doesn't add to back stack) */
 	replace?:     boolean;
+	/** Query parameters to append to the URL */
 	query?:       Record<string, string>;
+	/** Hash fragment to append to the URL (without the #) */
 	hash?:        string;
+	/** Skip beforeEnter and canDeactivate guards */
 	skipGuards?:  boolean;
+	/** State object to pass to history.pushState/replaceState */
 	state?:       any;
-	_retryCount?: number; // Internal: track retry attempts
+	/** @internal Track retry attempts for error boundaries */
+	_retryCount?: number;
 }
 
+/**
+ * Configuration options for the Router constructor.
+ * All properties are optional with sensible defaults.
+ */
 export interface RouterConfig {
+	/** URL prefix for all routes (e.g., '/app' makes routes relative to /app) */
 	basePath?:           string;
+	/** Save and restore scroll positions on navigation (default: true) */
 	scrollRestoration?:  boolean;
+	/** Use the View Transitions API for cross-route transitions (default: false) */
 	useViewTransitions?: boolean;
+	/** Route to use when no match is found (404 fallback) */
 	fallbackRoute?:      RouteConfig;
-	// History adapter (defaults to BrowserHistoryAdapter)
+	/** Custom history adapter (default: BrowserHistoryAdapter) */
 	history?:            HistoryAdapter;
-	// Enterprise features
-	enableMetrics?:      boolean;        // Default: true
+	/** Record navigation performance metrics (default: true) */
+	enableMetrics?:      boolean;
+	/** Callback invoked after each navigation with timing data */
 	reportPerformance?:  (timing: NavigationTiming) => void;
-	analyticsEndpoint?:  string;         // Optional endpoint for sendBeacon
-	maxMetricsEntries?:  number;         // Max LRU cache size (default 100)
-	prefetch?:           PrefetchConfig; // Prefetch configuration
+	/** Optional endpoint for sending metrics via navigator.sendBeacon() */
+	analyticsEndpoint?:  string;
+	/** Maximum number of metric/stat entries to keep in LRU cache (default: 100) */
+	maxMetricsEntries?:  number;
+	/** Configuration for route prefetching strategies */
+	prefetch?:           PrefetchConfig;
 }
 
-// Performance Metrics
+/**
+ * Performance timing breakdown for a navigation.
+ * Recorded when enableMetrics is true (default).
+ * All times are in milliseconds.
+ */
 export interface NavigationTiming {
-	total:             number; // Total navigation time
-	guards:            number; // Time spent in guards
-	templateRender:    number; // Template rendering time
-	animations:        number; // Animation/transition time
-	scrollRestoration: number; // Scroll restoration time
-	redirect:          number; // Redirect processing time
-	path:              string; // Route path
-	timestamp:         number; // When navigation occurred
+	/** Total navigation time from start to completion */
+	total:             number;
+	/** Time spent running beforeEnter and canDeactivate guards */
+	guards:            number;
+	/** Time spent rendering the template to DOM */
+	templateRender:    number;
+	/** Time spent on enter/exit animations */
+	animations:        number;
+	/** Time spent restoring scroll position */
+	scrollRestoration: number;
+	/** Time spent processing redirects */
+	redirect:          number;
+	/** The path that was navigated to */
+	path:              string;
+	/** Timestamp when navigation occurred (from Date.now()) */
+	timestamp:         number;
 }
 
-// Code Splitting Statistics
+/**
+ * Statistics about lazy route loading performance.
+ * Tracked automatically when using the `lazy` property on routes.
+ */
 export interface RouteStats {
-	path:        string;  // Route path
-	loadTime:    number;  // Time to load (ms)
-	bundleSize?: number;  // Bundle size in bytes (if available)
-	cacheHit:    boolean; // Whether loaded from cache
-	timestamp:   number;  // When loaded
+	/** The route path that was loaded */
+	path:        string;
+	/** Time it took to load the route bundle (ms) */
+	loadTime:    number;
+	/** Size of the loaded bundle in bytes (if available) */
+	bundleSize?: number;
+	/** Whether this load was served from cache */
+	cacheHit:    boolean;
+	/** Timestamp when the route was loaded (from Date.now()) */
+	timestamp:   number;
 }
 
-// Error Boundary
+/**
+ * Error boundary configuration for graceful error handling.
+ * When navigation fails, the router walks up the route chain to find the nearest error boundary.
+ */
 export interface ErrorBoundary {
-	fallback:         RouteTemplate;                              // Error fallback template
-	onError?:         (error: Error, match: RouteMatch) => void;  // Error callback
-	maxRetries?:      number;                                     // Max retry attempts (default 3)
-	retrySkipGuards?: boolean;                                    // Skip guards on retry (default false)
+	/** Template to render when an error occurs */
+	fallback:         RouteTemplate;
+	/** Callback invoked when an error occurs */
+	onError?:         (error: Error, match: RouteMatch) => void;
+	/** Maximum number of retry attempts before showing fallback (default: 3) */
+	maxRetries?:      number;
+	/** Whether to skip guards when retrying navigation (default: false) */
+	retrySkipGuards?: boolean;
 }
 
-// Prefetch Configuration
+/**
+ * Configuration for automatic route prefetching.
+ * Preload lazy route bundles before the user navigates for faster page transitions.
+ */
 export interface PrefetchConfig {
-	strategy:   'hover' | 'visible' | 'idle' | 'manual'; // Prefetch strategy
-	delay?:     number;                                  // Hover delay in ms (default 50)
-	threshold?: number;                                  // Intersection observer threshold (default 0.1)
+	/** Prefetching strategy:
+	 * - 'hover': Prefetch when user hovers a link (debounced by delay)
+	 * - 'visible': Prefetch when link enters viewport (via IntersectionObserver)
+	 * - 'idle': Prefetch during browser idle time (via requestIdleCallback)
+	 * - 'manual': No automatic prefetching (call router.preload() explicitly)
+	 */
+	strategy:   'hover' | 'visible' | 'idle' | 'manual';
+	/** Hover delay in milliseconds before prefetching (hover strategy only, default: 50) */
+	delay?:     number;
+	/** IntersectionObserver threshold 0-1 (visible strategy only, default: 0.1) */
+	threshold?: number;
 }
 
 interface CompiledRoute extends RouteConfig {
@@ -135,7 +276,11 @@ interface RouteNode {
 	paramChild?:    RouteNode;
 }
 
-// LRU Cache for memory-efficient metric/stats storage
+/**
+ * Least Recently Used (LRU) cache with bounded memory.
+ * Used internally for storing navigation metrics and route statistics.
+ * Automatically evicts the least recently accessed items when the cache is full.
+ */
 export class LRUCache<K, V> {
 
 	protected cache:   Map<K, V> = new Map();
@@ -189,6 +334,33 @@ export class LRUCache<K, V> {
 
 }
 
+/**
+ * Production-grade client-side router for Lit applications.
+ *
+ * Features:
+ * - Native URLPattern API for route matching
+ * - Trie-based route tree for performance
+ * - Navigation guards (beforeEnter, canDeactivate)
+ * - Lazy loading with code splitting
+ * - Named routes
+ * - Nested routes
+ * - Animations and View Transitions API
+ * - Performance metrics and analytics
+ * - Prefetching strategies
+ * - Error boundaries
+ * - Custom history adapters
+ * - Automatic anchor interception
+ * - Scroll restoration
+ *
+ * @example
+ * ```typescript
+ * const router = new Router({ basePath: '/app' });
+ * router.setRoutes([
+ *   { path: '/', template: () => html`<home-page></home-page>` },
+ *   { path: '/users/:id', template: (params) => html`<user-page .userId=${params.id}></user-page>` }
+ * ]);
+ * ```
+ */
 export class Router {
 
 	protected routes:             RouteConfig[] = [];
@@ -205,6 +377,8 @@ export class Router {
 	protected useViewTransitions: boolean = false;
 	protected redirectCount:      number = 0;
 	protected readonly MAX_REDIRECTS = 10;
+	protected navigationDepth:    number = 0;
+	protected readonly MAX_NAVIGATION_DEPTH = 10;
 	protected fallbackRoute?:     RouteConfig;
 
 	// History adapter
@@ -212,7 +386,6 @@ export class Router {
 	protected cleanupPopState?:  () => void;
 	protected cleanupLinkClick?: () => void;
 
-	// Enterprise features
 	protected enableMetrics:      boolean = true;
 	protected reportPerformance?: (timing: NavigationTiming) => void;
 	protected analyticsEndpoint?: string;
@@ -222,10 +395,11 @@ export class Router {
 	protected prefetchCache:      WeakMap<RouteConfig, Promise<RouteConfig[]>> = new WeakMap();
 
 	// Event listeners
-	protected beforeNavigateListeners: NavigationListener[] = [];
-	protected navigateStartListeners:  NavigationListener[] = [];
-	protected navigateEndListeners:    NavigationListener[] = [];
-	protected navigateErrorListeners:  NavigationErrorListener[] = [];
+	protected beforeNavigateStartListeners: NavigationListener[] = [];
+	protected afterNavigateStartListeners:  NavigationListener[] = [];
+	protected beforeNavigateEndListeners:   NavigationListener[] = [];
+	protected afterNavigateEndListeners:    NavigationListener[] = [];
+	protected navigateErrorListeners:       NavigationErrorListener[] = [];
 
 	constructor(config: RouterConfig = {}) {
 		this.historyAdapter = config.history ?? new BrowserHistoryAdapter();
@@ -236,7 +410,6 @@ export class Router {
 		this.fallbackRoute = config.fallbackRoute;
 		this.routeTree = this.createNode('');
 
-		// Enterprise features initialization
 		this.enableMetrics = config.enableMetrics ?? true;
 		this.reportPerformance = config.reportPerformance;
 		this.analyticsEndpoint = config.analyticsEndpoint;
@@ -302,6 +475,25 @@ export class Router {
 		this.notifyControllers();
 	}
 
+	/**
+	 * Set the routing table. Replaces any existing routes.
+	 * Compiles routes into URLPatterns and builds the route tree for efficient matching.
+	 *
+	 * @param routes - Array of route configurations
+	 *
+	 * @example
+	 * ```typescript
+	 * router.setRoutes([
+	 *   { path: '/', template: () => html`<home></home>`, name: 'home' },
+	 *   { path: '/about', template: () => html`<about></about>` },
+	 *   {
+	 *     path: '/users/:id',
+	 *     template: (params) => html`<user .id=${params.id}></user>`,
+	 *     name: 'user'
+	 *   }
+	 * ]);
+	 * ```
+	 */
 	setRoutes(routes: RouteConfig[]): void {
 		this.routes = routes;
 		this.compiledRoutes = this.compileRoutes(routes);
@@ -309,37 +501,108 @@ export class Router {
 		this.buildRouteTree(this.compiledRoutes);
 	}
 
-	// Event listener methods
-	onBeforeNavigate(listener: NavigationListener): () => void {
-		this.beforeNavigateListeners.push(listener);
+	/**
+	 * Subscribe to the beforeNavigateStart event.
+	 * Fires before navigation begins, before any guards are run.
+	 * Return false or Promise<false> from your listener to block navigation.
+	 *
+	 * @param listener - Function to call when navigation is about to start
+	 * @returns Unsubscribe function
+	 *
+	 * @example
+	 * ```typescript
+	 * const unsubscribe = router.onBeforeNavigateStart(async (event) => {
+	 *   console.log(`Navigating from ${event.from?.path} to ${event.to.path}`);
+	 *   // Block navigation if needed
+	 *   if (someCondition) return false;
+	 * });
+	 * // Later: unsubscribe();
+	 * ```
+	 */
+	onBeforeNavigateStart(listener: NavigationListener): () => void {
+		this.beforeNavigateStartListeners.push(listener);
 
 		return () => {
-			const index = this.beforeNavigateListeners.indexOf(listener);
+			const index = this.beforeNavigateStartListeners.indexOf(listener);
 			if (index > -1)
-				this.beforeNavigateListeners.splice(index, 1);
+				this.beforeNavigateStartListeners.splice(index, 1);
 		};
 	}
 
-	onNavigateStart(listener: NavigationListener): () => void {
-		this.navigateStartListeners.push(listener);
+	/**
+	 * Subscribe to the afterNavigateStart event.
+	 * Fires after guards pass but before DOM is updated.
+	 * Perfect for showing loading indicators.
+	 * Return false or Promise<false> from your listener to block navigation.
+	 *
+	 * @param listener - Function to call after navigation starts
+	 * @returns Unsubscribe function
+	 */
+	onAfterNavigateStart(listener: NavigationListener): () => void {
+		this.afterNavigateStartListeners.push(listener);
 
 		return () => {
-			const index = this.navigateStartListeners.indexOf(listener);
+			const index = this.afterNavigateStartListeners.indexOf(listener);
 			if (index > -1)
-				this.navigateStartListeners.splice(index, 1);
+				this.afterNavigateStartListeners.splice(index, 1);
 		};
 	}
 
-	onNavigateEnd(listener: NavigationListener): () => void {
-		this.navigateEndListeners.push(listener);
+	/**
+	 * Subscribe to the beforeNavigateEnd event.
+	 * Fires after DOM is updated but before controllers are notified.
+	 * Useful for making final adjustments before the UI reflects the navigation.
+	 * Return false or Promise<false> from your listener to block navigation.
+	 *
+	 * @param listener - Function to call before navigation ends
+	 * @returns Unsubscribe function
+	 *
+	 * @example
+	 * ```typescript
+	 * const unsubscribe = router.onBeforeNavigateEnd(async (event) => {
+	 *   console.log('DOM updated, about to notify controllers');
+	 *   // Can still block here if needed
+	 *   const ready = await checkIfReady();
+	 *   if (!ready) return false;
+	 * });
+	 * ```
+	 */
+	onBeforeNavigateEnd(listener: NavigationListener): () => void {
+		this.beforeNavigateEndListeners.push(listener);
 
 		return () => {
-			const index = this.navigateEndListeners.indexOf(listener);
+			const index = this.beforeNavigateEndListeners.indexOf(listener);
 			if (index > -1)
-				this.navigateEndListeners.splice(index, 1);
+				this.beforeNavigateEndListeners.splice(index, 1);
 		};
 	}
 
+	/**
+	 * Subscribe to the afterNavigateEnd event.
+	 * Fires after navigation is fully complete.
+	 * Perfect for hiding loading indicators and tracking analytics.
+	 * Returning false does not block (navigation already complete), but async listeners will be awaited.
+	 *
+	 * @param listener - Function to call after navigation completes
+	 * @returns Unsubscribe function
+	 */
+	onAfterNavigateEnd(listener: NavigationListener): () => void {
+		this.afterNavigateEndListeners.push(listener);
+
+		return () => {
+			const index = this.afterNavigateEndListeners.indexOf(listener);
+			if (index > -1)
+				this.afterNavigateEndListeners.splice(index, 1);
+		};
+	}
+
+	/**
+	 * Subscribe to navigation error events.
+	 * Fires when navigation fails due to errors in guards, template rendering, etc.
+	 *
+	 * @param listener - Function to call when navigation errors occur
+	 * @returns Unsubscribe function
+	 */
 	onNavigateError(listener: NavigationErrorListener): () => void {
 		this.navigateErrorListeners.push(listener);
 
@@ -350,16 +613,36 @@ export class Router {
 		};
 	}
 
-	protected emitBeforeNavigate(event: NavigationEvent): void {
-		this.beforeNavigateListeners.forEach(listener => listener(event));
+	protected async emitBeforeNavigateStart(event: NavigationEvent): Promise<boolean> {
+		const results = await Promise.all(
+			this.beforeNavigateStartListeners.map(listener => listener(event)),
+		);
+
+		return !results.includes(false);
 	}
 
-	protected emitNavigateStart(event: NavigationEvent): void {
-		this.navigateStartListeners.forEach(listener => listener(event));
+	protected async emitAfterNavigateStart(event: NavigationEvent): Promise<boolean> {
+		const results = await Promise.all(
+			this.afterNavigateStartListeners.map(listener => listener(event)),
+		);
+
+		return !results.includes(false);
 	}
 
-	protected emitNavigateEnd(event: NavigationEvent): void {
-		this.navigateEndListeners.forEach(listener => listener(event));
+	protected async emitBeforeNavigateEnd(event: NavigationEvent): Promise<boolean> {
+		const results = await Promise.all(
+			this.beforeNavigateEndListeners.map(listener => listener(event)),
+		);
+
+		return !results.includes(false);
+	}
+
+	protected async emitAfterNavigateEnd(event: NavigationEvent): Promise<boolean> {
+		const results = await Promise.all(
+			this.afterNavigateEndListeners.map(listener => listener(event)),
+		);
+
+		return !results.includes(false);
 	}
 
 	protected emitNavigateError(event: NavigationErrorEvent): void {
@@ -480,6 +763,29 @@ export class Router {
 		return path === '/' ? path : path.replace(/\/$/, '');
 	}
 
+	/**
+	 * Navigate to a path.
+	 * Handles guards, lazy loading, animations, scroll restoration, and View Transitions API.
+	 *
+	 * @param path - The path to navigate to (e.g., '/users/123' or '/about')
+	 * @param options - Navigation options including state, query params, hash, replace mode, and animation settings
+	 * @returns Promise that resolves to true if navigation succeeded, false if blocked by guards or redirect occurred
+	 *
+	 * @example
+	 * ```typescript
+	 * // Simple navigation
+	 * await router.navigate('/about');
+	 *
+	 * // With query params and state
+	 * await router.navigate('/users/123', {
+	 *   query: { tab: 'profile' },
+	 *   state: { fromDashboard: true }
+	 * });
+	 *
+	 * // Replace current history entry
+	 * await router.navigate('/login', { replace: true });
+	 * ```
+	 */
 	async navigate(path: string, options: NavigationOptions = {}): Promise<boolean> {
 		const timestamp = Date.now();
 		const navStart = performance.now();
@@ -490,6 +796,18 @@ export class Router {
 		let redirectTime = 0;
 
 		try {
+			// Check navigation depth to prevent infinite loops from guards calling navigate()
+			this.navigationDepth++;
+			if (this.navigationDepth > this.MAX_NAVIGATION_DEPTH) {
+				console.error(
+					`Maximum navigation depth (${ this.MAX_NAVIGATION_DEPTH }) exceeded.`
+					+ ` Possible infinite redirect loop.`,
+				);
+				this.navigationDepth = 0;
+
+				return false;
+			}
+
 			// Save current scroll position
 			if (this.scrollRestoration && this.currentMatch)
 				this.scrollPositions.set(this.currentMatch.path, this.historyAdapter.getScrollPosition());
@@ -514,7 +832,6 @@ export class Router {
 			if (options.hash)
 				url.hash = options.hash;
 
-
 			// Get the match for the new path
 			let nextMatch = this.matchURL(url);
 
@@ -536,7 +853,9 @@ export class Router {
 				to:   nextMatch,
 				timestamp,
 			};
-			this.emitBeforeNavigate(navEvent);
+			const beforeStartAllowed = await this.emitBeforeNavigateStart(navEvent);
+			if (!beforeStartAllowed)
+				return false;
 
 			// Check canDeactivate guard on current route
 			const guardStart = performance.now();
@@ -581,8 +900,10 @@ export class Router {
 
 			this.redirectCount = 0;
 
-			// Emit navigateStart event
-			this.emitNavigateStart(navEvent);
+			// Emit afterNavigateStart event
+			const afterStartAllowed = await this.emitAfterNavigateStart(navEvent);
+			if (!afterStartAllowed)
+				return false;
 
 			// Perform navigation with View Transitions API if enabled
 			const doNavigation = async () => {
@@ -638,6 +959,11 @@ export class Router {
 
 				scrollTime = performance.now() - scrollStart;
 
+				// Emit beforeNavigateEnd event (before controllers are notified)
+				const beforeEndAllowed = await this.emitBeforeNavigateEnd(navEvent);
+				if (!beforeEndAllowed)
+					return false;
+
 				this.notifyControllers();
 			};
 
@@ -680,12 +1006,17 @@ export class Router {
 				}
 			}
 
-			// Emit navigateEnd event
-			this.emitNavigateEnd(navEvent);
+			// Emit afterNavigateEnd event (doesn't block, but awaits completion)
+			await this.emitAfterNavigateEnd(navEvent);
+
+			// Reset navigation depth on successful navigation
+			this.navigationDepth = 0;
 
 			return true;
 		}
 		catch (error) {
+			// Reset navigation depth on error
+			this.navigationDepth = 0;
 			// Try error boundaries with cascading
 			const handled = await this.handleRouteError(error as Error, path, options);
 			if (handled)
@@ -701,8 +1032,33 @@ export class Router {
 			this.emitNavigateError(errorEvent);
 			throw error;
 		}
+		finally {
+			// Always decrement depth in finally block to handle all cases
+			this.navigationDepth = Math.max(0, this.navigationDepth - 1);
+		}
 	}
 
+	/**
+	 * Navigate to a named route.
+	 * Routes can be assigned names in their configuration, allowing navigation by name instead of path.
+	 *
+	 * @param name - The name of the route to navigate to
+	 * @param options - Navigation options (same as navigate())
+	 * @returns Promise that resolves to true if navigation succeeded, false if route not found or blocked
+	 *
+	 * @example
+	 * ```typescript
+	 * // Define named routes
+	 * router.setRoutes([
+	 *   { path: '/', name: 'home', template: () => html`<home></home>` },
+	 *   { path: '/users/:id', name: 'user', template: () => html`<user></user>` }
+	 * ]);
+	 *
+	 * // Navigate by name
+	 * await router.navigateByName('home');
+	 * await router.navigateByName('user', { query: { tab: 'profile' } });
+	 * ```
+	 */
 	navigateByName(name: string, options: NavigationOptions = {}): Promise<boolean> {
 		const route = this.namedRoutes.get(name);
 		if (!route) {
@@ -718,6 +1074,24 @@ export class Router {
 		return this.compiledRoutes.find(r => r.fullPath === path);
 	}
 
+	/**
+	 * Match a path against the routing table.
+	 * If no path is provided, matches the current URL.
+	 *
+	 * @param path - Optional path to match. If not provided, uses current URL
+	 * @returns RouteMatch object containing matched route, params, query, hash, and chain, or null if no match
+	 *
+	 * @example
+	 * ```typescript
+	 * // Match current URL
+	 * const match = router.match();
+	 * console.log(match?.path); // e.g., '/users/123'
+	 *
+	 * // Match specific path
+	 * const match = router.match('/users/123');
+	 * console.log(match?.params.id); // '123'
+	 * ```
+	 */
 	match(path?: string): RouteMatch | null {
 		if (path) {
 			const url = new URL(path, this.baseUrl);
@@ -730,6 +1104,22 @@ export class Router {
 		return this.matchURL(url);
 	}
 
+	/**
+	 * Match a path and return the match at a specific depth in the route chain.
+	 * Useful for nested routing where you want to access a specific level of the hierarchy.
+	 *
+	 * @param depth - The depth in the route chain (0-based index)
+	 * @param path - Optional path to match. If not provided, uses current URL
+	 * @returns RouteMatch at the specified depth, or null if not found
+	 *
+	 * @example
+	 * ```typescript
+	 * // For nested route: /dashboard/settings/profile
+	 * const rootMatch = router.matchAtDepth(0); // /dashboard
+	 * const childMatch = router.matchAtDepth(1); // /settings
+	 * const leafMatch = router.matchAtDepth(2); // /profile
+	 * ```
+	 */
 	matchAtDepth(depth: number, path?: string): RouteMatch | null {
 		const match = this.match(path);
 		if (!match)
@@ -868,16 +1258,47 @@ export class Router {
 		return pathname;
 	}
 
+	/**
+	 * Get the current path from the history adapter.
+	 *
+	 * @returns The current path (e.g., '/users/123')
+	 *
+	 * @example
+	 * ```typescript
+	 * const path = router.getCurrentPath();
+	 * console.log(path); // '/dashboard/settings'
+	 * ```
+	 */
 	getCurrentPath(): string {
 		return this.historyAdapter.getCurrentPath();
 	}
 
-	/** Get the history adapter used by this router. */
+	/**
+	 * Get the history adapter used by this router.
+	 * Useful for advanced history manipulation or testing.
+	 *
+	 * @returns The HistoryAdapter instance (BrowserHistoryAdapter or MemoryHistoryAdapter)
+	 *
+	 * @example
+	 * ```typescript
+	 * const adapter = router.getHistoryAdapter();
+	 * // For testing: router = new Router({ historyAdapter: new MemoryHistoryAdapter() });
+	 * ```
+	 */
 	getHistoryAdapter(): HistoryAdapter {
 		return this.historyAdapter;
 	}
 
-	/** Dispose of the router, cleaning up all event listeners. */
+	/**
+	 * Dispose of the router, cleaning up all event listeners and history adapter.
+	 * Call this when unmounting the router to prevent memory leaks.
+	 *
+	 * @example
+	 * ```typescript
+	 * // Clean up when app is destroyed
+	 * router.dispose();
+	 * ```
+	 */
 	dispose(): void {
 		this.cleanupPopState?.();
 		this.cleanupLinkClick?.();
@@ -896,7 +1317,6 @@ export class Router {
 		this.controllers.forEach(controller => controller.routeChanged());
 	}
 
-	// Enterprise Features - Prefetching
 	protected setupPrefetching(): void {
 		if (!this.prefetchConfig)
 			return;
@@ -967,6 +1387,25 @@ export class Router {
 		// 'manual' strategy: user calls preload() explicitly
 	}
 
+	/**
+	 * Manually preload a route and its lazy children.
+	 * Fetches the route's lazy modules and compiles any children into the routing table.
+	 * Useful for improving perceived performance by loading routes before navigation.
+	 *
+	 * @param path - The path to preload (e.g., '/dashboard')
+	 * @returns Promise that resolves when the route is loaded and compiled
+	 *
+	 * @example
+	 * ```typescript
+	 * // Preload on hover
+	 * linkElement.addEventListener('mouseenter', () => {
+	 *   router.preload('/dashboard').catch(console.error);
+	 * });
+	 *
+	 * // Preload critical routes on app startup
+	 * await router.preload('/dashboard');
+	 * ```
+	 */
 	async preload(path: string): Promise<void> {
 		const url = new URL(path, this.baseUrl);
 		const match = this.matchURL(url);
@@ -1024,12 +1463,27 @@ export class Router {
 		}
 	}
 
+	/**
+	 * Preload all lazy routes in the routing table.
+	 * Fetches all lazy modules in parallel, useful for aggressive prefetching strategies.
+	 *
+	 * @returns Promise that resolves when all lazy routes are loaded
+	 *
+	 * @example
+	 * ```typescript
+	 * // Preload all routes during idle time
+	 * if ('requestIdleCallback' in window) {
+	 *   requestIdleCallback(() => {
+	 *     router.preloadAll().catch(console.error);
+	 *   });
+	 * }
+	 * ```
+	 */
 	async preloadAll(): Promise<void> {
 		const lazyRoutes = this.compiledRoutes.filter(r => r.lazy);
 		await Promise.all(lazyRoutes.map(r => this.preload(r.fullPath)));
 	}
 
-	// Enterprise Features - Error Boundaries
 	protected async handleRouteError(error: Error, path: string, options: NavigationOptions): Promise<boolean> {
 		// Get the failed route
 		const url = new URL(path, this.baseUrl);
@@ -1096,26 +1550,84 @@ export class Router {
 		return undefined;
 	}
 
-	// Enterprise Features - Performance Metrics
+	/**
+	 * Get all navigation timing metrics.
+	 * Returns an array of timing data for all navigations, useful for performance analysis.
+	 *
+	 * @returns Array of NavigationTiming objects with durations for guards, render, animation, etc.
+	 *
+	 * @example
+	 * ```typescript
+	 * const timings = router.getTimings();
+	 * timings.forEach(t => {
+	 *   console.log(`${t.path}: ${t.totalTime}ms (guards: ${t.guardsTime}ms, render: ${t.renderTime}ms)`);
+	 * });
+	 * ```
+	 */
 	getTimings(): NavigationTiming[] {
 		return Array.from(this.timings.values());
 	}
 
+	/**
+	 * Get the most recent navigation timing.
+	 *
+	 * @returns The last NavigationTiming object, or undefined if no navigation has occurred
+	 *
+	 * @example
+	 * ```typescript
+	 * const lastTiming = router.getLastTiming();
+	 * console.log(`Last navigation took ${lastTiming?.totalTime}ms`);
+	 * ```
+	 */
 	getLastTiming(): NavigationTiming | undefined {
 		const all = Array.from(this.timings.values());
 
 		return all[all.length - 1];
 	}
 
+	/**
+	 * Clear all stored navigation timings.
+	 * Useful for resetting metrics between test runs or after app state changes.
+	 *
+	 * @example
+	 * ```typescript
+	 * router.clearTimings();
+	 * ```
+	 */
 	clearTimings(): void {
 		this.timings.clear();
 	}
 
-	// Enterprise Features - Code Splitting Stats
+	/**
+	 * Get statistics for all lazy-loaded routes.
+	 * Returns load times and cache hit information for performance monitoring.
+	 *
+	 * @returns Array of RouteStats objects with load times and cache info
+	 *
+	 * @example
+	 * ```typescript
+	 * const stats = router.getRouteStats();
+	 * stats.forEach(s => {
+	 *   console.log(`${s.path}: ${s.loadTime}ms, cached: ${s.fromCache}`);
+	 * });
+	 * ```
+	 */
 	getRouteStats(): RouteStats[] {
 		return Array.from(this.routeStats.values());
 	}
 
+	/**
+	 * Get the most recent statistics for a specific route path.
+	 *
+	 * @param path - The route path to get stats for
+	 * @returns RouteStats for the path, or undefined if not found
+	 *
+	 * @example
+	 * ```typescript
+	 * const stats = router.getStats('/dashboard');
+	 * console.log(`Load time: ${stats?.loadTime}ms`);
+	 * ```
+	 */
 	getStats(path: string): RouteStats | undefined {
 		// Find most recent stats for this path
 		return Array.from(this.routeStats.values())
@@ -1123,11 +1635,30 @@ export class Router {
 			.sort((a, b) => b.timestamp - a.timestamp)[0];
 	}
 
+	/**
+	 * Clear all stored route statistics.
+	 *
+	 * @example
+	 * ```typescript
+	 * router.clearStats();
+	 * ```
+	 */
 	clearStats(): void {
 		this.routeStats.clear();
 	}
 
-	// Get aggregated stats
+	/**
+	 * Get aggregated statistics across all lazy-loaded routes.
+	 * Provides summary metrics including total loads, cache hits, and average load time.
+	 *
+	 * @returns Object with totalLoads, cacheHits, and averageLoadTime (in milliseconds)
+	 *
+	 * @example
+	 * ```typescript
+	 * const { totalLoads, cacheHits, averageLoadTime } = router.getAggregatedStats();
+	 * console.log(`${cacheHits}/${totalLoads} from cache, avg load: ${averageLoadTime}ms`);
+	 * ```
+	 */
 	getAggregatedStats(): { totalLoads: number; cacheHits: number; averageLoadTime: number; } {
 		const stats = this.getRouteStats();
 		const totalLoads = stats.length;
@@ -1142,12 +1673,36 @@ export class Router {
 
 }
 
+/**
+ * Lit ReactiveController for integrating the router with Lit components.
+ * Automatically requests host updates when the route changes.
+ * Used internally by router-outlet and router-link components.
+ *
+ * @example
+ * ```typescript
+ * class MyComponent extends LitElement {
+ *   private routerCtrl = new RouterController(this, router, 0);
+ *
+ *   render() {
+ *     const match = this.routerCtrl.match();
+ *     return match?.template(match.params) ?? nothing;
+ *   }
+ * }
+ * ```
+ */
 export class RouterController implements ReactiveController {
 
 	protected host:   ReactiveControllerHost;
 	protected router: Router;
 	protected depth:  number;
 
+	/**
+	 * Create a new RouterController.
+	 *
+	 * @param host - The Lit ReactiveControllerHost (typically a LitElement)
+	 * @param router - The Router instance to control
+	 * @param depth - The nesting depth for nested routing (default: 0)
+	 */
 	constructor(host: ReactiveControllerHost, router: Router, depth = 0) {
 		this.host = host;
 		this.router = router;
@@ -1163,26 +1718,60 @@ export class RouterController implements ReactiveController {
 		this.router.removeController(this);
 	}
 
+	/** Called by the router when the route changes. Triggers a host update. */
 	routeChanged(): void {
 		this.host.requestUpdate();
 	}
 
+	/**
+	 * Navigate to a path.
+	 * Delegates to the router's navigate method.
+	 *
+	 * @param path - The path to navigate to
+	 * @param options - Navigation options
+	 * @returns Promise that resolves to true if navigation succeeded
+	 */
 	navigate(path: string, options?: NavigationOptions): Promise<boolean> {
 		return this.router.navigate(path, options);
 	}
 
+	/**
+	 * Navigate to a named route.
+	 * Delegates to the router's navigateByName method.
+	 *
+	 * @param name - The name of the route
+	 * @param options - Navigation options
+	 * @returns Promise that resolves to true if navigation succeeded
+	 */
 	navigateByName(name: string, options?: NavigationOptions): Promise<boolean> {
 		return this.router.navigateByName(name, options);
 	}
 
+	/**
+	 * Match a path at the controller's depth.
+	 * For nested routing, returns the match at the specified depth level.
+	 *
+	 * @param path - Optional path to match. If not provided, uses current URL
+	 * @returns RouteMatch at this controller's depth, or null if no match
+	 */
 	match(path?: string): RouteMatch | null {
 		return this.router.matchAtDepth(this.depth, path);
 	}
 
+	/**
+	 * Get the current path from the router.
+	 *
+	 * @returns The current path
+	 */
 	getCurrentPath(): string {
 		return this.router.getCurrentPath();
 	}
 
+	/**
+	 * Get the nesting depth of this controller.
+	 *
+	 * @returns The depth (0 for root level)
+	 */
 	getDepth(): number {
 		return this.depth;
 	}

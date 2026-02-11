@@ -6,7 +6,9 @@ import { type RouteMatch, Router, router, routerContext, RouterController } from
 
 
 // Context for tracking route depth
-export const routerDepthContext: ReturnType<typeof createContext<number>> = createContext<number>(Symbol('router-depth'));
+export const routerDepthContext: ReturnType<typeof createContext<number>>
+	= createContext<number>(Symbol('router-depth'));
+
 
 @customElement('router-outlet')
 export class RouterOutlet extends LitElement {
