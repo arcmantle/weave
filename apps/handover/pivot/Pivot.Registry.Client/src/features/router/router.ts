@@ -787,13 +787,13 @@ export class Router {
 	 * ```
 	 */
 	async navigate(path: string, options: NavigationOptions = {}): Promise<boolean> {
-		const timestamp = Date.now();
-		const navStart = performance.now();
-		let guardsTime = 0;
-		let renderTime = 0;
+		const timestamp   = Date.now();
+		const navStart    = performance.now();
+		let guardsTime    = 0;
+		let renderTime    = 0;
 		let animationTime = 0;
-		let scrollTime = 0;
-		let redirectTime = 0;
+		let scrollTime    = 0;
+		let redirectTime  = 0;
 
 		try {
 			// Check navigation depth to prevent infinite loops from guards calling navigate()
@@ -964,7 +964,7 @@ export class Router {
 				if (!beforeEndAllowed)
 					return false;
 
-				this.notifyControllers();
+				await this.notifyControllers();
 			};
 
 			// Use View Transitions API if available and enabled
@@ -1313,8 +1313,11 @@ export class Router {
 		this.controllers.delete(controller);
 	}
 
-	protected notifyControllers(): void {
-		this.controllers.forEach(controller => controller.routeChanged());
+	protected async notifyControllers(): Promise<void> {
+		const updatePromises: Promise<boolean>[] = [];
+		this.controllers.forEach(controller => updatePromises.push(controller.routeChanged()));
+
+		await Promise.all(updatePromises);
 	}
 
 	protected setupPrefetching(): void {
@@ -1718,9 +1721,14 @@ export class RouterController implements ReactiveController {
 		this.router.removeController(this);
 	}
 
-	/** Called by the router when the route changes. Triggers a host update. */
-	routeChanged(): void {
+	/**
+	 * Called by the router when the route changes. Triggers a host update.
+	 * Returns the host's updateComplete promise so the caller can await the render cycle.
+	 */
+	routeChanged(): Promise<boolean> {
 		this.host.requestUpdate();
+
+		return this.host.updateComplete;
 	}
 
 	/**

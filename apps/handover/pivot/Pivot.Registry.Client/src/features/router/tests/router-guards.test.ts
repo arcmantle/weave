@@ -235,9 +235,9 @@ describe('Router - Navigation Events', () => {
 		router = new Router();
 	});
 
-	it('should emit beforeNavigate event', async () => {
+	it('should emit beforeNavigateStart event', async () => {
 		const listener = vi.fn();
-		router.onBeforeNavigate(listener);
+		router.onBeforeNavigateStart(listener);
 
 		router.setRoutes([
 			{ path: '/', template: () => html`<div>Home</div>` },
@@ -252,9 +252,9 @@ describe('Router - Navigation Events', () => {
 		expect(listener.mock.calls[0]![0]).toHaveProperty('timestamp');
 	});
 
-	it('should emit navigateStart event', async () => {
+	it('should emit afterNavigateStart event', async () => {
 		const listener = vi.fn();
-		router.onNavigateStart(listener);
+		router.onAfterNavigateStart(listener);
 
 		router.setRoutes([
 			{ path: '/', template: () => html`<div>Home</div>` },
@@ -266,9 +266,9 @@ describe('Router - Navigation Events', () => {
 		expect(listener).toHaveBeenCalled();
 	});
 
-	it('should emit navigateEnd event', async () => {
+	it('should emit afterNavigateEnd event', async () => {
 		const listener = vi.fn();
-		router.onNavigateEnd(listener);
+		router.onAfterNavigateEnd(listener);
 
 		router.setRoutes([
 			{ path: '/', template: () => html`<div>Home</div>` },
@@ -307,7 +307,7 @@ describe('Router - Navigation Events', () => {
 
 	it('should allow unsubscribing from events', async () => {
 		const listener = vi.fn();
-		const unsubscribe = router.onNavigateEnd(listener);
+		const unsubscribe = router.onAfterNavigateEnd(listener);
 
 		router.setRoutes([
 			{ path: '/', template: () => html`<div>Home</div>` },

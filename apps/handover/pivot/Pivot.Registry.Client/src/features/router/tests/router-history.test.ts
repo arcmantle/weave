@@ -307,8 +307,8 @@ describe('Router with MemoryHistoryAdapter', () => {
 	it('should support event listeners', async () => {
 		const startSpy = vi.fn();
 		const endSpy = vi.fn();
-		router.onNavigateStart(startSpy);
-		router.onNavigateEnd(endSpy);
+		router.onAfterNavigateStart(startSpy);
+		router.onAfterNavigateEnd(endSpy);
 
 		await router.navigate('/about');
 
