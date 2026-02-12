@@ -30,9 +30,10 @@
     <ClientDir>$(MSBuildProjectDirectory)\..\Pivot.Registry.Client</ClientDir>
     <ClientPublishDir>$(ClientDir)\dist</ClientPublishDir>
     <WwwRootDir>$(MSBuildProjectDirectory)\wwwroot</WwwRootDir>
+    <SkipClientBuild>false</SkipClientBuild>
   </PropertyGroup>
 
-  <Target Name="BuildClient" BeforeTargets="Build">
+  <Target Name="BuildClient" BeforeTargets="Build" Condition="Exists('$(ClientDir)') And '$(SkipClientBuild)' != 'true'">
     <Message Text="Building Lit client..." Importance="high" />
     <Exec Command="pnpm install" WorkingDirectory="$(ClientDir)" />
     <Exec Command="pnpm build" WorkingDirectory="$(ClientDir)" />
@@ -47,9 +48,9 @@
     <Message Text="Copied client files to wwwroot" Importance="high" />
   </Target>
 
-  <!-- Include client build output in publish -->
+  <!-- Include client build output in publish and NuGet package -->
   <ItemGroup>
-    <Content Include="wwwroot\**\*" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="wwwroot\**\*" CopyToPublishDirectory="PreserveNewest" PackagePath="contentFiles\any\any\wwwroot;content\wwwroot" Pack="true" />
   </ItemGroup>
 
 </Project>
