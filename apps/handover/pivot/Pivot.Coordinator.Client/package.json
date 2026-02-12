@@ -1,0 +1,28 @@
+{
+	"name": "@arcmantle/pivot-coordinator-client",
+	"version": "1.0.0",
+	"description": "Pivot Coordinator Client - Admin interface for managing Pivot systems",
+	"type": "module",
+	"scripts": {
+		"build": "vite build",
+		"dev": "vite",
+		"preview": "vite preview",
+		"test": "vitest",
+		"test:coverage": "vitest --coverage",
+		"test:ui": "vitest --ui"
+	},
+	"dependencies": {
+		"@arcmantle/pivot-client-auth": "1.0.0",
+		"@arcmantle/pivot-client-router": "1.0.0",
+		"@lit/context": "catalog:",
+		"lit": "catalog:",
+		"tslib": "catalog:"
+	},
+	"devDependencies": {
+		"@arcmantle/tsconfig": "workspace:^",
+		"happy-dom": "catalog:",
+		"typescript": "catalog:",
+		"vite": "catalog:",
+		"vitest": "catalog:"
+	}
+}

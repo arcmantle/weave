@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Pivot.Core\Pivot.Core.csproj" />
+    <ProjectReference Include="..\Pivot.Auth\Pivot.Auth.csproj" />
   </ItemGroup>
 
   <ItemGroup>

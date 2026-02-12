@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
+using Pivot.Auth.Extensions;
 using Pivot.Coordinator.Data;
 using Pivot.Coordinator.Services;
 using Pivot.Plugin;
@@ -31,6 +32,11 @@ public static class PluginManagementExtensions {
 		// Register options
 		builder.Services.AddSingleton(options);
 
+		// Add Pivot authentication services
+		builder.AddPivotAuth(authOptions => {
+			authOptions.ConnectionString = options.ConnectionString;
+		});
+
 		// Add plugin state service
 		builder.Services.AddSingleton<PluginStateService>();
 		builder.Services.AddSingleton<IPluginStateProvider>(sp =>
@@ -46,7 +52,7 @@ public static class PluginManagementExtensions {
 	/// <summary>
 	/// Maps plugin management endpoints and UI
 	/// </summary>
-	public static WebApplication MapPluginManagement(this WebApplication app) {
+	public static async Task<WebApplication> MapPluginManagement(this WebApplication app) {
 		var options = app.Services.GetService<PluginManagementOptions>();
 		if (options == null || !options.Enabled) {
 			return app;
@@ -59,6 +65,12 @@ public static class PluginManagementExtensions {
 		if (!string.IsNullOrEmpty(options.ActivePluginsDirectory)) {
 			Directory.CreateDirectory(options.ActivePluginsDirectory);
 		}
+
+		// Map Pivot authentication middleware and ensure auth DB is created
+		await app.MapPivotAuth();
+
+		// Map auth controllers (login, logout, refresh, me)
+		app.MapControllers();
 
 		// Serve static files from embedded resources (wwwroot)
 		var assembly = typeof(PluginManagementExtensions).Assembly;
