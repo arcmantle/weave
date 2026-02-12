@@ -6,11 +6,11 @@ import './components/plugin-detail.ts';
 import './components/plugin-explorer.ts';
 import './components/registry-manager.ts';
 
+import type { RouteAnimation, RouteConfig } from '@arcmantle/pivot-client-router';
+import { defineRoute, router } from '@arcmantle/pivot-client-router';
 import { html } from 'lit';
 
-import type { RouteAnimation, RouteConfig } from './features/router/index.ts';
-import { defineRoute, router } from './features/router/index.ts';
-import { authService } from './services/auth-service.ts';
+import { authService } from '@arcmantle/pivot-client-auth';
 import { configService } from './services/config-service.ts';
 
 

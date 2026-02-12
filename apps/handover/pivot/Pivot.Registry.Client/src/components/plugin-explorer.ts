@@ -1,12 +1,13 @@
 import './plugin-detail.ts';
 
+import { router } from '@arcmantle/pivot-client-router';
 import { css, type CSSResultGroup, html, LitElement, type PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 
-import { router } from '../features/router/index.ts';
 import type { Plugin } from '../models/plugin.ts';
 import { pluginApi } from '../services/plugin-api-service.ts';
+import { dataAttrs } from '../utils/dom.ts';
 
 
 @customElement('plugin-explorer')
@@ -116,6 +117,12 @@ export class PluginExplorer extends LitElement {
 		await router.navigate(`/explore/${ encodeURIComponent(name) }`);
 	}
 
+	protected handleSelectPluginClick(ev: Event): void {
+		const { pluginName } = dataAttrs(ev, 'pluginName');
+		if (pluginName)
+			this.selectPlugin(pluginName);
+	}
+
 	protected renderPluginList(): unknown {
 		if (this.loading)
 			return html`<div class="loading">Loading...</div>`;
@@ -124,126 +131,144 @@ export class PluginExplorer extends LitElement {
 			return html`<div class="empty-state">No plugins found.</div>`;
 
 		return html`
-			<ul class="plugin-list">
-				${ this.plugins.map(plugin => html`
-					<li
-						class="plugin-list-item ${ this.name === plugin.name ? 'selected' : '' }"
-						@click=${ () => this.selectPlugin(plugin.name) }
-					>
-						<div class="plugin-name">${ plugin.name }</div>
-						<div class="plugin-meta">
-							${ when(plugin.latestVersion, () => html`
-								<span class="plugin-version">v${ plugin.latestVersion }</span>
-							`) }
-							${ when(plugin.author, () => html`
-								<span class="plugin-author">${ plugin.author }</span>
-							`) }
-						</div>
-					</li>
-				`) }
-			</ul>
+		<ul class="plugin-list">
+			${ this.plugins.map(plugin => html`
+			<li
+				class="plugin-list-item ${ this.name === plugin.name ? 'selected' : '' }"
+				data-plugin-name=${ plugin.name }
+				@click=${ this.handleSelectPluginClick }
+			>
+				<div class="plugin-name">${ plugin.name }</div>
+				<div class="plugin-meta">
+					${ when(plugin.latestVersion, () => html`
+					<span class="plugin-version">v${ plugin.latestVersion }</span>
+					`) }
+					${ when(plugin.author, () => html`
+					<span class="plugin-author">${ plugin.author }</span>
+					`) }
+				</div>
+			</li>
+			`) }
+		</ul>
 		`;
 	}
 
 	override render(): unknown {
 		return html`
-			<div class="header-bar">
-				<h1>Plugin Explorer</h1>
+		<div class="header-bar">
+			<h1>Plugin Explorer</h1>
+		</div>
+
+		<div class="explorer-layout">
+			<div class="list-pane">
+				<form class="search-bar" @submit=${ this.handleSearch }>
+					<input
+						type="text"
+						class="search-input"
+						placeholder="Filter plugins..."
+						.value=${ this.search }
+						@input=${ this.handleSearchInput }
+					/>
+				</form>
+				${ this.renderPluginList() }
 			</div>
 
-			<div class="explorer-layout">
-				<div class="list-pane">
-					<form class="search-bar" @submit=${ this.handleSearch }>
-						<input
-							type="text"
-							class="search-input"
-							placeholder="Filter plugins..."
-							.value=${ this.search }
-							@input=${ this.handleSearchInput }
-						/>
-					</form>
-					${ this.renderPluginList() }
+			<div class="detail-pane">
+				${ when(this.name, () => html`
+				<plugin-detail .name=${ this.name }></plugin-detail>
+				`, () => html`
+				<div class="empty-detail">
+					<p>Select a plugin from the list to view its details.</p>
 				</div>
-
-				<div class="detail-pane">
-					${ when(this.name, () => html`
-						<plugin-detail .name=${ this.name }></plugin-detail>
-					`, () => html`
-						<div class="empty-detail">
-							<p>Select a plugin from the list to view its details.</p>
-						</div>
-					`) }
-				</div>
+				`) }
 			</div>
+		</div>
 		`;
 	}
 
 	static override styles: CSSResultGroup = css`
 		:host {
+			--color-text: #333;
+			--color-text-muted: #666;
+			--color-text-light: #888;
+			--color-text-placeholder: #999;
+			--color-primary: #667eea;
+			--color-primary-hover: #5568d3;
+			--color-primary-bg: #e8ebf7;
+			--color-secondary: #6c757d;
+			--color-secondary-hover: #5a6268;
+			--color-border: #ddd;
+			--color-border-light: #eee;
+			--color-border-subtle: #f0f0f0;
+			--color-bg-surface: white;
+			--color-bg-muted: #f8f9fa;
+			--color-shadow: rgba(0, 0, 0, 0.1);
+			--spacing-xs: 4px;
+			--spacing-sm: 8px;
+			--spacing-md: 12px;
+			--spacing-lg: 16px;
+			--spacing-xl: 20px;
+			--spacing-2xl: 40px;
+			--font-size-sm: 12px;
+			--font-size-base: 14px;
+			--radius-sm: 4px;
+			--radius-md: 8px;
+			--transition-speed: 0.3s;
 			contain: strict;
 			overflow: hidden;
 			display: grid;
 			grid-template-rows: auto 1fr;
-			padding: 12px 20px;
+			padding: var(--spacing-md) var(--spacing-xl);
 			max-width: 1400px;
 		}
-
 		h1 {
 			margin: 0;
-			color: #333;
+			color: var(--color-text);
 		}
-
 		.header-bar {
 			display: flex;
 			justify-content: space-between;
 			align-items: center;
-			margin-bottom: 20px;
+			margin-bottom: var(--spacing-xl);
 		}
-
 		.header-actions {
 			display: flex;
-			gap: 8px;
+			gap: var(--spacing-sm);
 			align-items: center;
 		}
-
 		.explorer-layout {
 			contain: strict;
 			overflow: hidden;
 			display: grid;
 			grid-template-columns: 1fr 1fr;
-			gap: 20px;
+			gap: var(--spacing-xl);
 		}
-
 		.list-pane {
-			background: white;
-			border-radius: 8px;
-			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+			background: var(--color-bg-surface);
+			border-radius: var(--radius-md);
+			box-shadow: 0 2px 8px var(--color-shadow);
 			overflow: hidden;
 			display: flex;
 			flex-direction: column;
-			margin: 8px;
+			margin: var(--spacing-sm);
 		}
-
 		.search-bar {
-			padding: 12px;
-			border-bottom: 1px solid #eee;
+			padding: var(--spacing-md);
+			border-bottom: 1px solid var(--color-border-light);
 		}
-
 		.search-input {
 			width: 100%;
-			padding: 8px 12px;
-			border: 1px solid #ddd;
-			border-radius: 4px;
-			font-size: 14px;
+			padding: var(--spacing-sm) var(--spacing-md);
+			border: 1px solid var(--color-border);
+			border-radius: var(--radius-sm);
+			font-size: var(--font-size-base);
 			box-sizing: border-box;
-			transition: border-color 0.3s;
+			transition: border-color var(--transition-speed);
+			&:focus {
+				outline: none;
+				border-color: var(--color-primary);
+			}
 		}
-
-		.search-input:focus {
-			outline: none;
-			border-color: #667eea;
-		}
-
 		.plugin-list {
 			list-style: none;
 			margin: 0;
@@ -251,102 +276,86 @@ export class PluginExplorer extends LitElement {
 			overflow-y: auto;
 			flex: 1;
 		}
-
 		.plugin-list-item {
-			padding: 12px 16px;
-			border-bottom: 1px solid #f0f0f0;
+			padding: var(--spacing-md) var(--spacing-lg);
+			border-bottom: 1px solid var(--color-border-subtle);
 			cursor: pointer;
 			transition: background 0.2s;
+			&:hover {
+				background: var(--color-bg-muted);
+			}
+			&.selected {
+				background: var(--color-primary-bg);
+				border-left: 3px solid var(--color-primary);
+			}
 		}
-
-		.plugin-list-item:hover {
-			background: #f8f9fa;
-		}
-
-		.plugin-list-item.selected {
-			background: #e8ebf7;
-			border-left: 3px solid #667eea;
-		}
-
 		.plugin-name {
 			font-weight: 600;
-			color: #333;
-			margin-bottom: 4px;
+			color: var(--color-text);
+			margin-bottom: var(--spacing-xs);
 		}
-
 		.plugin-meta {
 			display: flex;
-			gap: 12px;
-			font-size: 12px;
-			color: #888;
+			gap: var(--spacing-md);
+			font-size: var(--font-size-sm);
+			color: var(--color-text-light);
 		}
-
 		.plugin-version {
-			color: #667eea;
+			color: var(--color-primary);
 			font-weight: 500;
 		}
-
 		.detail-pane {
 			display: grid;
 			overflow-y: auto;
-			margin: 8px;
+			margin: var(--spacing-sm);
+			& plugin-detail {
+				padding: 0;
+				max-width: none;
+				margin: 0;
+			}
 		}
-
-		.detail-pane plugin-detail {
-			padding: 0;
-			max-width: none;
-			margin: 0;
-		}
-
 		.loading {
 			text-align: center;
-			padding: 40px;
-			color: #666;
+			padding: var(--spacing-2xl);
+			color: var(--color-text-muted);
 		}
-
 		.empty-state {
 			text-align: center;
-			padding: 40px;
-			color: #666;
+			padding: var(--spacing-2xl);
+			color: var(--color-text-muted);
 		}
-
 		.empty-detail {
 			display: flex;
 			align-items: center;
 			justify-content: center;
 			min-height: 400px;
-			background: white;
-			border-radius: 8px;
-			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-			color: #999;
+			background: var(--color-bg-surface);
+			border-radius: var(--radius-md);
+			box-shadow: 0 2px 8px var(--color-shadow);
+			color: var(--color-text-placeholder);
 		}
-
 		.btn {
-			padding: 8px 16px;
+			padding: var(--spacing-sm) var(--spacing-lg);
 			border: none;
-			border-radius: 4px;
+			border-radius: var(--radius-sm);
 			cursor: pointer;
-			font-size: 14px;
-			transition: all 0.3s;
+			font-size: var(--font-size-base);
+			transition: all var(--transition-speed);
 			text-decoration: none;
 		}
-
 		.btn-primary {
-			background: #667eea;
+			background: var(--color-primary);
 			color: white;
+			&:hover:not(:disabled) {
+				background: var(--color-primary-hover);
+			}
 		}
-
-		.btn-primary:hover:not(:disabled) {
-			background: #5568d3;
-		}
-
 		.btn-secondary {
-			background: #6c757d;
+			background: var(--color-secondary);
 			color: white;
-		}
-
-		.btn-secondary:hover {
-			background: #5a6268;
+			&:hover:not(:disabled) {
+				background: var(--color-secondary-hover);
+			}
 		}
 	`;
 

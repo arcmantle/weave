@@ -1,5 +1,5 @@
 import type { Plugin, PluginListResponse } from '../models/plugin.ts';
-import { authService } from './auth-service.ts';
+import { authService } from '@arcmantle/pivot-client-auth';
 
 export class PluginApiService {
 

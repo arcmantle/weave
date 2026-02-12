@@ -11,7 +11,7 @@ export interface RegistryConfig {
  */
 class ConfigService {
 
-	private config: RegistryConfig | null = null;
+	protected config: RegistryConfig | null = null;
 
 	async getConfig(): Promise<RegistryConfig> {
 		if (!this.config) {

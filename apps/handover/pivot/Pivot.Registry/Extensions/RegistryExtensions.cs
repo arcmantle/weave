@@ -1,13 +1,11 @@
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
-using Microsoft.IdentityModel.Tokens;
+using Pivot.Auth.Extensions;
 using Pivot.Registry.Data;
 using Pivot.Registry.Services;
-using System.Text;
 
 namespace Pivot.Registry.Extensions;
 
@@ -88,46 +86,23 @@ public static class RegistryExtensions {
 		builder.Services.AddScoped<PluginPackageService>();
 		builder.Services.AddScoped<PluginValidationService>();
 
-		// Configure JWT authentication
-		var jwtKey = builder.Configuration["Jwt:Key"] ?? "pivot-registry-super-secret-key-change-in-production-min-32-chars";
-		var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "PivotRegistry";
-		var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "PivotRegistryClient";
-
-		builder.Services.AddAuthentication(options => {
-			options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-			options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-		})
-		.AddJwtBearer(options => {
-			options.TokenValidationParameters = new TokenValidationParameters {
-				ValidateIssuer = true,
-				ValidateAudience = true,
-				ValidateLifetime = true,
-				ValidateIssuerSigningKey = true,
-				ValidIssuer = jwtIssuer,
-				ValidAudience = jwtAudience,
-				IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
-			};
-
-			// Support token from cookie
-			options.Events = new JwtBearerEvents {
-				OnMessageReceived = context => {
-					if (context.Request.Cookies.ContainsKey("access_token")) {
-						context.Token = context.Request.Cookies["access_token"];
-					}
-					return Task.CompletedTask;
-				}
-			};
+		// Configure authentication via Pivot.Auth
+		builder.AddPivotAuth(authOpts => {
+			// Use the same database directory for auth
+			var authDbPath = Path.Combine(dbDirectory, "auth.db");
+			authOpts.ConnectionString = $"Data Source={authDbPath}";
 		});
 
-		builder.Services.AddAuthorization(authOptions => {
-			// Write operations (upload, delete, storage) always require authentication
-			authOptions.AddPolicy("RegistryWrite", policy =>
+		// Override PivotRead policy based on Registry access mode
+		builder.Services.AddAuthorization(authzOpts => {
+			// Write operations always require authentication
+			authzOpts.AddPolicy("RegistryWrite", policy =>
 				policy.RequireAuthenticatedUser());
 
 			// Read operations are conditional on the access mode
-			authOptions.AddPolicy("RegistryRead", policy => {
+			authzOpts.AddPolicy("RegistryRead", policy => {
 				if (options.AccessMode == RegistryAccessMode.Public) {
-					// In public mode anyone can read – always succeeds
+					// In public mode anyone can read
 					policy.RequireAssertion(_ => true);
 				}
 				else {
@@ -166,8 +141,8 @@ public static class RegistryExtensions {
 
 		app.UseCors();
 
-		app.UseAuthentication();
-		app.UseAuthorization();
+		// Initialize auth middleware and database
+		await app.MapPivotAuth();
 
 		// Enable development-time static web assets
 		if (app.Environment.IsDevelopment()) {

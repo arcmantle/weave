@@ -1,11 +1,11 @@
-import '../features/router/router-outlet.ts';
+import '@arcmantle/pivot-client-router';
 
 import { css, type CSSResultGroup, html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 
-import { router } from '../features/router/index.ts';
-import { authService } from '../services/auth-service.ts';
+import { router } from '@arcmantle/pivot-client-router';
+import { authService } from '@arcmantle/pivot-client-auth';
 import { type AccessMode, configService } from '../services/config-service.ts';
 
 
@@ -30,6 +30,10 @@ export class AppLayout extends LitElement {
 		this.currentUser = await authService.getCurrentUser();
 	}
 
+	protected handleLogoClick(): void {
+		router.navigate('/');
+	}
+
 	protected async handleLogout(): Promise<void> {
 		await authService.logout();
 		await router.navigate('/login');
@@ -39,7 +43,7 @@ export class AppLayout extends LitElement {
 		return html`
 		<header>
 			<div class="header-left">
-				<span class="logo" @click=${ () => router.navigate('/') }>
+				<span class="logo" @click=${ this.handleLogoClick }>
 					Pivot Registry
 				</span>
 
@@ -73,107 +77,113 @@ export class AppLayout extends LitElement {
 
 	static override styles: CSSResultGroup = css`
 		:host {
+			--color-header-bg: #1a1a2e;
+			--color-header-text: #fff;
+			--color-header-text-muted: rgba(255, 255, 255, 0.7);
+			--color-header-text-dim: rgba(255, 255, 255, 0.8);
+			--color-header-border: rgba(255, 255, 255, 0.3);
+			--color-header-border-hover: rgba(255, 255, 255, 0.6);
+			--color-header-hover-bg: rgba(255, 255, 255, 0.1);
+			--color-header-active-bg: rgba(255, 255, 255, 0.15);
+			--color-shadow: rgba(0, 0, 0, 0.15);
+			--font-size-sm: 13px;
+			--font-size-base: 14px;
+			--font-size-lg: 18px;
+			--spacing-xs: 4px;
+			--spacing-sm: 6px;
+			--spacing-md: 8px;
+			--spacing-lg: 14px;
+			--spacing-xl: 16px;
+			--spacing-2xl: 24px;
+			--radius-md: 6px;
+			--transition-speed: 0.15s;
 			display: flex;
 			flex-direction: column;
 			min-height: 100vh;
 		}
-
 		header {
 			display: flex;
 			align-items: center;
 			justify-content: space-between;
-			padding: 0 24px;
+			padding: 0 var(--spacing-2xl);
 			height: 56px;
-			background: #1a1a2e;
-			color: #fff;
-			box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+			background: var(--color-header-bg);
+			color: var(--color-header-text);
+			box-shadow: 0 2px 4px var(--color-shadow);
 			z-index: 10;
 		}
-
 		.header-left {
 			display: flex;
 			align-items: center;
-			gap: 24px;
+			gap: var(--spacing-2xl);
 		}
-
 		.logo {
-			font-size: 18px;
+			font-size: var(--font-size-lg);
 			font-weight: 700;
 			letter-spacing: 0.5px;
 			cursor: pointer;
 			user-select: none;
 		}
-
 		nav {
 			display: flex;
-			gap: 4px;
+			gap: var(--spacing-xs);
+			& a {
+				color: var(--color-header-text-muted);
+				text-decoration: none;
+				padding: var(--spacing-md) var(--spacing-lg);
+				border-radius: var(--radius-md);
+				font-size: var(--font-size-base);
+				font-weight: 500;
+				transition: color var(--transition-speed), background var(--transition-speed);
+				cursor: pointer;
+				&:hover {
+					color: var(--color-header-text);
+					background: var(--color-header-hover-bg);
+				}
+				&[data-active] {
+					color: var(--color-header-text);
+					background: var(--color-header-active-bg);
+				}
+			}
 		}
-
-		nav a {
-			color: rgba(255, 255, 255, 0.7);
-			text-decoration: none;
-			padding: 8px 14px;
-			border-radius: 6px;
-			font-size: 14px;
-			font-weight: 500;
-			transition: color 0.15s, background 0.15s;
-			cursor: pointer;
-		}
-
-		nav a:hover {
-			color: #fff;
-			background: rgba(255, 255, 255, 0.1);
-		}
-
-		nav a[data-active] {
-			color: #fff;
-			background: rgba(255, 255, 255, 0.15);
-		}
-
 		.header-right {
 			display: flex;
 			align-items: center;
-			gap: 16px;
+			gap: var(--spacing-xl);
 		}
-
 		.user-info {
-			font-size: 13px;
-			color: rgba(255, 255, 255, 0.7);
+			font-size: var(--font-size-sm);
+			color: var(--color-header-text-muted);
 		}
-
 		.logout-btn {
 			background: none;
-			border: 1px solid rgba(255, 255, 255, 0.3);
-			color: rgba(255, 255, 255, 0.8);
-			padding: 6px 14px;
-			border-radius: 6px;
-			font-size: 13px;
+			border: 1px solid var(--color-header-border);
+			color: var(--color-header-text-dim);
+			padding: var(--spacing-sm) var(--spacing-lg);
+			border-radius: var(--radius-md);
+			font-size: var(--font-size-sm);
 			cursor: pointer;
-			transition: border-color 0.15s, color 0.15s;
+			transition: border-color var(--transition-speed), color var(--transition-speed);
+			&:hover {
+				border-color: var(--color-header-border-hover);
+				color: var(--color-header-text);
+			}
 		}
-
-		.logout-btn:hover {
-			border-color: rgba(255, 255, 255, 0.6);
-			color: #fff;
-		}
-
 		.login-btn {
-			border: 1px solid rgba(255, 255, 255, 0.3);
-			color: rgba(255, 255, 255, 0.8);
-			padding: 6px 14px;
-			border-radius: 6px;
-			font-size: 13px;
+			border: 1px solid var(--color-header-border);
+			color: var(--color-header-text-dim);
+			padding: var(--spacing-sm) var(--spacing-lg);
+			border-radius: var(--radius-md);
+			font-size: var(--font-size-sm);
 			text-decoration: none;
 			cursor: pointer;
-			transition: border-color 0.15s, color 0.15s, background 0.15s;
+			transition: border-color var(--transition-speed), color var(--transition-speed), background var(--transition-speed);
+			&:hover {
+				border-color: var(--color-header-border-hover);
+				color: var(--color-header-text);
+				background: var(--color-header-hover-bg);
+			}
 		}
-
-		.login-btn:hover {
-			border-color: rgba(255, 255, 255, 0.6);
-			color: #fff;
-			background: rgba(255, 255, 255, 0.1);
-		}
-
 		main {
 			flex: 1;
 			display: grid;

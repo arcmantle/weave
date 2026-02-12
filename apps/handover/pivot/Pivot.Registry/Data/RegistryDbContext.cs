@@ -8,9 +8,8 @@ public class RegistryDbContext : DbContext {
 	}
 
 	public DbSet<Models.Plugin> Plugins => Set<Models.Plugin>();
-	public DbSet<PluginVersion> PluginVersions => Set<PluginVersion>();
-	public DbSet<PluginDependency> PluginDependencies => Set<PluginDependency>();
-	public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+	public DbSet<Models.PluginVersion> PluginVersions => Set<Models.PluginVersion>();
+	public DbSet<Models.PluginDependency> PluginDependencies => Set<Models.PluginDependency>();
 
 	protected override void OnModelCreating(ModelBuilder modelBuilder) {
 		base.OnModelCreating(modelBuilder);
@@ -46,16 +45,6 @@ public class RegistryDbContext : DbContext {
 				 .WithMany(pv => pv.Dependencies)
 				 .HasForeignKey(e => e.PluginVersionId)
 				 .OnDelete(DeleteBehavior.Cascade);
-		});
-
-		modelBuilder.Entity<RefreshToken>(entity => {
-			entity.HasKey(e => e.Id);
-			entity.HasIndex(e => e.Token).IsUnique();
-			entity.HasIndex(e => e.Username);
-			entity.Property(e => e.Username).IsRequired().HasMaxLength(100);
-			entity.Property(e => e.Token).IsRequired().HasMaxLength(100);
-			entity.Property(e => e.ExpiresAt).IsRequired();
-			entity.Property(e => e.CreatedAt).IsRequired();
 		});
 	}
 }
