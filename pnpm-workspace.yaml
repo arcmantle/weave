@@ -221,6 +221,9 @@ overrides:
   '@arcmantle/vite-lib-config': workspace:^
   '@arcmantle/vite-plugin-copy': workspace:^
   '@arcmantle/vite-plugin-import-css-sheet': workspace:^
+  "@arcmantle/pivot-client-router": "workspace:^"
+  "@arcmantle/pivot-client-auth": "workspace:^"
+  "@arcmantle/pivot-coordinator-client": "workspace:^"
 
 publicHoistPattern:
   - '*eslint*'

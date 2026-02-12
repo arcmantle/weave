@@ -21,7 +21,7 @@ builder.AddPluginManagement(options => {
 var app = builder.Build();
 
 // Map plugin management endpoints and UI
-app.MapPluginManagement();
+await app.MapPluginManagement();
 
 // Initialize plugin states from repository (this happens in background)
 _ = Task.Run(async () => await app.InitializePluginStatesAsync());
