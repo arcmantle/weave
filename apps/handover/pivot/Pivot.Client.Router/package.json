@@ -1,0 +1,35 @@
+{
+	"name": "@arcmantle/pivot-client-router",
+	"version": "1.0.0",
+	"description": "A client-side router for Pivot, built for Lit applications.",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/arcmantle/pivot-client-router.git"
+	},
+	"license": "Apache-2.0",
+	"author": "Kristoffer Roen-Lie",
+	"type": "module",
+	"exports": {
+		".": "./dist/index.js"
+	},
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"files": [
+		"dist",
+		"src",
+		"README.md"
+	],
+	"scripts": {
+		"build": "rimraf dist && tsc --project ./src/tsconfig.json",
+		"dev": "tsc --project ./src/tsconfig.json --watch"
+	},
+	"dependencies": {
+		"@lit/context": "catalog:",
+		"lit": "catalog:",
+		"tslib": "catalog:",
+		"urlpattern-polyfill": "catalog:"
+	},
+	"engines": {
+		"node": ">=24"
+	}
+}
