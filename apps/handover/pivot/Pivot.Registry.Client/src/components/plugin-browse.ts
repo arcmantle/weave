@@ -1,23 +1,20 @@
 import { css, type CSSResultGroup, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
+import { when } from 'lit/directives/when.js';
 
 import { router } from '../features/router/index.ts';
 import type { Plugin } from '../models/plugin.ts';
-import { authService } from '../services/auth-service.ts';
-import { type AccessMode, configService } from '../services/config-service.ts';
 import { pluginApi } from '../services/plugin-api-service.ts';
 
 
 @customElement('plugin-browse')
 export class PluginBrowse extends LitElement {
 
-	@state() private plugins:     Plugin[] = [];
-	@state() private loading:     boolean = false;
-	@state() private currentUser: string | null = null;
-	@state() private accessMode:  AccessMode = 'private';
-	@state() private search:      string = '';
-	@state() private page:        number = 1;
-	@state() private totalPages:  number = 1;
+	@state() protected plugins:    Plugin[] = [];
+	@state() protected loading:    boolean = false;
+	@state() protected search:     string = '';
+	@state() protected page:       number = 1;
+	@state() protected totalPages: number = 1;
 
 	override connectedCallback(): void {
 		super.connectedCallback();
@@ -25,9 +22,6 @@ export class PluginBrowse extends LitElement {
 	}
 
 	private async initialize(): Promise<void> {
-		const config = await configService.getConfig();
-		this.accessMode = config.accessMode;
-		this.currentUser = await authService.getCurrentUser();
 		await this.loadPlugins();
 	}
 
@@ -48,22 +42,6 @@ export class PluginBrowse extends LitElement {
 		finally {
 			this.loading = false;
 		}
-	}
-
-	private get isAuthenticated(): boolean {
-		return !!this.currentUser;
-	}
-
-	private async handleLogin(): Promise<void> {
-		await router.navigate('/login');
-	}
-
-	private async handleLogout(): Promise<void> {
-		await authService.logout();
-		if (this.accessMode === 'private')
-			await router.navigate('/login');
-		else
-			this.currentUser = null;
 	}
 
 	private handleSearchInput(e: Event): void {
@@ -114,22 +92,6 @@ export class PluginBrowse extends LitElement {
 		return html`
 			<div class="header-bar">
 				<h1>Browse Plugins</h1>
-				<div class="header-actions">
-					<router-link to="/" class="btn btn-secondary">Dashboard</router-link>
-					${ this.isAuthenticated
-						? html`
-							<button class="btn btn-secondary" @click=${ this.handleLogout }>
-								Logout (${ this.currentUser })
-							</button>
-						`
-						: this.accessMode === 'public'
-							? html`
-								<button class="btn btn-primary" @click=${ this.handleLogin }>
-									Login
-								</button>
-							`
-							: nothing }
-				</div>
 			</div>
 
 			<form class="search-bar" @submit=${ this.handleSearch }>
@@ -143,44 +105,44 @@ export class PluginBrowse extends LitElement {
 				<button type="submit" class="btn btn-primary">Search</button>
 			</form>
 
-			${ this.loading
-				? html`<div class="loading">Loading...</div>`
-				: this.plugins.length === 0
-					? html`<p class="empty-state">No plugins found.</p>`
-					: html`
-						<table class="plugins-table">
-							<thead>
-								<tr>
-									<th>Name</th>
-									<th>Latest Version</th>
-									<th>Author</th>
-									<th>Description</th>
-									<th>Downloads</th>
-									<th>Actions</th>
-								</tr>
-							</thead>
-							<tbody>
-								${ this.plugins.map(plugin => html`
-									<tr>
-										<td><strong>${ plugin.name }</strong></td>
-										<td>${ plugin.latestVersion ?? 'N/A' }</td>
-										<td>${ plugin.author ?? '' }</td>
-										<td>${ plugin.description ?? '' }</td>
-										<td>${ plugin.totalDownloads ?? 0 }</td>
-										<td>
-											<button
-												class="btn-small btn-primary"
-												@click=${ () => this.viewPluginDetails(plugin.name) }
-											>
-												View Details
-											</button>
-										</td>
-									</tr>
-								`) }
-							</tbody>
-						</table>
-						${ this.renderPagination() }
-					` }
+			${ when(this.loading, () => html`
+				<div class="loading">Loading...</div>
+			`, () => when(this.plugins.length === 0, () => html`
+				<p class="empty-state">No plugins found.</p>
+			`, () => html`
+				<table class="plugins-table">
+					<thead>
+						<tr>
+							<th>Name</th>
+							<th>Latest Version</th>
+							<th>Author</th>
+							<th>Description</th>
+							<th>Downloads</th>
+							<th>Actions</th>
+						</tr>
+					</thead>
+					<tbody>
+						${ this.plugins.map(plugin => html`
+							<tr>
+								<td><strong>${ plugin.name }</strong></td>
+								<td>${ plugin.latestVersion ?? 'N/A' }</td>
+								<td>${ plugin.author ?? '' }</td>
+								<td>${ plugin.description ?? '' }</td>
+								<td>${ plugin.totalDownloads ?? 0 }</td>
+								<td>
+									<button
+										class="btn-small btn-primary"
+										@click=${ () => this.viewPluginDetails(plugin.name) }
+									>
+										View Details
+									</button>
+								</td>
+							</tr>
+						`) }
+					</tbody>
+				</table>
+				${ this.renderPagination() }
+			`)) }
 		`;
 	}
 
@@ -189,7 +151,6 @@ export class PluginBrowse extends LitElement {
 			display: block;
 			padding: 20px;
 			max-width: 1400px;
-			margin: 0 auto;
 		}
 
 		h1 {

@@ -12,22 +12,6 @@ import { configService } from './services/config-service.ts';
 @customElement('app-root')
 export class AppRoot extends LitElement {
 
-	static override styles: ReturnType<typeof css> = css`
-		:host {
-			display: block;
-			min-height: 100vh;
-		}
-
-		.loading-screen {
-			display: flex;
-			justify-content: center;
-			align-items: center;
-			min-height: 100vh;
-			font-size: 18px;
-			color: #666;
-		}
-	`;
-
 	@state() private isInitialized = false;
 
 	override connectedCallback(): void {
@@ -69,6 +53,24 @@ export class AppRoot extends LitElement {
 
 		return html`<router-outlet></router-outlet>`;
 	}
+
+
+	static override styles: ReturnType<typeof css> = css`
+		:host {
+			display: grid;
+			min-height: 100vh;
+		}
+
+		.loading-screen {
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			min-height: 100vh;
+			font-size: 18px;
+			color: #666;
+		}
+	`;
+
 
 }
 

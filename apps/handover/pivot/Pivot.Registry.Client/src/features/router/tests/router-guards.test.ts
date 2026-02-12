@@ -388,7 +388,7 @@ describe('Router - Lazy Loading', () => {
 
 	it('should support lazy loaded routes', async () => {
 		const lazyChildren = vi.fn(async (): Promise<RouteConfig[]> => {
-			return [ { path: '/:id', template: () => html`<div>User Detail</div>` } ];
+			return [ { path: ':id', template: () => html`<div>User Detail</div>` } ];
 		});
 
 		router.setRoutes([

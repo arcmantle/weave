@@ -3,12 +3,13 @@ import type { LoginRequest, LoginResponse, LoginResult, UserInfo } from '../mode
 export class AuthenticationService {
 
 	private currentUser:    string | null = null;
+	private hasFetched = false;
 	private listeners:      Set<() => void> = new Set();
 	private isRefreshing = false;
 	private refreshPromise: Promise<boolean> | null = null;
 
 	async getCurrentUser(): Promise<string | null> {
-		if (this.currentUser === null) {
+		if (!this.hasFetched) {
 			try {
 				const response = await fetch('/api/auth/me', {
 					credentials: 'include',
@@ -26,6 +27,8 @@ export class AuthenticationService {
 				console.error('[AuthService] Not authenticated (exception):', err);
 				this.currentUser = null;
 			}
+
+			this.hasFetched = true;
 		}
 
 		return this.currentUser;
@@ -49,6 +52,7 @@ export class AuthenticationService {
 			if (response.ok) {
 				const loginResponse: LoginResponse = await response.json();
 				this.currentUser = loginResponse.username;
+				this.hasFetched = true;
 				this.notifyListeners();
 
 				return { success: true };
@@ -78,6 +82,7 @@ export class AuthenticationService {
 		}
 
 		this.currentUser = null;
+		this.hasFetched = false;
 		this.notifyListeners();
 	}
 
@@ -126,6 +131,7 @@ export class AuthenticationService {
 			if (response.ok) {
 				const result: LoginResponse = await response.json();
 				this.currentUser = result.username;
+				this.hasFetched = true;
 				this.notifyListeners();
 
 				return true;
@@ -133,6 +139,7 @@ export class AuthenticationService {
 			else {
 				// Refresh failed - clear session
 				this.currentUser = null;
+				this.hasFetched = false;
 				this.notifyListeners();
 
 				return false;
@@ -141,6 +148,7 @@ export class AuthenticationService {
 		catch (err) {
 			console.error('[AuthService] Token refresh failed:', err);
 			this.currentUser = null;
+			this.hasFetched = false;
 			this.notifyListeners();
 
 			return false;

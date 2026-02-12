@@ -134,7 +134,9 @@ catalog:
   marked-highlight: ^2.2.1
   marked-mangle: ^1.1.10
   mermaid: 11.12.2
+  marked-shiki: ^1.2.1
   mime: ^4.0.7
+  shiki: ^3.22.0
   monaco-editor: ^0.52.2
   nanoid: ^5.1.5
   node-html-parser: ^7.0.1

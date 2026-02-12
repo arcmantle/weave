@@ -88,6 +88,18 @@ public class PluginsController : ControllerBase {
 			return NotFound(new { Error = $"Plugin '{name}' not found" });
 		}
 
+		// Extract readmes from the latest version's manifest
+		var latestVersion = plugin.Versions.OrderByDescending(v => v.UploadedAt).FirstOrDefault();
+		string? readme = null;
+		string? serverReadme = null;
+		string? clientReadme = null;
+		if (latestVersion != null) {
+			var manifest = JsonSerializer.Deserialize<PluginManifest>(latestVersion.ManifestJson);
+			readme = manifest?.Readme;
+			serverReadme = manifest?.ServerReadme;
+			clientReadme = manifest?.ClientReadme;
+		}
+
 		return Ok(new {
 			plugin.Id,
 			plugin.Name,
@@ -95,6 +107,9 @@ public class PluginsController : ControllerBase {
 			plugin.Author,
 			Tags = plugin.Tags != null ? plugin.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries) : Array.Empty<string>(),
 			plugin.CreatedAt,
+			Readme = readme,
+			ServerReadme = serverReadme,
+			ClientReadme = clientReadme,
 			Versions = plugin.Versions.OrderByDescending(v => v.UploadedAt).Select(v => new {
 				v.Id,
 				v.Version,

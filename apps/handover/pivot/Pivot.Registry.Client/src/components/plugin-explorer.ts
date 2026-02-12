@@ -1,12 +1,11 @@
 import './plugin-detail.ts';
 
-import { css, type CSSResultGroup, html, LitElement, nothing } from 'lit';
+import { css, type CSSResultGroup, html, LitElement, type PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { when } from 'lit/directives/when.js';
 
 import { router } from '../features/router/index.ts';
 import type { Plugin } from '../models/plugin.ts';
-import { authService } from '../services/auth-service.ts';
-import { type AccessMode, configService } from '../services/config-service.ts';
 import { pluginApi } from '../services/plugin-api-service.ts';
 
 
@@ -15,25 +14,79 @@ export class PluginExplorer extends LitElement {
 
 	@property({ type: String }) name = '';
 
-	@state() private plugins:     Plugin[] = [];
-	@state() private loading:     boolean = false;
-	@state() private currentUser: string | null = null;
-	@state() private accessMode:  AccessMode = 'private';
-	@state() private search:      string = '';
+	@state() protected plugins: Plugin[] = [];
+	@state() protected loading: boolean = false;
+	@state() protected search:  string = '';
+
+	protected previousName = '';
 
 	override connectedCallback(): void {
 		super.connectedCallback();
+		this.previousName = this.name;
 		this.initialize();
 	}
 
-	private async initialize(): Promise<void> {
-		const config = await configService.getConfig();
-		this.accessMode = config.accessMode;
-		this.currentUser = await authService.getCurrentUser();
+	protected override scheduleUpdate(): void | Promise<unknown> {
+		// If the name changed, play exit animation on old content before Lit renders.
+		if (this.previousName && this.name !== this.previousName) {
+			const pane = this.shadowRoot?.querySelector('.detail-pane') as HTMLElement | null;
+
+			if (pane) {
+				pane.getAnimations().forEach(a => a.cancel());
+
+				// Slide old content down while fading out.
+				return pane.animate(
+					[
+						{ transform: 'translateY(0)',    opacity: 1 },
+						{ transform: 'translateY(20px)', opacity: 0 },
+					],
+					{
+						duration: 180,
+						easing:   'ease-in',
+						fill:     'forwards',
+					},
+				).finished.then(() => super.scheduleUpdate());
+			}
+		}
+
+		super.scheduleUpdate();
+	}
+
+	override updated(changed: PropertyValues<this>): void {
+		if (!changed.has('name'))
+			return;
+
+		const oldName = changed.get('name');
+
+		// Skip entrance animation on first render.
+		if (oldName === undefined && !this.previousName)
+			return;
+
+		this.previousName = this.name;
+
+		const pane = this.shadowRoot?.querySelector('.detail-pane') as HTMLElement | null;
+		if (!pane)
+			return;
+
+		// Slide new content in from the top.
+		pane.animate(
+			[
+				{ transform: 'translateY(-12px)', opacity: 0 },
+				{ transform: 'translateY(0)',     opacity: 1 },
+			],
+			{
+				duration: 200,
+				easing:   'ease-out',
+				fill:     'forwards',
+			},
+		);
+	}
+
+	protected async initialize(): Promise<void> {
 		await this.loadPlugins();
 	}
 
-	private async loadPlugins(): Promise<void> {
+	protected async loadPlugins(): Promise<void> {
 		this.loading = true;
 		try {
 			const response = await pluginApi.getPlugins({
@@ -50,36 +103,20 @@ export class PluginExplorer extends LitElement {
 		}
 	}
 
-	private get isAuthenticated(): boolean {
-		return !!this.currentUser;
-	}
-
-	private async handleLogin(): Promise<void> {
-		await router.navigate('/login');
-	}
-
-	private async handleLogout(): Promise<void> {
-		await authService.logout();
-		if (this.accessMode === 'private')
-			await router.navigate('/login');
-		else
-			this.currentUser = null;
-	}
-
-	private handleSearchInput(e: Event): void {
+	protected handleSearchInput(e: Event): void {
 		this.search = (e.target as HTMLInputElement).value;
 	}
 
-	private async handleSearch(e?: Event): Promise<void> {
+	protected async handleSearch(e?: Event): Promise<void> {
 		e?.preventDefault();
 		await this.loadPlugins();
 	}
 
-	private async selectPlugin(name: string): Promise<void> {
+	protected async selectPlugin(name: string): Promise<void> {
 		await router.navigate(`/explore/${ encodeURIComponent(name) }`);
 	}
 
-	private renderPluginList() {
+	protected renderPluginList(): unknown {
 		if (this.loading)
 			return html`<div class="loading">Loading...</div>`;
 
@@ -95,12 +132,12 @@ export class PluginExplorer extends LitElement {
 					>
 						<div class="plugin-name">${ plugin.name }</div>
 						<div class="plugin-meta">
-							${ plugin.latestVersion
-								? html`<span class="plugin-version">v${ plugin.latestVersion }</span>`
-								: nothing }
-							${ plugin.author
-								? html`<span class="plugin-author">${ plugin.author }</span>`
-								: nothing }
+							${ when(plugin.latestVersion, () => html`
+								<span class="plugin-version">v${ plugin.latestVersion }</span>
+							`) }
+							${ when(plugin.author, () => html`
+								<span class="plugin-author">${ plugin.author }</span>
+							`) }
 						</div>
 					</li>
 				`) }
@@ -112,22 +149,6 @@ export class PluginExplorer extends LitElement {
 		return html`
 			<div class="header-bar">
 				<h1>Plugin Explorer</h1>
-				<div class="header-actions">
-					<router-link to="/" class="btn btn-secondary">Dashboard</router-link>
-					${ this.isAuthenticated
-						? html`
-							<button class="btn btn-secondary" @click=${ this.handleLogout }>
-								Logout (${ this.currentUser })
-							</button>
-						`
-						: this.accessMode === 'public'
-							? html`
-								<button class="btn btn-primary" @click=${ this.handleLogin }>
-									Login
-								</button>
-							`
-							: nothing }
-				</div>
 			</div>
 
 			<div class="explorer-layout">
@@ -145,13 +166,13 @@ export class PluginExplorer extends LitElement {
 				</div>
 
 				<div class="detail-pane">
-					${ this.name
-						? html`<plugin-detail .name=${ this.name }></plugin-detail>`
-						: html`
-							<div class="empty-detail">
-								<p>Select a plugin from the list to view its details.</p>
-							</div>
-						` }
+					${ when(this.name, () => html`
+						<plugin-detail .name=${ this.name }></plugin-detail>
+					`, () => html`
+						<div class="empty-detail">
+							<p>Select a plugin from the list to view its details.</p>
+						</div>
+					`) }
 				</div>
 			</div>
 		`;
@@ -159,10 +180,12 @@ export class PluginExplorer extends LitElement {
 
 	static override styles: CSSResultGroup = css`
 		:host {
-			display: block;
-			padding: 20px;
+			contain: strict;
+			overflow: hidden;
+			display: grid;
+			grid-template-rows: auto 1fr;
+			padding: 12px 20px;
 			max-width: 1400px;
-			margin: 0 auto;
 		}
 
 		h1 {
@@ -184,10 +207,11 @@ export class PluginExplorer extends LitElement {
 		}
 
 		.explorer-layout {
+			contain: strict;
+			overflow: hidden;
 			display: grid;
 			grid-template-columns: 1fr 1fr;
 			gap: 20px;
-			min-height: 600px;
 		}
 
 		.list-pane {
@@ -197,6 +221,7 @@ export class PluginExplorer extends LitElement {
 			overflow: hidden;
 			display: flex;
 			flex-direction: column;
+			margin: 8px;
 		}
 
 		.search-bar {
@@ -262,7 +287,15 @@ export class PluginExplorer extends LitElement {
 		}
 
 		.detail-pane {
+			display: grid;
 			overflow-y: auto;
+			margin: 8px;
+		}
+
+		.detail-pane plugin-detail {
+			padding: 0;
+			max-width: none;
+			margin: 0;
 		}
 
 		.loading {

@@ -1,4 +1,4 @@
-
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
@@ -23,11 +23,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Samples", "Samples", "{5D20
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Plugins", "Plugins", "{6369E6CD-2A9A-7694-BDE4-74E752A16237}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TodosPlugin", "Samples\Plugins\TodosPlugin\TodosPlugin.csproj", "{C0AD8BBD-F192-4A70-9CD3-0853F8FACA31}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TodosPlugin", "Samples\Plugins\TodosPlugin\server\TodosPlugin.csproj", "{C0AD8BBD-F192-4A70-9CD3-0853F8FACA31}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UsersPlugin", "Samples\Plugins\UsersPlugin\UsersPlugin.csproj", "{FD99E351-9E7C-47DF-A406-8660DF02E95E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UsersPlugin", "Samples\Plugins\UsersPlugin\server\UsersPlugin.csproj", "{FD99E351-9E7C-47DF-A406-8660DF02E95E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WeatherPlugin", "Samples\Plugins\WeatherPlugin\WeatherPlugin.csproj", "{AF8AA0A1-94F6-491E-8C5A-02BDD411D10D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WeatherPlugin", "Samples\Plugins\WeatherPlugin\server\WeatherPlugin.csproj", "{AF8AA0A1-94F6-491E-8C5A-02BDD411D10D}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CoordinatorExample", "Samples\CoordinatorExample\CoordinatorExample.csproj", "{6913B33A-5FC1-4323-B624-CE0AB9094691}"
 EndProject
@@ -38,6 +38,8 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tools", "Tools", "{F1A2B3C4-D5E6-F7A8-B9C0-D1E2F3A4B5C6}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SchemaGenerator", "Tools\SchemaGenerator\SchemaGenerator.csproj", "{A1B2C3D4-E5F6-7A8B-9C0D-1E2F3A4B5C6D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PluginPackager", "Tools\PluginPackager\PluginPackager.csproj", "{9EFB640C-CA63-4402-BD4F-29A4B9426A46}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -175,6 +177,18 @@ Global
 		{A1B2C3D4-E5F6-7A8B-9C0D-1E2F3A4B5C6D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A1B2C3D4-E5F6-7A8B-9C0D-1E2F3A4B5C6D}.Release|x64.ActiveCfg = Release|Any CPU
 		{A1B2C3D4-E5F6-7A8B-9C0D-1E2F3A4B5C6D}.Release|x86.ActiveCfg = Release|Any CPU
+		{9EFB640C-CA63-4402-BD4F-29A4B9426A46}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9EFB640C-CA63-4402-BD4F-29A4B9426A46}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9EFB640C-CA63-4402-BD4F-29A4B9426A46}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{9EFB640C-CA63-4402-BD4F-29A4B9426A46}.Debug|x64.Build.0 = Debug|Any CPU
+		{9EFB640C-CA63-4402-BD4F-29A4B9426A46}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{9EFB640C-CA63-4402-BD4F-29A4B9426A46}.Debug|x86.Build.0 = Debug|Any CPU
+		{9EFB640C-CA63-4402-BD4F-29A4B9426A46}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9EFB640C-CA63-4402-BD4F-29A4B9426A46}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9EFB640C-CA63-4402-BD4F-29A4B9426A46}.Release|x64.ActiveCfg = Release|Any CPU
+		{9EFB640C-CA63-4402-BD4F-29A4B9426A46}.Release|x64.Build.0 = Release|Any CPU
+		{9EFB640C-CA63-4402-BD4F-29A4B9426A46}.Release|x86.ActiveCfg = Release|Any CPU
+		{9EFB640C-CA63-4402-BD4F-29A4B9426A46}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -188,5 +202,6 @@ Global
 		{9D140C39-B0A8-4786-9239-59E1DE51BC0D} = {5D20AA90-6969-D8BD-9DCD-8634F4692FDA}
 		{E1F2A3B4-C5D6-7E8F-9A0B-1C2D3E4F5A6B} = {5D20AA90-6969-D8BD-9DCD-8634F4692FDA}
 		{A1B2C3D4-E5F6-7A8B-9C0D-1E2F3A4B5C6D} = {F1A2B3C4-D5E6-F7A8-B9C0-D1E2F3A4B5C6}
+		{9EFB640C-CA63-4402-BD4F-29A4B9426A46} = {F1A2B3C4-D5E6-F7A8-B9C0-D1E2F3A4B5C6}
 	EndGlobalSection
 EndGlobal

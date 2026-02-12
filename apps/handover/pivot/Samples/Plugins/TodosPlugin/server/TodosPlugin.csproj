@@ -16,11 +16,13 @@
 
 	<ItemGroup>
 		<!-- Copy manifest to output directory -->
-		<None Include="plugin.json" CopyToOutputDirectory="PreserveNewest" />
+		<None Include="../plugin.json" CopyToOutputDirectory="PreserveNewest" Link="plugin.json" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<!-- Framework reference - host provides this, don't bundle -->
-		<ProjectReference Include="../../../Pivot.Core/Pivot.Core.csproj" Private="false" />
+		<ProjectReference Include="../../../../Pivot.Core/Pivot.Core.csproj" Private="false" />
+		<!-- Plugin dependency - for IntelliSense only, don't bundle -->
+		<ProjectReference Include="../../UsersPlugin/server/UsersPlugin.csproj" Private="false" />
 	</ItemGroup>
 </Project>

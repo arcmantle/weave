@@ -215,8 +215,8 @@ describe('Router - Nested Routes', () => {
 				path:     '/users',
 				template: () => html`<div>Users Layout</div>`,
 				children: [
-					{ path: '/:id', template: () => html`<div>User Detail</div>` },
-					{ path: '/:id/posts', template: () => html`<div>User Posts</div>` },
+					{ path: ':id', template: () => html`<div>User Detail</div>` },
+					{ path: ':id/posts', template: () => html`<div>User Posts</div>` },
 				],
 			},
 		]);
@@ -232,7 +232,7 @@ describe('Router - Nested Routes', () => {
 			{
 				path:     '/users',
 				template: () => html`<div>Users</div>`,
-				children: [ { path: '/:id', template: () => html`<div>User</div>` } ],
+				children: [ { path: ':id', template: () => html`<div>User</div>` } ],
 			},
 		]);
 
@@ -249,9 +249,9 @@ describe('Router - Nested Routes', () => {
 				template: () => html`<div>Dashboard</div>`,
 				children: [
 					{
-						path:     '/settings',
+						path:     'settings',
 						template: () => html`<div>Settings</div>`,
-						children: [ { path: '/profile', template: () => html`<div>Profile</div>` } ],
+						children: [ { path: 'profile', template: () => html`<div>Profile</div>` } ],
 					},
 				],
 			},
@@ -385,5 +385,53 @@ describe('Router - Route Metadata', () => {
 
 		expect(match?.metadata?.['title']).toBe('Dashboard');
 		expect(match?.metadata?.['icon']).toBe('chart');
+	});
+});
+
+
+describe('Router - isActive', () => {
+	let router: Router;
+
+	beforeEach(() => {
+		document.body.innerHTML = '';
+		window.history.replaceState(null, '', '/');
+
+		router = new Router();
+		router.setRoutes([
+			{ path: '/',         template: () => html`<div>Home</div>` },
+			{ path: '/browse',   template: () => html`<div>Browse</div>` },
+			{ path: '/browse/:id', template: () => html`<div>Detail</div>` },
+			{ path: '/admin',    template: () => html`<div>Admin</div>` },
+		]);
+	});
+
+	it('should return true for exact root match', async () => {
+		await router.navigate('/');
+		expect(router.isActive('/')).toBe(true);
+	});
+
+	it('should return false for root when on another path', async () => {
+		await router.navigate('/browse');
+		expect(router.isActive('/')).toBe(false);
+	});
+
+	it('should return true for exact path match', async () => {
+		await router.navigate('/browse');
+		expect(router.isActive('/browse')).toBe(true);
+	});
+
+	it('should return true for prefix match on child routes', async () => {
+		await router.navigate('/browse/123');
+		expect(router.isActive('/browse')).toBe(true);
+	});
+
+	it('should return false for unrelated paths', async () => {
+		await router.navigate('/browse');
+		expect(router.isActive('/admin')).toBe(false);
+	});
+
+	it('should not false-positive on partial path segments', async () => {
+		await router.navigate('/browse');
+		expect(router.isActive('/bro')).toBe(false);
 	});
 });

@@ -12,6 +12,72 @@ import { BrowserHistoryAdapter, type HistoryAdapter } from './history-adapter.ts
 export type RouteTemplate = (params: Record<string, string>) => TemplateResult;
 
 /**
+ * Strips URLPattern modifiers (`?`, `+`, `*`) from a param name.
+ * E.g., `'name?'` → `'name'`, `'id'` → `'id'`.
+ */
+type StripModifier<S extends string> =
+	S extends `${ infer Name }?` | `${ infer Name }+` | `${ infer Name }*`
+		? Name
+		: S;
+
+/** Returns `true` if the raw param has a `?` modifier. */
+type IsOptional<S extends string> = S extends `${ string }?` ? true : false;
+
+/**
+ * Extracts raw (unstripped) param segments from a URLPattern path string.
+ *
+ * @example
+ * ```typescript
+ * type A = ExtractRawParams<'/explore/:name?'>;             // 'name?'
+ * type B = ExtractRawParams<'/users/:id/posts/:postId?'>;   // 'id' | 'postId?'
+ * ```
+ */
+type ExtractRawParams<P extends string> =
+	P extends `${ string }:${ infer Param }/${ infer Rest }`
+		? Param | ExtractRawParams<Rest>
+		: P extends `${ string }:${ infer Param }`
+			? Param
+			: never;
+
+/** Extracts only the required (non-`?`) param keys from a path. */
+type RequiredParamKeys<P extends string> = {
+	[K in ExtractRawParams<P>]: IsOptional<K> extends true ? never : K;
+}[ExtractRawParams<P>];
+
+/** Extracts only the optional (`?`-suffixed) param keys from a path, stripped of the modifier. */
+type OptionalParamKeys<P extends string> = {
+	[K in ExtractRawParams<P>]: IsOptional<K> extends true ? StripModifier<K> : never;
+}[ExtractRawParams<P>];
+
+/**
+ * Maps a URLPattern path string to a typed params object.
+ *
+ * - Required params (`:id`) produce `{ id: string }`.
+ * - Optional params (`:name?`) produce `{ name?: string | undefined }`.
+ * - Paths without named parameters fall back to `Record<string, string>`.
+ * - Non-literal `string` paths fall back to `Record<string, string>`.
+ *
+ * The intersection with `Record<string, string>` ensures bracket-access
+ * always works as a fallback, even for keys not extracted from the path.
+ *
+ * @example
+ * ```typescript
+ * type A = ExtractRouteParams<'/plugin/:name'>;              // { name: string } & Record<string, string>
+ * type B = ExtractRouteParams<'/explore/:name?'>;            // { name?: string | undefined } & Record<string, string>
+ * type C = ExtractRouteParams<'/users/:id/posts/:postId?'>;  // { id: string; postId?: string | undefined } & Record<string, string>
+ * type D = ExtractRouteParams<'/about'>;                     // Record<string, string>
+ * ```
+ */
+export type ExtractRouteParams<P extends string> =
+	string extends P
+		? Record<string, string>
+		: [ExtractRawParams<P>] extends [never]
+			? Record<string, string>
+			: { [K in RequiredParamKeys<P>]: string }
+				& { [K in OptionalParamKeys<P>]?: string | undefined }
+				& Record<string, string>;
+
+/**
  * A function that dynamically loads child routes (code splitting).
  * The result is cached using a WeakMap keyed on the route config object.
  * @returns Promise resolving to an array of child route configurations
@@ -43,6 +109,75 @@ export interface RouteAnimation {
 	enter?: (element: Element) => Promise<void> | void;
 	/** Animation to play when exiting this route */
 	exit?:  (element: Element) => Promise<void> | void;
+}
+
+/**
+ * Minimal representation of the browser ViewTransition object.
+ * Used to avoid depending on a global TS lib that may not include it.
+ */
+export interface ViewTransitionObject {
+	/** Fulfills once the pseudo-element tree is created and the animation is about to start. */
+	ready:              Promise<void>;
+	/** Fulfills once the transition animation is finished. */
+	finished:           Promise<void>;
+	/** Fulfills when the update callback has completed. */
+	updateCallbackDone: Promise<void>;
+	/** Skips the animation but still runs the update callback. */
+	skipTransition():   void;
+}
+
+/**
+ * Configuration for View Transitions API integration.
+ *
+ * The View Transitions API captures snapshots of named elements before and
+ * after a DOM update, then creates a smooth animated transition between them.
+ *
+ * When view transitions are enabled for a route, only the actual DOM update
+ * (setting the current match and notifying controllers) is wrapped inside
+ * `document.startViewTransition()`.  History changes, guards, scroll
+ * restoration, and lifecycle events all happen outside the transition
+ * callback.
+ *
+ * @example
+ * ```typescript
+ * // Basic — default cross-fade transition
+ * { path: '/browse', viewTransition: true }
+ *
+ * // With types — for CSS :active-view-transition-type() matching
+ * { path: '/browse', viewTransition: { types: ['slide'] } }
+ *
+ * // Custom JS animation via onReady
+ * {
+ *   path: '/details/:id',
+ *   viewTransition: {
+ *     types: ['zoom'],
+ *     onReady(transition) {
+ *       document.documentElement.animate(
+ *         { clipPath: ['circle(0%)', 'circle(100%)'] },
+ *         { duration: 400, pseudoElement: '::view-transition-new(root)' },
+ *       );
+ *     },
+ *   },
+ * }
+ * ```
+ */
+export interface ViewTransitionConfig {
+	/**
+	 * Transition type strings applied to the `ViewTransition`.
+	 * Use with the CSS `:active-view-transition-type()` pseudo-class
+	 * to conditionally apply different animations.
+	 *
+	 * @example `['slide']`, `['forwards']`, `['backwards', 'slide']`
+	 */
+	types?: string[];
+
+	/**
+	 * Callback invoked when the ViewTransition `ready` promise resolves.
+	 * At this point the pseudo-element tree is created and the animation
+	 * is about to start — use this for custom JavaScript-driven
+	 * animations (e.g. clip-path reveals).
+	 */
+	onReady?: (transition: ViewTransitionObject) => void;
 }
 
 /**
@@ -99,6 +234,7 @@ const NON_INHERITABLE_KEYS: ReadonlySet<string> = new Set<keyof CompiledRoute>([
 	'pattern',
 	'fullPath',
 	'priority',
+	'parentRoute',
 ]);
 
 /**
@@ -118,29 +254,38 @@ export interface RouteReuseConfig {
  */
 export interface RouteConfig {
 	/** URLPattern path string (e.g., '/', '/users/:id', '/files/*') */
-	path:           string;
+	path:            string;
 	/** Function that returns a Lit template to render (receives matched params) */
-	template?:      RouteTemplate;
+	template?:       RouteTemplate;
 	/** Custom element tag name to create (alternative to template) */
-	component?:     string;
+	component?:      string;
 	/** Static nested child routes */
-	children?:      RouteConfig[];
+	children?:       RouteConfig[];
 	/** Function to dynamically load child routes (for code splitting) */
-	lazy?:          RouteLazy;
+	lazy?:           RouteLazy;
 	/** Unique name for this route (used with navigateByName) */
-	name?:          string;
+	name?:           string;
 	/** Path to redirect to (uses history.replace to avoid polluting back stack) */
-	redirect?:      string;
+	redirect?:       string;
 	/** Guard that runs before entering this route (return false to block navigation) */
-	beforeEnter?:   RouteGuard;
+	beforeEnter?:    RouteGuard;
 	/** Guard that runs before leaving this route (return false to block navigation) */
-	canDeactivate?: RouteGuard;
+	canDeactivate?:  RouteGuard;
 	/** Arbitrary metadata attached to this route */
-	metadata?:      RouteMetadata;
+	metadata?:       RouteMetadata;
 	/** Enter/exit animations for this route */
-	animation?:     RouteAnimation;
+	animation?:      RouteAnimation;
+	/**
+	 * View Transitions API configuration for this route.
+	 *
+	 * - `true`  — enable default cross-fade transition.
+	 * - `false` — explicitly disable (overrides router-level default).
+	 * - `ViewTransitionConfig` — enable with custom types / onReady.
+	 * - `undefined` — inherit the router-level default.
+	 */
+	viewTransition?: boolean | ViewTransitionConfig;
 	/** Error boundary configuration for handling navigation errors */
-	errorBoundary?: ErrorBoundary;
+	errorBoundary?:  ErrorBoundary;
 	/**
 	 * Inherit properties from another named route.
 	 *
@@ -170,34 +315,75 @@ export interface RouteConfig {
 	 * ]},
 	 * ```
 	 */
-	reuseFrom?:     string | RouteReuseConfig | RouteReuseConfig[];
+	reuseFrom?:      string | RouteReuseConfig | RouteReuseConfig[];
+}
+
+/**
+ * Define a route with type-safe template params inferred from the path.
+ *
+ * When the path contains named parameters (e.g., `/users/:id`), the
+ * template function receives a narrowed params object with known keys
+ * and `string` values — enabling dot-access, autocomplete, and typo
+ * detection.
+ *
+ * Routes without named parameters fall back to `Record<string, string>`,
+ * behaving identically to plain `RouteConfig` objects.
+ *
+ * @example
+ * ```typescript
+ * // Params inferred as { name: string } — dot-access works, typos caught.
+ * defineRoute({
+ *   path:     '/plugin/:name',
+ *   template: (params) => html`<plugin-detail .name=${params.name}></plugin-detail>`,
+ * })
+ *
+ * // Multiple params — { id: string; tab: string }
+ * defineRoute({
+ *   path:     '/users/:id/:tab',
+ *   template: (params) => html`<user-page .id=${params.id} .tab=${params.tab}></user-page>`,
+ * })
+ * ```
+ */
+export function defineRoute<const P extends string>(
+	config: { path: P; template?: (params: ExtractRouteParams<P>) => TemplateResult; }
+		& Omit<RouteConfig, 'path' | 'template'>,
+): RouteConfig {
+	return config as RouteConfig;
 }
 
 export interface RouteMatch {
 	/** The matched path */
-	path:       string;
+	path:            string;
 	/** URL parameters extracted from the path (e.g., { id: '123' } from /users/:id) */
-	params:     Record<string, string>;
+	params:          Record<string, string>;
 	/** Parsed query string parameters */
-	query:      URLSearchParams;
+	query:           URLSearchParams;
 	/** URL hash fragment (without the #) */
-	hash:       string;
+	hash:            string;
 	/** Template function to render (if route uses template) */
-	template?:  RouteTemplate;
+	template?:       RouteTemplate;
 	/** Component tag name (if route uses component) */
-	component?: string;
+	component?:      string;
 	/** True if lazy routes are currently loading */
-	loading?:   boolean;
+	loading?:        boolean;
 	/** Error that occurred during route matching or loading */
-	error?:     Error;
+	error?:          Error;
 	/** Full chain of nested route matches from root to leaf */
-	chain:      RouteMatch[];
+	chain:           RouteMatch[];
 	/** Metadata from the matched route */
-	metadata?:  RouteMetadata;
+	metadata?:       RouteMetadata;
 	/** Name of the matched route (if defined) */
-	name?:      string;
+	name?:           string;
 	/** Animation configuration for this route */
-	animation?: RouteAnimation;
+	animation?:      RouteAnimation;
+	/** Resolved view transition config for this match */
+	viewTransition?: boolean | ViewTransitionConfig;
+	/** Guard that runs before entering this route */
+	beforeEnter?:    RouteGuard;
+	/** Guard that runs before leaving this route */
+	canDeactivate?:  RouteGuard;
+	/** Redirect target path (if this route redirects) */
+	redirect?:       string;
 }
 
 /**
@@ -224,25 +410,35 @@ export interface NavigationOptions {
  */
 export interface RouterConfig {
 	/** URL prefix for all routes (e.g., '/app' makes routes relative to /app) */
-	basePath?:           string;
+	basePath?:          string;
 	/** Save and restore scroll positions on navigation (default: true) */
-	scrollRestoration?:  boolean;
-	/** Use the View Transitions API for cross-route transitions (default: false) */
-	useViewTransitions?: boolean;
+	scrollRestoration?: boolean;
+	/**
+	 * Default View Transitions API configuration applied to all routes.
+	 *
+	 * - `true`  — enable default cross-fade for every route.
+	 * - `false` — disable globally (default).
+	 * - `ViewTransitionConfig` — enable with default types / onReady.
+	 *
+	 * Individual routes can override this via their own `viewTransition` property.
+	 *
+	 * @default false
+	 */
+	viewTransition?:    boolean | ViewTransitionConfig;
 	/** Route to use when no match is found (404 fallback) */
-	fallbackRoute?:      RouteConfig;
+	fallbackRoute?:     RouteConfig;
 	/** Custom history adapter (default: BrowserHistoryAdapter) */
-	history?:            HistoryAdapter;
+	history?:           HistoryAdapter;
 	/** Record navigation performance metrics (default: true) */
-	enableMetrics?:      boolean;
+	enableMetrics?:     boolean;
 	/** Callback invoked after each navigation with timing data */
-	reportPerformance?:  (timing: NavigationTiming) => void;
+	reportPerformance?: (timing: NavigationTiming) => void;
 	/** Optional endpoint for sending metrics via navigator.sendBeacon() */
-	analyticsEndpoint?:  string;
+	analyticsEndpoint?: string;
 	/** Maximum number of metric/stat entries to keep in LRU cache (default: 100) */
-	maxMetricsEntries?:  number;
+	maxMetricsEntries?: number;
 	/** Configuration for route prefetching strategies */
-	prefetch?:           PrefetchConfig;
+	prefetch?:          PrefetchConfig;
 }
 
 /**
@@ -320,9 +516,10 @@ export interface PrefetchConfig {
 }
 
 interface CompiledRoute extends RouteConfig {
-	pattern:  URLPattern;
-	fullPath: string;
-	priority: number; // For sorting: exact > params > wildcards
+	pattern:      URLPattern;
+	fullPath:     string;
+	priority:     number; // For sorting: exact > params > wildcards
+	parentRoute?: CompiledRoute;
 }
 
 // Simple trie node for route optimization
@@ -421,23 +618,24 @@ export class LRUCache<K, V> {
  */
 export class Router {
 
-	protected routes:             RouteConfig[] = [];
-	protected compiledRoutes:     CompiledRoute[] = [];
-	protected routeTree:          RouteNode;
-	protected namedRoutes:        Map<string, CompiledRoute> = new Map();
-	protected controllers:        Set<RouterController> = new Set();
-	protected baseUrl:            string;
-	protected basePath:           string = '';
-	protected lazyCache:          WeakMap<RouteConfig, RouteConfig[] | Promise<RouteConfig[]>> = new WeakMap();
-	protected currentMatch:       RouteMatch | null = null;
-	protected scrollPositions:    Map<string, { x: number; y: number; }> = new Map();
-	protected scrollRestoration:  boolean = true;
-	protected useViewTransitions: boolean = false;
-	protected redirectCount:      number = 0;
+	protected routes:            RouteConfig[] = [];
+	protected compiledRoutes:    CompiledRoute[] = [];
+	protected routeTree:         RouteNode;
+	protected namedRoutes:       Map<string, CompiledRoute> = new Map();
+	protected controllers:       Set<RouterController> = new Set();
+	protected baseUrl:           string;
+	protected basePath:          string = '';
+	protected lazyCache:         WeakMap<RouteConfig, RouteConfig[] | Promise<RouteConfig[]>> = new WeakMap();
+	protected currentMatch:      RouteMatch | null = null;
+	protected pendingPath:       string | null = null;
+	protected scrollPositions:   Map<string, { x: number; y: number; }> = new Map();
+	protected scrollRestoration: boolean = true;
+	protected viewTransition:    boolean | ViewTransitionConfig = false;
+	protected redirectCount:     number = 0;
 	protected readonly MAX_REDIRECTS = 10;
-	protected navigationDepth:    number = 0;
+	protected navigationDepth:   number = 0;
 	protected readonly MAX_NAVIGATION_DEPTH = 10;
-	protected fallbackRoute?:     RouteConfig;
+	protected fallbackRoute?:    RouteConfig;
 
 	// History adapter
 	protected historyAdapter:    HistoryAdapter;
@@ -464,7 +662,7 @@ export class Router {
 		this.baseUrl = this.historyAdapter.origin;
 		this.basePath = config.basePath || '';
 		this.scrollRestoration = config.scrollRestoration ?? true;
-		this.useViewTransitions = config.useViewTransitions ?? false;
+		this.viewTransition = config.viewTransition ?? false;
 		this.fallbackRoute = config.fallbackRoute;
 		this.routeTree = this.createNode('');
 
@@ -488,7 +686,18 @@ export class Router {
 	}
 
 	protected handleClick(e: MouseEvent): void {
-		const anchor = (e.target as Element).closest('a');
+		// Walk the composed path so we can find <a> elements inside shadow DOM.
+		let anchor: HTMLAnchorElement | null = null;
+		for (const node of e.composedPath()) {
+			if (node instanceof HTMLAnchorElement) {
+				anchor = node;
+				break;
+			}
+
+			// Stop at document / shadow root boundaries that aren't elements.
+			if (!(node instanceof HTMLElement))
+				break;
+		}
 
 		if (!anchor)
 			return;
@@ -529,6 +738,10 @@ export class Router {
 			if (pos)
 				this.historyAdapter.scrollTo(pos.x, pos.y);
 		}
+
+		// Re-match the current URL so currentMatch stays in sync with the browser.
+		const url = new URL(this.historyAdapter.getCurrentPath(), this.baseUrl);
+		this.currentMatch = this.matchURL(url);
 
 		this.notifyControllers();
 	}
@@ -707,30 +920,36 @@ export class Router {
 		this.navigateErrorListeners.forEach(listener => listener(event));
 	}
 
-	protected compileRoutes(routes: RouteConfig[], parentPath = ''): CompiledRoute[] {
+	protected compileRoutes(routes: RouteConfig[], parentPath = '', parentRoute?: CompiledRoute): CompiledRoute[] {
 		const compiled: CompiledRoute[] = [];
 
 		for (const route of routes) {
-			const fullPath = this.normalizePath(parentPath + route.path);
+			const fullPath = this.joinPaths(parentPath, route.path);
 			const patternPath = this.basePath + fullPath;
 
 			try {
 				const pattern = new URLPattern({ pathname: patternPath });
-				const priority = this.calculateRoutePriority(route.path);
+				const priority = route.children
+					? -1
+					: this.calculateRoutePriority(route.path);
+
 				const compiledRoute: CompiledRoute = {
 					...route,
 					pattern,
 					fullPath,
 					priority,
+					parentRoute,
 				};
 
-				compiled.push(compiledRoute);
-
-				// Recursively compile children
+				// Compile children first so they appear before the parent in
+				// the flat array — stable sort then keeps children ahead of
+				// the layout when priorities are equal.
 				if (route.children) {
-					const childRoutes = this.compileRoutes(route.children, fullPath);
+					const childRoutes = this.compileRoutes(route.children, fullPath, compiledRoute);
 					compiled.push(...childRoutes);
 				}
+
+				compiled.push(compiledRoute);
 			}
 			catch (error) {
 				console.error(`Failed to compile route pattern: ${ patternPath }`, error);
@@ -745,8 +964,9 @@ export class Router {
 	}
 
 	protected calculateRoutePriority(path: string): number {
-		// Root path `/` is an exact match and should have high priority
-		if (path === '/')
+		// Root or empty path is an exact match at the parent level and should
+		// have high priority (empty path means "match the parent path itself").
+		if (path === '/' || path === '')
 			return 100;
 
 		let priority = 0;
@@ -929,6 +1149,27 @@ export class Router {
 	}
 
 	/**
+	 * Join a parent path and a child path, handling separators correctly.
+	 *
+	 * - Child paths starting with `/` are treated as absolute (ignore parent prefix).
+	 * - Relative child paths are appended to the parent with a `/` separator.
+	 * - Empty child paths resolve to the parent path.
+	 */
+	protected joinPaths(parent: string, child: string): string {
+		if (!parent)
+			return this.normalizePath(child);
+
+		// Absolute child path — ignore parent prefix.
+		if (child.startsWith('/'))
+			return this.normalizePath(child);
+
+		// Relative child path — join with separator.
+		const base = parent.endsWith('/') ? parent : parent + '/';
+
+		return this.normalizePath(base + child);
+	}
+
+	/**
 	 * Navigate to a path.
 	 * Handles guards, lazy loading, animations, scroll restoration, and View Transitions API.
 	 *
@@ -1012,6 +1253,18 @@ export class Router {
 				return false;
 			}
 
+			// If navigating to the exact same URL (pathname + query + hash), treat as no-op.
+			const targetUrl  = url.pathname + url.search + url.hash;
+			const currentUrl = new URL(this.historyAdapter.getCurrentPath(), this.baseUrl);
+			const currentFull = currentUrl.pathname + currentUrl.search + currentUrl.hash;
+			if (this.currentMatch && targetUrl === currentFull && !options.replace)
+				return true;
+
+			// Eagerly set the pending path so that isActive() reflects the
+			// target immediately — even before guards and animations finish.
+			// Cleared in the finally block; rolled back if navigation fails.
+			this.pendingPath = this.stripBasePath(url.pathname);
+
 			// Emit beforeNavigate event
 			const navEvent: NavigationEvent = {
 				from: this.currentMatch,
@@ -1022,32 +1275,34 @@ export class Router {
 			if (!beforeStartAllowed)
 				return false;
 
-			// Check canDeactivate guard on current route
+			// Check canDeactivate guards on the current route chain (leaf → parent).
 			const guardStart = performance.now();
 			if (!options.skipGuards && this.currentMatch) {
-				const currentRoute = this.findRouteByPath(this.currentMatch.path);
-				if (currentRoute?.canDeactivate) {
-					const canLeave = await currentRoute.canDeactivate(nextMatch, this.currentMatch);
-					if (!canLeave)
-						return false;
+				for (const chainMatch of [ ...this.currentMatch.chain ].reverse()) {
+					if (chainMatch.canDeactivate) {
+						const canLeave = await chainMatch.canDeactivate(nextMatch, this.currentMatch);
+						if (!canLeave)
+							return false;
+					}
 				}
 			}
 
-			// Check beforeEnter guard on next route
+			// Check beforeEnter guards on the full route chain (parent → leaf).
+			// Parent layout guards run first; if any guard returns false, navigation is blocked.
 			if (!options.skipGuards) {
-				const nextRoute = this.findRouteByPath(nextMatch.path);
-				if (nextRoute?.beforeEnter) {
-					const canEnter = await nextRoute.beforeEnter(nextMatch, this.currentMatch);
-					if (!canEnter)
-						return false;
+				for (const chainMatch of nextMatch.chain) {
+					if (chainMatch.beforeEnter) {
+						const canEnter = await chainMatch.beforeEnter(nextMatch, this.currentMatch);
+						if (!canEnter)
+							return false;
+					}
 				}
 			}
 
 			guardsTime = performance.now() - guardStart;
 
-			// Handle redirects
-			const nextRoute = this.findRouteByPath(nextMatch.path);
-			if (nextRoute?.redirect) {
+			// Handle redirects — use the redirect stored directly on the match.
+			if (nextMatch.redirect) {
 				const redirectStart = performance.now();
 				this.redirectCount++;
 				if (this.redirectCount > this.MAX_REDIRECTS) {
@@ -1057,7 +1312,7 @@ export class Router {
 					return false;
 				}
 
-				const result = await this.navigate(nextRoute.redirect, { ...options, replace: true });
+				const result = await this.navigate(nextMatch.redirect, { ...options, replace: true });
 				redirectTime = performance.now() - redirectStart;
 
 				return result;
@@ -1070,78 +1325,112 @@ export class Router {
 			if (!afterStartAllowed)
 				return false;
 
-			// Perform navigation with View Transitions API if enabled
-			const doNavigation = async () => {
-				const renderStart = performance.now();
+			// Perform navigation — View Transitions API is applied only to the
+			// DOM update (setting currentMatch + notifying controllers) so that
+			// elements outside the route outlet (e.g. headers, sidebars) are not
+			// captured in the transition snapshot.
+			const renderStart = performance.now();
 
-				// Update history
-				const fullUrl = url.pathname + url.search + url.hash;
-				if (options.replace)
-					this.historyAdapter.replaceState(options.state || null, fullUrl);
+			// Update history (outside view transition — this is not a DOM change)
+			const fullUrl = url.pathname + url.search + url.hash;
+			if (options.replace)
+				this.historyAdapter.replaceState(options.state || null, fullUrl);
 
-				else
-					this.historyAdapter.pushState(options.state || null, fullUrl);
+			else
+				this.historyAdapter.pushState(options.state || null, fullUrl);
 
-				// Handle exit animation
-				const animStart = performance.now();
-				if (this.currentMatch) {
-					const currentRoute = this.findRouteByPath(this.currentMatch.path);
-					if (currentRoute?.animation?.exit) {
-						const elements = document.querySelectorAll('[data-route-element]');
-						await Promise.all(
-							Array.from(elements).map(el => currentRoute.animation!.exit!(el)),
-						);
-					}
-				}
+			// Handle exit animation via controllers (reaches inside shadow DOM).
+			// Skip when the route pattern hasn't changed (same-route param mutation).
+			const animStart = performance.now();
+			const currentKey = this.currentMatch
+				? `${ this.currentMatch.path }:${ this.currentMatch.name ?? '' }`
+				: null;
+			const nextKey = `${ nextMatch.path }:${ nextMatch.name ?? '' }`;
+			const routePatternChanged = currentKey !== nextKey;
 
+			if (routePatternChanged && this.currentMatch?.animation?.exit) {
+				const exitPromises: Promise<void>[] = [];
+				this.controllers.forEach(controller => {
+					if (controller.onBeforeMatchChange)
+						exitPromises.push(controller.onBeforeMatchChange());
+				});
+				await Promise.all(exitPromises);
+			}
+
+			// Resolve the effective view transition config for this route.
+			// Per-route config takes precedence; undefined falls back to router default.
+			const resolvedVT = this.resolveViewTransition(nextMatch);
+
+			/**
+			 * The DOM update callback — this is the only part wrapped in
+			 * `startViewTransition()` so snapshot capture is scoped to
+			 * the content that actually changes.
+			 */
+			const applyMatchUpdate = async () => {
 				this.currentMatch = nextMatch;
-
-				// Handle enter animation
-				if (nextRoute?.animation?.enter) {
-					// Wait for next frame to ensure element is rendered
-					await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
-					const elements = document.querySelectorAll('[data-route-element]');
-					await Promise.all(
-						Array.from(elements).map(el => nextRoute.animation!.enter!(el)),
-					);
-				}
-
-				animationTime = performance.now() - animStart;
-				renderTime = performance.now() - renderStart - animationTime;
-
-				// Scroll to top or hash
-				const scrollStart = performance.now();
-				if (this.scrollRestoration) {
-					if (url.hash) {
-						// Try to scroll to hash element
-						this.historyAdapter.scrollIntoView(url.hash.slice(1));
-					}
-					else if (!options.replace) {
-						// Scroll to top on new navigation
-						this.historyAdapter.scrollTo(0, 0);
-					}
-				}
-
-				scrollTime = performance.now() - scrollStart;
-
-				// Emit beforeNavigateEnd event (before controllers are notified)
-				const beforeEndAllowed = await this.emitBeforeNavigateEnd(navEvent);
-				if (!beforeEndAllowed)
-					return false;
-
 				await this.notifyControllers();
 			};
 
-			// Use View Transitions API if available and enabled
-			if (this.useViewTransitions && 'startViewTransition' in document) {
+			if (resolvedVT && 'startViewTransition' in document) {
 				const docWithTransition = document as Document & {
-					startViewTransition: (callback: () => Promise<void>) => { finished: Promise<void>; };
+					startViewTransition: (
+						options: (() => Promise<void>) | { update: () => Promise<void>; types?: string[]; },
+					) => ViewTransitionObject;
 				};
-				await docWithTransition.startViewTransition(doNavigation).finished;
+
+				const vtConfig: ViewTransitionConfig | undefined =
+					typeof resolvedVT === 'object' ? resolvedVT : undefined;
+
+				// Build the options object for startViewTransition.
+				// When types are specified, use the options form; otherwise use the callback form.
+				let transition: ViewTransitionObject;
+				if (vtConfig?.types?.length) {
+					transition = docWithTransition.startViewTransition({
+						update: applyMatchUpdate,
+						types:  vtConfig.types,
+					});
+				}
+				else {
+					transition = docWithTransition.startViewTransition(applyMatchUpdate);
+				}
+
+				// Allow custom JS-driven animations via onReady
+				if (vtConfig?.onReady)
+					transition.ready.then(() => vtConfig.onReady!(transition)).catch(() => {});
+
+
+				await transition.finished;
 			}
 			else {
-				await doNavigation();
+				await applyMatchUpdate();
 			}
+
+			// Handle enter animation (outside view transition — separate system)
+			// Enter animations are handled by router-outlet's updated() lifecycle.
+			// No document query needed.
+
+			animationTime = performance.now() - animStart;
+			renderTime = performance.now() - renderStart - animationTime;
+
+			// Scroll to top or hash
+			const scrollStart = performance.now();
+			if (this.scrollRestoration) {
+				if (url.hash) {
+					// Try to scroll to hash element
+					this.historyAdapter.scrollIntoView(url.hash.slice(1));
+				}
+				else if (!options.replace) {
+					// Scroll to top on new navigation
+					this.historyAdapter.scrollTo(0, 0);
+				}
+			}
+
+			scrollTime = performance.now() - scrollStart;
+
+			// Emit beforeNavigateEnd event
+			const beforeEndAllowed = await this.emitBeforeNavigateEnd(navEvent);
+			if (!beforeEndAllowed)
+				return false;
 
 			// Record metrics
 			if (this.enableMetrics) {
@@ -1200,6 +1489,7 @@ export class Router {
 		finally {
 			// Always decrement depth in finally block to handle all cases
 			this.navigationDepth = Math.max(0, this.navigationDepth - 1);
+			this.pendingPath = null;
 		}
 	}
 
@@ -1309,16 +1599,20 @@ export class Router {
 
 
 				const routeMatch: RouteMatch = {
-					path:      compiledRoute.fullPath,
+					path:           compiledRoute.fullPath,
 					params,
-					query:     url.searchParams,
-					hash:      url.hash,
-					template:  compiledRoute.template,
-					component: compiledRoute.component,
-					name:      compiledRoute.name,
-					metadata:  compiledRoute.metadata,
-					animation: compiledRoute.animation,
-					chain:     [],
+					query:          url.searchParams,
+					hash:           url.hash,
+					template:       compiledRoute.template,
+					component:      compiledRoute.component,
+					name:           compiledRoute.name,
+					metadata:       compiledRoute.metadata,
+					animation:      compiledRoute.animation,
+					viewTransition: compiledRoute.viewTransition,
+					beforeEnter:    compiledRoute.beforeEnter,
+					canDeactivate:  compiledRoute.canDeactivate,
+					redirect:       compiledRoute.redirect,
+					chain:          [],
 				};
 
 				// Build the chain for nested routes
@@ -1409,8 +1703,89 @@ export class Router {
 	}
 
 	protected buildChain(chain: RouteMatch[], match: RouteMatch, pathname: string): void {
-		// Add the current match to the chain
+		// Walk up the parent ancestry to find the matched CompiledRoute
+		// and build RouteMatch entries for each ancestor.
+		// Use both fullPath and name to disambiguate routes that share a fullPath
+		// (e.g. a layout and its default child both resolving to '/').
+		const compiledRoute = this.compiledRoutes.find(r =>
+			r.fullPath === match.path && r.name === match.name);
+
+		if (!compiledRoute) {
+			chain.push(match);
+
+			return;
+		}
+
+		// Collect the ancestry chain (leaf → root)
+		const ancestry: CompiledRoute[] = [];
+		let current: CompiledRoute | undefined = compiledRoute.parentRoute;
+		while (current) {
+			ancestry.push(current);
+			current = current.parentRoute;
+		}
+
+		// Reverse to root → leaf order and create RouteMatch for each ancestor
+		ancestry.reverse();
+
+		const url = new URL(pathname, this.baseUrl);
+
+		for (const ancestor of ancestry) {
+			const result = ancestor.pattern.exec(url);
+			const params: Record<string, string> = {};
+			if (result?.pathname.groups)
+				Object.assign(params, result.pathname.groups);
+
+			chain.push({
+				path:           ancestor.fullPath,
+				params,
+				query:          match.query,
+				hash:           match.hash,
+				template:       ancestor.template,
+				component:      ancestor.component,
+				name:           ancestor.name,
+				metadata:       ancestor.metadata,
+				animation:      ancestor.animation,
+				viewTransition: ancestor.viewTransition,
+				beforeEnter:    ancestor.beforeEnter,
+				canDeactivate:  ancestor.canDeactivate,
+				redirect:       ancestor.redirect,
+				chain:          [],
+			});
+		}
+
+		// Finally push the leaf match itself
 		chain.push(match);
+	}
+
+	/**
+	 * Resolves the effective view-transition configuration for a given match.
+	 *
+	 * Resolution order:
+	 * 1. The **leaf route**'s own `viewTransition` property (if defined).
+	 * 2. Walk up the **route chain** — the first ancestor with an explicit
+	 *    `viewTransition` wins.
+	 * 3. The **router-level** `viewTransition` default.
+	 *
+	 * `false` at any level explicitly disables transitions even if a parent
+	 * or the router default is `true`.
+	 *
+	 * @returns A truthy value (boolean `true` or a `ViewTransitionConfig` object)
+	 *          when transitions should run, or `false`/`undefined` when they should not.
+	 */
+	protected resolveViewTransition(match: RouteMatch): boolean | ViewTransitionConfig {
+		// Check the leaf match first
+		if (match.viewTransition !== undefined)
+			return match.viewTransition;
+
+		// Walk the chain from leaf to root looking for an explicit setting
+		for (let i = match.chain.length - 1; i >= 0; i--) {
+			const entry = match.chain[i]!;
+			if (entry.viewTransition !== undefined)
+				return entry.viewTransition;
+		}
+
+		// Fall back to router default
+		return this.viewTransition;
 	}
 
 	protected stripBasePath(pathname: string): string {
@@ -1436,6 +1811,36 @@ export class Router {
 	 */
 	getCurrentPath(): string {
 		return this.historyAdapter.getCurrentPath();
+	}
+
+	/**
+	 * Check whether the given path matches the current route.
+	 *
+	 * - Exact match for `'/'` (root) — only returns `true` when the
+	 *   current path is exactly `'/'`.
+	 * - For any other path, returns `true` when the current path equals
+	 *   the given path **or** starts with it followed by a `'/'` (prefix match).
+	 *   This makes `isActive('/browse')` match `/browse`, `/browse/foo`, etc.
+	 *
+	 * @param path - The path to test against the current route.
+	 * @returns `true` if the path is currently active.
+	 *
+	 * @example
+	 * ```typescript
+	 * // Given the current URL is /browse/some-plugin
+	 * router.isActive('/');       // false
+	 * router.isActive('/browse'); // true
+	 * router.isActive('/admin');  // false
+	 * ```
+	 */
+	isActive(path: string): boolean {
+		const current = this.pendingPath
+			?? this.stripBasePath(this.historyAdapter.getCurrentPath());
+
+		if (path === '/')
+			return current === '/';
+
+		return current === path || current.startsWith(path + '/');
 	}
 
 	/**
@@ -1897,6 +2302,12 @@ export class RouterController implements ReactiveController {
 	}
 
 	/**
+	 * Optional callback invoked before the router changes the current match.
+	 * Used by router-outlet to play exit animations before the DOM swaps.
+	 */
+	onBeforeMatchChange?: () => Promise<void>;
+
+	/**
 	 * Navigate to a path.
 	 * Delegates to the router's navigate method.
 	 *
@@ -1941,6 +2352,17 @@ export class RouterController implements ReactiveController {
 	}
 
 	/**
+	 * Check whether the given path matches the current route.
+	 * Delegates to the router's isActive method.
+	 *
+	 * @param path - The path to test
+	 * @returns `true` if the path is currently active
+	 */
+	isActive(path: string): boolean {
+		return this.router.isActive(path);
+	}
+
+	/**
 	 * Get the nesting depth of this controller.
 	 *
 	 * @returns The depth (0 for root level)
@@ -1951,5 +2373,5 @@ export class RouterController implements ReactiveController {
 
 }
 
-// Global router instance
+// Global router instance — per-route animations handle transitions.
 export const router: Router = new Router();

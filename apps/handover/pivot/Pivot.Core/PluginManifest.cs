@@ -64,10 +64,22 @@ public class PluginManifest {
 	public List<string>? Tags { get; set; }
 
 	/// <summary>
-	/// README content in markdown format
+	/// README content in markdown format (root README.md)
 	/// </summary>
 	[JsonPropertyName("readme")]
 	public string? Readme { get; set; }
+
+	/// <summary>
+	/// Server-side README content in markdown format (server/README.md)
+	/// </summary>
+	[JsonPropertyName("serverReadme")]
+	public string? ServerReadme { get; set; }
+
+	/// <summary>
+	/// Client-side README content in markdown format (client/README.md)
+	/// </summary>
+	[JsonPropertyName("clientReadme")]
+	public string? ClientReadme { get; set; }
 
 	/// <summary>
 	/// Repository URL (e.g., GitHub repo)

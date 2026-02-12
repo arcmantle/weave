@@ -4,23 +4,26 @@
 	"description": "Pivot Registry Client - Web UI for managing plugin registry",
 	"type": "module",
 	"scripts": {
-		"dev": "vite",
 		"build": "vite build",
+		"dev": "vite",
 		"preview": "vite preview",
 		"test": "vitest",
-		"test:ui": "vitest --ui",
-		"test:coverage": "vitest --coverage"
+		"test:coverage": "vitest --coverage",
+		"test:ui": "vitest --ui"
 	},
 	"dependencies": {
-		"lit": "catalog:",
 		"@lit/context": "catalog:",
+		"lit": "catalog:",
+		"marked": "catalog:",
+		"marked-shiki": "catalog:",
+		"shiki": "catalog:",
 		"tslib": "catalog:"
 	},
 	"devDependencies": {
 		"@arcmantle/tsconfig": "workspace:^",
+		"happy-dom": "catalog:",
 		"typescript": "catalog:",
 		"vite": "catalog:",
-		"vitest": "catalog:",
-		"happy-dom": "catalog:"
+		"vitest": "catalog:"
 	}
 }

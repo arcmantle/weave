@@ -106,9 +106,9 @@ describe('RouterController', () => {
 				template: () => html`<div>Level 1</div>`,
 				children: [
 					{
-						path:     '/level2',
+						path:     'level2',
 						template: () => html`<div>Level 2</div>`,
-						children: [ { path: '/level3', template: () => html`<div>Level 3</div>` } ],
+						children: [ { path: 'level3', template: () => html`<div>Level 3</div>` } ],
 					},
 				],
 			},

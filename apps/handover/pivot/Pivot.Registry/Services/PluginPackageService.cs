@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -34,6 +35,25 @@ public class PluginPackageService {
 		}
 
 		var manifest = validationResult.Manifest!;
+
+		// Extract README.md files from package (root, server, client) if not already in manifest
+		packageStream.Position = 0;
+		using (var archive = new ZipArchive(packageStream, ZipArchiveMode.Read, leaveOpen: true)) {
+			async Task<string?> ReadEntryAsync(string path) {
+				var entry = archive.Entries.FirstOrDefault(e =>
+					string.Equals(e.FullName, path, StringComparison.OrdinalIgnoreCase));
+				if (entry == null) return null;
+				using var reader = new StreamReader(entry.Open());
+				return await reader.ReadToEndAsync(cancellationToken);
+			}
+
+			if (string.IsNullOrWhiteSpace(manifest.Readme))
+				manifest.Readme = await ReadEntryAsync("README.md");
+			if (string.IsNullOrWhiteSpace(manifest.ServerReadme))
+				manifest.ServerReadme = await ReadEntryAsync("server/README.md");
+			if (string.IsNullOrWhiteSpace(manifest.ClientReadme))
+				manifest.ClientReadme = await ReadEntryAsync("client/README.md");
+		}
 
 		// Check if this version already exists
 		var existingVersion = await _dbContext.PluginVersions

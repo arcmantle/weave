@@ -1,9 +1,21 @@
-import { css, type CSSResultGroup, html, LitElement, nothing } from 'lit';
+import { css, type CSSResultGroup, html, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
+import { when } from 'lit/directives/when.js';
 
 import type { Plugin } from '../models/plugin.ts';
 import { pluginApi } from '../services/plugin-api-service.ts';
 import { formatDate, formatFileSize } from '../utils/format.ts';
+import { getMarked } from '../utils/markdown.ts';
+
+
+type ReadmeTabKey = 'root' | 'server' | 'client';
+
+interface ReadmeTab {
+	key:     ReadmeTabKey;
+	label:   string;
+	content: string;
+}
 
 
 @customElement('plugin-detail')
@@ -11,9 +23,11 @@ export class PluginDetail extends LitElement {
 
 	@property({ type: String }) name = '';
 
-	@state() private plugin:  Plugin | null = null;
-	@state() private loading: boolean = false;
-	@state() private error:   string | null = null;
+	@state() protected plugin:          Plugin | null = null;
+	@state() protected loading:         boolean = false;
+	@state() protected error:           string | null = null;
+	@state() protected activeReadmeTab: ReadmeTabKey = 'root';
+	@state() protected renderedReadme:  string = '';
 
 	override connectedCallback(): void {
 		super.connectedCallback();
@@ -25,14 +39,19 @@ export class PluginDetail extends LitElement {
 	override willUpdate(changedProps: Map<PropertyKey, unknown>): void {
 		if (changedProps.has('name') && this.name)
 			this.loadPlugin();
+
+		if (changedProps.has('activeReadmeTab') || changedProps.has('plugin'))
+			this.parseReadme();
 	}
 
-	private async loadPlugin(): Promise<void> {
+	protected async loadPlugin(): Promise<void> {
 		if (!this.name)
 			return;
 
 		this.loading = true;
 		this.error = null;
+		this.activeReadmeTab = 'root';
+		this.renderedReadme = '';
 
 		try {
 			this.plugin = await pluginApi.getPlugin(this.name);
@@ -47,7 +66,20 @@ export class PluginDetail extends LitElement {
 		}
 	}
 
-	private async handleDownload(pluginName: string, version: string): Promise<void> {
+	protected async parseReadme(): Promise<void> {
+		const tabs = this.readmeTabs;
+		const activeTab = tabs.find(t => t.key === this.activeReadmeTab) ?? tabs[0];
+		if (!activeTab) {
+			this.renderedReadme = '';
+
+			return;
+		}
+
+		const md = await getMarked();
+		this.renderedReadme = await md.parse(activeTab.content) as string;
+	}
+
+	protected async handleDownload(pluginName: string, version: string): Promise<void> {
 		try {
 			const blob = await pluginApi.downloadPlugin(pluginName, version);
 			const url = URL.createObjectURL(blob);
@@ -63,7 +95,7 @@ export class PluginDetail extends LitElement {
 		}
 	}
 
-	private renderVersionsTable() {
+	protected renderVersionsTable(): unknown {
 		const versions = this.plugin?.versions;
 		if (!versions || versions.length === 0)
 			return html`<p>No versions available.</p>`;
@@ -88,13 +120,15 @@ export class PluginDetail extends LitElement {
 							<td>${ version.downloadCount }</td>
 							<td>${ formatDate(version.uploadedAt) }</td>
 							<td>
-								${ version.dependencies.length > 0
-									? version.dependencies.map(dep => html`
-										<span class="dependency-tag">
-											${ dep.dependencyName } ${ dep.versionRange }
-										</span>
-									`)
-									: html`<span class="no-deps">None</span>` }
+							${ when(version.dependencies.length > 0, () => html`
+								${ version.dependencies.map(dep => html`
+									<span class="dependency-tag">
+										${ dep.dependencyName } ${ dep.versionRange }
+									</span>
+								`) }
+							`, () => html`
+								<span class="no-deps">None</span>
+							`) }
 							</td>
 							<td>
 								<button
@@ -111,14 +145,56 @@ export class PluginDetail extends LitElement {
 		`;
 	}
 
-	private renderTags() {
+	protected renderTags(): unknown {
 		const tags = this.plugin?.tags;
 		if (!tags || tags.length === 0)
-			return nothing;
+			return;
 
 		return html`
 			<div class="tags">
 				${ tags.map(tag => html`<span class="tag">${ tag }</span>`) }
+			</div>
+		`;
+	}
+
+	protected get readmeTabs(): ReadmeTab[] {
+		const tabs: ReadmeTab[] = [];
+
+		if (this.plugin?.readme)
+			tabs.push({ key: 'root', label: 'README', content: this.plugin.readme });
+		if (this.plugin?.serverReadme)
+			tabs.push({ key: 'server', label: 'Server', content: this.plugin.serverReadme });
+		if (this.plugin?.clientReadme)
+			tabs.push({ key: 'client', label: 'Client', content: this.plugin.clientReadme });
+
+		return tabs;
+	}
+
+	protected renderReadme(): unknown {
+		const tabs = this.readmeTabs;
+		if (tabs.length === 0)
+			return;
+
+		// If active tab has no content, fall back to first available
+		const activeTab = tabs.find(t => t.key === this.activeReadmeTab) ?? tabs[0]!;
+
+		return html`
+			<div class="readme-section">
+				${ when(tabs.length > 1, () => html`
+					<div class="readme-tabs">
+						${ tabs.map(tab => html`
+							<button
+								class="readme-tab ${ tab.key === activeTab.key ? 'active' : '' }"
+								@click=${ () => { this.activeReadmeTab = tab.key; } }
+							>
+								${ tab.label }
+							</button>
+						`) }
+					</div>
+				`, () => html`
+					<h3>README</h3>
+				`) }
+				<div class="readme">${ unsafeHTML(this.renderedReadme) }</div>
 			</div>
 		`;
 	}
@@ -137,16 +213,16 @@ export class PluginDetail extends LitElement {
 			<div class="plugin-header">
 				<div class="plugin-title-row">
 					<h2>${ this.plugin.name }</h2>
-					${ this.plugin.latestVersion
-						? html`<span class="version-badge">v${ this.plugin.latestVersion }</span>`
-						: nothing }
+					${ when(this.plugin.latestVersion, () => html`
+						<span class="version-badge">v${ this.plugin!.latestVersion }</span>
+					`) }
 				</div>
-				${ this.plugin.author
-					? html`<p class="author">by ${ this.plugin.author }</p>`
-					: nothing }
-				${ this.plugin.description
-					? html`<p class="description">${ this.plugin.description }</p>`
-					: nothing }
+				${ when(this.plugin.author, () => html`
+					<p class="author">by ${ this.plugin!.author }</p>
+				`) }
+				${ when(this.plugin.description, () => html`
+					<p class="description">${ this.plugin!.description }</p>
+				`) }
 				${ this.renderTags() }
 				<div class="meta-row">
 					<span class="meta-item">
@@ -158,6 +234,8 @@ export class PluginDetail extends LitElement {
 				</div>
 			</div>
 
+			${ this.renderReadme() }
+
 			<h3>Versions</h3>
 			${ this.renderVersionsTable() }
 		`;
@@ -165,7 +243,12 @@ export class PluginDetail extends LitElement {
 
 	static override styles: CSSResultGroup = css`
 		:host {
-			display: block;
+			contain: strict;
+			overflow: hidden;
+			overflow-y: auto;
+			display: grid;
+			grid-auto-rows: max-content;
+			padding: 20px;
 		}
 
 		h2 {
@@ -247,7 +330,6 @@ export class PluginDetail extends LitElement {
 			background: white;
 			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 			border-radius: 8px;
-			overflow: hidden;
 		}
 
 		.versions-table thead {
@@ -325,6 +407,161 @@ export class PluginDetail extends LitElement {
 
 		.btn-primary:hover:not(:disabled) {
 			background: #5568d3;
+		}
+
+		.readme-section {
+			margin-top: 24px;
+		}
+
+		.readme-tabs {
+			display: flex;
+			gap: 0;
+			border-bottom: 2px solid #e0e0e0;
+			margin-bottom: 0;
+		}
+
+		.readme-tab {
+			padding: 10px 20px;
+			background: none;
+			border: none;
+			border-bottom: 2px solid transparent;
+			margin-bottom: -2px;
+			cursor: pointer;
+			font-size: 14px;
+			font-weight: 500;
+			color: #666;
+			transition: all 0.2s;
+		}
+
+		.readme-tab:hover {
+			color: #333;
+			background: #f8f9fa;
+		}
+
+		.readme-tab.active {
+			color: #667eea;
+			border-bottom-color: #667eea;
+		}
+
+		.readme-tabs + .readme {
+			border-radius: 0 0 8px 8px;
+		}
+
+		.readme {
+			background: white;
+			padding: 24px 32px;
+			border-radius: 8px;
+			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+			line-height: 1.6;
+			color: #333;
+			word-wrap: break-word;
+			overflow-wrap: break-word;
+		}
+
+		.readme h1,
+		.readme h2,
+		.readme h3,
+		.readme h4 {
+			margin: 1.5em 0 0.5em;
+			color: #222;
+		}
+
+		.readme h1:first-child,
+		.readme h2:first-child {
+			margin-top: 0;
+		}
+
+		.readme p {
+			margin: 0.75em 0;
+		}
+
+		.readme code {
+			background: #f4f4f4;
+			padding: 2px 6px;
+			border-radius: 3px;
+			font-size: 0.9em;
+			font-family: 'Cascadia Code', 'Fira Code', monospace;
+		}
+
+		.readme pre {
+			padding: 16px;
+			border-radius: 6px;
+			overflow-x: auto;
+			font-size: 13px;
+			line-height: 1.5;
+		}
+
+		.readme pre code {
+			background: none;
+			padding: 0;
+			color: inherit;
+		}
+
+		/* Shiki generates its own <pre> with inline background/color styles */
+		.readme .shiki {
+			padding: 16px;
+			border-radius: 6px;
+			overflow-x: auto;
+			font-size: 13px;
+			line-height: 1.5;
+			font-family: 'Cascadia Code', 'Fira Code', monospace;
+		}
+
+		.readme ul,
+		.readme ol {
+			padding-left: 1.5em;
+		}
+
+		.readme li {
+			margin: 0.25em 0;
+		}
+
+		.readme blockquote {
+			border-left: 3px solid #667eea;
+			margin: 1em 0;
+			padding: 0.5em 1em;
+			color: #555;
+			background: #f8f9fa;
+			border-radius: 0 4px 4px 0;
+		}
+
+		.readme a {
+			color: #667eea;
+			text-decoration: none;
+		}
+
+		.readme a:hover {
+			text-decoration: underline;
+		}
+
+		.readme table {
+			width: 100%;
+			border-collapse: collapse;
+			margin: 1em 0;
+		}
+
+		.readme th,
+		.readme td {
+			border: 1px solid #ddd;
+			padding: 8px 12px;
+			text-align: left;
+		}
+
+		.readme th {
+			background: #f8f9fa;
+			font-weight: 600;
+		}
+
+		.readme hr {
+			border: none;
+			border-top: 1px solid #eee;
+			margin: 1.5em 0;
+		}
+
+		.readme img {
+			max-width: 100%;
+			height: auto;
+			border-radius: 4px;
 		}
 	`;
 

@@ -1,5 +1,6 @@
-import { css, type CSSResultGroup, html, LitElement, nothing } from 'lit';
+import { css, type CSSResultGroup, html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
+import { when } from 'lit/directives/when.js';
 
 import { router } from '../features/router/index.ts';
 import type { Plugin } from '../models/plugin.ts';
@@ -11,26 +12,26 @@ import { formatDate, formatFileSize } from '../utils/format.ts';
 @customElement('plugin-admin')
 export class PluginAdmin extends LitElement {
 
-	@state() private plugins:        Plugin[] = [];
-	@state() private loading:        boolean = false;
-	@state() private currentUser:    string | null = null;
-	@state() private uploadStatus:   string | null = null;
-	@state() private uploadError:    string | null = null;
-	@state() private uploadProgress: boolean = false;
-	@state() private expandedPlugin: string | null = null;
-	@state() private pluginDetails:  Map<string, Plugin> = new Map();
+	@state() protected plugins:        Plugin[] = [];
+	@state() protected loading:        boolean = false;
+	@state() protected currentUser:    string | null = null;
+	@state() protected uploadStatus:   string | null = null;
+	@state() protected uploadError:    string | null = null;
+	@state() protected uploadProgress: boolean = false;
+	@state() protected expandedPlugin: string | null = null;
+	@state() protected pluginDetails:  Map<string, Plugin> = new Map();
 
 	override connectedCallback(): void {
 		super.connectedCallback();
 		this.initialize();
 	}
 
-	private async initialize(): Promise<void> {
+	protected async initialize(): Promise<void> {
 		this.currentUser = await authService.getCurrentUser();
 		await this.loadPlugins();
 	}
 
-	private async loadPlugins(): Promise<void> {
+	protected async loadPlugins(): Promise<void> {
 		this.loading = true;
 		try {
 			const response = await pluginApi.getPlugins({ pageSize: 100 });
@@ -47,7 +48,7 @@ export class PluginAdmin extends LitElement {
 		}
 	}
 
-	private async toggleExpand(pluginName: string): Promise<void> {
+	protected async toggleExpand(pluginName: string): Promise<void> {
 		if (this.expandedPlugin === pluginName) {
 			this.expandedPlugin = null;
 
@@ -68,7 +69,7 @@ export class PluginAdmin extends LitElement {
 		}
 	}
 
-	private async deleteVersion(pluginName: string, version: string): Promise<void> {
+	protected async deleteVersion(pluginName: string, version: string): Promise<void> {
 		if (!confirm(`Delete ${ pluginName } version ${ version }?`))
 			return;
 
@@ -85,23 +86,23 @@ export class PluginAdmin extends LitElement {
 		}
 	}
 
-	private async handleLogout(): Promise<void> {
+	protected async handleLogout(): Promise<void> {
 		await authService.logout();
 		await router.navigate('/login');
 	}
 
 	/* ── Upload handling ── */
 
-	private selectedFile: File | null = null;
+	protected selectedFile: File | null = null;
 
-	private handleFileSelect(e: Event): void {
+	protected handleFileSelect(e: Event): void {
 		const input = e.target as HTMLInputElement;
 		this.selectedFile = input.files?.[0] || null;
 		this.uploadStatus = null;
 		this.uploadError = null;
 	}
 
-	private async handleUpload(): Promise<void> {
+	protected async handleUpload(): Promise<void> {
 		if (!this.selectedFile) {
 			this.uploadError = 'Please select a file to upload';
 
@@ -139,17 +140,17 @@ export class PluginAdmin extends LitElement {
 
 	/* ── Rendering ── */
 
-	private renderUploadSection() {
+	protected renderUploadSection(): unknown {
 		return html`
 			<section class="section">
 				<h2>Upload Plugin Package</h2>
 
-				${ this.uploadStatus
-					? html`<div class="alert alert-success">${ this.uploadStatus }</div>`
-					: '' }
-				${ this.uploadError
-					? html`<div class="alert alert-error">${ this.uploadError }</div>`
-					: '' }
+				${ when(this.uploadStatus, () => html`
+				<div class="alert alert-success">${ this.uploadStatus }</div>
+				`) }
+				${ when(this.uploadError, () => html`
+				<div class="alert alert-error">${ this.uploadError }</div>
+				`) }
 
 				<div class="upload-form">
 					<div class="form-group">
@@ -163,9 +164,9 @@ export class PluginAdmin extends LitElement {
 						/>
 					</div>
 
-					${ this.uploadProgress
-						? html`<div class="upload-progress">Uploading...</div>`
-						: '' }
+					${ when(this.uploadProgress, () => html`
+					<div class="upload-progress">Uploading...</div>
+					`) }
 
 					<div class="form-actions">
 						<button
@@ -181,7 +182,7 @@ export class PluginAdmin extends LitElement {
 		`;
 	}
 
-	private renderVersionsForPlugin(pluginName: string) {
+	protected renderVersionsForPlugin(pluginName: string): unknown {
 		const detail = this.pluginDetails.get(pluginName);
 		if (!detail)
 			return html`<div class="loading">Loading versions...</div>`;
@@ -203,70 +204,66 @@ export class PluginAdmin extends LitElement {
 				</thead>
 				<tbody>
 					${ versions.map(version => html`
-						<tr>
-							<td>${ version.version }</td>
-							<td>${ formatFileSize(version.fileSize) }</td>
-							<td>${ version.downloadCount }</td>
-							<td>${ formatDate(version.uploadedAt) }</td>
-							<td>
-								<button
-									class="btn-small btn-danger"
-									@click=${ () => this.deleteVersion(pluginName, version.version) }
-								>
-									Delete
-								</button>
-							</td>
-						</tr>
+					<tr>
+						<td>${ version.version }</td>
+						<td>${ formatFileSize(version.fileSize) }</td>
+						<td>${ version.downloadCount }</td>
+						<td>${ formatDate(version.uploadedAt) }</td>
+						<td>
+							<button
+								class="btn-small btn-danger"
+								@click=${ () => this.deleteVersion(pluginName, version.version) }
+							>
+								Delete
+							</button>
+						</td>
+					</tr>
 					`) }
 				</tbody>
 			</table>
 		`;
 	}
 
-	private renderPluginList() {
+	protected renderPluginList(): unknown {
 		if (this.loading)
 			return html`<div class="loading">Loading...</div>`;
 
 		if (this.plugins.length === 0) {
 			return html`
-				<div class="empty-state">
-					<p>You have no plugins to manage. Upload a plugin to get started.</p>
-				</div>
+			<div class="empty-state">
+				<p>You have no plugins to manage. Upload a plugin to get started.</p>
+			</div>
 			`;
 		}
 
-		return html`
-			${ this.plugins.map(plugin => html`
-				<div class="admin-plugin-card">
-					<div
-						class="admin-plugin-header"
-						@click=${ () => this.toggleExpand(plugin.name) }
-					>
-						<div class="admin-plugin-info">
-							<strong>${ plugin.name }</strong>
-							<span class="plugin-meta">
-								v${ plugin.latestVersion ?? 'N/A' }
-								· ${ plugin.versionCount ?? 0 } versions
-								· ${ plugin.totalDownloads ?? 0 } downloads
-							</span>
-						</div>
-						<span class="expand-icon">
-							${ this.expandedPlugin === plugin.name ? '▼' : '▶' }
-						</span>
-					</div>
-					${ this.expandedPlugin === plugin.name
-						? html`
-							<div class="admin-plugin-body">
-								${ this.renderVersionsForPlugin(plugin.name) }
-							</div>
-						`
-						: nothing }
+		return this.plugins.map(plugin => html`
+		<div class="admin-plugin-card">
+			<div
+				class="admin-plugin-header"
+				@click=${ () => this.toggleExpand(plugin.name) }
+			>
+				<div class="admin-plugin-info">
+					<strong>${ plugin.name }</strong>
+					<span class="plugin-meta">
+						v${ plugin.latestVersion ?? 'N/A' }
+						· ${ plugin.versionCount ?? 0 } versions
+						· ${ plugin.totalDownloads ?? 0 } downloads
+					</span>
+				</div>
+				<span class="expand-icon">
+					${ when(this.expandedPlugin === plugin.name, () => '▼', () => '▶') }
+				</span>
+			</div>
+			${ when(this.expandedPlugin === plugin.name, () => html`
+				<div class="admin-plugin-body">
+					${ this.renderVersionsForPlugin(plugin.name) }
 				</div>
 			`) }
-		`;
+		</div>
+	`);
 	}
 
-	private renderStats() {
+	protected renderStats(): unknown {
 		const totalPlugins = this.plugins.length;
 		const totalVersions = this.plugins.reduce((sum, p) => sum + (p.versionCount ?? 0), 0);
 		const totalDownloads = this.plugins.reduce((sum, p) => sum + (p.totalDownloads ?? 0), 0);

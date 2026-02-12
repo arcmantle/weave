@@ -1,7 +1,7 @@
-import { css, type CSSResultGroup, html, LitElement, nothing } from 'lit';
+import { css, type CSSResultGroup, html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
+import { when } from 'lit/directives/when.js';
 
-import { router } from '../features/router/index.ts';
 import type { Plugin } from '../models/plugin.ts';
 import { authService } from '../services/auth-service.ts';
 import { type AccessMode, configService } from '../services/config-service.ts';
@@ -13,28 +13,28 @@ type TabType = 'upload' | 'storage';
 @customElement('registry-manager')
 export class RegistryManager extends LitElement {
 
-	@state() private activeTab:      TabType = 'upload';
-	@state() private plugins:        Plugin[] = [];
-	@state() private loading:        boolean = false;
-	@state() private currentUser:    string | null = null;
-	@state() private uploadStatus:   string | null = null;
-	@state() private uploadError:    string | null = null;
-	@state() private uploadProgress: boolean = false;
-	@state() private accessMode:     AccessMode = 'private';
+	@state() protected activeTab:      TabType = 'upload';
+	@state() protected plugins:        Plugin[] = [];
+	@state() protected loading:        boolean = false;
+	@state() protected currentUser:    string | null = null;
+	@state() protected uploadStatus:   string | null = null;
+	@state() protected uploadError:    string | null = null;
+	@state() protected uploadProgress: boolean = false;
+	@state() protected accessMode:     AccessMode = 'private';
 
 	override connectedCallback(): void {
 		super.connectedCallback();
 		this.initialize();
 	}
 
-	private async initialize(): Promise<void> {
+	protected async initialize(): Promise<void> {
 		const config = await configService.getConfig();
 		this.accessMode = config.accessMode;
 		this.currentUser = await authService.getCurrentUser();
 		await this.loadPlugins();
 	}
 
-	private async loadPlugins() {
+	protected async loadPlugins(): Promise<void> {
 		this.loading = true;
 		try {
 			const response = await pluginApi.getPlugins();
@@ -48,35 +48,20 @@ export class RegistryManager extends LitElement {
 		}
 	}
 
-	private get isAuthenticated(): boolean {
+	protected get isAuthenticated(): boolean {
 		return !!this.currentUser;
 	}
 
-	private async handleLogin() {
-		await router.navigate('/login');
-	}
-
-	private async handleLogout() {
-		await authService.logout();
-
-		// In private mode redirect to login, in public mode stay on dashboard
-		if (this.accessMode === 'private')
-			await router.navigate('/login');
-
-		else
-			this.currentUser = null;
-	}
-
-	private renderUploadTab() {
+	protected renderUploadTab(): unknown {
 		return html`
 			<h2>Upload Plugin Package</h2>
 
-			${ this.uploadStatus
-				? html`<div class="alert alert-success">${ this.uploadStatus }</div>`
-				: '' }
-			${ this.uploadError
-				? html`<div class="alert alert-error">${ this.uploadError }</div>`
-				: '' }
+			${ when(this.uploadStatus, () => html`
+				<div class="alert alert-success">${ this.uploadStatus }</div>
+			`) }
+			${ when(this.uploadError, () => html`
+				<div class="alert alert-error">${ this.uploadError }</div>
+			`) }
 
 			<div class="upload-form">
 				<div class="form-group">
@@ -90,9 +75,9 @@ export class RegistryManager extends LitElement {
 					/>
 				</div>
 
-				${ this.uploadProgress
-					? html`<div class="upload-progress">Uploading...</div>`
-					: '' }
+				${ when(this.uploadProgress, () => html`
+					<div class="upload-progress">Uploading...</div>
+				`) }
 
 				<div class="form-actions">
 					<button
@@ -107,16 +92,16 @@ export class RegistryManager extends LitElement {
 		`;
 	}
 
-	private selectedFile: File | null = null;
+	protected selectedFile: File | null = null;
 
-	private handleFileSelect(e: Event) {
+	protected handleFileSelect(e: Event): void {
 		const input = e.target as HTMLInputElement;
 		this.selectedFile = input.files?.[0] || null;
 		this.uploadStatus = null;
 		this.uploadError = null;
 	}
 
-	private async handleUpload() {
+	protected async handleUpload(): Promise<void> {
 		if (!this.selectedFile) {
 			this.uploadError = 'Please select a file to upload';
 
@@ -155,7 +140,7 @@ export class RegistryManager extends LitElement {
 		}
 	}
 
-	private renderStorageTab() {
+	protected renderStorageTab(): unknown {
 		const totalPlugins = this.plugins.length;
 		const totalVersions = this.plugins.reduce((sum, p) => sum + (p.versionCount ?? 0), 0);
 		const totalDownloads = this.plugins.reduce((sum, p) => sum + (p.totalDownloads ?? 0), 0);
@@ -183,19 +168,6 @@ export class RegistryManager extends LitElement {
 		return html`
 			<div class="header-bar">
 				<h1>Registry Manager</h1>
-				${ this.isAuthenticated
-					? html`
-						<button class="btn btn-secondary" @click=${ this.handleLogout }>
-							Logout (${ this.currentUser })
-						</button>
-					`
-					: this.accessMode === 'public'
-						? html`
-							<button class="btn btn-primary" @click=${ this.handleLogin }>
-								Login
-							</button>
-						`
-						: nothing }
 			</div>
 
 			<nav class="nav-cards">
@@ -207,40 +179,36 @@ export class RegistryManager extends LitElement {
 					<h3>Plugin Explorer</h3>
 					<p>Browse plugins with a side-by-side list and detail view.</p>
 				</router-link>
-				${ this.isAuthenticated
-					? html`
-						<router-link to="/admin" class="nav-card">
-							<h3>Plugin Admin</h3>
-							<p>Manage your plugins, upload new versions, and view statistics.</p>
-						</router-link>
-					`
-					: nothing }
+				${ when(this.isAuthenticated, () => html`
+					<router-link to="/admin" class="nav-card">
+						<h3>Plugin Admin</h3>
+						<p>Manage your plugins, upload new versions, and view statistics.</p>
+					</router-link>
+				`) }
 			</nav>
 
-			${ this.isAuthenticated
-				? html`
-					<div class="tabs">
-						<button
-							class=${ this.activeTab === 'upload' ? 'active' : '' }
-							@click=${ () => (this.activeTab = 'upload') }
-						>
-							Upload Plugin
-						</button>
-						<button
-							class=${ this.activeTab === 'storage' ? 'active' : '' }
-							@click=${ () => (this.activeTab = 'storage') }
-						>
-							Storage Info
-						</button>
-					</div>
+			${ when(this.isAuthenticated, () => html`
+				<div class="tabs">
+					<button
+						class=${ this.activeTab === 'upload' ? 'active' : '' }
+						@click=${ () => (this.activeTab = 'upload') }
+					>
+						Upload Plugin
+					</button>
+					<button
+						class=${ this.activeTab === 'storage' ? 'active' : '' }
+						@click=${ () => (this.activeTab = 'storage') }
+					>
+						Storage Info
+					</button>
+				</div>
 
-					<div class="tab-content">
-						${ this.activeTab === 'upload'
-							? this.renderUploadTab()
-							: this.renderStorageTab() }
-					</div>
-				`
-				: nothing }
+				<div class="tab-content">
+					${ when(this.activeTab === 'upload',
+						() => this.renderUploadTab(),
+						() => this.renderStorageTab()) }
+				</div>
+			`) }
 		`;
 	}
 
@@ -249,7 +217,6 @@ export class RegistryManager extends LitElement {
 			display: block;
 			padding: 20px;
 			max-width: 1400px;
-			margin: 0 auto;
 		}
 
 		h1 {
