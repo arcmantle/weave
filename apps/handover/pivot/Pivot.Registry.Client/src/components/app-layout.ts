@@ -1,11 +1,11 @@
 import '@arcmantle/pivot-client-router';
 
+import { authService } from '@arcmantle/pivot-client-auth';
+import { router } from '@arcmantle/pivot-client-router';
 import { css, type CSSResultGroup, html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 
-import { router } from '@arcmantle/pivot-client-router';
-import { authService } from '@arcmantle/pivot-client-auth';
 import { type AccessMode, configService } from '../services/config-service.ts';
 
 

@@ -23,4 +23,6 @@
 		<!-- Framework reference - host provides this, don't bundle -->
 		<ProjectReference Include="../../../../Pivot.Core/Pivot.Core.csproj" Private="false" />
 	</ItemGroup>
+
+	<Import Project="../../../../Pivot.Core/Build/Pivot.Plugin.targets" />
 </Project>

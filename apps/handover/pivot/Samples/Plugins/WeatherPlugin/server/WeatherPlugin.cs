@@ -31,8 +31,7 @@ public class WeatherPlugin : IPlugin {
 
 	public void Configure(WebApplication app) {
 		var weather = app.MapGroup("/api/weather")
-			.WithTags("Weather")
-			.WithOpenApi();
+			.WithTags("Weather");
 
 		weather.MapGet("/forecast", () => {
 			var forecast = Enumerable.Range(1, 5).Select(index => new WeatherForecast {

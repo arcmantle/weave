@@ -1,0 +1,34 @@
+<!--
+  Pivot.Plugin.targets — imported by plugin .csproj files.
+  Provides build-time integration for plugins with client-side code.
+
+  Usage in a plugin .csproj:
+    <Import Project="path/to/Pivot.Core/Build/Pivot.Plugin.targets" />
+
+  When distributed as a NuGet package, this file goes into
+  buildTransitive/ and is imported automatically.
+-->
+<Project>
+
+  <PropertyGroup>
+    <!-- Resolve the client directory relative to the .csproj (../client) -->
+    <PivotClientDir>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '..', 'client'))</PivotClientDir>
+    <PivotHasClient>$([System.IO.File]::Exists('$(PivotClientDir)\package.json'))</PivotHasClient>
+  </PropertyGroup>
+
+  <!--
+    Build the client-side code before the server build.
+    Only runs when a sibling client/package.json exists and we're not
+    in a design-time build (IDE IntelliSense).
+  -->
+  <Target
+    Name="BuildPivotClient"
+    BeforeTargets="Build"
+    Condition="'$(PivotHasClient)' == 'True' AND '$(DesignTimeBuild)' != 'true'">
+
+    <Message Importance="high" Text="[pivot] Building client code in $(PivotClientDir)..." />
+    <Exec Command="pnpm build" WorkingDirectory="$(PivotClientDir)" />
+
+  </Target>
+
+</Project>

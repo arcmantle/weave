@@ -1,0 +1,22 @@
+{
+	"name": "@arcmantle/pivot-plugin-users-client",
+	"version": "1.0.0",
+	"private": true,
+	"description": "Client-side component for the Users sample plugin.",
+	"type": "module",
+	"scripts": {
+		"build": "vite build",
+		"dev": "vite build --watch"
+	},
+	"dependencies": {
+		"@arcmantle/pivot-client-plugin": "workspace:*",
+		"lit": "catalog:",
+		"tslib": "catalog:"
+	},
+	"devDependencies": {
+		"@arcmantle/pivot-vite-plugin": "workspace:*",
+		"@arcmantle/tsconfig": "workspace:^",
+		"typescript": "catalog:",
+		"vite": "catalog:"
+	}
+}

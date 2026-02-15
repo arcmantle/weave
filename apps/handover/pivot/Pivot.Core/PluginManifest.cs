@@ -106,6 +106,51 @@ public class PluginManifest {
 	public string? PluginDirectory { get; set; }
 
 	/// <summary>
+	/// Client-side manifest (populated from client/client-manifest.json if present)
+	/// </summary>
+	[JsonIgnore]
+	public ClientManifest? Client { get; set; }
+
+	/// <summary>
+	/// Whether this plugin has a client-side component
+	/// </summary>
+	[JsonIgnore]
+	public bool HasClient => Client != null;
+
+	/// <summary>
+	/// Get the path to the plugin's client directory
+	/// </summary>
+	public string? GetClientDirectory() {
+		if (PluginDirectory == null)
+			return null;
+
+		var clientDir = Path.Combine(PluginDirectory, "client");
+		return Directory.Exists(clientDir) ? clientDir : null;
+	}
+
+	/// <summary>
+	/// Try to load the client manifest from the plugin's client directory
+	/// </summary>
+	public bool TryLoadClientManifest() {
+		var clientDir = GetClientDirectory();
+		if (clientDir == null)
+			return false;
+
+		var manifestPath = Path.Combine(clientDir, "client-manifest.json");
+		if (!File.Exists(manifestPath))
+			return false;
+
+		try {
+			var json = File.ReadAllText(manifestPath);
+			Client = System.Text.Json.JsonSerializer.Deserialize<ClientManifest>(json);
+			return Client != null;
+		}
+		catch {
+			return false;
+		}
+	}
+
+	/// <summary>
 	/// Get the main assembly path
 	/// </summary>
 	public string GetMainAssemblyPath() {

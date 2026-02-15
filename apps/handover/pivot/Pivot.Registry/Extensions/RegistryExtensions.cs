@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
@@ -155,8 +156,30 @@ public static class RegistryExtensions {
 
 		app.MapControllers();
 
-		// Fallback to index.html for client-side routing
-		app.MapFallbackToFile("/index.html");
+		// Login page is always accessible (separate entry point)
+		app.MapFallbackToFile("/login/{**path}", "login/index.html");
+
+		// Main SPA fallback: redirect unauthenticated users to /login in Private mode
+		app.MapFallback(async context => {
+			if (options.AccessMode == RegistryAccessMode.Private
+				&& context.User.Identity?.IsAuthenticated != true) {
+				context.Response.Redirect("/login");
+				return;
+			}
+
+			// Serve index.html for client-side routing
+			var env = context.RequestServices.GetRequiredService<IWebHostEnvironment>();
+			var webRoot = env.WebRootPath ?? Path.Combine(env.ContentRootPath, "wwwroot");
+			var filePath = Path.Combine(webRoot, "index.html");
+
+			if (!File.Exists(filePath)) {
+				context.Response.StatusCode = 404;
+				return;
+			}
+
+			context.Response.ContentType = "text/html";
+			await context.Response.SendFileAsync(filePath);
+		});
 
 		return app;
 	}

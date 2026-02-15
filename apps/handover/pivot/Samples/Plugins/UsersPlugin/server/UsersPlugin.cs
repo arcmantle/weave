@@ -62,8 +62,7 @@ public class UsersPlugin : IPlugin {
 		var userService = app.Services.GetRequiredService<IUserService>();
 
 		var users = app.MapGroup("/api/users")
-			.WithTags("Users")
-			.WithOpenApi();
+			.WithTags("Users");
 
 		users.MapGet("/", () => userService.GetAllUsers())
 			.WithName("GetUsers")

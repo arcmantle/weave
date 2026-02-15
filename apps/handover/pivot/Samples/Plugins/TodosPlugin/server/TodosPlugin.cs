@@ -35,8 +35,7 @@ public class TodosPlugin : IPlugin {
 		var userService = app.Services.GetRequiredService<IUserService>();
 
 		var todos = app.MapGroup("/api/todos")
-			.WithTags("Todos")
-			.WithOpenApi();
+			.WithTags("Todos");
 
 		todos.MapGet("/", () => _todos)
 			.WithName("GetTodos")

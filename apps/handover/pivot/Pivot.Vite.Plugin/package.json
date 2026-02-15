@@ -1,0 +1,33 @@
+{
+	"name": "@arcmantle/pivot-vite-plugin",
+	"version": "1.0.0",
+	"description": "Vite plugin for building Pivot client-side plugins. Externalizes shared dependencies and generates client-manifest.json.",
+	"license": "Apache-2.0",
+	"author": "Kristoffer Roen-Lie",
+	"type": "module",
+	"exports": {
+		".": "./dist/index.js"
+	},
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"files": [
+		"dist",
+		"src",
+		"README.md"
+	],
+	"scripts": {
+		"build": "rimraf dist && tsc --project ./src/tsconfig.json",
+		"dev": "tsc --project ./src/tsconfig.json --watch"
+	},
+	"dependencies": {
+		"@arcmantle/pivot-client-plugin": "workspace:*",
+		"esbuild": "catalog:",
+		"tslib": "catalog:"
+	},
+	"peerDependencies": {
+		"vite": ">=6.0.0"
+	},
+	"devDependencies": {
+		"vite": "catalog:"
+	}
+}

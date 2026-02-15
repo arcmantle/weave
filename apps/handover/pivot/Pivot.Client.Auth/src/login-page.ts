@@ -1,6 +1,5 @@
-import { router } from '@arcmantle/pivot-client-router';
 import { css, type CSSResultGroup, html, LitElement } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 
 import { authService } from './auth-service.js';
@@ -13,14 +12,21 @@ export class LoginPage extends LitElement {
 	@state() protected errorMessage = '';
 	@state() protected isLoggingIn = false;
 
-	/** Override this to change the title displayed on the login form. */
-	protected pageTitle: string = 'Pivot Login';
+	/** The title displayed on the login form. */
+	@property({ type: String }) pageTitle: string = 'Pivot Login';
 
-	/** Override this to change the subtitle displayed on the login form. */
-	protected subtitle: string = 'Enter your username to continue';
+	/** The subtitle displayed on the login form. */
+	@property({ type: String }) subtitle: string = 'Enter your username to continue';
 
-	/** Override this to change the post-login redirect path. */
-	protected redirectPath: string = '/';
+	/** The post-login redirect path. */
+	@property({ type: String }) redirectPath: string = '/';
+
+	/**
+	 * When true, performs a full page navigation after login instead of
+	 * using the client side router. Use this when the login page is served
+	 * as a separate entry point in a multi-page setup.
+	 */
+	@property({ type: Boolean }) useFullRedirect: boolean = false;
 
 	protected async handleLogin(): Promise<void> {
 		this.errorMessage = '';
@@ -35,11 +41,17 @@ export class LoginPage extends LitElement {
 			this.isLoggingIn = true;
 			const result = await authService.login(this.username.trim());
 
-			if (result.success)
-				await router.navigate(this.redirectPath);
+			if (result.success) {
+				if (this.useFullRedirect) {
+					window.location.href = this.redirectPath;
+				}
+				else {
+					const { router } = await import('@arcmantle/pivot-client-router');
+					await router.navigate(this.redirectPath);
+				}
+			}
 
-			else
-				this.errorMessage = result.error ?? 'Login failed';
+			else { this.errorMessage = result.error ?? 'Login failed'; }
 		}
 		catch (err) {
 			this.errorMessage = `Login failed: ${ err instanceof Error ? err.message : 'Unknown error' }`;

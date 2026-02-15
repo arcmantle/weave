@@ -1,16 +1,15 @@
 import './components/app-layout.ts';
-import './components/login-page.ts';
 import './components/plugin-admin.ts';
 import './components/plugin-browse.ts';
 import './components/plugin-detail.ts';
 import './components/plugin-explorer.ts';
 import './components/registry-manager.ts';
 
+import { authService } from '@arcmantle/pivot-client-auth';
 import type { RouteAnimation, RouteConfig } from '@arcmantle/pivot-client-router';
 import { defineRoute, router } from '@arcmantle/pivot-client-router';
 import { html } from 'lit';
 
-import { authService } from '@arcmantle/pivot-client-auth';
 import { configService } from './services/config-service.ts';
 
 
@@ -58,7 +57,7 @@ const requireAccessGuard = async (): Promise<boolean> => {
 
 	const isAuth = await authService.isAuthenticated();
 	if (!isAuth) {
-		await router.navigate('/login');
+		router.navigate('/login');
 
 		return false;
 	}
@@ -70,7 +69,7 @@ const requireAccessGuard = async (): Promise<boolean> => {
 const requireAuthGuard = async (): Promise<boolean> => {
 	const isAuth = await authService.isAuthenticated();
 	if (!isAuth) {
-		await router.navigate('/login');
+		router.navigate('/login');
 
 		return false;
 	}
@@ -81,19 +80,9 @@ const requireAuthGuard = async (): Promise<boolean> => {
 
 export const routes: RouteConfig[] = [
 	defineRoute({
-		path:        '/login',
-		name:        'login',
-		template:    () => html`<login-page></login-page>`,
-		beforeEnter: async (): Promise<boolean> => {
-			const isAuth = await authService.isAuthenticated();
-			if (isAuth) {
-				await router.navigate('/');
-
-				return false;
-			}
-
-			return true;
-		},
+		path:     '/login',
+		name:     'login',
+		template: () => html`<login-page pageTitle="Pivot Registry"></login-page>`,
 	}),
 	{
 		path:        '/',

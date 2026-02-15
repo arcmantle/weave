@@ -5,31 +5,17 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add Pivot backend with plugin loading
 builder.AddPivotBackend(options => {
-	// TEMPORARY: Force directory loading to test manifest system
 	// Development: Load plugins from referenced assemblies (enables IntelliSense, debugging)
 	// Production: Load from directory (enables hot reload without restart)
-	options.LoadFromReferencedAssemblies = false; // builder.Environment.IsDevelopment();
+	options.LoadFromReferencedAssemblies = builder.Environment.IsDevelopment();
 	options.EnableAutoReload = builder.Environment.IsDevelopment();
 
 	// For directory-based loading (production or when LoadFromReferencedAssemblies = false):
 	options.PluginDirectory = Path.Combine(AppContext.BaseDirectory, "plugins");
 });
 
-// Add Swagger
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c => {
-	c.SwaggerDoc("v1", new() {
-		Title = "Pivot Sample API",
-		Version = "v1",
-		Description = "Simple sample demonstrating the Pivot plugin system"
-	});
-
-	var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
-	var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-	if (File.Exists(xmlPath)) {
-		c.IncludeXmlComments(xmlPath);
-	}
-});
+// Add OpenAPI
+builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
@@ -38,14 +24,21 @@ if (app.Environment.IsDevelopment()) {
 	app.UseDeveloperExceptionPage();
 }
 
-// Enable Swagger
-app.UseSwagger();
-app.UseSwaggerUI(c => {
-	c.SwaggerEndpoint("/swagger/v1/swagger.json", "Pivot Sample API v1");
-	c.RoutePrefix = "swagger";
-});
+// Enable OpenAPI
+app.MapOpenApi();
 
 // Map Pivot backend (includes plugin configuration)
 app.MapPivotBackend();
+
+// Map client-side plugin serving (static files + manifest/import-map endpoints)
+app.MapPivotClientPlugins(options => {
+	// In dev, point at source Plugins directory so discovery finds client/dist/client/
+	if (app.Environment.IsDevelopment()) {
+		var samplePluginsDir = Path.GetFullPath(
+			Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Plugins"));
+		if (Directory.Exists(samplePluginsDir))
+			options.PluginDirectory = samplePluginsDir;
+	}
+});
 
 app.Run();

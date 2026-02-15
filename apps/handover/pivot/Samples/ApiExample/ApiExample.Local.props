@@ -10,8 +10,8 @@
 
 	<ItemGroup>
 		<!-- Sample plugins demonstrating the plugin architecture -->
-		<ProjectReference Include="..\Plugins\TodosPlugin\TodosPlugin.csproj" />
-		<ProjectReference Include="..\Plugins\UsersPlugin\UsersPlugin.csproj" />
-		<ProjectReference Include="..\Plugins\WeatherPlugin\WeatherPlugin.csproj" />
+		<ProjectReference Include="..\Plugins\TodosPlugin\server\TodosPlugin.csproj" />
+		<ProjectReference Include="..\Plugins\UsersPlugin\server\UsersPlugin.csproj" />
+		<ProjectReference Include="..\Plugins\WeatherPlugin\server\WeatherPlugin.csproj" />
 	</ItemGroup>
 </Project>

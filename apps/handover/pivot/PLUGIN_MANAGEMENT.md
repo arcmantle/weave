@@ -17,7 +17,7 @@ The Pivot Coordinator now includes an optional **plugin management system** that
 ```
 ┌──────────────────────────────────────┐
 │  Coordinator (Always Running)        │
-│  ✓ Admin UI at http://localhost:5100│
+│  ✓ Admin UI at http://localhost:5100 │
 │  ✓ Plugin State Database             │
 │  ✓ Deployment Manager                │
 │  ✓ Auto-Recovery                     │

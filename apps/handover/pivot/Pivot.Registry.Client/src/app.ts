@@ -1,11 +1,11 @@
 import '@arcmantle/pivot-client-router';
 
+import { authService } from '@arcmantle/pivot-client-auth';
+import { router } from '@arcmantle/pivot-client-router';
 import { css, html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 
-import { router } from '@arcmantle/pivot-client-router';
 import { routes } from './routes.ts';
-import { authService } from '@arcmantle/pivot-client-auth';
 import { configService } from './services/config-service.ts';
 
 
@@ -43,6 +43,13 @@ export class AppRoot extends LitElement {
 	}
 
 	protected async handleAuthChange(): Promise<void> {
+		const isAuth = await authService.isAuthenticated();
+		if (!isAuth) {
+			await router.navigate('/login');
+
+			return;
+		}
+
 		// Re-navigate to current path to re-evaluate guards
 		await router.navigate(window.location.pathname);
 	}

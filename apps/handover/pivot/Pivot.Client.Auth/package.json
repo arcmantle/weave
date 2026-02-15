@@ -6,7 +6,8 @@
 	"author": "Kristoffer Roen-Lie",
 	"type": "module",
 	"exports": {
-		".": "./dist/index.js"
+		".": "./dist/index.js",
+		"./vite": "./dist/vite-plugin.js"
 	},
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
@@ -24,5 +25,16 @@
 		"@lit/context": "catalog:",
 		"lit": "catalog:",
 		"tslib": "catalog:"
+	},
+	"devDependencies": {
+		"vite": "catalog:"
+	},
+	"peerDependencies": {
+		"vite": ">=6.0.0"
+	},
+	"peerDependenciesMeta": {
+		"vite": {
+			"optional": true
+		}
 	}
 }

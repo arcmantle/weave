@@ -25,4 +25,6 @@
 		<!-- Plugin dependency - for IntelliSense only, don't bundle -->
 		<ProjectReference Include="../../UsersPlugin/server/UsersPlugin.csproj" Private="false" />
 	</ItemGroup>
+
+	<Import Project="../../../../Pivot.Core/Build/Pivot.Plugin.targets" />
 </Project>

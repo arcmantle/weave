@@ -1,3 +1,4 @@
+import { loginRewritePlugin } from '@arcmantle/pivot-client-auth/vite';
 import { type ChildProcess, spawn } from 'child_process';
 import { resolve } from 'path';
 import { defineConfig, type Plugin, type UserConfig } from 'vite';
@@ -87,14 +88,17 @@ export default defineConfig({
 		target:        'es2022',
 		outDir:        'dist',
 		rollupOptions: {
-			output: {
-				manualChunks:         undefined,
-				inlineDynamicImports: true,
+			input: {
+				main:  resolve(__dirname, 'index.html'),
+				login: resolve(__dirname, 'src/login/index.html'),
 			},
 		},
 	},
-	plugins: [ registryServerPlugin() ],
-	server:  {
+	plugins: [
+		registryServerPlugin(),
+		loginRewritePlugin(),
+	],
+	server: {
 		port:  3000,
 		proxy: {
 			'/api': {
