@@ -41,4 +41,18 @@ app.MapPivotClientPlugins(options => {
 	}
 });
 
+// In Development, start the Vite dev server for the app shell + plugin HMR.
+// Open http://localhost:3200 to use the app.
+app.UsePivotDevServer(options => {
+	if (app.Environment.IsDevelopment()) {
+		var samplePluginsDir = Path.GetFullPath(
+			Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Plugins"));
+		if (Directory.Exists(samplePluginsDir))
+			options.PluginsDirectory = samplePluginsDir;
+	}
+});
+
+// In Production, serve the pre-built app shell from wwwroot/.
+app.MapPivotAppShell();
+
 app.Run();

@@ -1,4 +1,4 @@
-import { defineConfig, type Plugin, type UserConfig } from 'vite';
+import type { Plugin, ViteDevServer } from 'vite';
 
 
 /**
@@ -36,6 +36,7 @@ const SHARED_SPECIFIERS = [
 	'tslib',
 ] as const;
 
+
 /**
  * Build a lookup from bundle filename → bare specifier.
  * E.g. `lit__decorators_js.js` → `lit/decorators.js`
@@ -57,7 +58,7 @@ const FILE_TO_SPECIFIER: Map<string, string> = new Map(
  * pre-bundled optimized dep — ensuring both the app shell and plugins
  * share the same module instance with full HMR support.
  */
-function pivotSharedDeps(): Plugin {
+export function pivotSharedDeps(): Plugin {
 	const PREFIX = '\0pivot-shared:';
 
 	return {
@@ -75,36 +76,24 @@ function pivotSharedDeps(): Plugin {
 			if (!id.startsWith(PREFIX))
 				return undefined;
 
-			// Use the bare specifier so Vite resolves it to the same pre-bundled
-			// optimized dep that the app shell uses. This avoids loading a second
-			// copy of the module from the raw source files.
 			const specifier = id.slice(PREFIX.length);
 
 			return `export * from '${ specifier }';`;
 		},
 
-		configureServer(server) {
-			// Intercept `/shared/*` requests before Vite internals & proxies.
-			// The URL path matches production-style bundle filenames
-			// (e.g. `/shared/lit.js`, `/shared/lit__decorators_js.js`).
-			// We reverse-map them to bare specifiers for Vite resolution.
+		configureServer(server: ViteDevServer) {
 			server.middlewares.use(async (req, res, next) => {
 				if (!req.url?.startsWith('/shared/'))
 					return next();
 
-				// Strip the /shared/ prefix and any query string
 				let fileName = req.url.slice('/shared/'.length);
 				const queryIdx = fileName.indexOf('?');
 				if (queryIdx >= 0)
 					fileName = fileName.slice(0, queryIdx);
 
-				// Reverse-map bundle filename to bare specifier
 				const specifier = FILE_TO_SPECIFIER.get(fileName);
-				if (!specifier) {
-					// Could be a shared chunk from esbuild code splitting —
-					// let the proxy/static serving handle it.
+				if (!specifier)
 					return next();
-				}
 
 				try {
 					const result = await server.transformRequest(`${ PREFIX }${ specifier }`);
@@ -128,41 +117,3 @@ function pivotSharedDeps(): Plugin {
 		},
 	};
 }
-
-
-export default defineConfig({
-	plugins: [ pivotSharedDeps() ],
-	esbuild: {
-		supported: {
-			'top-level-await': true,
-		},
-	},
-	build: {
-		target: 'es2022',
-		outDir: 'dist',
-	},
-	optimizeDeps: {
-		include: [
-			'lit',
-			'lit/decorators.js',
-			'lit/directives/when.js',
-			'lit/directives/map.js',
-			'lit/static-html.js',
-			'@lit/context',
-			'@arcmantle/injector',
-		],
-	},
-	server: {
-		port:  3200,
-		proxy: {
-			'/api': {
-				target:       'http://localhost:5200',
-				changeOrigin: true,
-			},
-			'/plugins': {
-				target:       'http://localhost:5200',
-				changeOrigin: true,
-			},
-		},
-	},
-}) as UserConfig;

@@ -996,40 +996,6 @@ importers:
         specifier: ^5.3.3
         version: 5.9.3
 
-  apps/handover/pivot/Pivot.App.Shell:
-    dependencies:
-      '@arcmantle/injector':
-        specifier: workspace:^
-        version: link:../../../../packages/core/injector
-      '@arcmantle/pivot-client-auth':
-        specifier: workspace:^
-        version: link:../Pivot.Client.Auth
-      '@arcmantle/pivot-client-plugin':
-        specifier: workspace:*
-        version: link:../Pivot.Client.Plugin
-      '@arcmantle/pivot-client-router':
-        specifier: workspace:^
-        version: link:../Pivot.Client.Router
-      '@lit/context':
-        specifier: 'catalog:'
-        version: 1.1.6
-      lit:
-        specifier: 'catalog:'
-        version: 3.3.2
-      tslib:
-        specifier: 'catalog:'
-        version: 2.8.1
-    devDependencies:
-      '@arcmantle/tsconfig':
-        specifier: workspace:^
-        version: link:../../../../packages/dev-tools/tsconfig-config
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-      vite:
-        specifier: 'catalog:'
-        version: 7.3.0(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.97.1)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2)
-
   apps/handover/pivot/Pivot.Client.Auth:
     dependencies:
       '@arcmantle/pivot-client-router':
@@ -1113,6 +1079,43 @@ importers:
         specifier: 'catalog:'
         version: 4.0.16(@types/node@25.0.3)(happy-dom@17.6.3)(jiti@2.6.1)(jsdom@26.1.0)(lightningcss@1.30.2)(sass@1.97.1)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2)
 
+  apps/handover/pivot/Pivot.DevServer:
+    dependencies:
+      '@arcmantle/injector':
+        specifier: workspace:^
+        version: link:../../../../packages/core/injector
+      '@arcmantle/pivot-client-auth':
+        specifier: workspace:^
+        version: link:../Pivot.Client.Auth
+      '@arcmantle/pivot-client-plugin':
+        specifier: workspace:*
+        version: link:../Pivot.Client.Plugin
+      '@arcmantle/pivot-client-router':
+        specifier: workspace:^
+        version: link:../Pivot.Client.Router
+      '@lit/context':
+        specifier: 'catalog:'
+        version: 1.1.6
+      lit:
+        specifier: 'catalog:'
+        version: 3.3.2
+      tslib:
+        specifier: 'catalog:'
+        version: 2.8.1
+      vite:
+        specifier: 'catalog:'
+        version: 7.3.0(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.97.1)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2)
+    devDependencies:
+      '@arcmantle/tsconfig':
+        specifier: workspace:^
+        version: link:../../../../packages/dev-tools/tsconfig-config
+      rimraf:
+        specifier: 'catalog:'
+        version: 6.1.2
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
   apps/handover/pivot/Pivot.Registry.Client:
     dependencies:
       '@arcmantle/pivot-client-auth':
@@ -1171,6 +1174,18 @@ importers:
       vite:
         specifier: 'catalog:'
         version: 7.3.0(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.97.1)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2)
+
+  apps/handover/pivot/Samples/ApiExample:
+    dependencies:
+      '@arcmantle/pivot-dev-server':
+        specifier: workspace:*
+        version: link:../../Pivot.DevServer
+
+  apps/handover/pivot/Samples/ApiExample/bin/Debug/net10.0:
+    dependencies:
+      '@arcmantle/pivot-dev-server':
+        specifier: workspace:*
+        version: link:../../../../../Pivot.DevServer
 
   apps/handover/pivot/Samples/Plugins/TodosPlugin/client:
     dependencies:

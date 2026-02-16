@@ -1,0 +1,52 @@
+<!--
+  Pivot.AppShell.targets — imported by Pivot backend .csproj files.
+  Builds the Pivot app shell into wwwroot/ during publish.
+
+  The app shell source lives inside the @arcmantle/pivot-dev-server npm
+  package at app-shell/. During publish, this target runs `vite build`
+  to produce production-ready static assets.
+
+  Usage in a backend .csproj:
+    <Import Project="path/to/Pivot.Core/Build/Pivot.AppShell.targets" />
+
+  When distributed as a NuGet package, this file goes into
+  buildTransitive/ and is imported automatically.
+-->
+<Project>
+
+  <PropertyGroup>
+    <!-- Resolve the app shell source from the dev-server npm package.
+         Walk up from the project directory to find node_modules. -->
+    <PivotDevServerPkg>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', 'node_modules', '@arcmantle', 'pivot-dev-server'))</PivotDevServerPkg>
+    <PivotAppShellDir>$([MSBuild]::NormalizePath('$(PivotDevServerPkg)', 'app-shell'))</PivotAppShellDir>
+    <PivotAppShellExists>$([System.IO.File]::Exists('$([MSBuild]::NormalizePath('$(PivotAppShellDir)', 'index.html'))'))</PivotAppShellExists>
+  </PropertyGroup>
+
+  <!--
+    Build the app shell into wwwroot/ during Publish.
+    Only runs when the dev-server package is installed and we're not
+    in a design-time build.
+  -->
+  <Target
+    Name="BuildPivotAppShell"
+    BeforeTargets="Publish"
+    Condition="'$(PivotAppShellExists)' == 'True' AND '$(DesignTimeBuild)' != 'true'">
+
+    <Message Importance="high" Text="[pivot] Building app shell from $(PivotAppShellDir)..." />
+
+    <!-- Run vite build with the app shell as root, outputting to the project's wwwroot/ -->
+    <Exec
+      Command="npx vite build --outDir &quot;$(MSBuildProjectDirectory)\wwwroot&quot; --emptyOutDir"
+      WorkingDirectory="$(PivotAppShellDir)" />
+
+    <Message Importance="high" Text="[pivot] App shell built to wwwroot/" />
+  </Target>
+
+  <!--
+    Include wwwroot/ in the publish output.
+  -->
+  <ItemGroup Condition="'$(PivotAppShellExists)' == 'True'">
+    <Content Include="wwwroot\**" CopyToPublishDirectory="PreserveNewest" CopyToOutputDirectory="Never" />
+  </ItemGroup>
+
+</Project>

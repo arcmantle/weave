@@ -1,7 +1,6 @@
 import './app-shell.js';
 
 export { PivotAppShell } from './app-shell.js';
-export { PluginManager, type PluginState } from './plugin-manager.js';
 export {
 	fetchClientManifests,
 	fetchImportMap,
@@ -11,4 +10,5 @@ export {
 	loadPluginStyles,
 	validateSharedDependencies,
 } from './plugin-loader.js';
+export { PluginManager, type PluginState } from './plugin-manager.js';
 export { buildPluginRoutes } from './plugin-routes.js';

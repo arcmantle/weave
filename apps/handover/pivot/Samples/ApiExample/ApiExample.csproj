@@ -22,4 +22,7 @@
 		<ProjectReference Include="..\..\Pivot.Core\Pivot.Core.csproj" />
 	</ItemGroup>
 
+	<!-- Build the Pivot app shell into wwwroot/ on publish -->
+	<Import Project="..\..\Pivot.Core\Build\Pivot.AppShell.targets" />
+
 </Project>
