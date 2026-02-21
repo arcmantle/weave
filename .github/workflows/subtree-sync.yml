@@ -1,13 +1,13 @@
-name: Sync packages to standalone repos
+#name: Sync packages to standalone repos
 
-on:
-  push:
-    branches: [main]
-    paths: ['components/**','packages/**']
-  workflow_dispatch:
+#on:
+#  push:
+#    branches: [main]
+#    paths: ['components/**','packages/**']
+#  workflow_dispatch:
 
-jobs:
-  sync:
-    uses: arcmantle/github-workflows/.github/workflows/subtree-sync.yml@main
-    secrets:
-      sync-token: ${{ secrets.SYNC_SUBTREE }}
+#jobs:
+#  sync:
+#    uses: arcmantle/github-workflows/.github/workflows/subtree-sync.yml@main
+#    secrets:
+#      sync-token: ${{ secrets.SYNC_SUBTREE }}
