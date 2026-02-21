@@ -42,7 +42,7 @@
 		"@arcmantle/injector": "catalog:",
 		"@arcmantle/library": "catalog:",
 		"@arcmantle/monaco-editor-wc": "workspace:^",
-		"@arcmantle/vite-plugin-copy": "catalog:",
+		"@arcmantle/vite-plugin-copy": "workspace:*",
 		"@custom-elements-manifest/analyzer": "catalog:",
 		"@orama/orama": "catalog:",
 		"@orama/plugin-data-persistence": "catalog:",

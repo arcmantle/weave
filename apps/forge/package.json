@@ -20,7 +20,7 @@
 		"typescript": "catalog:"
 	},
 	"devDependencies": {
-		"@arcmantle/vite-plugin-copy": "catalog:",
+		"@arcmantle/vite-plugin-copy": "workspace:*",
 		"@arcmantle/vite-plugin-import-css-sheet": "workspace:^"
 	}
 }

@@ -31,7 +31,7 @@
 	},
 	"devDependencies": {
 		"@arcmantle/lit-jsx": "catalog:",
-		"@arcmantle/vite-lib-config": "catalog:",
+		"@arcmantle/vite-lib-config": "workspace:*",
 		"vite": "catalog:"
 	}
 }

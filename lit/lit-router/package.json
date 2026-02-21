@@ -28,7 +28,7 @@
 	},
 	"dependencies": {
 		"@arcmantle/library": "catalog:",
-		"@arcmantle/vite-lib-config": "catalog:",
+		"@arcmantle/vite-lib-config": "workspace:*",
 		"lit": "catalog:",
 		"nanoid": "catalog:",
 		"urlpattern-polyfill": "catalog:"

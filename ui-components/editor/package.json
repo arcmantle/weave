@@ -24,7 +24,7 @@
 		"dev": "vite --config ./demo/vite.config.ts"
 	},
 	"devDependencies": {
-		"@arcmantle/vite-lib-config": "catalog:",
+		"@arcmantle/vite-lib-config": "workspace:*",
 		"@microsoft/api-extractor": "catalog:",
 		"lit": "catalog:",
 		"monaco-editor": "catalog:",

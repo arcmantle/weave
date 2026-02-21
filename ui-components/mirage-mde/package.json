@@ -46,7 +46,7 @@
 		"tslib": "catalog:"
 	},
 	"devDependencies": {
-		"@arcmantle/vite-lib-config": "catalog:",
+		"@arcmantle/vite-lib-config": "workspace:*",
 		"@arcmantle/vite-plugin-import-css-sheet": "catalog:",
 		"vite": "catalog:"
 	}

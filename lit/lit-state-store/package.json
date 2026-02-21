@@ -32,6 +32,6 @@
 		"lit": "catalog:"
 	},
 	"devDependencies": {
-		"@arcmantle/vite-lib-config": "catalog:"
+		"@arcmantle/vite-lib-config": "workspace:*"
 	}
 }

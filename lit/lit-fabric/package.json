@@ -27,6 +27,6 @@
 	},
 	"devDependencies": {
 		"@arcmantle/mirage-docs": "workspace:^",
-		"@arcmantle/vite-lib-config": "catalog:"
+		"@arcmantle/vite-lib-config": "workspace:*"
 	}
 }

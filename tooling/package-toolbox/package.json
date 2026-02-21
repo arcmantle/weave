@@ -29,7 +29,7 @@
 		"build": "tsc --project ./src/tsconfig.json"
 	},
 	"dependencies": {
-		"@arcmantle/vite-plugin-copy": "catalog:",
+		"@arcmantle/vite-plugin-copy": "workspace:*",
 		"deepmerge-ts": "catalog:",
 		"fs-extra": "catalog:",
 		"globby": "catalog:",
@@ -40,7 +40,7 @@
 		"yargs": "catalog:"
 	},
 	"devDependencies": {
-		"@arcmantle/vite-lib-config": "catalog:",
+		"@arcmantle/vite-lib-config": "workspace:*",
 		"@types/fs-extra": "catalog:",
 		"@types/semver": "catalog:",
 		"@types/yargs": "catalog:"

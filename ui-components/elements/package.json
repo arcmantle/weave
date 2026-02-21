@@ -37,7 +37,7 @@
 	"devDependencies": {
 		"@arcmantle/elements": "workspace:^",
 		"@arcmantle/mirage-docs": "workspace:^",
-		"@arcmantle/vite-lib-config": "catalog:",
+		"@arcmantle/vite-lib-config": "workspace:*",
 		"@arcmantle/vite-plugin-import-css-sheet": "workspace:^",
 		"@faker-js/faker": "catalog:"
 	}

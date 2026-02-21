@@ -46,7 +46,7 @@
 		"@arcmantle/library": "catalog:"
 	},
 	"devDependencies": {
-		"@arcmantle/vite-lib-config": "catalog:",
+		"@arcmantle/vite-lib-config": "workspace:*",
 		"@lit-labs/preact-signals": "catalog:",
 		"happy-dom": "catalog:",
 		"lit": "catalog:"
