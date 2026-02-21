@@ -12,10 +12,9 @@
 	},
 	"include": [
 		"**/vite.config.ts",
-		"**/vitest.config.ts",
-		"**/*.d.ts",
+		"**/vitest.config.ts"
 	],
 	"exclude": [
-		"node_modules",
-	],
+		"node_modules"
+	]
 }

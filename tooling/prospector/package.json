@@ -53,6 +53,7 @@
 		"semver": "catalog:"
 	},
 	"devDependencies": {
+		"@arcmantle/tsconfig": "workspace:",
 		"@types/node": "catalog:",
 		"@types/semver": "catalog:",
 		"tsdown": "catalog:",
