@@ -1,0 +1,21 @@
+{
+	"extends": "@arcmantle/tsconfig",
+	"compilerOptions": {
+		"rootDir": ".",
+		"baseUrl": ".",
+		"checkJs": true,
+		"allowJs": true,
+		"isolatedDeclarations": false,
+		"types": [
+			"node"
+		]
+	},
+	"include": [
+		"**/vite.config.ts",
+		"**/vitest.config.ts",
+		"**/*.d.ts",
+	],
+	"exclude": [
+		"node_modules",
+	],
+}

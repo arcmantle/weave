@@ -1,5 +1,5 @@
 import type { Vec2 } from '@arcmantle/library/types';
-import type { Viewport } from './is-outside-viewport.ts';
+import type { Viewport } from './is-outside-viewport.js';
 
 
 export class View {

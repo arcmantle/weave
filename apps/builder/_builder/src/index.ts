@@ -1,6 +1,6 @@
 import { css, html, LitElement, render, type PropertyValues } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
-import { icon } from './icons.ts';
+import { icon } from './icons.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { when } from 'lit/directives/when.js';
 

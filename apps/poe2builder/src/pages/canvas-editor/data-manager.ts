@@ -1,12 +1,12 @@
 import { maybe, resolvablePromise, type ResolvablePromise } from '@arcmantle/library/async';
-import { GraphNode, type StorableGraphNode } from '../../app/graph/graph-node.ts';
-import { getGraphConnections, getGraphNodes, graphConnectionCollection, graphNodeCollection, type ConnectionChunk, type NodeChunk } from './firebase-queries.ts';
+import { GraphNode, type StorableGraphNode } from '../../app/graph/graph-node.js';
+import { getGraphConnections, getGraphNodes, graphConnectionCollection, graphNodeCollection, type ConnectionChunk, type NodeChunk } from './firebase-queries.js';
 import { addDoc, collection, deleteDoc, doc, setDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../../app/firebase.ts';
+import { db } from '../../app/firebase.js';
 import type { Vec2 } from '@arcmantle/library/types';
-import type { NodeData } from '../../app/graph/node-catalog.ts';
-import { GraphConnection, type StorableGraphConnection } from '../../app/graph/graph-connection.ts';
-import { supabase } from '../../app/supabase.ts';
+import type { NodeData } from '../../app/graph/node-catalog.js';
+import { GraphConnection, type StorableGraphConnection } from '../../app/graph/graph-connection.js';
+import { supabase } from '../../app/supabase.js';
 import { range } from '@arcmantle/library/array';
 
 

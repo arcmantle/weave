@@ -1,7 +1,7 @@
 import type { Vec2 } from '@arcmantle/library/types';
-import { Canvas2DObject } from '../canvas/canvas-object.ts';
-import { getPathReduction } from '../canvas/path-helpers.ts';
-import type { GraphNode } from './graph-node.ts';
+import { Canvas2DObject } from '../canvas/canvas-object.js';
+import { getPathReduction } from '../canvas/path-helpers.js';
+import type { GraphNode } from './graph-node.js';
 
 
 export type GraphConnectionVec2 = Vec2 & {

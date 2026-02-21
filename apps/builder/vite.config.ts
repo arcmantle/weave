@@ -4,7 +4,7 @@ import { defineConfig, type Plugin } from 'vite';
 import ts, { isCallExpression, isIdentifier } from 'typescript';
 import { transform } from 'lightningcss';
 import MagicString from 'magic-string';
-import { hexToRgba } from './_builder/plugin/hex-to-rgba.ts';
+import { hexToRgba } from './_builder/plugin/hex-to-rgba.js';
 
 
 export default defineConfig(() => {

@@ -5,8 +5,8 @@ import { browserLocalPersistence, getAuth, GoogleAuthProvider, setPersistence, s
 import { html } from 'lit-html';
 import { when } from 'lit-html/directives/when.js';
 
-import { app } from '../app/firebase.ts';
-import { supabase } from '../app/supabase.ts';
+import { app } from '../app/firebase.js';
+import { supabase } from '../app/supabase.js';
 
 
 export class RouterCmp extends CustomElement {
@@ -34,7 +34,7 @@ export class RouterCmp extends CustomElement {
 			path:  '/canvas-reader',
 			enter: async () => {
 				this.requiresLogin = false;
-				await import('./canvas-editor/canvas-reader-page.ts');
+				await import('./canvas-editor/canvas-reader-page.js');
 
 				return true;
 			},
@@ -44,7 +44,7 @@ export class RouterCmp extends CustomElement {
 			path:  '/canvas-editor',
 			enter: async () => {
 				this.requiresLogin = true;
-				await import('./canvas-editor/canvas-editor-page.ts');
+				await import('./canvas-editor/canvas-editor-page.js');
 
 				return true;
 			},
@@ -54,7 +54,7 @@ export class RouterCmp extends CustomElement {
 			path:  '/node-catalog',
 			enter: async () => {
 				this.requiresLogin = true;
-				await import('./node-catalog/node-catalog-page.ts');
+				await import('./node-catalog/node-catalog-page.js');
 
 				return true;
 			},

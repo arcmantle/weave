@@ -1,7 +1,7 @@
 import { collection, getDocs, orderBy, query, where } from 'firebase/firestore';
-import type { StorableGraphNode } from '../../app/graph/graph-node.ts';
-import { asType, db } from '../../app/firebase.ts';
-import type { StorableGraphConnection } from '../../app/graph/graph-connection.ts';
+import type { StorableGraphNode } from '../../app/graph/graph-node.js';
+import { asType, db } from '../../app/firebase.js';
+import type { StorableGraphConnection } from '../../app/graph/graph-connection.js';
 
 
 export interface NodeChunk {

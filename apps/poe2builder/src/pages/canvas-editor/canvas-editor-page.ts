@@ -1,12 +1,12 @@
-import { type StorableGraphNode } from '../../app/graph/graph-node.ts';
-import { PoeCanvasBase } from './canvas-base.ts';
+import { type StorableGraphNode } from '../../app/graph/graph-node.js';
+import { PoeCanvasBase } from './canvas-base.js';
 import { html } from 'lit-html';
 import { when } from 'lit-html/directives/when.js';
-import { dataNodes, type NodeData } from '../../app/graph/node-catalog.ts';
+import { dataNodes, type NodeData } from '../../app/graph/node-catalog.js';
 import { map } from 'lit-html/directives/map.js';
 import CanvasWorkerEditor from '../../app/canvas/workers/canvas-editor.ts?worker';
-import { createCanvasWorker, makeObjectTransferable, type CanvasEditorWorkerMethods } from '../../app/canvas/workers/canvas-worker-interface.ts';
-import type { CanvasEditorWorkerApiOut } from '../../app/canvas/workers/editor-implementation.ts';
+import { createCanvasWorker, makeObjectTransferable, type CanvasEditorWorkerMethods } from '../../app/canvas/workers/canvas-worker-interface.js';
+import type { CanvasEditorWorkerApiOut } from '../../app/canvas/workers/editor-implementation.js';
 import { css, state, type CSSStyle } from '@arcmantle/custom-element';
 
 

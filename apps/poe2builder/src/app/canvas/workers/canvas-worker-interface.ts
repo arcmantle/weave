@@ -1,5 +1,5 @@
-import type { CanvasEditorWorkerApiIn } from './editor-implementation.ts';
-import type { CanvasReaderWorkerApiIn } from './reader-implementation.ts';
+import type { CanvasEditorWorkerApiIn } from './editor-implementation.js';
+import type { CanvasReaderWorkerApiIn } from './reader-implementation.js';
 
 
 type WorkerApi<T> = Omit<{

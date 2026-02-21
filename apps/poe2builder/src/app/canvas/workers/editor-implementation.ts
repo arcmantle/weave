@@ -1,11 +1,11 @@
 import type { Vec2, Repeat } from '@arcmantle/library/types';
-import { GraphNode } from '../../graph/graph-node.ts';
-import { dataNodes } from '../../graph/node-catalog.ts';
-import { Canvas2DObject } from '../canvas-object.ts';
-import { isOutsideViewport } from '../is-outside-viewport.ts';
-import { type TransferableKeyboardEvent, type WorkerImplement, createPostMessage, type TransferableMouseEvent } from './canvas-worker-interface.ts';
-import { type CanvasReaderWorkerApiIn, type CanvasReaderWorkerApiOut, CanvasWorkerReader } from './reader-implementation.ts';
-import type { GraphConnection, GraphConnectionVec2 } from '../../graph/graph-connection.ts';
+import { GraphNode } from '../../graph/graph-node.js';
+import { dataNodes } from '../../graph/node-catalog.js';
+import { Canvas2DObject } from '../canvas-object.js';
+import { isOutsideViewport } from '../is-outside-viewport.js';
+import { type TransferableKeyboardEvent, type WorkerImplement, createPostMessage, type TransferableMouseEvent } from './canvas-worker-interface.js';
+import { type CanvasReaderWorkerApiIn, type CanvasReaderWorkerApiOut, CanvasWorkerReader } from './reader-implementation.js';
+import type { GraphConnection, GraphConnectionVec2 } from '../../graph/graph-connection.js';
 
 
 /** Functions available from the main thread to the worker. */

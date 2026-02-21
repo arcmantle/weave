@@ -1,15 +1,15 @@
 import { range } from '@arcmantle/library/array';
 import type { Repeat, Vec2 } from '@arcmantle/library/types';
-import { GraphDataManager, SupabaseGraphRepository } from '../../../pages/canvas-editor/data-manager.ts';
-import { type StorableGraphNode, GraphNode } from '../../graph/graph-node.ts';
-import { Canvas2DObject } from '../canvas-object.ts';
-import { getWorkerImageChunk } from './worker-image-assets.ts';
-import { isOutsideViewport, type Viewport } from '../is-outside-viewport.ts';
-import { drawParallelBezierCurve, type Bezier } from '../parallel-bezier-curve.ts';
-import { doRectsOverlap, getPathReduction } from '../path-helpers.ts';
-import { type TransferableMouseEvent, type TransferableTouchEvent, type TransferableTouches, type WorkerImplement, createPostMessage } from './canvas-worker-interface.ts';
+import { GraphDataManager, SupabaseGraphRepository } from '../../../pages/canvas-editor/data-manager.js';
+import { type StorableGraphNode, GraphNode } from '../../graph/graph-node.js';
+import { Canvas2DObject } from '../canvas-object.js';
+import { getWorkerImageChunk } from './worker-image-assets.js';
+import { isOutsideViewport, type Viewport } from '../is-outside-viewport.js';
+import { drawParallelBezierCurve, type Bezier } from '../parallel-bezier-curve.js';
+import { doRectsOverlap, getPathReduction } from '../path-helpers.js';
+import { type TransferableMouseEvent, type TransferableTouchEvent, type TransferableTouches, type WorkerImplement, createPostMessage } from './canvas-worker-interface.js';
 import { createClient, type Session } from '@supabase/supabase-js';
-import type { GraphConnection } from '../../graph/graph-connection.ts';
+import type { GraphConnection } from '../../graph/graph-connection.js';
 import { WorkerView } from '@arcmantle/library/canvas';
 
 

@@ -1,1 +1,1 @@
-import './pages/router.ts';
+import './pages/router.js';

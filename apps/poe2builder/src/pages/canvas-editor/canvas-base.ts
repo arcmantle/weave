@@ -1,15 +1,15 @@
 import { html } from 'lit-html';
 import type { Vec2 } from '@arcmantle/library/types';
-import { GraphNode, type StorableGraphNode } from '../../app/graph/graph-node.ts';
-import { type Viewport } from '../../app/canvas/is-outside-viewport.ts';
+import { GraphNode, type StorableGraphNode } from '../../app/graph/graph-node.js';
+import { type Viewport } from '../../app/canvas/is-outside-viewport.js';
 import CanvasWorkerReader from '../../app/canvas/workers/canvas-reader.ts?worker';
 import { when } from 'lit-html/directives/when.js';
-import { createCanvasWorker, makeObjectTransferable, type CanvasReaderWorkerMethods, type TransferableMouseEvent, type TransferableWheelEvent } from '../../app/canvas/workers/canvas-worker-interface.ts';
-import { dataNodes } from '../../app/graph/node-catalog.ts';
+import { createCanvasWorker, makeObjectTransferable, type CanvasReaderWorkerMethods, type TransferableMouseEvent, type TransferableWheelEvent } from '../../app/canvas/workers/canvas-worker-interface.js';
+import { dataNodes } from '../../app/graph/node-catalog.js';
 import { uppercaseFirstLetter } from '@arcmantle/library/string';
 import { ref, type RefOrCallback } from 'lit-html/directives/ref.js';
-import type { CanvasReaderWorkerApiOut } from '../../app/canvas/workers/reader-implementation.ts';
-import { supabase } from '../../app/supabase.ts';
+import type { CanvasReaderWorkerApiOut } from '../../app/canvas/workers/reader-implementation.js';
+import { supabase } from '../../app/supabase.js';
 import { css, CustomElement, state, type CSSStyle } from '@arcmantle/custom-element';
 
 

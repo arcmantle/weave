@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { GraphDataManager, type GraphRepository } from '../src/pages/canvas-editor/data-manager.ts';
+import { GraphDataManager, type GraphRepository } from '../src/pages/canvas-editor/data-manager.js';
 
 
 class TestGraphRepository implements GraphRepository {

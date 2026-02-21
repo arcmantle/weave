@@ -1,7 +1,7 @@
-import { Canvas2DObject } from '../canvas/canvas-object.ts';
+import { Canvas2DObject } from '../canvas/canvas-object.js';
 import type { Vec2 } from '@arcmantle/library/types';
-import { dataNodes, type NodeData } from './node-catalog.ts';
-import type { GraphConnection } from './graph-connection.ts';
+import { dataNodes, type NodeData } from './node-catalog.js';
+import type { GraphConnection } from './graph-connection.js';
 
 
 export interface StorableGraphNode {

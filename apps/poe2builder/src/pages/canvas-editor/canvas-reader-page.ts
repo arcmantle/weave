@@ -1,4 +1,4 @@
-import { PoeCanvasBase } from './canvas-base.ts';
+import { PoeCanvasBase } from './canvas-base.js';
 
 
 export class PoeCanvasReader extends PoeCanvasBase {
