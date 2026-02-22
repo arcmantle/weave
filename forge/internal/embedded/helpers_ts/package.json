@@ -1,0 +1,8 @@
+{
+	"name": "@arcmantle/forge-helpers-ts",
+	"private": true,
+	"type": "module",
+	"devDependencies": {
+		"@types/node": "*"
+	}
+}

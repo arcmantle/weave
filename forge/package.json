@@ -1,0 +1,15 @@
+{
+	"name": "@arcmantle/forge",
+	"version": "0.1.1",
+	"description": "Universal repo script runner",
+	"bin": {
+		"forge": "bin/forge.js"
+	},
+	"files": [
+		"bin/",
+		"dist/"
+	],
+	"publishConfig": {
+		"access": "public"
+	}
+}

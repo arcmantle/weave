@@ -1,0 +1,103 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"title": "forge.yaml",
+	"description": "Configuration file for the forge script runner.",
+	"type": "object",
+	"additionalProperties": false,
+	"properties": {
+		"commands": {
+			"type": "object",
+			"description": "Map of command names to their definitions.",
+			"additionalProperties": {
+				"$ref": "#/definitions/command"
+			}
+		}
+	},
+	"definitions": {
+		"command": {
+			"type": "object",
+			"description": "A runnable forge command. Must have either 'script' (backed by a script file) or 'run' (composite command), but not both.",
+			"additionalProperties": false,
+			"oneOf": [
+				{ "required": ["script"] },
+				{ "required": ["run"] }
+			],
+			"properties": {
+				"description": {
+					"type": "string",
+					"description": "A short description of what this command does. Shown in 'forge --list'."
+				},
+				"script": {
+					"type": "string",
+					"description": "Path to the script file, relative to the manifest directory. Each script lives in its own subdirectory under .forge/scripts/.",
+					"pattern": "^.+\\.(go|ts|cs)$"
+				},
+				"run": {
+					"type": "array",
+					"description": "Steps to execute for a composite command. Steps run sequentially. Each step is either a command name (string) or a parallel block.",
+					"items": {
+						"$ref": "#/definitions/runStep"
+					},
+					"minItems": 1
+				},
+				"args": {
+					"type": "array",
+					"description": "Arguments that this command accepts.",
+					"items": {
+						"$ref": "#/definitions/arg"
+					}
+				}
+			}
+		},
+		"runStep": {
+			"description": "A step in a composite command. Either a command name to run sequentially, or a parallel block.",
+			"oneOf": [
+				{
+					"type": "string",
+					"description": "Name of a command to run."
+				},
+				{
+					"type": "object",
+					"description": "A parallel execution block.",
+					"required": ["parallel"],
+					"additionalProperties": false,
+					"properties": {
+						"parallel": {
+							"type": "array",
+							"description": "Commands to run in parallel.",
+							"items": {
+								"type": "string"
+							},
+							"minItems": 1
+						}
+					}
+				}
+			]
+		},
+		"arg": {
+			"type": "object",
+			"description": "A command argument definition.",
+			"required": ["name"],
+			"additionalProperties": false,
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "The name of the argument."
+				},
+				"description": {
+					"type": "string",
+					"description": "A description of what this argument does."
+				},
+				"required": {
+					"type": "boolean",
+					"description": "Whether this argument is required.",
+					"default": false
+				},
+				"default": {
+					"type": "string",
+					"description": "Default value if the argument is not provided."
+				}
+			}
+		}
+	}
+}
