@@ -73,6 +73,116 @@
 				}
 			]
 		},
+		{
+			"splitTerminals": [
+				{
+					"name": "apps",
+					"commands": [
+						"cd apps",
+						"clear"
+					]
+				}
+			]
+		},
+		{
+			"splitTerminals": [
+				{
+					"name": "changelog",
+					"commands": [
+						"cd changelog",
+						"clear"
+					]
+				}
+			]
+		},
+		{
+			"splitTerminals": [
+				{
+					"name": "core",
+					"commands": [
+						"cd core",
+						"clear"
+					]
+				}
+			]
+		},
+		{
+			"splitTerminals": [
+				{
+					"name": "experimental",
+					"commands": [
+						"cd experimental",
+						"clear"
+					]
+				}
+			]
+		},
+		{
+			"splitTerminals": [
+				{
+					"name": "lit",
+					"commands": [
+						"cd lit",
+						"clear"
+					]
+				}
+			]
+		},
+		{
+			"splitTerminals": [
+				{
+					"name": "mirage-docs",
+					"commands": [
+						"cd mirage-docs",
+						"clear"
+					]
+				}
+			]
+		},
+		{
+			"splitTerminals": [
+				{
+					"name": "pivot",
+					"commands": [
+						"cd pivot",
+						"clear"
+					]
+				}
+			]
+		},
+		{
+			"splitTerminals": [
+				{
+					"name": "tooling",
+					"commands": [
+						"cd tooling",
+						"clear"
+					]
+				}
+			]
+		},
+		{
+			"splitTerminals": [
+				{
+					"name": "ui-components",
+					"commands": [
+						"cd ui-components",
+						"clear"
+					]
+				}
+			]
+		},
+		{
+			"splitTerminals": [
+				{
+					"name": "vite-plugins",
+					"commands": [
+						"cd vite-plugins",
+						"clear"
+					]
+				}
+			]
+		}
 	],
 	"workbench.editorAssociations": {
 		"*.copilotmd": "vscode.markdown.preview.editor",

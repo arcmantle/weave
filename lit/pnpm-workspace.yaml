@@ -1,8 +1,6 @@
-pnpmfile: ../.pnpmfile.cjs
-
 packages:
-  - "*"
-  - "**"
+  - '*'
+  - '**'
 
 catalogs:
   lit:
@@ -41,4 +39,8 @@ catalogs:
     vitest: ^4.0.16
 
 onlyBuiltDependencies:
+  - esbuild
   - oxc-resolver
+  - rs-module-lexer
+
+pnpmfile: ../.pnpmfile.cjs

@@ -501,9 +501,25 @@ function updateConfig(config) {
 		config.packages = [ ...currentPatterns, ...addedPatterns ];
 		config.workspacePackagePatterns = config.packages;
 
+		/* Group discovered packages by originating workspace and sort
+		 * so the workspace with the most cross-dependencies appears first. */
+		const groups = new Map();
+		for (const entry of addedPatterns) {
+			const parts = entry.replace(/\\/g, '/').split('/');
+			const wsName = parts.find(p => p !== '..');
+			if (!groups.has(wsName))
+				groups.set(wsName, []);
+
+			groups.get(wsName).push(entry);
+		}
+
+		const sorted = [ ...groups.entries() ].sort((a, b) => b[1].length - a[1].length);
+
 		console.log('\n\x1b[36m[pnpmfile]\x1b[0m Auto-discovered workspace packages:');
-		for (const entry of addedPatterns)
-			console.log(`  \x1b[32m+\x1b[0m ${ entry }`);
+		for (const [ , entries ] of sorted) {
+			for (const entry of entries)
+				console.log(`  \x1b[32m+\x1b[0m ${ entry }`);
+		}
 
 		console.log('');
 	}

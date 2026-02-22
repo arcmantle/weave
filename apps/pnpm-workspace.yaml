@@ -1,8 +1,6 @@
-pnpmfile: ../.pnpmfile.cjs
-
 packages:
-  - "*"
-  - "**"
+  - '*'
+  - '**'
 
 catalogs:
   apps:
@@ -117,11 +115,16 @@ catalogs:
     ws: ^8.18.1
 
 onlyBuiltDependencies:
-  - @nestjs/core
+  - '@firebase/util'
+  - '@nestjs/core'
   - bcrypt
   - better-sqlite3
   - esbuild
+  - protobufjs
+  - rs-module-lexer
   - tesseract.js
+
+pnpmfile: ../.pnpmfile.cjs
 
 publicHoistPattern:
   - '*eslint*'

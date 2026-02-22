@@ -1,8 +1,6 @@
-pnpmfile: ../.pnpmfile.cjs
-
 packages:
-  - "*"
-  - "**"
+  - '*'
+  - '**'
 
 catalogs:
   tooling:
@@ -28,6 +26,11 @@ catalogs:
     vite: ^7.3.0
     vitest: ^4.0.16
     yargs: ^18.0.0
+
+onlyBuiltDependencies:
+  - esbuild
+
+pnpmfile: ../.pnpmfile.cjs
 
 publicHoistPattern:
   - '*eslint*'

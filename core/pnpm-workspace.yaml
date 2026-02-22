@@ -1,8 +1,6 @@
-pnpmfile: ../.pnpmfile.cjs
-
 packages:
-  - "*"
-  - "**"
+  - '*'
+  - '**'
 
 catalogs:
   core:
@@ -41,3 +39,6 @@ catalogs:
 
 onlyBuiltDependencies:
   - better-sqlite3
+  - esbuild
+
+pnpmfile: ../.pnpmfile.cjs

@@ -1,8 +1,6 @@
-pnpmfile: ../.pnpmfile.cjs
-
 packages:
-  - "*"
-  - "**"
+  - '*'
+  - '**'
 
 catalogs:
   experimental:
@@ -18,3 +16,8 @@ catalogs:
     vite: ^7.3.0
     vite-plugin-solid: ^2.11.6
     vitest: ^4.0.16
+
+onlyBuiltDependencies:
+  - esbuild
+
+pnpmfile: ../.pnpmfile.cjs
