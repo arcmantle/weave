@@ -22,12 +22,12 @@
 	},
 	"dependencies": {
 		"@arcmantle/pivot-client-router": "1.0.0",
-		"@lit/context": "catalog:",
-		"lit": "catalog:",
-		"tslib": "catalog:"
+		"@lit/context": "catalog:pivot",
+		"lit": "catalog:pivot",
+		"tslib": "catalog:pivot"
 	},
 	"devDependencies": {
-		"vite": "catalog:"
+		"vite": "catalog:pivot"
 	},
 	"peerDependencies": {
 		"vite": ">=6.0.0"

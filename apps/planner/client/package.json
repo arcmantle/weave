@@ -14,25 +14,25 @@
 		"typecheck": "tsc --project ./src/tsconfig.json"
 	},
 	"dependencies": {
-		"@arcmantle/library": "catalog:",
+		"@arcmantle/library": "workspace:^",
 		"@arcmantle/lit-router": "workspace:^",
 		"@arcmantle/lit-utilities": "workspace:^",
 		"@arcmantle/planner-entities": "workspace:^",
 		"@arcmantle/reflect-metadata": "workspace:^",
-		"@floating-ui/dom": "catalog:",
-		"@lit-labs/context": "catalog:",
-		"@lukeed/uuid": "catalog:",
-		"deepmerge-ts": "catalog:",
-		"fast-equals": "catalog:",
-		"inversify": "catalog:",
-		"lit": "catalog:",
-		"nanoid": "catalog:",
-		"tabbable": "catalog:",
-		"ts-pattern": "catalog:",
-		"tslib": "catalog:"
+		"@floating-ui/dom": "catalog:apps",
+		"@lit-labs/context": "catalog:apps",
+		"@lukeed/uuid": "catalog:apps",
+		"deepmerge-ts": "catalog:apps",
+		"fast-equals": "catalog:apps",
+		"inversify": "catalog:apps",
+		"lit": "catalog:apps",
+		"nanoid": "catalog:apps",
+		"tabbable": "catalog:apps",
+		"ts-pattern": "catalog:apps",
+		"tslib": "catalog:apps"
 	},
 	"devDependencies": {
-		"@faker-js/faker": "catalog:",
-		"dotenv": "catalog:"
+		"@faker-js/faker": "catalog:apps",
+		"dotenv": "catalog:apps"
 	}
 }

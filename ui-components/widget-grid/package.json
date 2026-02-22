@@ -15,10 +15,10 @@
 		"preview": "vite preview demo"
 	},
 	"dependencies": {
-		"lit": "catalog:",
-		"tslib": "catalog:"
+		"lit": "catalog:ui-components",
+		"tslib": "catalog:ui-components"
 	},
 	"devDependencies": {
-		"@arcmantle/vite-lib-config": "workspace:*"
+		"@arcmantle/vite-lib-config": "workspace:^"
 	}
 }

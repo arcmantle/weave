@@ -9,13 +9,13 @@
 	"type": "module",
 	"main": "pathToMain",
 	"dependencies": {
-		"@types/trusted-types": "catalog:"
+		"@types/trusted-types": "catalog:lit"
 	},
 	"devDependencies": {
-		"jsdom": "catalog:",
-		"magic-string": "catalog:",
-		"oxc-walker": "catalog:",
-		"tsdown": "catalog:",
-		"vitest": "catalog:"
+		"jsdom": "catalog:lit",
+		"magic-string": "catalog:lit",
+		"oxc-walker": "catalog:lit",
+		"tsdown": "catalog:lit",
+		"vitest": "catalog:lit"
 	}
 }

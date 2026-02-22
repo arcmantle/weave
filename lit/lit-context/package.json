@@ -22,7 +22,7 @@
 		"dev": "pnpm vite --config ./demo/vite.config.ts"
 	},
 	"dependencies": {
-		"lit": "catalog:",
-		"tslib": "catalog:"
+		"lit": "catalog:lit",
+		"tslib": "catalog:lit"
 	}
 }

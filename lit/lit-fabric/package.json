@@ -21,12 +21,12 @@
 		"typecheck": "tsc --project ./tsconfig.json --noEmit"
 	},
 	"dependencies": {
-		"@arcmantle/library": "catalog:",
-		"lit": "catalog:",
-		"tslib": "catalog:"
+		"@arcmantle/library": "catalog:lit",
+		"lit": "catalog:lit",
+		"tslib": "catalog:lit"
 	},
 	"devDependencies": {
 		"@arcmantle/mirage-docs": "workspace:^",
-		"@arcmantle/vite-lib-config": "workspace:*"
+		"@arcmantle/vite-lib-config": "workspace:^"
 	}
 }

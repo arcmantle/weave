@@ -27,8 +27,8 @@
 		"build-viewer-macos": "cd viewer-go && go build -o ../bin/esplotv-arm64 ."
 	},
 	"dependencies": {
-		"chart.js": "catalog:",
-		"chartjs-chart-wordcloud": "catalog:",
-		"vite": "catalog:"
+		"chart.js": "catalog:core",
+		"chartjs-chart-wordcloud": "catalog:core",
+		"vite": "catalog:core"
 	}
 }

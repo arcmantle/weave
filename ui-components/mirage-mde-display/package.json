@@ -22,12 +22,12 @@
 		"typecheck": "tsc --project ./src/tsconfig.json --noEmit --emitDeclarationOnly false"
 	},
 	"dependencies": {
-		"lit": "catalog:",
-		"tslib": "catalog:"
+		"lit": "catalog:ui-components",
+		"tslib": "catalog:ui-components"
 	},
 	"devDependencies": {
-		"@arcmantle/vite-lib-config": "workspace:*",
-		"@arcmantle/vite-plugin-import-css-sheet": "catalog:",
-		"vite": "catalog:"
+		"@arcmantle/vite-lib-config": "workspace:^",
+		"@arcmantle/vite-plugin-import-css-sheet": "catalog:ui-components",
+		"vite": "catalog:ui-components"
 	}
 }

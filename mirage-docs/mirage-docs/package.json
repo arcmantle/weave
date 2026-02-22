@@ -38,32 +38,32 @@
 		"test": "vitest --config ./tests/vite.config.ts"
 	},
 	"dependencies": {
-		"@arcmantle/adapter-element": "catalog:",
-		"@arcmantle/injector": "catalog:",
-		"@arcmantle/library": "catalog:",
+		"@arcmantle/adapter-element": "catalog:mirage-docs",
+		"@arcmantle/injector": "catalog:mirage-docs",
+		"@arcmantle/library": "catalog:mirage-docs",
 		"@arcmantle/monaco-editor-wc": "workspace:^",
-		"@arcmantle/vite-plugin-copy": "workspace:*",
-		"@custom-elements-manifest/analyzer": "catalog:",
-		"@orama/orama": "catalog:",
-		"@orama/plugin-data-persistence": "catalog:",
-		"@orama/plugin-match-highlight": "catalog:",
-		"@orama/plugin-parsedoc": "catalog:",
-		"@sindresorhus/slugify": "catalog:",
-		"deepmerge-ts": "catalog:",
-		"globby": "catalog:",
-		"highlight.js": "catalog:",
-		"markdown-it": "catalog:",
-		"markdown-it-anchor": "catalog:",
-		"mermaid": "catalog:",
-		"tabbable": "catalog:",
-		"tslib": "catalog:"
+		"@arcmantle/vite-plugin-copy": "workspace:^",
+		"@custom-elements-manifest/analyzer": "catalog:mirage-docs",
+		"@orama/orama": "catalog:mirage-docs",
+		"@orama/plugin-data-persistence": "catalog:mirage-docs",
+		"@orama/plugin-match-highlight": "catalog:mirage-docs",
+		"@orama/plugin-parsedoc": "catalog:mirage-docs",
+		"@sindresorhus/slugify": "catalog:mirage-docs",
+		"deepmerge-ts": "catalog:mirage-docs",
+		"globby": "catalog:mirage-docs",
+		"highlight.js": "catalog:mirage-docs",
+		"markdown-it": "catalog:mirage-docs",
+		"markdown-it-anchor": "catalog:mirage-docs",
+		"mermaid": "catalog:mirage-docs",
+		"tabbable": "catalog:mirage-docs",
+		"tslib": "catalog:mirage-docs"
 	},
 	"devDependencies": {
-		"@types/markdown-it": "catalog:",
-		"@types/sharedworker": "catalog:"
+		"@types/markdown-it": "catalog:mirage-docs",
+		"@types/sharedworker": "catalog:mirage-docs"
 	},
 	"peerDependencies": {
-		"lit": "catalog:",
-		"vite": "catalog:"
+		"lit": "catalog:mirage-docs",
+		"vite": "catalog:mirage-docs"
 	}
 }

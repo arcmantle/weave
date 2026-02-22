@@ -9,19 +9,19 @@
 		"dev": "vite"
 	},
 	"dependencies": {
-		"@arcmantle/adapter-element": "catalog:",
+		"@arcmantle/adapter-element": "workspace:^",
 		"@arcmantle/handover-core": "workspace:^",
 		"@arcmantle/injector": "workspace:^",
-		"@arcmantle/library": "catalog:",
-		"@arcmantle/lit-jsx": "catalog:",
+		"@arcmantle/library": "workspace:^",
+		"@arcmantle/lit-jsx": "workspace:^",
 		"@arcmantle/vite-plugin-import-css-sheet": "workspace:^",
-		"@preact/signals-core": "catalog:",
-		"@tailwindcss/vite": "catalog:",
-		"class-variance-authority": "catalog:",
-		"clsx": "catalog:",
-		"lit": "catalog:",
-		"tailwind-merge": "catalog:",
-		"tailwindcss": "catalog:",
-		"tw-animate-css": "catalog:"
+		"@preact/signals-core": "catalog:apps",
+		"@tailwindcss/vite": "catalog:apps",
+		"class-variance-authority": "catalog:apps",
+		"clsx": "catalog:apps",
+		"lit": "catalog:apps",
+		"tailwind-merge": "catalog:apps",
+		"tailwindcss": "catalog:apps",
+		"tw-animate-css": "catalog:apps"
 	}
 }

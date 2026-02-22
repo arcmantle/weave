@@ -24,14 +24,14 @@
 		"preview-demo": "vite preview --config ./demo/vite.config.ts"
 	},
 	"dependencies": {
-		"@arcmantle/adapter-element": "catalog:",
-		"@arcmantle/library": "catalog:",
-		"lit-html": "catalog:",
-		"tslib": "catalog:"
+		"@arcmantle/adapter-element": "catalog:ui-components",
+		"@arcmantle/library": "catalog:ui-components",
+		"lit-html": "catalog:ui-components",
+		"tslib": "catalog:ui-components"
 	},
 	"devDependencies": {
-		"@arcmantle/lit-jsx": "catalog:",
-		"@arcmantle/vite-lib-config": "workspace:*",
-		"vite": "catalog:"
+		"@arcmantle/lit-jsx": "catalog:ui-components",
+		"@arcmantle/vite-lib-config": "workspace:^",
+		"vite": "catalog:ui-components"
 	}
 }

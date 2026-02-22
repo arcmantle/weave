@@ -21,7 +21,7 @@
 	},
 	"dependencies": {
 		"@arcmantle/mirage-docs": "workspace:^",
-		"lit": "catalog:",
-		"tslib": "catalog:"
+		"lit": "catalog:mirage-docs",
+		"tslib": "catalog:mirage-docs"
 	}
 }

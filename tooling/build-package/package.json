@@ -17,7 +17,7 @@
 		"test:watch": "vitest"
 	},
 	"dependencies": {
-		"@types/semver": "catalog:",
-		"semver": "catalog:"
+		"@types/semver": "catalog:tooling",
+		"semver": "catalog:tooling"
 	}
 }

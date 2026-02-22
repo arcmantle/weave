@@ -6,10 +6,10 @@
 	"type": "module",
 	"main": "pathToMain",
 	"dependencies": {
-		"@arcmantle/library": "catalog:",
-		"lightningcss": "catalog:",
-		"lit": "catalog:",
-		"magic-string": "catalog:",
-		"tslib": "catalog:"
+		"@arcmantle/library": "workspace:^",
+		"lightningcss": "catalog:apps",
+		"lit": "catalog:apps",
+		"magic-string": "catalog:apps",
+		"tslib": "catalog:apps"
 	}
 }

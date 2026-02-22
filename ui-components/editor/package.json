@@ -24,12 +24,12 @@
 		"dev": "vite --config ./demo/vite.config.ts"
 	},
 	"devDependencies": {
-		"@arcmantle/vite-lib-config": "workspace:*",
-		"@microsoft/api-extractor": "catalog:",
-		"lit": "catalog:",
-		"monaco-editor": "catalog:",
-		"rimraf": "catalog:",
-		"tslib": "catalog:",
-		"typescript": "catalog:"
+		"@arcmantle/vite-lib-config": "workspace:^",
+		"@microsoft/api-extractor": "catalog:ui-components",
+		"lit": "catalog:ui-components",
+		"monaco-editor": "catalog:ui-components",
+		"rimraf": "catalog:ui-components",
+		"tslib": "catalog:ui-components",
+		"typescript": "catalog:ui-components"
 	}
 }

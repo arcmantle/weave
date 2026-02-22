@@ -13,8 +13,8 @@
 	},
 	"dependencies": {
 		"@arcmantle/shade": "workspace:^",
-		"@preact/signals-core": "catalog:",
-		"lit": "catalog:",
-		"tslib": "catalog:"
+		"@preact/signals-core": "catalog:experimental",
+		"lit": "catalog:experimental",
+		"tslib": "catalog:experimental"
 	}
 }

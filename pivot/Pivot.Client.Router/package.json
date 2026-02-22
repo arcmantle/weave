@@ -24,10 +24,10 @@
 		"dev": "tsc --project ./src/tsconfig.json --watch"
 	},
 	"dependencies": {
-		"@lit/context": "catalog:",
-		"lit": "catalog:",
-		"tslib": "catalog:",
-		"urlpattern-polyfill": "catalog:"
+		"@lit/context": "catalog:pivot",
+		"lit": "catalog:pivot",
+		"tslib": "catalog:pivot",
+		"urlpattern-polyfill": "catalog:pivot"
 	},
 	"engines": {
 		"node": ">=24"

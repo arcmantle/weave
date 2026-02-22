@@ -30,20 +30,20 @@
 		"test": "vitest"
 	},
 	"dependencies": {
-		"@floating-ui/dom": "catalog:",
-		"@lit-labs/context": "catalog:",
-		"@lit-labs/virtualizer": "catalog:",
-		"lit": "catalog:",
-		"nanoid": "catalog:",
-		"ts-pattern": "catalog:",
-		"tslib": "catalog:"
+		"@floating-ui/dom": "catalog:apps",
+		"@lit-labs/context": "catalog:apps",
+		"@lit-labs/virtualizer": "catalog:apps",
+		"lit": "catalog:apps",
+		"nanoid": "catalog:apps",
+		"ts-pattern": "catalog:apps",
+		"tslib": "catalog:apps"
 	},
 	"devDependencies": {
-		"@types/sharedworker": "catalog:",
-		"bootstrap-icons": "catalog:",
-		"rimraf": "catalog:",
-		"ts-toolbelt": "catalog:",
-		"type-fest": "catalog:"
+		"@types/sharedworker": "catalog:apps",
+		"bootstrap-icons": "catalog:apps",
+		"rimraf": "catalog:apps",
+		"ts-toolbelt": "catalog:apps",
+		"type-fest": "catalog:apps"
 	},
 	"engines": {
 		"node": ">=22"

@@ -11,8 +11,8 @@
 		"dev": "vite --config ./demo/vite.config.ts"
 	},
 	"dependencies": {
-		"@arcmantle/library": "catalog:",
-		"lit": "catalog:",
-		"tslib": "catalog:"
+		"@arcmantle/library": "catalog:ui-components",
+		"lit": "catalog:ui-components",
+		"tslib": "catalog:ui-components"
 	}
 }

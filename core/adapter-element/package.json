@@ -28,12 +28,12 @@
 		"dev": "vite --config ./demo/vite.config.ts"
 	},
 	"dependencies": {
-		"@arcmantle/injector": "catalog:",
-		"@arcmantle/library": "catalog:",
-		"@preact/signals-core": "catalog:",
-		"lit-html": "catalog:",
-		"signal-polyfill": "catalog:",
-		"tslib": "catalog:",
-		"urlpattern-polyfill": "catalog:"
+		"@arcmantle/injector": "catalog:core",
+		"@arcmantle/library": "catalog:core",
+		"@preact/signals-core": "catalog:core",
+		"lit-html": "catalog:core",
+		"signal-polyfill": "catalog:core",
+		"tslib": "catalog:core",
+		"urlpattern-polyfill": "catalog:core"
 	}
 }

@@ -48,17 +48,17 @@
 		"test": "vitest"
 	},
 	"dependencies": {
-		"@actions/core": "catalog:",
-		"ora": "catalog:",
-		"semver": "catalog:"
+		"@actions/core": "catalog:tooling",
+		"ora": "catalog:tooling",
+		"semver": "catalog:tooling"
 	},
 	"devDependencies": {
-		"@arcmantle/tsconfig": "workspace:",
-		"@types/node": "catalog:",
-		"@types/semver": "catalog:",
-		"tsdown": "catalog:",
-		"typescript": "catalog:",
-		"vitest": "catalog:"
+		"@arcmantle/tsconfig": "workspace:^",
+		"@types/node": "catalog:tooling",
+		"@types/semver": "catalog:tooling",
+		"tsdown": "catalog:tooling",
+		"typescript": "catalog:tooling",
+		"vitest": "catalog:tooling"
 	},
 	"tsdown": [
 		{

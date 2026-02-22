@@ -9,14 +9,14 @@
 		"dev": "vite build --watch"
 	},
 	"dependencies": {
-		"@arcmantle/pivot-client-plugin": "workspace:*",
-		"lit": "catalog:",
-		"tslib": "catalog:"
+		"@arcmantle/pivot-client-plugin": "workspace:^",
+		"lit": "catalog:pivot",
+		"tslib": "catalog:pivot"
 	},
 	"devDependencies": {
-		"@arcmantle/pivot-vite-plugin": "workspace:*",
+		"@arcmantle/pivot-vite-plugin": "workspace:^",
 		"@arcmantle/tsconfig": "workspace:^",
-		"typescript": "catalog:",
-		"vite": "catalog:"
+		"typescript": "catalog:pivot",
+		"vite": "catalog:pivot"
 	}
 }

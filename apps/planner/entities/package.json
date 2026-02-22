@@ -14,9 +14,9 @@
 		"build:types": "tsc --project ./src/tsconfig.json"
 	},
 	"dependencies": {
-		"tslib": "catalog:"
+		"tslib": "catalog:apps"
 	},
 	"devDependencies": {
-		"@arcmantle/vite-lib-config": "workspace:*"
+		"@arcmantle/vite-lib-config": "workspace:^"
 	}
 }

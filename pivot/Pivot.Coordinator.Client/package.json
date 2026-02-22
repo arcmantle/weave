@@ -14,15 +14,15 @@
 	"dependencies": {
 		"@arcmantle/pivot-client-auth": "1.0.0",
 		"@arcmantle/pivot-client-router": "1.0.0",
-		"@lit/context": "catalog:",
-		"lit": "catalog:",
-		"tslib": "catalog:"
+		"@lit/context": "catalog:pivot",
+		"lit": "catalog:pivot",
+		"tslib": "catalog:pivot"
 	},
 	"devDependencies": {
 		"@arcmantle/tsconfig": "workspace:^",
-		"happy-dom": "catalog:",
-		"typescript": "catalog:",
-		"vite": "catalog:",
-		"vitest": "catalog:"
+		"happy-dom": "catalog:pivot",
+		"typescript": "catalog:pivot",
+		"vite": "catalog:pivot",
+		"vitest": "catalog:pivot"
 	}
 }

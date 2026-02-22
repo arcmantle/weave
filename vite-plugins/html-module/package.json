@@ -21,11 +21,11 @@
 		"build": "rimraf dist && tsc --project ./src/tsconfig.json"
 	},
 	"dependencies": {
-		"@parse5/tools": "catalog:",
-		"parse5": "catalog:"
+		"@parse5/tools": "catalog:vite-plugins",
+		"parse5": "catalog:vite-plugins"
 	},
 	"devDependencies": {
-		"vite": "catalog:"
+		"vite": "catalog:vite-plugins"
 	},
 	"engines": {
 		"node": ">=22"

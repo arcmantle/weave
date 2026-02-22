@@ -43,16 +43,16 @@
 		"test:dom": "vitest --dom"
 	},
 	"dependencies": {
-		"@arcmantle/library": "catalog:"
+		"@arcmantle/library": "catalog:lit"
 	},
 	"devDependencies": {
-		"@arcmantle/vite-lib-config": "workspace:*",
-		"@lit-labs/preact-signals": "catalog:",
-		"happy-dom": "catalog:",
-		"lit": "catalog:"
+		"@arcmantle/vite-lib-config": "workspace:^",
+		"@lit-labs/preact-signals": "catalog:lit",
+		"happy-dom": "catalog:lit",
+		"lit": "catalog:lit"
 	},
 	"peerDependencies": {
-		"@lit-labs/preact-signals": "catalog:",
-		"lit": "catalog:"
+		"@lit-labs/preact-signals": "catalog:lit",
+		"lit": "catalog:lit"
 	}
 }

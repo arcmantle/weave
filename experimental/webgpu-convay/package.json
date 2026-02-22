@@ -6,6 +6,6 @@
 	"type": "module",
 	"main": "pathToMain",
 	"dependencies": {
-		"@webgpu/types": "catalog:"
+		"@webgpu/types": "catalog:experimental"
 	}
 }

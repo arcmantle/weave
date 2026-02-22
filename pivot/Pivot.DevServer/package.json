@@ -23,18 +23,18 @@
 		"dev": "tsc --project ./src/tsconfig.json --watch"
 	},
 	"dependencies": {
-		"@arcmantle/injector": "workspace:*",
-		"@arcmantle/pivot-client-auth": "workspace:*",
-		"@arcmantle/pivot-client-plugin": "workspace:*",
-		"@arcmantle/pivot-client-router": "workspace:*",
-		"@lit/context": "catalog:",
-		"lit": "catalog:",
-		"tslib": "catalog:",
-		"vite": "catalog:"
+		"@arcmantle/injector": "workspace:^",
+		"@arcmantle/pivot-client-auth": "workspace:^",
+		"@arcmantle/pivot-client-plugin": "workspace:^",
+		"@arcmantle/pivot-client-router": "workspace:^",
+		"@lit/context": "catalog:pivot",
+		"lit": "catalog:pivot",
+		"tslib": "catalog:pivot",
+		"vite": "catalog:pivot"
 	},
 	"devDependencies": {
 		"@arcmantle/tsconfig": "workspace:^",
-		"rimraf": "catalog:",
-		"typescript": "catalog:"
+		"rimraf": "catalog:pivot",
+		"typescript": "catalog:pivot"
 	}
 }

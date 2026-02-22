@@ -17,24 +17,24 @@
 		"workspace-to-file-deps": "pnpm tsm ./scripts/modify-deps/workspace-to-file-deps.ts"
 	},
 	"dependencies": {
-		"@arcmantle/library": "catalog:",
+		"@arcmantle/library": "workspace:^",
 		"@arcmantle/planner-entities": "workspace:^",
 		"@arcmantle/reflect-metadata": "workspace:^",
-		"@azure/cosmos": "catalog:",
-		"@faker-js/faker": "catalog:",
-		"@nestjs/common": "catalog:",
-		"@nestjs/core": "catalog:",
-		"@nestjs/platform-express": "catalog:",
-		"@nestjs/throttler": "catalog:",
-		"dotenv": "catalog:",
-		"nanoid": "catalog:",
-		"rxjs": "catalog:",
-		"tslib": "catalog:"
+		"@azure/cosmos": "catalog:apps",
+		"@faker-js/faker": "catalog:apps",
+		"@nestjs/common": "catalog:apps",
+		"@nestjs/core": "catalog:apps",
+		"@nestjs/platform-express": "catalog:apps",
+		"@nestjs/throttler": "catalog:apps",
+		"dotenv": "catalog:apps",
+		"nanoid": "catalog:apps",
+		"rxjs": "catalog:apps",
+		"tslib": "catalog:apps"
 	},
 	"devDependencies": {
 		"@arcmantle/package-toolbox": "workspace:^",
-		"@nestjs/cli": "catalog:",
-		"@nestjs/schematics": "catalog:",
-		"@nestjs/testing": "catalog:"
+		"@nestjs/cli": "catalog:apps",
+		"@nestjs/schematics": "catalog:apps",
+		"@nestjs/testing": "catalog:apps"
 	}
 }

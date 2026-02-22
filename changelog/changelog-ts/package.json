@@ -33,13 +33,13 @@
 	},
 	"devDependencies": {
 		"@arcmantle/tsconfig": "workspace:^",
-		"rimraf": "catalog:",
-		"typedoc": "catalog:",
-		"typedoc-plugin-markdown": "catalog:",
-		"typescript": "catalog:",
-		"vitepress": "catalog:",
-		"vitepress-mermaid-renderer": "catalog:",
-		"vitest": "catalog:",
-		"vue": "catalog:"
+		"rimraf": "catalog:changelog",
+		"typedoc": "catalog:changelog",
+		"typedoc-plugin-markdown": "catalog:changelog",
+		"typescript": "catalog:changelog",
+		"vitepress": "catalog:changelog",
+		"vitepress-mermaid-renderer": "catalog:changelog",
+		"vitest": "catalog:changelog",
+		"vue": "catalog:changelog"
 	}
 }

@@ -5,7 +5,7 @@
 	"author": "author",
 	"main": "pathToMain",
 	"dependencies": {
-		"lit": "catalog:",
-		"tslib": "catalog:"
+		"lit": "catalog:ui-components",
+		"tslib": "catalog:ui-components"
 	}
 }

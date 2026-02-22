@@ -21,12 +21,12 @@
 		"build": "rimraf dist && tsc --project ./src/tsconfig.json"
 	},
 	"dependencies": {
-		"fs-extra": "catalog:",
-		"globby": "catalog:"
+		"fs-extra": "catalog:vite-plugins",
+		"globby": "catalog:vite-plugins"
 	},
 	"devDependencies": {
-		"@types/fs-extra": "catalog:",
-		"vite": "catalog:"
+		"@types/fs-extra": "catalog:vite-plugins",
+		"vite": "catalog:vite-plugins"
 	},
 	"engines": {
 		"node": ">=22"

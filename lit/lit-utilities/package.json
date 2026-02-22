@@ -50,14 +50,14 @@
 		"test:dom": "vitest --dom"
 	},
 	"dependencies": {
-		"@arcmantle/library": "catalog:",
-		"@floating-ui/dom": "catalog:",
-		"fast-equals": "catalog:",
-		"lit": "catalog:",
-		"nanoid": "catalog:",
-		"tslib": "catalog:"
+		"@arcmantle/library": "catalog:lit",
+		"@floating-ui/dom": "catalog:lit",
+		"fast-equals": "catalog:lit",
+		"lit": "catalog:lit",
+		"nanoid": "catalog:lit",
+		"tslib": "catalog:lit"
 	},
 	"devDependencies": {
-		"@arcmantle/vite-lib-config": "workspace:*"
+		"@arcmantle/vite-lib-config": "workspace:^"
 	}
 }

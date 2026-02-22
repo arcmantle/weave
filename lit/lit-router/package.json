@@ -27,10 +27,10 @@
 		"dev": "vite"
 	},
 	"dependencies": {
-		"@arcmantle/library": "catalog:",
-		"@arcmantle/vite-lib-config": "workspace:*",
-		"lit": "catalog:",
-		"nanoid": "catalog:",
-		"urlpattern-polyfill": "catalog:"
+		"@arcmantle/library": "catalog:lit",
+		"@arcmantle/vite-lib-config": "workspace:^",
+		"lit": "catalog:lit",
+		"nanoid": "catalog:lit",
+		"urlpattern-polyfill": "catalog:lit"
 	}
 }

@@ -6,9 +6,9 @@
 	"type": "module",
 	"main": "pathToMain",
 	"dependencies": {
-		"@arcmantle/library": "catalog:",
-		"@lit-labs/motion": "catalog:",
-		"lit": "catalog:",
-		"tslib": "catalog:"
+		"@arcmantle/library": "workspace:^",
+		"@lit-labs/motion": "catalog:apps",
+		"lit": "catalog:apps",
+		"tslib": "catalog:apps"
 	}
 }

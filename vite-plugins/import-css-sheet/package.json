@@ -26,14 +26,14 @@
 		"dev": "pnpm vite --config ./demo/vite.config.ts"
 	},
 	"dependencies": {
-		"lightningcss": "catalog:",
-		"typescript": "catalog:"
+		"lightningcss": "catalog:vite-plugins",
+		"typescript": "catalog:vite-plugins"
 	},
 	"devDependencies": {
-		"@types/node": "catalog:",
-		"lit": "catalog:",
-		"rollup": "catalog:",
-		"vite": "catalog:"
+		"@types/node": "catalog:vite-plugins",
+		"lit": "catalog:vite-plugins",
+		"rollup": "catalog:vite-plugins",
+		"vite": "catalog:vite-plugins"
 	},
 	"engines": {
 		"node": ">=22"

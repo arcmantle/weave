@@ -16,11 +16,11 @@
 		"@arcmantle/prospector": "workspace:^",
 		"@arcmantle/tsconfig": "workspace:^",
 		"@arcmantle/workspace-scripts": "workspace:^",
-		"@types/node": "catalog:",
-		"typedoc": "catalog:",
-		"typedoc-github-theme": "catalog:",
-		"typescript": "catalog:",
-		"vite": "catalog:",
-		"vitest": "catalog:"
+		"@types/node": "catalog:mirage-docs",
+		"typedoc": "catalog:mirage-docs",
+		"typedoc-github-theme": "catalog:mirage-docs",
+		"typescript": "catalog:mirage-docs",
+		"vite": "catalog:mirage-docs",
+		"vitest": "catalog:mirage-docs"
 	}
 }

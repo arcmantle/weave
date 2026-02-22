@@ -10,17 +10,17 @@
 	},
 	"dependencies": {
 		"@arcmantle/elements": "workspace:^",
-		"@arcmantle/library": "catalog:",
+		"@arcmantle/library": "workspace:^",
 		"@arcmantle/lit-utilities": "workspace:^",
 		"@arcmantle/posix-path-browser": "workspace:^",
-		"@lit-labs/preact-signals": "catalog:",
-		"lit": "catalog:",
-		"quill": "catalog:",
-		"tslib": "catalog:",
-		"typescript": "catalog:"
+		"@lit-labs/preact-signals": "catalog:apps",
+		"lit": "catalog:apps",
+		"quill": "catalog:apps",
+		"tslib": "catalog:apps",
+		"typescript": "catalog:apps"
 	},
 	"devDependencies": {
-		"@arcmantle/vite-plugin-copy": "workspace:*",
+		"@arcmantle/vite-plugin-copy": "workspace:^",
 		"@arcmantle/vite-plugin-import-css-sheet": "workspace:^"
 	}
 }

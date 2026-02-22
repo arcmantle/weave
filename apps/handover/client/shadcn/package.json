@@ -10,29 +10,29 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
-		"@radix-ui/react-slot": "catalog:",
-		"@tailwindcss/vite": "catalog:",
-		"class-variance-authority": "catalog:",
-		"clsx": "catalog:",
-		"lucide-react": "catalog:",
-		"react": "catalog:",
-		"react-dom": "catalog:",
-		"tailwind-merge": "catalog:",
-		"tailwindcss": "catalog:"
+		"@radix-ui/react-slot": "catalog:apps",
+		"@tailwindcss/vite": "catalog:apps",
+		"class-variance-authority": "catalog:apps",
+		"clsx": "catalog:apps",
+		"lucide-react": "catalog:apps",
+		"react": "catalog:apps",
+		"react-dom": "catalog:apps",
+		"tailwind-merge": "catalog:apps",
+		"tailwindcss": "catalog:apps"
 	},
 	"devDependencies": {
-		"@eslint/js": "catalog:",
-		"@types/node": "catalog:",
-		"@types/react": "catalog:",
-		"@types/react-dom": "catalog:",
-		"@vitejs/plugin-react": "catalog:",
-		"eslint": "catalog:",
-		"eslint-plugin-react-hooks": "catalog:",
-		"eslint-plugin-react-refresh": "catalog:",
-		"globals": "catalog:",
-		"tw-animate-css": "catalog:",
-		"typescript": "catalog:",
-		"typescript-eslint": "catalog:",
-		"vite": "catalog:"
+		"@eslint/js": "catalog:apps",
+		"@types/node": "catalog:apps",
+		"@types/react": "catalog:apps",
+		"@types/react-dom": "catalog:apps",
+		"@vitejs/plugin-react": "catalog:apps",
+		"eslint": "catalog:apps",
+		"eslint-plugin-react-hooks": "catalog:apps",
+		"eslint-plugin-react-refresh": "catalog:apps",
+		"globals": "catalog:apps",
+		"tw-animate-css": "catalog:apps",
+		"typescript": "catalog:apps",
+		"typescript-eslint": "catalog:apps",
+		"vite": "catalog:apps"
 	}
 }

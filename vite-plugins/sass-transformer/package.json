@@ -25,14 +25,14 @@
 		"dev": "vite --config ./demo/vite.config.ts"
 	},
 	"dependencies": {
-		"lightningcss": "catalog:",
-		"magic-string": "catalog:",
-		"oxc-walker": "catalog:",
-		"sass": "catalog:"
+		"lightningcss": "catalog:vite-plugins",
+		"magic-string": "catalog:vite-plugins",
+		"oxc-walker": "catalog:vite-plugins",
+		"sass": "catalog:vite-plugins"
 	},
 	"devDependencies": {
-		"lit": "catalog:",
-		"vite": "catalog:"
+		"lit": "catalog:vite-plugins",
+		"vite": "catalog:vite-plugins"
 	},
 	"engines": {
 		"node": ">=22"

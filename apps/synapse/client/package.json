@@ -9,11 +9,11 @@
 		"dev": "vite"
 	},
 	"dependencies": {
-		"@arcmantle/library": "catalog:",
+		"@arcmantle/library": "workspace:^",
 		"@arcmantle/lit-context": "workspace:^",
-		"@lit-labs/router": "catalog:",
-		"bootstrap-icons": "catalog:",
-		"lit": "catalog:",
-		"tslib": "catalog:"
+		"@lit-labs/router": "catalog:apps",
+		"bootstrap-icons": "catalog:apps",
+		"lit": "catalog:apps",
+		"tslib": "catalog:apps"
 	}
 }

@@ -32,11 +32,11 @@
 	},
 	"dependencies": {},
 	"devDependencies": {
-		"typedoc": "catalog:",
-		"typedoc-plugin-markdown": "catalog:",
-		"vitepress": "catalog:",
-		"vitepress-mermaid-renderer": "catalog:",
-		"vitest": "catalog:",
-		"vue": "catalog:"
+		"typedoc": "catalog:core",
+		"typedoc-plugin-markdown": "catalog:core",
+		"vitepress": "catalog:core",
+		"vitepress-mermaid-renderer": "catalog:core",
+		"vitest": "catalog:core",
+		"vue": "catalog:core"
 	}
 }

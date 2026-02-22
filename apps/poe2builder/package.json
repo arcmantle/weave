@@ -11,19 +11,19 @@
 		"firebase-deploy": "firebase deploy --only hosting"
 	},
 	"dependencies": {
-		"@arcmantle/adapter-element": "catalog:",
-		"@arcmantle/library": "catalog:",
-		"@codemirror/lang-json": "catalog:",
-		"@codemirror/view": "catalog:",
-		"@supabase/supabase-js": "catalog:",
-		"cm6-theme-basic-dark": "catalog:",
-		"codemirror": "catalog:",
-		"firebase": "catalog:",
-		"lit-html": "catalog:",
-		"tslib": "catalog:"
+		"@arcmantle/adapter-element": "workspace:^",
+		"@arcmantle/library": "workspace:^",
+		"@codemirror/lang-json": "catalog:apps",
+		"@codemirror/view": "catalog:apps",
+		"@supabase/supabase-js": "catalog:apps",
+		"cm6-theme-basic-dark": "catalog:apps",
+		"codemirror": "catalog:apps",
+		"firebase": "catalog:apps",
+		"lit-html": "catalog:apps",
+		"tslib": "catalog:apps"
 	},
 	"devDependencies": {
-		"@types/body-parser": "catalog:",
-		"body-parser": "catalog:"
+		"@types/body-parser": "catalog:apps",
+		"body-parser": "catalog:apps"
 	}
 }

@@ -29,21 +29,21 @@
 		"build": "tsc --project ./src/tsconfig.json"
 	},
 	"dependencies": {
-		"@arcmantle/vite-plugin-copy": "workspace:*",
-		"deepmerge-ts": "catalog:",
-		"fs-extra": "catalog:",
-		"globby": "catalog:",
-		"semver": "catalog:",
-		"tslib": "catalog:",
-		"typescript": "catalog:",
-		"vite": "catalog:",
-		"yargs": "catalog:"
+		"@arcmantle/vite-plugin-copy": "workspace:^",
+		"deepmerge-ts": "catalog:tooling",
+		"fs-extra": "catalog:tooling",
+		"globby": "catalog:tooling",
+		"semver": "catalog:tooling",
+		"tslib": "catalog:tooling",
+		"typescript": "catalog:tooling",
+		"vite": "catalog:tooling",
+		"yargs": "catalog:tooling"
 	},
 	"devDependencies": {
-		"@arcmantle/vite-lib-config": "workspace:*",
-		"@types/fs-extra": "catalog:",
-		"@types/semver": "catalog:",
-		"@types/yargs": "catalog:"
+		"@arcmantle/vite-lib-config": "workspace:^",
+		"@types/fs-extra": "catalog:tooling",
+		"@types/semver": "catalog:tooling",
+		"@types/yargs": "catalog:tooling"
 	},
 	"engines": {
 		"node": ">=22"

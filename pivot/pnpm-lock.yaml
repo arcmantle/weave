@@ -9,7 +9,7 @@ overrides:
   '@arcmantle/pivot-client-auth': workspace:^
   '@arcmantle/pivot-coordinator-client': workspace:^
 
-pnpmfileChecksum: sha256-bhe/5pcmogR8R0IsD0mQvf6+d3cKWyY+zvbAUSkMFCg=
+pnpmfileChecksum: sha256-fGxGtAY23PYXW8PNT3k5dwYQsaH44Z4TYCiqo4jYU6U=
 
 importers:
 
@@ -78,7 +78,7 @@ importers:
         specifier: ^2.0.0
         version: 2.2.1(eslint@9.39.3(jiti@2.6.1))
       eslint-plugin-simple-import-sort:
-        specifier: ^12.0.0
+        specifier: ^12.1.1
         version: 12.1.1(eslint@9.39.3(jiti@2.6.1))
       typescript:
         specifier: ^5.9.2

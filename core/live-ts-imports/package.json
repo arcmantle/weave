@@ -18,19 +18,19 @@
 		"build": "rimraf dist && tsc --project ./src/tsconfig.json"
 	},
 	"dependencies": {
-		"chokidar": "catalog:",
-		"mime": "catalog:",
-		"node-html-parser": "catalog:",
-		"parseurl": "catalog:",
-		"typescript": "catalog:",
-		"ws": "catalog:"
+		"chokidar": "catalog:core",
+		"mime": "catalog:core",
+		"node-html-parser": "catalog:core",
+		"parseurl": "catalog:core",
+		"typescript": "catalog:core",
+		"ws": "catalog:core"
 	},
 	"devDependencies": {
-		"@types/express": "catalog:",
-		"@types/parseurl": "catalog:",
-		"@types/ws": "catalog:"
+		"@types/express": "catalog:core",
+		"@types/parseurl": "catalog:core",
+		"@types/ws": "catalog:core"
 	},
 	"peerDependencies": {
-		"express": "catalog:"
+		"express": "catalog:core"
 	}
 }

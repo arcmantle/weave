@@ -15,13 +15,13 @@
 	},
 	"dependencies": {
 		"@arcmantle/elements": "workspace:^",
-		"@arcmantle/library": "catalog:",
+		"@arcmantle/library": "workspace:^",
 		"@arcmantle/lit-fabric": "workspace:^",
 		"@arcmantle/lit-utilities": "workspace:^",
-		"lit": "catalog:",
-		"tslib": "catalog:"
+		"lit": "catalog:apps",
+		"tslib": "catalog:apps"
 	},
 	"devDependencies": {
-		"dotenv": "catalog:"
+		"dotenv": "catalog:apps"
 	}
 }

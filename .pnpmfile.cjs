@@ -1,17 +1,19 @@
 /**
- * Shared pnpmfile that auto-discovers workspace dependencies and merges
- * catalogs from the workspaces they originate from.
+ * Shared pnpmfile that auto-discovers workspace dependencies and injects
+ * named catalogs from the workspaces they originate from.
  *
  * Lives at the monorepo root and is referenced by each workspace via
- * their `pnpm-workspace.yaml`:  pnpmfile=../.pnpmfile.cjs
+ * their `pnpm-workspace.yaml`:  pnpmfile: ../.pnpmfile.cjs
  *
  * Uses the `updateConfig` hook to modify `config.packages` and
  * `config.catalogs` at runtime — no file modification needed.
  *
  * When a workspace package has `workspace:` protocol dependencies that
  * aren't in this workspace, the pnpmfile scans the monorepo to find
- * them and adds them to the config. It also merges the catalog from
- * the workspace each external package belongs to.
+ * them and adds them to the config. Each external workspace's default
+ * catalog is injected as a named catalog using the workspace directory
+ * name (e.g. `core`, `tooling`), and `readPackage` rewrites external
+ * packages' `catalog:` specifiers to `catalog:<silo>`.
  */
 const fs   = require('fs');
 const path = require('path');
@@ -33,15 +35,29 @@ let workspaceDir = null;
  */
 const EXTRA_CATALOG_WORKSPACES = [];
 
+/**
+ * Maps package name → silo name for cross-workspace packages.
+ * Populated by `discoverMissingPackages`, used by `readPackage`.
+ * @type {Map<string, string>}
+ */
+const packageSiloMap = new Map();
+
+/**
+ * All named catalogs keyed by silo name.
+ * Populated by `updateConfig`, used by `readPackage`.
+ * @type {Record<string, Record<string, string>>}
+ */
+let allCatalogs = {};
+
 // ---------------------------------------------------------------------------
 // YAML parsing (zero-dependency)
 // ---------------------------------------------------------------------------
 /**
- * Parses the `catalog:` section out of a pnpm-workspace.yaml string.
+ * Parses the `catalog:` (default) section out of a pnpm-workspace.yaml string.
  * @param {string} content - Raw YAML file content.
  * @returns {Record<string, string>}
  */
-function parseYamlCatalog(content) {
+function parseYamlDefaultCatalog(content) {
 	const catalog = {};
 	const lines = content.split('\n');
 	let inCatalog = false;
@@ -81,6 +97,85 @@ function parseYamlCatalog(content) {
 	}
 
 	return catalog;
+}
+
+/**
+ * Parses the `catalogs:` section (named catalogs) from a pnpm-workspace.yaml.
+ * Falls back to `catalog:` (default) if no `catalogs:` section exists.
+ * @param {string} content - Raw YAML file content.
+ * @returns {Record<string, Record<string, string>>}
+ */
+function parseYamlCatalogs(content) {
+	const catalogs = {};
+	const lines = content.split('\n');
+	let inCatalogs = false;
+	let currentName = null;
+	let nameIndent = -1;
+	let entryIndent = -1;
+
+	for (const line of lines) {
+		if (/^catalogs\s*:\s*$/.test(line)) {
+			inCatalogs = true;
+			currentName = null;
+			nameIndent = -1;
+			entryIndent = -1;
+			continue;
+		}
+
+		if (!inCatalogs)
+			continue;
+
+		const trimmed = line.trim();
+
+		if (trimmed === '' || trimmed.startsWith('#'))
+			continue;
+
+		const indent = line.match(/^(\s*)/)[1].length;
+
+		/* Left the catalogs section entirely. */
+		if (indent === 0) {
+			inCatalogs = false;
+			continue;
+		}
+
+		/* Catalog name line (e.g. `  core:`). */
+		const nameMatch = trimmed.match(/^([a-zA-Z0-9_][a-zA-Z0-9_-]*)\s*:\s*$/);
+		if (nameMatch && (nameIndent === -1 || indent <= nameIndent)) {
+			currentName = nameMatch[1];
+			nameIndent = indent;
+			entryIndent = -1;
+			catalogs[currentName] = {};
+			continue;
+		}
+
+		/* Entry line inside a named catalog. */
+		if (currentName && indent > nameIndent) {
+			if (entryIndent === -1)
+				entryIndent = indent;
+			if (indent < entryIndent) {
+				currentName = null;
+				continue;
+			}
+
+			const match = trimmed.match(
+				/^(?:'([^']+)'|"([^"]+)"|([^:]+?))\s*:\s*(.+)$/,
+			);
+			if (match) {
+				const key   = (match[1] ?? match[2] ?? match[3]).trim();
+				const value = match[4].trim().replace(/^['"]|['"]$/g, '');
+				catalogs[currentName][key] = value;
+			}
+		}
+	}
+
+	/* Fallback: if no `catalogs:` section, try `catalog:` (default). */
+	if (Object.keys(catalogs).length === 0) {
+		const defaultCatalog = parseYamlDefaultCatalog(content);
+		if (Object.keys(defaultCatalog).length > 0)
+			catalogs['default'] = defaultCatalog;
+	}
+
+	return catalogs;
 }
 
 // ---------------------------------------------------------------------------
@@ -280,20 +375,31 @@ function findWorkspaceRoot(pkgDir) {
 	return null;
 }
 
+/**
+ * Derives the silo name from a workspace root path.
+ * Uses the directory name relative to the monorepo root.
+ * @param {string} wsRoot
+ * @returns {string}
+ */
+function getWorkspaceSiloName(wsRoot) {
+	return path.relative(MONOREPO_ROOT, wsRoot).split(path.sep).join('/');
+}
+
 // ---------------------------------------------------------------------------
 // Catalog loading
 // ---------------------------------------------------------------------------
 /**
- * Loads the default catalog from a workspace directory.
+ * Loads all named catalogs from a workspace directory.
+ * Reads `catalogs:` (named) first, falls back to `catalog:` (default).
  * @param {string} wsDir
- * @returns {Record<string, string>}
+ * @returns {Record<string, Record<string, string>>}
  */
-function loadCatalog(wsDir) {
+function loadCatalogs(wsDir) {
 	const yamlPath = path.join(wsDir, 'pnpm-workspace.yaml');
 	if (!fs.existsSync(yamlPath))
 		return {};
 
-	return parseYamlCatalog(fs.readFileSync(yamlPath, 'utf8'));
+	return parseYamlCatalogs(fs.readFileSync(yamlPath, 'utf8'));
 }
 
 // ---------------------------------------------------------------------------
@@ -351,8 +457,10 @@ function discoverMissingPackages(currentPatterns) {
 				addedPatterns.push(relPath);
 
 				const wsRoot = findWorkspaceRoot(depDir);
-				if (wsRoot && path.resolve(wsRoot) !== path.resolve(workspaceDir))
+				if (wsRoot && path.resolve(wsRoot) !== path.resolve(workspaceDir)) {
 					involvedWorkspaces.add(wsRoot);
+					packageSiloMap.set(depName, getWorkspaceSiloName(wsRoot));
+				}
 
 				changed = true;
 			}
@@ -360,11 +468,14 @@ function discoverMissingPackages(currentPatterns) {
 	}
 
 	/* Track workspace roots for already-existing external packages too. */
-	for (const [ , pkgDir ] of currentPackages) {
+	for (const [ pkgName, pkgDir ] of currentPackages) {
 		if (path.relative(workspaceDir, pkgDir).startsWith('..')) {
 			const wsRoot = findWorkspaceRoot(pkgDir);
-			if (wsRoot && path.resolve(wsRoot) !== path.resolve(workspaceDir))
+			if (wsRoot && path.resolve(wsRoot) !== path.resolve(workspaceDir)) {
 				involvedWorkspaces.add(wsRoot);
+				if (!packageSiloMap.has(pkgName))
+					packageSiloMap.set(pkgName, getWorkspaceSiloName(wsRoot));
+			}
 		}
 	}
 
@@ -377,7 +488,7 @@ function discoverMissingPackages(currentPatterns) {
 /**
  * Modifies pnpm's runtime config to:
  *   1. Add auto-discovered workspace packages to `packages`
- *   2. Merge external catalogs into `catalogs.default`
+ *   2. Inject external workspace catalogs as named catalogs
  */
 function updateConfig(config) {
 	workspaceDir = config.workspaceDir;
@@ -397,33 +508,45 @@ function updateConfig(config) {
 		console.log('');
 	}
 
-	/* 2. Merge external catalogs. */
-	const allWorkspaces = [ ...involvedWorkspaces ];
+	/* 2. Inject external catalogs as named catalogs. */
+	const externalWorkspaces = [ ...involvedWorkspaces ];
 	for (const rel of EXTRA_CATALOG_WORKSPACES) {
 		const abs = path.resolve(workspaceDir, rel);
-		if (!allWorkspaces.some(ws => path.resolve(ws) === abs))
-			allWorkspaces.push(abs);
+		if (!externalWorkspaces.some(ws => path.resolve(ws) === abs))
+			externalWorkspaces.push(abs);
 	}
 
-	if (allWorkspaces.length > 0) {
-		const localCatalog = { ...(config.catalogs?.default ?? config.catalog ?? {}) };
+	if (externalWorkspaces.length > 0) {
+		const catalogs = { ...(config.catalogs ?? {}) };
+		const injectedSilos = [];
 
-		/* Merge external catalogs; first workspace wins conflicts. */
-		const externalCatalog = {};
-		for (const wsRoot of allWorkspaces) {
-			const catalog = loadCatalog(wsRoot);
-			for (const [ key, value ] of Object.entries(catalog)) {
-				if (!(key in externalCatalog))
-					externalCatalog[key] = value;
+		for (const wsRoot of externalWorkspaces) {
+			const wsCatalogs = loadCatalogs(wsRoot);
+
+			for (const [ catalogName, entries ] of Object.entries(wsCatalogs)) {
+				if (Object.keys(entries).length === 0)
+					continue;
+
+				catalogs[catalogName] = { ...(catalogs[catalogName] ?? {}), ...entries };
+				allCatalogs[catalogName] = catalogs[catalogName];
+				injectedSilos.push(catalogName);
 			}
 		}
 
-		/* Local entries override external ones. */
-		const merged = { ...externalCatalog, ...localCatalog };
+		config.catalogs = catalogs;
 
-		config.catalogs = { ...(config.catalogs ?? {}), default: merged };
-		config.catalog = merged;
+		if (injectedSilos.length > 0) {
+			console.log('\x1b[36m[pnpmfile]\x1b[0m Injected named catalogs:');
+			for (const silo of injectedSilos)
+				console.log(`  \x1b[33m⬡\x1b[0m catalog:${ silo }`);
+
+			console.log('');
+		}
 	}
+
+	/* Store all catalogs for readPackage safety net. */
+	for (const [ name, entries ] of Object.entries(config.catalogs ?? {}))
+		allCatalogs[name] = { ...(allCatalogs[name] ?? {}), ...entries };
 
 	return config;
 }
@@ -432,13 +555,34 @@ function updateConfig(config) {
 // readPackage hook
 // ---------------------------------------------------------------------------
 /**
- * Resolves `catalog:` and `catalog:default` specifiers using the
- * merged catalog. This is needed because pnpm resolves catalog:
- * specifiers from its own parsed catalogs config, and for entries
- * coming from external workspaces the readPackage hook provides
- * a safety net.
+ * Rewrites `catalog:` and `catalog:default` specifiers to use a
+ * named catalog for the package's originating workspace silo.
+ * @param {Record<string, string> | undefined} deps
+ * @param {string} siloName
  */
-function resolveCatalogDeps(deps, catalog) {
+function rewriteCatalogSpecifiers(deps, siloName) {
+	if (!deps)
+		return;
+
+	for (const [ name, specifier ] of Object.entries(deps)) {
+		if (typeof specifier !== 'string' || !specifier.startsWith('catalog:'))
+			continue;
+
+		const catalogName = specifier.slice('catalog:'.length);
+
+		if (catalogName === '' || catalogName === 'default')
+			deps[name] = `catalog:${ siloName }`;
+	}
+}
+
+/**
+ * Safety-net resolver for any remaining `catalog:*` specifiers
+ * that pnpm's built-in resolution didn't handle.
+ * Looks up the named catalog from `allCatalogs`.
+ * @param {Record<string, string> | undefined} deps
+ * @returns {Record<string, string> | undefined}
+ */
+function resolveCatalogDeps(deps) {
 	if (!deps)
 		return deps;
 
@@ -448,102 +592,44 @@ function resolveCatalogDeps(deps, catalog) {
 		if (typeof specifier !== 'string' || !specifier.startsWith('catalog:'))
 			continue;
 
-		const catalogName = specifier.slice('catalog:'.length);
+		const catalogName = specifier.slice('catalog:'.length) || 'default';
+		const catalog = allCatalogs[catalogName];
 
-		if (catalogName !== '' && catalogName !== 'default')
-			continue;
-
-		if (name in catalog)
+		if (catalog && name in catalog) {
 			resolved[name] = catalog[name];
+			continue;
+		}
+
+		/* Fallback: search all catalogs when the named one has no entry. */
+		for (const entries of Object.values(allCatalogs)) {
+			if (name in entries) {
+				resolved[name] = entries[name];
+				break;
+			}
+		}
 	}
 
 	return resolved;
 }
 
-/** Cached merged catalog for readPackage. */
-let cachedCatalog;
-
 function readPackage(pkg, _context) {
-	if (!cachedCatalog) {
-		/* Build catalog from disk as fallback. */
-		const localCatalog = loadCatalog(workspaceDir);
-		const externalCatalog = {};
-
-		/* Re-discover involved workspaces. */
-		const patterns = parseYamlPackagesFromDisk();
-		const { involvedWorkspaces } = discoverMissingPackages(patterns);
-
-		for (const wsRoot of involvedWorkspaces) {
-			const catalog = loadCatalog(wsRoot);
-			for (const [ key, value ] of Object.entries(catalog)) {
-				if (!(key in externalCatalog))
-					externalCatalog[key] = value;
-			}
-		}
-
-		for (const rel of EXTRA_CATALOG_WORKSPACES) {
-			const catalog = loadCatalog(path.resolve(workspaceDir, rel));
-			for (const [ key, value ] of Object.entries(catalog)) {
-				if (!(key in externalCatalog))
-					externalCatalog[key] = value;
-			}
-		}
-
-		cachedCatalog = { ...externalCatalog, ...localCatalog };
+	/* Rewrite catalog: specifiers for cross-workspace packages,
+	 * but only when the silo actually has a catalog registered. */
+	const siloName = packageSiloMap.get(pkg.name);
+	if (siloName && allCatalogs[siloName]) {
+		rewriteCatalogSpecifiers(pkg.dependencies, siloName);
+		rewriteCatalogSpecifiers(pkg.devDependencies, siloName);
+		rewriteCatalogSpecifiers(pkg.peerDependencies, siloName);
+		rewriteCatalogSpecifiers(pkg.optionalDependencies, siloName);
 	}
 
-	pkg.dependencies         = resolveCatalogDeps(pkg.dependencies, cachedCatalog);
-	pkg.devDependencies      = resolveCatalogDeps(pkg.devDependencies, cachedCatalog);
-	pkg.peerDependencies     = resolveCatalogDeps(pkg.peerDependencies, cachedCatalog);
-	pkg.optionalDependencies = resolveCatalogDeps(pkg.optionalDependencies, cachedCatalog);
+	/* Safety net: resolve any remaining catalog: specifiers. */
+	pkg.dependencies         = resolveCatalogDeps(pkg.dependencies);
+	pkg.devDependencies      = resolveCatalogDeps(pkg.devDependencies);
+	pkg.peerDependencies     = resolveCatalogDeps(pkg.peerDependencies);
+	pkg.optionalDependencies = resolveCatalogDeps(pkg.optionalDependencies);
 
 	return pkg;
-}
-
-/**
- * Parses the packages list from the on-disk yaml as fallback
- * for readPackage (which runs after updateConfig).
- */
-function parseYamlPackagesFromDisk() {
-	const yamlPath = path.join(workspaceDir, 'pnpm-workspace.yaml');
-	if (!fs.existsSync(yamlPath))
-		return [];
-
-	const content = fs.readFileSync(yamlPath, 'utf8');
-	const packages = [];
-	const lines = content.split('\n');
-	let inPackages = false;
-	let baseIndent = -1;
-
-	for (const line of lines) {
-		if (/^packages\s*:\s*$/.test(line)) {
-			inPackages = true;
-			baseIndent = -1;
-			continue;
-		}
-
-		if (!inPackages)
-			continue;
-
-		const trimmed = line.trim();
-
-		if (trimmed === '' || trimmed.startsWith('#'))
-			continue;
-
-		const indent = line.match(/^(\s*)/)[1].length;
-		if (baseIndent === -1)
-			baseIndent = indent;
-		if (indent < baseIndent) {
-			inPackages = false;
-			continue;
-		}
-
-		const match = trimmed.match(/^-\s+(?:"([^"]+)"|'([^']+)'|(.+))$/);
-		if (match)
-			packages.push((match[1] ?? match[2] ?? match[3]).trim());
-	}
-
-	return packages;
 }
 
 module.exports = {

@@ -20,14 +20,14 @@
 		"dev": "tsc --project ./src/tsconfig.json --watch"
 	},
 	"dependencies": {
-		"@arcmantle/pivot-client-plugin": "workspace:*",
-		"esbuild": "catalog:",
-		"tslib": "catalog:"
+		"@arcmantle/pivot-client-plugin": "workspace:^",
+		"esbuild": "catalog:pivot",
+		"tslib": "catalog:pivot"
 	},
 	"peerDependencies": {
 		"vite": ">=6.0.0"
 	},
 	"devDependencies": {
-		"vite": "catalog:"
+		"vite": "catalog:pivot"
 	}
 }

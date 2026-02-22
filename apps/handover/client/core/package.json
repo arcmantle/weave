@@ -14,19 +14,19 @@
 		"build": "vite build && tsc --project ./src/tsconfig.json"
 	},
 	"dependencies": {
-		"@arcmantle/adapter-element": "catalog:",
-		"@arcmantle/library": "catalog:",
-		"@arcmantle/lit-jsx": "catalog:",
-		"@arcmantle/vite-plugin-import-css-sheet": "catalog:",
-		"@preact/signals-core": "catalog:",
-		"class-variance-authority": "catalog:",
-		"clsx": "catalog:",
-		"lit": "catalog:",
-		"lit-html": "catalog:",
-		"tailwind-merge": "catalog:",
-		"tslib": "catalog:"
+		"@arcmantle/adapter-element": "workspace:^",
+		"@arcmantle/library": "workspace:^",
+		"@arcmantle/lit-jsx": "workspace:^",
+		"@arcmantle/vite-plugin-import-css-sheet": "workspace:^",
+		"@preact/signals-core": "catalog:apps",
+		"class-variance-authority": "catalog:apps",
+		"clsx": "catalog:apps",
+		"lit": "catalog:apps",
+		"lit-html": "catalog:apps",
+		"tailwind-merge": "catalog:apps",
+		"tslib": "catalog:apps"
 	},
 	"devDependencies": {
-		"@arcmantle/vite-lib-config": "workspace:*"
+		"@arcmantle/vite-lib-config": "workspace:^"
 	}
 }

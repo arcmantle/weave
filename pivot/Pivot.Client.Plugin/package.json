@@ -20,9 +20,9 @@
 		"dev": "tsc --project ./src/tsconfig.json --watch"
 	},
 	"dependencies": {
-		"@arcmantle/injector": "workspace:*",
-		"@arcmantle/pivot-client-router": "workspace:*",
-		"lit": "catalog:",
-		"tslib": "catalog:"
+		"@arcmantle/injector": "workspace:^",
+		"@arcmantle/pivot-client-router": "workspace:^",
+		"lit": "catalog:pivot",
+		"tslib": "catalog:pivot"
 	}
 }

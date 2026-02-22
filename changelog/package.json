@@ -16,11 +16,11 @@
 		"@arcmantle/prospector": "workspace:^",
 		"@arcmantle/tsconfig": "workspace:^",
 		"@arcmantle/workspace-scripts": "workspace:^",
-		"@types/node": "catalog:",
-		"typedoc": "catalog:",
-		"typedoc-github-theme": "catalog:",
-		"typescript": "catalog:",
-		"vite": "catalog:",
-		"vitest": "catalog:"
+		"@types/node": "catalog:changelog",
+		"typedoc": "catalog:changelog",
+		"typedoc-github-theme": "catalog:changelog",
+		"typescript": "catalog:changelog",
+		"vite": "catalog:changelog",
+		"vitest": "catalog:changelog"
 	}
 }

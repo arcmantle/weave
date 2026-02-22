@@ -20,13 +20,13 @@
 		"lint-windows": "set TIMING=1 && pnpm eslint"
 	},
 	"dependencies": {
-		"@eslint/js": "catalog:",
-		"@stylistic/eslint-plugin": "catalog:",
-		"eslint": "catalog:",
-		"eslint-plugin-lit": "catalog:",
-		"eslint-plugin-simple-import-sort": "catalog:",
-		"typescript": "catalog:",
-		"typescript-eslint": "catalog:"
+		"@eslint/js": "catalog:tooling",
+		"@stylistic/eslint-plugin": "catalog:tooling",
+		"eslint": "catalog:tooling",
+		"eslint-plugin-lit": "catalog:tooling",
+		"eslint-plugin-simple-import-sort": "catalog:tooling",
+		"typescript": "catalog:tooling",
+		"typescript-eslint": "catalog:tooling"
 	},
 	"engines": {
 		"node": ">=22"

@@ -23,7 +23,7 @@
 		"build": "rimraf dist && tsc --project ./src/tsconfig.json"
 	},
 	"devDependencies": {
-		"vite": "catalog:"
+		"vite": "catalog:vite-plugins"
 	},
 	"engines": {
 		"node": ">=22"

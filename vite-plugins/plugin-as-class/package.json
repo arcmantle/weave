@@ -17,7 +17,7 @@
 	],
 	"dependencies": {},
 	"devDependencies": {
-		"vite": "catalog:"
+		"vite": "catalog:vite-plugins"
 	},
 	"engines": {
 		"node": ">=22"

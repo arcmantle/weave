@@ -13,9 +13,9 @@
 	},
 	"scripts": {},
 	"devDependencies": {
-		"@types/node": "catalog:",
-		"@types/yargs": "catalog:",
-		"yargs": "catalog:"
+		"@types/node": "catalog:tooling",
+		"@types/yargs": "catalog:tooling",
+		"yargs": "catalog:tooling"
 	},
 	"authors": "Kristoffer Roen-Lie"
 }

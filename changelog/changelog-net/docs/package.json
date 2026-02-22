@@ -10,7 +10,7 @@
 		"docs:preview": "vitepress preview"
 	},
 	"devDependencies": {
-		"vitepress": "catalog:",
-		"vue": "catalog:"
+		"vitepress": "catalog:changelog",
+		"vue": "catalog:changelog"
 	}
 }

@@ -5,10 +5,10 @@
 	"author": "author",
 	"main": "pathToMain",
 	"dependencies": {
-		"solid-js": "catalog:"
+		"solid-js": "catalog:experimental"
 	},
 	"devDependencies": {
-		"vite": "catalog:",
-		"vite-plugin-solid": "catalog:"
+		"vite": "catalog:experimental",
+		"vite-plugin-solid": "catalog:experimental"
 	}
 }
