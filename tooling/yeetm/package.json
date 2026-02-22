@@ -1,0 +1,38 @@
+{
+	"name": "yeetm",
+	"version": "1.0.0",
+	"description": "Recursively remove all node_modules folders from any directory. Fast, safe, satisfying.",
+	"keywords": [
+		"node_modules",
+		"clean",
+		"remove",
+		"delete",
+		"purge",
+		"disk-space",
+		"cli",
+		"devtools"
+	],
+	"homepage": "https://github.com/arcmantle/yeetm#readme",
+	"bugs": {
+		"url": "https://github.com/arcmantle/weave/issues"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/arcmantle/weave.git",
+		"directory": "tooling/yeetm"
+	},
+	"license": "MIT",
+	"author": "Kristoffer Roen-Lie",
+	"type": "module",
+	"bin": {
+		"yeetm": "./bin/run.mjs"
+	},
+	"files": [
+		"bin",
+		"README.md",
+		"LICENSE"
+	],
+	"engines": {
+		"node": ">=18.0.0"
+	}
+}
