@@ -8,20 +8,22 @@ import (
 	"github.com/arcmantle/forge/helpers"
 )
 
-var Script = helpers.ScriptFunc(func(args []string) error {
+func main() {
 	root, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
+		helpers.Error("failed to get working directory: %v", err)
+		os.Exit(1)
 	}
 
 	dirs, err := helpers.FindDirsContaining(root, "pnpm-workspace.yaml")
 	if err != nil {
-		return fmt.Errorf("failed to scan for workspaces: %w", err)
+		helpers.Error("failed to scan for workspaces: %v", err)
+		os.Exit(1)
 	}
 
 	if len(dirs) == 0 {
 		helpers.Warn("No workspaces found.")
-		return nil
+		return
 	}
 
 	// Find longest name for alignment.
@@ -59,9 +61,9 @@ var Script = helpers.ScriptFunc(func(args []string) error {
 	}
 
 	if failed > 0 {
-		return fmt.Errorf("%d workspace(s) failed", failed)
+		helpers.Error("%d workspace(s) failed", failed)
+		os.Exit(1)
 	}
 
 	helpers.Success("All workspaces installed.")
-	return nil
-})
+}

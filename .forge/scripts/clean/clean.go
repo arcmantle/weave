@@ -1,27 +1,24 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/arcmantle/forge/helpers"
 )
 
-var Script = helpers.ScriptFunc(func(args []string) error {
-	dryrun := false
-	for _, a := range args {
-		if a == "--dryrun" {
-			dryrun = true
-		}
-	}
+func main() {
+	cmd := helpers.Command("clean", "Remove all node_modules directories recursively")
+	dryrun := cmd.Flag("dryrun", "Show what would be removed without removing")
+	cmd.Parse()
 
 	root, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
+		helpers.Error("failed to get working directory: %v", err)
+		os.Exit(1)
 	}
 
-	if dryrun {
+	if dryrun.Value {
 		helpers.Info("Dry run — scanning for node_modules in %s...", root)
 	} else {
 		helpers.Info("Scanning for node_modules in %s...", root)
@@ -36,7 +33,7 @@ var Script = helpers.ScriptFunc(func(args []string) error {
 		if info.IsDir() && info.Name() == "node_modules" {
 			rel, _ := filepath.Rel(root, path)
 
-			if dryrun {
+			if dryrun.Value {
 				helpers.Info("Would remove %s", rel)
 				count++
 			} else {
@@ -55,19 +52,18 @@ var Script = helpers.ScriptFunc(func(args []string) error {
 	})
 
 	if err != nil {
-		return fmt.Errorf("walk error: %w", err)
+		helpers.Error("walk error: %v", err)
+		os.Exit(1)
 	}
 
 	if count == 0 {
 		helpers.Warn("No node_modules directories found.")
-	} else if dryrun {
+	} else if dryrun.Value {
 		helpers.Success("Would remove %d node_modules director%s.", count, pluralize(count))
 	} else {
 		helpers.Success("Removed %d node_modules director%s.", count, pluralize(count))
 	}
-
-	return nil
-})
+}
 
 func pluralize(n int) string {
 	if n == 1 {

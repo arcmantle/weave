@@ -57,6 +57,12 @@ func runWithCycleCheck(cmd manifest.Command, m *manifest.Manifest, args []string
 // runComposite executes a composite command's run steps.
 // Steps execute sequentially. A step is either a single command or
 // a set of commands to run in parallel.
+//
+// Argument forwarding:
+//   - Steps with explicit args use those (no forwarding).
+//   - Steps without args receive the composite command's CLI args.
+//   - Parallel entries with inline args (e.g. "lint --fix") use those;
+//     entries without inline args receive the composite's CLI args.
 func runComposite(cmd manifest.Command, m *manifest.Manifest, args []string, visited map[string]bool) error {
 	for _, step := range cmd.Run {
 		if len(step.Parallel) > 0 {
@@ -64,7 +70,13 @@ func runComposite(cmd manifest.Command, m *manifest.Manifest, args []string, vis
 				return err
 			}
 		} else {
-			if err := runRef(step.Command, m, args, visited); err != nil {
+			// Use step-specific args if defined, otherwise forward composite args.
+			stepArgs := args
+			if len(step.Args) > 0 {
+				stepArgs = step.Args
+			}
+
+			if err := runRef(step.Command, m, stepArgs, visited); err != nil {
 				return err
 			}
 		}
@@ -106,17 +118,27 @@ func runRef(name string, m *manifest.Manifest, args []string, visited map[string
 }
 
 // runParallel runs multiple commands concurrently, collecting all errors.
-func runParallel(names []string, m *manifest.Manifest, args []string, visited map[string]bool) error {
+// Each entry may contain inline args (e.g. "lint --fix") — if present,
+// those args are used instead of the forwarded composite args.
+func runParallel(entries []string, m *manifest.Manifest, args []string, visited map[string]bool) error {
 	var wg sync.WaitGroup
-	errs := make([]error, len(names))
+	errs := make([]error, len(entries))
 
-	for i, name := range names {
+	for i, entry := range entries {
 		wg.Add(1)
 
-		go func(idx int, cmdName string) {
+		// Split entry into command name + optional inline args.
+		parts := strings.Fields(entry)
+		cmdName := parts[0]
+		cmdArgs := args // forward composite args by default
+		if len(parts) > 1 {
+			cmdArgs = parts[1:] // use inline args instead
+		}
+
+		go func(idx int, name string, a []string) {
 			defer wg.Done()
-			errs[idx] = runRef(cmdName, m, args, visited)
-		}(i, name)
+			errs[idx] = runRef(name, m, a, visited)
+		}(i, cmdName, cmdArgs)
 	}
 
 	wg.Wait()
@@ -124,7 +146,8 @@ func runParallel(names []string, m *manifest.Manifest, args []string, visited ma
 	var failed []string
 	for i, err := range errs {
 		if err != nil {
-			failed = append(failed, fmt.Sprintf("%s: %v", names[i], err))
+			name := strings.Fields(entries[i])[0]
+			failed = append(failed, fmt.Sprintf("%s: %v", name, err))
 		}
 	}
 
@@ -146,17 +169,27 @@ func resolveScriptPath(cmd manifest.Command) string {
 // runGo compiles and caches a Go script, then runs the cached binary.
 //
 // Directory structure:
-//   .forge/
-//     go.mod              ← checked in, has replace directive for intellisense
-//     scripts/            ← user-written scripts
-//     cache/              ← gitignored build artifacts
-//       _helpers/         ← extracted helpers module
-//       <script>/         ← per-script build directory
-//         script.go       ← copied script
-//         main.go         ← generated wrapper
-//         go.mod          ← generated module file
-//         <binary>        ← compiled binary
+//
+//	.forge/
+//	  go.mod              ← checked in, has replace directive for intellisense
+//	  scripts/            ← user-written scripts (package main with func main)
+//	  cache/              ← gitignored build artifacts
+//	    _helpers/         ← extracted helpers module
+//	    <script>/         ← per-script build directory
+//	      script.go       ← copied script
+//	      go.mod          ← generated module file
+//	      <binary>        ← compiled binary
 func runGo(scriptPath string, manifestDir string, args []string) error {
+	bin, err := compileGo(scriptPath, manifestDir)
+	if err != nil {
+		return err
+	}
+
+	return execBinary(bin, manifestDir, args)
+}
+
+// compileGo compiles a Go script if needed and returns the cached binary path.
+func compileGo(scriptPath string, manifestDir string) (string, error) {
 	baseName := strings.TrimSuffix(filepath.Base(scriptPath), ".go")
 
 	// Locate the .forge/ directory relative to the manifest.
@@ -166,13 +199,13 @@ func runGo(scriptPath string, manifestDir string, args []string) error {
 	// Each script gets its own isolated build directory.
 	buildDir := filepath.Join(forgeCache, baseName)
 	if err := os.MkdirAll(buildDir, 0o755); err != nil {
-		return fmt.Errorf("creating build dir: %w", err)
+		return "", fmt.Errorf("creating build dir: %w", err)
 	}
 
 	// Extract the embedded helpers so both intellisense and compilation work.
 	helpersDir := filepath.Join(forgeCache, "_helpers")
 	if _, err := embedded.ExtractHelpers(helpersDir); err != nil {
-		return fmt.Errorf("extracting helpers: %w", err)
+		return "", fmt.Errorf("extracting helpers: %w", err)
 	}
 
 	// Keep the schema up-to-date alongside helpers.
@@ -183,7 +216,7 @@ func runGo(scriptPath string, manifestDir string, args []string) error {
 	// Compute content hash of the script to decide if recompilation is needed.
 	content, err := os.ReadFile(scriptPath)
 	if err != nil {
-		return fmt.Errorf("reading script: %w", err)
+		return "", fmt.Errorf("reading script: %w", err)
 	}
 
 	hash := sha256.Sum256(content)
@@ -213,20 +246,17 @@ func runGo(scriptPath string, manifestDir string, args []string) error {
 		// Copy the script into the build directory.
 		scriptDest := filepath.Join(buildDir, "script.go")
 		if err := os.WriteFile(scriptDest, content, 0o644); err != nil {
-			return fmt.Errorf("copying script: %w", err)
+			return "", fmt.Errorf("copying script: %w", err)
 		}
 
-		// Generate the main.go wrapper that calls Script.Run().
-		mainWrapper := generateMainWrapper()
-		mainPath := filepath.Join(buildDir, "main.go")
-		if err := os.WriteFile(mainPath, []byte(mainWrapper), 0o644); err != nil {
-			return fmt.Errorf("writing main wrapper: %w", err)
-		}
+		// Remove legacy main.go wrapper if present from older forge versions.
+		oldWrapper := filepath.Join(buildDir, "main.go")
+		os.Remove(oldWrapper)
 
 		// Generate go.mod with replace directive pointing to the extracted helpers.
 		absHelpersDir, err := filepath.Abs(helpersDir)
 		if err != nil {
-			return fmt.Errorf("resolving helpers path: %w", err)
+			return "", fmt.Errorf("resolving helpers path: %w", err)
 		}
 
 		goMod := fmt.Sprintf("module forge-script/%s\n\ngo 1.22\n\nrequire %s v0.0.0\n\nreplace %s => %s\n",
@@ -234,7 +264,7 @@ func runGo(scriptPath string, manifestDir string, args []string) error {
 		)
 		goModPath := filepath.Join(buildDir, "go.mod")
 		if err := os.WriteFile(goModPath, []byte(goMod), 0o644); err != nil {
-			return fmt.Errorf("writing go.mod: %w", err)
+			return "", fmt.Errorf("writing go.mod: %w", err)
 		}
 
 		// Compile.
@@ -244,73 +274,26 @@ func runGo(scriptPath string, manifestDir string, args []string) error {
 		buildCmd.Stderr = os.Stderr
 
 		if err := buildCmd.Run(); err != nil {
-			return fmt.Errorf("compiling script: %w", err)
+			return "", fmt.Errorf("compiling script: %w", err)
 		}
 
 		// Store the hash so we can skip recompilation next time.
 		if err := os.WriteFile(hashFile, []byte(hashStr), 0o644); err != nil {
-			return fmt.Errorf("writing hash file: %w", err)
+			return "", fmt.Errorf("writing hash file: %w", err)
 		}
 	}
 
-	// Run the cached binary from the manifest directory.
-	runCmd := exec.Command(cachedBinary, args...)
-	runCmd.Dir = manifestDir
-	runCmd.Stdout = os.Stdout
-	runCmd.Stderr = os.Stderr
-	runCmd.Stdin = os.Stdin
-
-	return runCmd.Run()
-}
-
-// generateMainWrapper produces a main.go that imports the script package
-// and calls Script.Run(os.Args[1:]).
-func generateMainWrapper() string {
-	return `package main
-
-import (
-	"fmt"
-	"os"
-)
-
-func main() {
-	if err := Script.Run(os.Args[1:]); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
-	}
-}
-`
+	return cachedBinary, nil
 }
 
 // runTs runs a TypeScript script directly via Node's native TS support.
 // No compilation step needed — Node 22+ strips types natively.
 func runTs(scriptPath string, manifestDir string, args []string) error {
-	forgeDir := filepath.Join(manifestDir, ".forge")
-	forgeCache := filepath.Join(forgeDir, "cache")
-
-	// Extract TS helpers.
-	helpersDir := filepath.Join(forgeCache, "_helpers")
-	if _, err := embedded.ExtractHelpersTS(helpersDir); err != nil {
-		return fmt.Errorf("extracting ts helpers: %w", err)
-	}
-
-	// Ensure package.json exists for subpath imports.
-	if err := embedded.EnsurePackageJSON(forgeDir, forgeCache); err != nil {
-		return fmt.Errorf("writing package.json: %w", err)
-	}
-
-	// Keep the schema up-to-date.
-	if _, err := embedded.ExtractSchema(forgeDir); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: could not extract schema: %v\n", err)
-	}
-
-	// Resolve the absolute script path for node.
-	absScript, err := filepath.Abs(scriptPath)
+	absScript, err := prepareTs(scriptPath, manifestDir)
 	if err != nil {
-		return fmt.Errorf("resolving script path: %w", err)
+		return err
 	}
 
-	// Run directly with node — native TS support requires Node 23.6+.
 	nodeArgs := []string{absScript}
 	nodeArgs = append(nodeArgs, args...)
 
@@ -321,6 +304,36 @@ func runTs(scriptPath string, manifestDir string, args []string) error {
 	runCmd.Stdin = os.Stdin
 
 	return runCmd.Run()
+}
+
+// prepareTs extracts TS helpers and returns the absolute script path.
+func prepareTs(scriptPath string, manifestDir string) (string, error) {
+	forgeDir := filepath.Join(manifestDir, ".forge")
+	forgeCache := filepath.Join(forgeDir, "cache")
+
+	// Extract TS helpers.
+	helpersDir := filepath.Join(forgeCache, "_helpers")
+	if _, err := embedded.ExtractHelpersTS(helpersDir); err != nil {
+		return "", fmt.Errorf("extracting ts helpers: %w", err)
+	}
+
+	// Ensure package.json exists for subpath imports.
+	if err := embedded.EnsurePackageJSON(forgeDir, forgeCache); err != nil {
+		return "", fmt.Errorf("writing package.json: %w", err)
+	}
+
+	// Keep the schema up-to-date.
+	if _, err := embedded.ExtractSchema(forgeDir); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not extract schema: %v\n", err)
+	}
+
+	// Resolve the absolute script path for node.
+	absScript, err := filepath.Abs(scriptPath)
+	if err != nil {
+		return "", fmt.Errorf("resolving script path: %w", err)
+	}
+
+	return absScript, nil
 }
 
 // runCs compiles and caches a C# script, then runs the cached executable.
@@ -341,6 +354,16 @@ func runTs(scriptPath string, manifestDir string, args []string) error {
 //	      ForgeScript.csproj ← generated project file
 //	      bin/            ← build output
 func runCs(scriptPath string, manifestDir string, args []string) error {
+	bin, err := compileCs(scriptPath, manifestDir)
+	if err != nil {
+		return err
+	}
+
+	return execBinary(bin, manifestDir, args)
+}
+
+// compileCs compiles a C# script if needed and returns the cached binary path.
+func compileCs(scriptPath string, manifestDir string) (string, error) {
 	baseName := strings.TrimSuffix(filepath.Base(scriptPath), ".cs")
 
 	forgeDir := filepath.Join(manifestDir, ".forge")
@@ -348,14 +371,14 @@ func runCs(scriptPath string, manifestDir string, args []string) error {
 
 	buildDir := filepath.Join(forgeCache, baseName)
 	if err := os.MkdirAll(buildDir, 0o755); err != nil {
-		return fmt.Errorf("creating build dir: %w", err)
+		return "", fmt.Errorf("creating build dir: %w", err)
 	}
 
 	// Extract C# helpers.
 	helpersDir := filepath.Join(forgeCache, "_helpers")
 	csHelpersDir, err := embedded.ExtractHelpersCS(helpersDir)
 	if err != nil {
-		return fmt.Errorf("extracting cs helpers: %w", err)
+		return "", fmt.Errorf("extracting cs helpers: %w", err)
 	}
 
 	// Keep the schema up-to-date.
@@ -376,7 +399,7 @@ func runCs(scriptPath string, manifestDir string, args []string) error {
 	// Compute content hash for caching.
 	content, err := os.ReadFile(scriptPath)
 	if err != nil {
-		return fmt.Errorf("reading script: %w", err)
+		return "", fmt.Errorf("reading script: %w", err)
 	}
 
 	hash := sha256.Sum256(content)
@@ -408,19 +431,19 @@ func runCs(scriptPath string, manifestDir string, args []string) error {
 		// Copy the script into the build directory.
 		scriptDest := filepath.Join(buildDir, "script.cs")
 		if err := os.WriteFile(scriptDest, content, 0o644); err != nil {
-			return fmt.Errorf("copying script: %w", err)
+			return "", fmt.Errorf("copying script: %w", err)
 		}
 
 		// Generate .csproj that references the helpers project.
 		absCsHelpers, err := filepath.Abs(csHelpersDir)
 		if err != nil {
-			return fmt.Errorf("resolving helpers path: %w", err)
+			return "", fmt.Errorf("resolving helpers path: %w", err)
 		}
 
 		csproj := generateCsproj(absCsHelpers)
 		csprojPath := filepath.Join(buildDir, "ForgeScript.csproj")
 		if err := os.WriteFile(csprojPath, []byte(csproj), 0o644); err != nil {
-			return fmt.Errorf("writing .csproj: %w", err)
+			return "", fmt.Errorf("writing .csproj: %w", err)
 		}
 
 		// Publish for fastest startup.
@@ -435,23 +458,16 @@ func runCs(scriptPath string, manifestDir string, args []string) error {
 		buildCmd.Stderr = os.Stderr
 
 		if err := buildCmd.Run(); err != nil {
-			return fmt.Errorf("compiling script: %w", err)
+			return "", fmt.Errorf("compiling script: %w", err)
 		}
 
 		// Store the hash.
 		if err := os.WriteFile(hashFile, []byte(hashStr), 0o644); err != nil {
-			return fmt.Errorf("writing hash file: %w", err)
+			return "", fmt.Errorf("writing hash file: %w", err)
 		}
 	}
 
-	// Run the cached binary from the manifest directory.
-	runCmd := exec.Command(cachedBinary, args...)
-	runCmd.Dir = manifestDir
-	runCmd.Stdout = os.Stdout
-	runCmd.Stderr = os.Stderr
-	runCmd.Stdin = os.Stdin
-
-	return runCmd.Run()
+	return cachedBinary, nil
 }
 
 // generateCsproj produces a .csproj file for a C# forge script.
@@ -472,4 +488,68 @@ func generateCsproj(helpersProjectDir string) string {
 	</ItemGroup>
 </Project>
 `, helpersCsproj)
+}
+
+// execBinary runs a compiled binary from the manifest directory.
+func execBinary(bin string, manifestDir string, args []string) error {
+	runCmd := exec.Command(bin, args...)
+	runCmd.Dir = manifestDir
+	runCmd.Stdout = os.Stdout
+	runCmd.Stderr = os.Stderr
+	runCmd.Stdin = os.Stdin
+
+	return runCmd.Run()
+}
+
+// Meta compiles a script (if needed) and invokes it with --forge-meta to
+// retrieve the command's argument metadata as JSON. Returns nil if the script
+// does not support introspection.
+func Meta(cmd manifest.Command, m *manifest.Manifest) ([]byte, error) {
+	if cmd.Script == "" {
+		return nil, nil
+	}
+
+	scriptPath := resolveScriptPath(cmd)
+	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("script not found: %s", scriptPath)
+	}
+
+	ext := strings.ToLower(filepath.Ext(scriptPath))
+
+	var metaCmd *exec.Cmd
+
+	switch ext {
+	case ".go":
+		bin, err := compileGo(scriptPath, cmd.ManifestDir)
+		if err != nil {
+			return nil, err
+		}
+		metaCmd = exec.Command(bin, "--forge-meta")
+
+	case ".ts":
+		absScript, err := prepareTs(scriptPath, cmd.ManifestDir)
+		if err != nil {
+			return nil, err
+		}
+		metaCmd = exec.Command("node", absScript, "--forge-meta")
+
+	case ".cs":
+		bin, err := compileCs(scriptPath, cmd.ManifestDir)
+		if err != nil {
+			return nil, err
+		}
+		metaCmd = exec.Command(bin, "--forge-meta")
+
+	default:
+		return nil, nil
+	}
+
+	metaCmd.Dir = cmd.ManifestDir
+	output, err := metaCmd.Output()
+	if err != nil {
+		// Script doesn't support --forge-meta introspection.
+		return nil, nil
+	}
+
+	return output, nil
 }

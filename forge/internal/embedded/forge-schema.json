@@ -39,22 +39,15 @@
 						"$ref": "#/definitions/runStep"
 					},
 					"minItems": 1
-				},
-				"args": {
-					"type": "array",
-					"description": "Arguments that this command accepts.",
-					"items": {
-						"$ref": "#/definitions/arg"
-					}
 				}
 			}
 		},
 		"runStep": {
-			"description": "A step in a composite command. Either a command name to run sequentially, or a parallel block.",
+			"description": "A step in a composite command. Either a command name (with optional inline args), a parallel block, or an explicit command+args object.",
 			"oneOf": [
 				{
 					"type": "string",
-					"description": "Name of a command to run."
+					"description": "Name of a command to run, optionally followed by inline arguments (e.g. 'clean --dryrun')."
 				},
 				{
 					"type": "object",
@@ -64,40 +57,36 @@
 					"properties": {
 						"parallel": {
 							"type": "array",
-							"description": "Commands to run in parallel.",
+							"description": "Commands to run in parallel. Each entry is a command name, optionally followed by inline arguments.",
 							"items": {
 								"type": "string"
 							},
 							"minItems": 1
 						}
 					}
+				},
+				{
+					"type": "object",
+					"description": "A command reference with explicit arguments.",
+					"required": [
+						"command"
+					],
+					"additionalProperties": false,
+					"properties": {
+						"command": {
+							"type": "string",
+							"description": "Name of the command to run."
+						},
+						"args": {
+							"type": "array",
+							"description": "Arguments to pass to the command.",
+							"items": {
+								"type": "string"
+							}
+						}
+					}
 				}
 			]
-		},
-		"arg": {
-			"type": "object",
-			"description": "A command argument definition.",
-			"required": ["name"],
-			"additionalProperties": false,
-			"properties": {
-				"name": {
-					"type": "string",
-					"description": "The name of the argument."
-				},
-				"description": {
-					"type": "string",
-					"description": "A description of what this argument does."
-				},
-				"required": {
-					"type": "boolean",
-					"description": "Whether this argument is required.",
-					"default": false
-				},
-				"default": {
-					"type": "string",
-					"description": "Default value if the argument is not provided."
-				}
-			}
 		}
 	}
 }

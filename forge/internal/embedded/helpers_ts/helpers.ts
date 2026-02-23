@@ -1,7 +1,14 @@
 import { spawn, execSync } from 'node:child_process';
 import { readdirSync, statSync, existsSync } from 'node:fs';
 import { join, basename, relative, resolve } from 'node:path';
-import { stdout, stderr } from 'node:process';
+import { argv, stdout, stderr } from 'node:process';
+
+// --- Args ---
+
+/** Returns the command arguments passed to this script. */
+export function args(): string[] {
+	return argv.slice(2);
+}
 
 // --- Colors ---
 
@@ -150,4 +157,205 @@ export function findFiles(root: string, pattern: string): string[] {
 function matchSimple(name: string, pattern: string): boolean {
 	const regex = new RegExp('^' + pattern.replace(/\*/g, '.*').replace(/\?/g, '.') + '$');
 	return regex.test(name);
+}
+
+// --- Command Builder ---
+
+interface ArgDef {
+	name: string;
+	description: string;
+	type: 'string' | 'bool';
+	positional: boolean;
+	required: boolean;
+	defaultVal: string;
+	value: StringValue | BoolValue;
+}
+
+/** Holds a parsed string argument value. */
+export class StringValue {
+	constructor(public value: string = '') {}
+}
+
+/** Holds a parsed boolean flag value. */
+export class BoolValue {
+	constructor(public value: boolean = false) {}
+}
+
+/**
+ * Creates a command argument builder.
+ *
+ * ```ts
+ * const cmd = command('greet', 'Greet someone');
+ * const name = cmd.arg('name', 'Name to greet');
+ * const shout = cmd.flag('shout', 'Uppercase the greeting');
+ * cmd.parse();
+ * ```
+ */
+export function command(name: string, description: string): CmdBuilder {
+	return new CmdBuilder(name, description);
+}
+
+class CmdBuilder {
+	protected defs: ArgDef[] = [];
+
+	constructor(
+		protected readonly cmdName: string,
+		protected readonly cmdDescription: string,
+	) {}
+
+	/** Define a required positional argument. */
+	arg(name: string, description: string): StringValue {
+		const v = new StringValue();
+		this.defs.push({
+			name, description,
+			type: 'string',
+			positional: true,
+			required: true,
+			defaultVal: '',
+			value: v,
+		});
+
+		return v;
+	}
+
+	/** Define a named string option (--name value). */
+	option(name: string, description: string, defaultVal?: string): StringValue {
+		const v = new StringValue(defaultVal ?? '');
+		this.defs.push({
+			name, description,
+			type: 'string',
+			positional: false,
+			required: false,
+			defaultVal: defaultVal ?? '',
+			value: v,
+		});
+
+		return v;
+	}
+
+	/** Define a boolean flag (--name). Presence sets it to true. */
+	flag(name: string, description: string): BoolValue {
+		const v = new BoolValue();
+		this.defs.push({
+			name, description,
+			type: 'bool',
+			positional: false,
+			required: false,
+			defaultVal: '',
+			value: v,
+		});
+
+		return v;
+	}
+
+	/**
+	 * Parse command-line arguments.
+	 * If --forge-meta is present, prints JSON metadata and exits.
+	 * If --help or -h is present, prints a help screen and exits.
+	 */
+	parse(): void {
+		const rawArgs = argv.slice(2);
+
+		if (rawArgs.includes('--forge-meta')) {
+			this.printMeta();
+			process.exit(0);
+		}
+
+		if (rawArgs.includes('--help') || rawArgs.includes('-h')) {
+			this.printHelp();
+			process.exit(0);
+		}
+
+		const positionals = this.defs.filter(d => d.positional);
+		let posIdx = 0;
+
+		for (let i = 0; i < rawArgs.length; i++) {
+			const a = rawArgs[i]!;
+
+			if (a.startsWith('--')) {
+				const name = a.slice(2);
+				const def = this.defs.find(d => !d.positional && d.name === name);
+				if (!def) {
+					error(`unknown flag: --${name}`);
+					this.printHelp();
+					process.exit(1);
+				}
+
+				if (def.type === 'bool') {
+					(def.value as BoolValue).value = true;
+				} else {
+					if (i + 1 >= rawArgs.length) {
+						error(`flag --${name} requires a value`);
+						process.exit(1);
+					}
+					i++;
+					(def.value as StringValue).value = rawArgs[i]!;
+				}
+			} else {
+				if (posIdx >= positionals.length) {
+					error(`unexpected argument: ${a}`);
+					this.printHelp();
+					process.exit(1);
+				}
+				(positionals[posIdx]!.value as StringValue).value = a;
+				posIdx++;
+			}
+		}
+
+		for (const p of positionals) {
+			if (p.required && (p.value as StringValue).value === '') {
+				error(`missing required argument: <${p.name}>`);
+				this.printHelp();
+				process.exit(1);
+			}
+		}
+	}
+
+	protected printHelp(): void {
+		const positionals = this.defs.filter(d => d.positional);
+		const flags = this.defs.filter(d => !d.positional);
+
+		let usage = `forge ${this.cmdName}`;
+		for (const p of positionals) usage += ` <${p.name}>`;
+		if (flags.length > 0) usage += ' [flags]';
+
+		console.log(`${this.cmdName} — ${this.cmdDescription}\n`);
+		console.log(`Usage:\n  ${usage}`);
+
+		if (positionals.length > 0) {
+			console.log('\nArgs:');
+			const maxLen = Math.max(...positionals.map(p => p.name.length));
+			for (const p of positionals) {
+				console.log(`  ${p.name.padEnd(maxLen)}    ${p.description}`);
+			}
+		}
+
+		if (flags.length > 0) {
+			console.log('\nFlags:');
+			const flagNames = flags.map(f => f.type === 'string' ? `--${f.name} <value>` : `--${f.name}`);
+			const maxLen = Math.max(...flagNames.map(n => n.length));
+			for (let i = 0; i < flags.length; i++) {
+				let desc = flags[i]!.description;
+				if (flags[i]!.defaultVal) desc += ` (default: ${flags[i]!.defaultVal})`;
+				console.log(`  ${flagNames[i]!.padEnd(maxLen)}    ${desc}`);
+			}
+		}
+	}
+
+	protected printMeta(): void {
+		const meta = {
+			name: this.cmdName,
+			description: this.cmdDescription,
+			args: this.defs.map(d => ({
+				name: d.name,
+				type: d.type,
+				description: d.description,
+				...(d.positional ? { positional: true } : {}),
+				...(d.required ? { required: true } : {}),
+				...(d.defaultVal ? { default: d.defaultVal } : {}),
+			})),
+		};
+
+		console.log(JSON.stringify(meta, null, 2));
+	}
 }

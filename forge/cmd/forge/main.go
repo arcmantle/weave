@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -60,8 +61,10 @@ func main() {
 		runAdd(args)
 	case "setup":
 		runSetup(args)
+	case "help":
+		runHelp(args)
 	default:
-		runCommand(command, args)
+		runCommand(os.Args[1:])
 	}
 }
 
@@ -76,6 +79,7 @@ Usage:
   forge init                Scaffold forge.yaml and .forge/ directory
   forge add <name> [--lang] Add a new script (go, ts, cs — default: go)
   forge setup <runtime>     Add scaffolding for a runtime (go, ts, cs)
+  forge help <command>      Show detailed help for a command
 
 Commands are defined in forge.yaml and executed from .forge/ scripts.
 Manifests are discovered by walking up from the current directory,
@@ -104,6 +108,40 @@ func getManifest() *manifest.Manifest {
 	return manifest.Merge(manifests)
 }
 
+// resolveCommand performs greedy longest-match resolution on CLI tokens.
+// It joins tokens with ":" from longest to shortest to find the deepest
+// matching command. Returns the resolved command name and remaining args.
+//
+// Example: ["deploy", "staging", "--dryrun"] tries:
+//   deploy:staging:--dryrun → deploy:staging → deploy
+// If "deploy:staging" exists, returns ("deploy:staging", ["--dryrun"]).
+func resolveCommand(tokens []string, commands map[string]manifest.Command) (string, []string) {
+	// Try joining progressively fewer tokens.
+	for n := len(tokens); n > 0; n-- {
+		candidate := strings.Join(tokens[:n], ":")
+		if _, ok := commands[candidate]; ok {
+			return candidate, tokens[n:]
+		}
+	}
+
+	// No match — return the first token so the caller can show an error.
+	return tokens[0], tokens[1:]
+}
+
+// commandsWithPrefix returns all command names that start with prefix + ":".
+func commandsWithPrefix(prefix string, commands map[string]manifest.Command) []string {
+	var matches []string
+	pfx := prefix + ":"
+	for name := range commands {
+		if strings.HasPrefix(name, pfx) {
+			matches = append(matches, name)
+		}
+	}
+	sort.Strings(matches)
+
+	return matches
+}
+
 func listCommands() {
 	m := getManifest()
 
@@ -119,50 +157,126 @@ func listCommands() {
 	}
 	sort.Strings(names)
 
-	// Find max name length for alignment.
-	maxLen := 0
+	// Separate top-level commands from nested ones.
+	// A top-level command either has no colon or is a root-level group member.
+	type group struct {
+		children []string // full command names
+	}
+	groups := map[string]*group{}
+	var topLevel []string
+
 	for _, name := range names {
+		if idx := strings.Index(name, ":"); idx != -1 {
+			prefix := name[:idx]
+			g, ok := groups[prefix]
+			if !ok {
+				g = &group{}
+				groups[prefix] = g
+			}
+			g.children = append(g.children, name)
+		} else {
+			topLevel = append(topLevel, name)
+		}
+	}
+
+	// Collect the display names: top-level commands + groups that aren't
+	// already a top-level command.
+	var displayOrder []string
+	shown := map[string]bool{}
+	for _, name := range topLevel {
+		displayOrder = append(displayOrder, name)
+		shown[name] = true
+	}
+	for prefix := range groups {
+		if !shown[prefix] {
+			displayOrder = append(displayOrder, prefix)
+		}
+	}
+	sort.Strings(displayOrder)
+
+	// Find max display name length for alignment.
+	maxLen := 0
+	for _, name := range displayOrder {
 		if len(name) > maxLen {
 			maxLen = len(name)
+		}
+		if g, ok := groups[name]; ok {
+			for _, child := range g.children {
+				// Display name is the part after the last colon, indented.
+				suffix := child[strings.LastIndex(child, ":")+1:]
+				padded := len(suffix) + 2 // 2 extra indent
+				if padded > maxLen {
+					maxLen = padded
+				}
+			}
 		}
 	}
 
 	fmt.Println("Available commands:")
 	fmt.Println()
-	for _, name := range names {
-		cmd := m.Commands[name]
-		desc := cmd.Description
-		if desc == "" {
-			desc = "\033[90m(no description)\033[0m"
-		}
-		fmt.Printf("  \033[36m%-*s\033[0m  %s\n", maxLen, name, desc)
 
-		// Show args if any.
-		for _, arg := range cmd.Args {
-			req := ""
-			if arg.Required {
-				req = " \033[33m(required)\033[0m"
+	for _, name := range displayOrder {
+		// Print the command itself (if it exists as a real command).
+		if cmd, ok := m.Commands[name]; ok {
+			desc := cmd.Description
+			if desc == "" {
+				desc = "\033[90m(no description)\033[0m"
 			}
-			def := ""
-			if arg.Default != "" {
-				def = fmt.Sprintf(" \033[90m[default: %s]\033[0m", arg.Default)
+			fmt.Printf("  \033[36m%-*s\033[0m  %s\n", maxLen, name, desc)
+		} else {
+			// Group header with no backing command.
+			fmt.Printf("  \033[36m%s\033[0m\n", name)
+		}
+
+		// Print nested children.
+		if g, ok := groups[name]; ok {
+			for _, child := range g.children {
+				suffix := child[strings.LastIndex(child, ":")+1:]
+				desc := m.Commands[child].Description
+				if desc == "" {
+					desc = "\033[90m(no description)\033[0m"
+				}
+				fmt.Printf("    \033[36m%-*s\033[0m  %s\n", maxLen-2, suffix, desc)
 			}
-			fmt.Printf("    --%s  %s%s%s\n", arg.Name, arg.Description, req, def)
 		}
 	}
 }
 
-func runCommand(name string, args []string) {
+func runCommand(tokens []string) {
 	m := getManifest()
+
+	name, args := resolveCommand(tokens, m.Commands)
 
 	cmd, ok := m.Commands[name]
 	if !ok {
+		// Check if this is a group prefix with subcommands.
+		children := commandsWithPrefix(name, m.Commands)
+		if len(children) > 0 {
+			fmt.Fprintf(os.Stderr, "error: '%s' is a command group, not a runnable command\n", name)
+			fmt.Fprintf(os.Stderr, "\nAvailable subcommands:\n")
+			for _, child := range children {
+				suffix := child[len(name)+1:]
+				desc := m.Commands[child].Description
+				if desc != "" {
+					fmt.Fprintf(os.Stderr, "  \033[36m%s\033[0m  %s\n", suffix, desc)
+				} else {
+					fmt.Fprintf(os.Stderr, "  \033[36m%s\033[0m\n", suffix)
+				}
+			}
+			os.Exit(1)
+		}
+
 		fmt.Fprintf(os.Stderr, "error: unknown command '%s'\n", name)
 		fmt.Fprintf(os.Stderr, "\nDid you mean one of these?\n")
 
-		// Simple fuzzy matching — show commands that share a prefix or contain the input.
+		// Fuzzy matching — match against full name or suffix after last colon.
 		for cmdName := range m.Commands {
-			if strings.Contains(cmdName, name) || strings.HasPrefix(cmdName, name[:min(3, len(name))]) {
+			suffix := cmdName
+			if idx := strings.LastIndex(cmdName, ":"); idx != -1 {
+				suffix = cmdName[idx+1:]
+			}
+			if strings.Contains(cmdName, name) || strings.Contains(suffix, name) ||
+				strings.HasPrefix(cmdName, name[:min(3, len(name))]) {
 				fmt.Fprintf(os.Stderr, "  %s\n", cmdName)
 			}
 		}
@@ -270,7 +384,10 @@ func runAdd(args []string) {
 	}
 
 	forgeDir := filepath.Join(manifestDir, ".forge")
-	scriptDir := filepath.Join(forgeDir, "scripts", name)
+
+	// For colon-delimited names, use a hyphenated form for directories/files.
+	scriptName := strings.ReplaceAll(name, ":", "-")
+	scriptDir := filepath.Join(forgeDir, "scripts", scriptName)
 
 	// Check if command already exists.
 	if _, ok := m.Commands[name]; ok {
@@ -291,14 +408,11 @@ func runAdd(args []string) {
 		ext = ".go"
 		scriptContent = fmt.Sprintf(`package main
 
-import (
-	"github.com/arcmantle/forge/helpers"
-)
+import "github.com/arcmantle/forge/helpers"
 
-var Script = helpers.ScriptFunc(func(args []string) error {
+func main() {
 	helpers.Info("running %s")
-	return nil
-})
+}
 `, name)
 	case "ts":
 		ext = ".ts"
@@ -314,7 +428,7 @@ Log.Info("running %s");
 `, name)
 	}
 
-	scriptFile := filepath.Join(scriptDir, name+ext)
+	scriptFile := filepath.Join(scriptDir, scriptName+ext)
 	if err := os.WriteFile(scriptFile, []byte(scriptContent), 0o644); err != nil {
 		fmt.Fprintf(os.Stderr, "error writing script: %v\n", err)
 		os.Exit(1)
@@ -328,7 +442,7 @@ Log.Info("running %s");
 	}
 	defer f.Close()
 
-	relScript := filepath.ToSlash(filepath.Join(".forge", "scripts", name, name+ext))
+	relScript := filepath.ToSlash(filepath.Join(".forge", "scripts", scriptName, scriptName+ext))
 	entry := fmt.Sprintf("\n  %s:\n    description: \"\"\n    script: %s\n", name, relScript)
 	if _, err := f.WriteString(entry); err != nil {
 		fmt.Fprintf(os.Stderr, "error writing to forge.yaml: %v\n", err)
@@ -526,6 +640,170 @@ func appendToGitignore(forgeDir string, entries ...string) {
 	}
 }
 
+func runHelp(args []string) {
+	if len(args) == 0 {
+		printUsage()
+		return
+	}
+
+	m := getManifest()
+	name, _ := resolveCommand(args, m.Commands)
+
+	cmd, ok := m.Commands[name]
+	if !ok {
+		// Check if this is a group prefix.
+		children := commandsWithPrefix(name, m.Commands)
+		if len(children) > 0 {
+			fmt.Printf("%s — command group\n\n", name)
+			fmt.Println("Subcommands:")
+			for _, child := range children {
+				suffix := child[len(name)+1:]
+				desc := m.Commands[child].Description
+				if desc != "" {
+					fmt.Printf("  \033[36m%s\033[0m  %s\n", suffix, desc)
+				} else {
+					fmt.Printf("  \033[36m%s\033[0m\n", suffix)
+				}
+			}
+			return
+		}
+
+		fmt.Fprintf(os.Stderr, "error: unknown command '%s'\n", name)
+		os.Exit(1)
+	}
+
+	// Composite commands — show the run steps.
+	if len(cmd.Run) > 0 {
+		fmt.Printf("%s — %s\n\n", name, cmd.Description)
+		fmt.Println("Composite command:")
+		for _, step := range cmd.Run {
+			if len(step.Parallel) > 0 {
+				fmt.Printf("  parallel: [%s]\n", strings.Join(step.Parallel, ", "))
+			} else if len(step.Args) > 0 {
+				fmt.Printf("  %s %s\n", step.Command, strings.Join(step.Args, " "))
+			} else {
+				fmt.Printf("  %s\n", step.Command)
+			}
+		}
+
+		return
+	}
+
+	// Script commands — try to get metadata via --forge-meta.
+	meta, err := runner.Meta(cmd, m)
+	if err != nil || meta == nil {
+		// Script doesn't support introspection — show basic info.
+		fmt.Printf("%s — %s\n", name, cmd.Description)
+		if cmd.Script != "" {
+			fmt.Printf("  script: %s\n", cmd.Script)
+		}
+
+		return
+	}
+
+	// Parse and display the metadata.
+	var parsed struct {
+		Name        string `json:"name"`
+		Description string `json:"description"`
+		Args        []struct {
+			Name        string `json:"name"`
+			Type        string `json:"type"`
+			Description string `json:"description"`
+			Positional  bool   `json:"positional"`
+			Required    bool   `json:"required"`
+			Default     string `json:"default"`
+		} `json:"args"`
+	}
+
+	if err := json.Unmarshal(meta, &parsed); err != nil {
+		// Invalid JSON — fall back to basic info.
+		fmt.Printf("%s — %s\n", name, cmd.Description)
+		return
+	}
+
+	// Build the help display.
+	var positionals, flags []struct {
+		Name        string
+		Type        string
+		Description string
+		Required    bool
+		Default     string
+	}
+
+	for _, a := range parsed.Args {
+		entry := struct {
+			Name        string
+			Type        string
+			Description string
+			Required    bool
+			Default     string
+		}{a.Name, a.Type, a.Description, a.Required, a.Default}
+
+		if a.Positional {
+			positionals = append(positionals, entry)
+		} else {
+			flags = append(flags, entry)
+		}
+	}
+
+	// Usage line.
+	usage := "forge " + name
+	for _, p := range positionals {
+		usage += " <" + p.Name + ">"
+	}
+	if len(flags) > 0 {
+		usage += " [flags]"
+	}
+
+	desc := parsed.Description
+	if desc == "" {
+		desc = cmd.Description
+	}
+
+	fmt.Printf("%s — %s\n\n", name, desc)
+	fmt.Printf("Usage:\n  %s\n", usage)
+
+	if len(positionals) > 0 {
+		fmt.Println("\nArgs:")
+		maxLen := 0
+		for _, p := range positionals {
+			if len(p.Name) > maxLen {
+				maxLen = len(p.Name)
+			}
+		}
+		for _, p := range positionals {
+			fmt.Printf("  %-*s    %s\n", maxLen, p.Name, p.Description)
+		}
+	}
+
+	if len(flags) > 0 {
+		fmt.Println("\nFlags:")
+		maxLen := 0
+		type flagEntry struct {
+			display string
+			desc    string
+		}
+		var entries []flagEntry
+		for _, f := range flags {
+			display := "--" + f.Name
+			if f.Type == "string" {
+				display += " <value>"
+			}
+			if len(display) > maxLen {
+				maxLen = len(display)
+			}
+			desc := f.Description
+			if f.Default != "" {
+				desc += fmt.Sprintf(" (default: %s)", f.Default)
+			}
+			entries = append(entries, flagEntry{display, desc})
+		}
+		for _, e := range entries {
+			fmt.Printf("  %-*s    %s\n", maxLen, e.display, e.desc)
+		}
+	}
+}
+
 func runInit() {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -663,14 +941,11 @@ func runInit() {
 	case "go":
 		helloScript = `package main
 
-import (
-	"github.com/arcmantle/forge/helpers"
-)
+import "github.com/arcmantle/forge/helpers"
 
-var Script = helpers.ScriptFunc(func(args []string) error {
+func main() {
 	helpers.Success("Hello from forge!")
-	return nil
-})
+}
 `
 	case "ts":
 		helloScript = `import { success } from '#helpers';

@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=.forge/forge-schema.json
+commands:
+  hello:
+    description: "A starting point for your first forge script"
+    script: .forge/scripts/hello/hello.go

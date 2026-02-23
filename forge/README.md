@@ -63,7 +63,6 @@ The schema comment on line 1 enables IDE autocompletion and validation.
 | `description` | `string` | Shown in `forge --list` |
 | `script` | `string` | Path to `.go`, `.ts`, or `.cs` script file |
 | `run` | `array` | Sequential steps — strings or `parallel: [...]` blocks |
-| `args` | `array` | Argument definitions with `name`, `description`, `required`, `default` |
 
 A command must have either `script` or `run`, not both.
 
@@ -82,25 +81,163 @@ commands:
 
 Forge detects cycles in composite commands and errors before execution.
 
-### Arguments
+#### Step Arguments
+
+Steps can carry arguments — either inline in the string or via the explicit object form:
 
 ```yaml
 commands:
-  greet:
-    description: "Greet someone"
-    script: .forge/scripts/greet/greet.go
-    args:
-      - name: who
-        description: "Name to greet"
-        required: true
-      - name: shout
-        description: "Uppercase the greeting"
-        default: "false"
+  ci:
+    run:
+      - "lint --fix"                     # inline args (string form)
+      - command: test                    # explicit object form
+        args: [--coverage, --reporter, junit]
+      - parallel:
+          - "build:api --production"     # inline args in parallel entries
+          - build:ui
 ```
 
-Arguments are passed through to the script's `args`/`Run(args)` parameter.
+**Forwarding rules:**
+
+- Steps **with** explicit or inline args use those — no forwarding from the composite invocation.
+- Steps **without** args receive whatever CLI args were passed to the composite command (backward compatible).
+- Parallel entries follow the same rule independently — each entry either uses its own inline args or receives the composite's forwarded args.
+
+### Nested Commands
+
+Commands with `:` in their name form groups. On the CLI, spaces are resolved as nested command names using greedy longest-match:
+
+```yaml
+commands:
+  deploy:staging:
+    description: "Deploy to staging"
+    script: .forge/scripts/deploy-staging/deploy-staging.go
+
+  deploy:prod:
+    description: "Deploy to production"
+    script: .forge/scripts/deploy-prod/deploy-prod.go
+```
+
+```bash
+forge deploy staging --dryrun   # resolves to deploy:staging with args [--dryrun]
+forge deploy prod               # resolves to deploy:prod
+forge help deploy               # lists available subcommands (staging, prod)
+forge help deploy staging       # shows help for deploy:staging
+```
+
+`forge --list` groups nested commands under their prefix:
+
+```txt
+Available commands:
+
+  clean          Remove all node_modules
+  deploy
+    staging      Deploy to staging
+    prod         Deploy to production
+  hello          Say hello
+```
+
+Nesting is unlimited — `infra:aws:deploy` is invoked as `forge infra aws deploy`. A group prefix (e.g. `deploy`) is not itself runnable unless a `deploy` command also exists in the manifest. Composite commands can reference nested commands by their full colon key: `run: [deploy:staging]`.
+
+To scaffold a nested command:
+
+```bash
+forge add deploy:staging --go   # creates .forge/scripts/deploy-staging/deploy-staging.go
+```
+
+### Command Builder
+
+Arguments are defined in code using the command builder pattern — no YAML `args` needed. Each script declares its own arguments with type safety, auto-generated `--help`, and introspection via `forge help <cmd>`.
+
+Given a command invoked as:
+
+```bash
+forge greet world --shout --count 3
+```
+
+The CLI concepts map as follows:
+
+| Concept | What it is | In the example |
+| --- | --- | --- |
+| **Command** | The top-level verb registered in `forge.yaml`. Forge resolves it and runs the associated script. | `greet` |
+| **Arg** | A required positional value — no `--` prefix, identified by position. Must be provided or the script errors. | `world` (1st positional) |
+| **Flag** | A boolean switch — presence means `true`, absence means `false`. Never takes a value after it. | `--shout` → `true` |
+| **Option** | A named key-value pair. The name is prefixed with `--` and the next token is its value. Supports a default if omitted. | `--count 3` |
+
+**Go:**
+
+```go
+package main
+
+import "github.com/arcmantle/forge/helpers"
+
+func main() {
+    cmd := helpers.Command("greet", "Greet someone")
+    name := cmd.Arg("name", "Name to greet")
+    shout := cmd.Flag("shout", "Uppercase the greeting")
+    count := cmd.Option("count", "Number of times", "1")
+    cmd.Parse()
+
+    helpers.Info("Hello, %s! (x%s, shout=%v)", name.Value, count.Value, shout.Value)
+}
+```
+
+**TypeScript:**
+
+```typescript
+import { command, info } from '#helpers';
+
+const cmd = command('greet', 'Greet someone');
+const name = cmd.arg('name', 'Name to greet');
+const shout = cmd.flag('shout', 'Uppercase the greeting');
+const count = cmd.option('count', 'Number of times', '1');
+cmd.parse();
+
+info(`Hello, ${name.value}! (x${count.value}, shout=${shout.value})`);
+```
+
+**C#:**
+
+```csharp
+using Forge.Helpers;
+
+var cmd = Cmd.Create("greet", "Greet someone");
+var name = cmd.Arg("name", "Name to greet");
+var shout = cmd.Flag("shout", "Uppercase the greeting");
+var count = cmd.Option("count", "Number of times", "1");
+cmd.Parse();
+
+Log.Info($"Hello, {name.Value}! (x{count.Value}, shout={shout.Value})");
+```
+
+The builder provides three argument types:
+
+| Method | Description | Parsed as |
+| --- | --- | --- |
+| `Arg(name, desc)` | Required positional argument | `StringValue` |
+| `Option(name, desc [, default])` | Named string option (`--name value`) | `StringValue` |
+| `Flag(name, desc)` | Boolean flag (`--name`) | `BoolValue` |
+
+`Parse()` handles `--help` / `-h` automatically, printing a formatted help screen and exiting. `forge help <command>` also works — it invokes the script with `--forge-meta` to retrieve argument metadata.
+
+```
+$ forge help greet
+greet — Greet someone
+
+Usage:
+  forge greet <name> [flags]
+
+Args:
+  name    Name to greet
+
+Flags:
+  --shout           Uppercase the greeting
+  --count <value>   Number of times (default: 1)
+```
 
 ## Multi-Language Scripts
+
+All languages use top-level code — no special interface or wrapper needed.
 
 ### Go
 
@@ -109,10 +246,10 @@ package main
 
 import "github.com/arcmantle/forge/helpers"
 
-var Script = helpers.ScriptFunc(func(args []string) error {
+func main() {
     helpers.Info("Hello from Go!")
-    return helpers.Exec("echo", []string{"done"}, helpers.RunOpts{})
-})
+    helpers.Exec("echo", []string{"done"}, helpers.RunOpts{})
+}
 ```
 
 Go scripts are compiled to `.forge/cache/` with content-hash caching — only recompiled when the source changes.
@@ -120,15 +257,13 @@ Go scripts are compiled to `.forge/cache/` with content-hash caching — only re
 ### TypeScript
 
 ```typescript
-import { info, exec, type Script } from '#helpers';
+import { info, exec } from '#helpers';
 
-export const script: Script = {
-    async run(args: string[]) {
-        info('Hello from TypeScript!');
-        await exec('echo', ['done']);
-    }
-};
+info('Hello from TypeScript!');
+await exec('echo', ['done']);
 ```
+
+```txt
 
 TypeScript scripts run natively via `node` (requires Node 23.6+). The `#helpers` import maps to the generated helpers file via `package.json` subpath imports.
 
@@ -142,7 +277,7 @@ await Exec.Run("echo", ["done"]);
 return 0;
 ```
 
-C# scripts are compiled via `dotnet publish` with content-hash caching. Top-level statements are supported.
+C# scripts are compiled via `dotnet publish` with content-hash caching. Top-level statements — `args` is available as a built-in variable.
 
 ## CLI Reference
 
@@ -154,6 +289,7 @@ forge --version, -v          Show version
 forge init                   Scaffold forge.yaml and .forge/
 forge add <name> [--lang]    Add a new script (go, ts, cs)
 forge setup <runtime>        Add scaffolding for a runtime (go, ts, cs)
+forge help <command>         Show detailed help for a command
 ```
 
 ### `forge init`
@@ -191,6 +327,25 @@ Forge uses prefix matching for command names. If `deploy-prod` is the only comma
 ## Helpers API
 
 All three languages provide a consistent API surface for common operations.
+
+### Args
+
+Access raw command-line arguments passed to the script. For structured argument parsing, prefer the [Command Builder](#command-builder) instead.
+
+```go
+// Go
+args := helpers.Args()
+```
+
+```typescript
+// TypeScript
+import { args } from '#helpers';
+const a = args();
+```
+
+```csharp
+// C# — use Environment.GetCommandLineArgs().Skip(1)
+```
 
 ### Exec
 

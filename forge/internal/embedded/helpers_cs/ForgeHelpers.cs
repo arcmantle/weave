@@ -189,3 +189,241 @@ public static class Fs
 	public static string[] FindFiles(string root, string pattern) =>
 		Directory.GetFiles(root, pattern);
 }
+
+// --- Command Builder ---
+
+/// <summary>Holds a parsed string argument value.</summary>
+public class StringValue
+{
+	public string Value { get; set; } = "";
+}
+
+/// <summary>Holds a parsed boolean flag value.</summary>
+public class BoolValue
+{
+	public bool Value { get; set; }
+}
+
+/// <summary>
+/// Builder for defining and parsing command arguments.
+/// Supports positional args, string options, and boolean flags.
+/// <code>
+/// var cmd = Cmd.Create("greet", "Greet someone");
+/// var name = cmd.Arg("name", "Name to greet");
+/// var shout = cmd.Flag("shout", "Uppercase the greeting");
+/// cmd.Parse();
+/// </code>
+/// </summary>
+public class Cmd
+{
+	private readonly string _name;
+	private readonly string _description;
+	private readonly List<ArgDef> _defs = [];
+
+	private Cmd(string name, string description)
+	{
+		_name = name;
+		_description = description;
+	}
+
+	/// <summary>Creates a new command argument builder.</summary>
+	public static Cmd Create(string name, string description) => new(name, description);
+
+	/// <summary>Define a required positional argument.</summary>
+	public StringValue Arg(string name, string description)
+	{
+		var v = new StringValue();
+		_defs.Add(new ArgDef
+		{
+			Name = name,
+			Description = description,
+			Type = "string",
+			Positional = true,
+			Required = true,
+			Value = v,
+		});
+
+		return v;
+	}
+
+	/// <summary>Define a named string option (--name value).</summary>
+	public StringValue Option(string name, string description, string? defaultVal = null)
+	{
+		var v = new StringValue { Value = defaultVal ?? "" };
+		_defs.Add(new ArgDef
+		{
+			Name = name,
+			Description = description,
+			Type = "string",
+			DefaultVal = defaultVal ?? "",
+			Value = v,
+		});
+
+		return v;
+	}
+
+	/// <summary>Define a boolean flag (--name). Presence sets it to true.</summary>
+	public BoolValue Flag(string name, string description)
+	{
+		var v = new BoolValue();
+		_defs.Add(new ArgDef
+		{
+			Name = name,
+			Description = description,
+			Type = "bool",
+			Value = v,
+		});
+
+		return v;
+	}
+
+	/// <summary>
+	/// Parse command-line arguments.
+	/// If --forge-meta is present, prints JSON metadata and exits.
+	/// If --help or -h is present, prints a help screen and exits.
+	/// </summary>
+	public void Parse()
+	{
+		var rawArgs = Environment.GetCommandLineArgs().Skip(1).ToArray();
+
+		if (rawArgs.Contains("--forge-meta"))
+		{
+			PrintMeta();
+			Environment.Exit(0);
+		}
+
+		if (rawArgs.Contains("--help") || rawArgs.Contains("-h"))
+		{
+			PrintHelp();
+			Environment.Exit(0);
+		}
+
+		var positionals = _defs.Where(d => d.Positional).ToList();
+		var posIdx = 0;
+
+		for (var i = 0; i < rawArgs.Length; i++)
+		{
+			var arg = rawArgs[i];
+
+			if (arg.StartsWith("--"))
+			{
+				var name = arg[2..];
+				var def = _defs.FirstOrDefault(d => !d.Positional && d.Name == name);
+				if (def is null)
+				{
+					Log.Error($"unknown flag: --{name}");
+					PrintHelp();
+					Environment.Exit(1);
+				}
+
+				if (def.Type == "bool")
+				{
+					((BoolValue)def.Value).Value = true;
+				}
+				else
+				{
+					if (i + 1 >= rawArgs.Length)
+					{
+						Log.Error($"flag --{name} requires a value");
+						Environment.Exit(1);
+					}
+					i++;
+					((StringValue)def.Value).Value = rawArgs[i];
+				}
+			}
+			else
+			{
+				if (posIdx >= positionals.Count)
+				{
+					Log.Error($"unexpected argument: {arg}");
+					PrintHelp();
+					Environment.Exit(1);
+				}
+				((StringValue)positionals[posIdx].Value).Value = arg;
+				posIdx++;
+			}
+		}
+
+		foreach (var p in positionals)
+		{
+			if (p.Required && ((StringValue)p.Value).Value == "")
+			{
+				Log.Error($"missing required argument: <{p.Name}>");
+				PrintHelp();
+				Environment.Exit(1);
+			}
+		}
+	}
+
+	private void PrintHelp()
+	{
+		var positionals = _defs.Where(d => d.Positional).ToList();
+		var flags = _defs.Where(d => !d.Positional).ToList();
+
+		var usage = $"forge {_name}";
+		foreach (var p in positionals) usage += $" <{p.Name}>";
+		if (flags.Count > 0) usage += " [flags]";
+
+		Console.WriteLine($"{_name} — {_description}\n");
+		Console.WriteLine($"Usage:\n  {usage}");
+
+		if (positionals.Count > 0)
+		{
+			Console.WriteLine("\nArgs:");
+			var maxLen = positionals.Max(p => p.Name.Length);
+			foreach (var p in positionals)
+				Console.WriteLine($"  {p.Name.PadRight(maxLen)}    {p.Description}");
+		}
+
+		if (flags.Count > 0)
+		{
+			Console.WriteLine("\nFlags:");
+			var flagNames = flags.Select(f => f.Type == "string" ? $"--{f.Name} <value>" : $"--{f.Name}").ToList();
+			var maxLen = flagNames.Max(n => n.Length);
+			for (var i = 0; i < flags.Count; i++)
+			{
+				var desc = flags[i].Description;
+				if (!string.IsNullOrEmpty(flags[i].DefaultVal)) desc += $" (default: {flags[i].DefaultVal})";
+				Console.WriteLine($"  {flagNames[i].PadRight(maxLen)}    {desc}");
+			}
+		}
+	}
+
+	private void PrintMeta()
+	{
+		var meta = new
+		{
+			name = _name,
+			description = _description,
+			args = _defs.Select(d =>
+			{
+				var obj = new Dictionary<string, object>
+				{
+					["name"] = d.Name,
+					["type"] = d.Type,
+					["description"] = d.Description,
+				};
+				if (d.Positional) obj["positional"] = true;
+				if (d.Required) obj["required"] = true;
+				if (!string.IsNullOrEmpty(d.DefaultVal)) obj["default"] = d.DefaultVal;
+
+				return obj;
+			}).ToArray(),
+		};
+
+		var json = System.Text.Json.JsonSerializer.Serialize(meta,
+			new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+		Console.WriteLine(json);
+	}
+
+	private class ArgDef
+	{
+		public required string Name { get; init; }
+		public required string Description { get; init; }
+		public required string Type { get; init; }
+		public bool Positional { get; init; }
+		public bool Required { get; init; }
+		public string DefaultVal { get; init; } = "";
+		public required object Value { get; init; }
+	}
+}
