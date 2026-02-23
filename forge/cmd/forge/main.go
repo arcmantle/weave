@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/arcmantle/forge/internal/docs"
 	"github.com/arcmantle/forge/internal/embedded"
 	"github.com/arcmantle/forge/internal/manifest"
 	"github.com/arcmantle/forge/internal/runner"
@@ -55,6 +56,8 @@ func main() {
 		fmt.Printf("forge %s\n", version)
 	case "--list", "-l":
 		listCommands()
+	case "--docs":
+		runDocs()
 	case "init":
 		runInit()
 	case "add":
@@ -74,6 +77,7 @@ func printUsage() {
 Usage:
   forge <command> [args...]
   forge --list              List available commands
+  forge --docs              Open interactive documentation
   forge --help              Show this help
   forge --version           Show version
   forge init                Scaffold forge.yaml and .forge/ directory
@@ -239,6 +243,14 @@ func listCommands() {
 				fmt.Printf("    \033[36m%-*s\033[0m  %s\n", maxLen-2, suffix, desc)
 			}
 		}
+	}
+}
+
+func runDocs() {
+	m := getManifest()
+	if err := docs.Serve(m, version); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
 	}
 }
 

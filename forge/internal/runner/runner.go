@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/arcmantle/forge/internal/embedded"
 	"github.com/arcmantle/forge/internal/manifest"
@@ -289,7 +291,7 @@ func compileGo(scriptPath string, manifestDir string) (string, error) {
 // runTs runs a TypeScript script directly via Node's native TS support.
 // No compilation step needed — Node 22+ strips types natively.
 func runTs(scriptPath string, manifestDir string, args []string) error {
-	absScript, err := prepareTs(scriptPath, manifestDir)
+absScript, err := PrepareTs(scriptPath, manifestDir)
 	if err != nil {
 		return err
 	}
@@ -306,8 +308,8 @@ func runTs(scriptPath string, manifestDir string, args []string) error {
 	return runCmd.Run()
 }
 
-// prepareTs extracts TS helpers and returns the absolute script path.
-func prepareTs(scriptPath string, manifestDir string) (string, error) {
+// PrepareTs extracts TS helpers and returns the absolute script path.
+func PrepareTs(scriptPath string, manifestDir string) (string, error) {
 	forgeDir := filepath.Join(manifestDir, ".forge")
 	forgeCache := filepath.Join(forgeDir, "cache")
 
@@ -514,7 +516,30 @@ func Meta(cmd manifest.Command, m *manifest.Manifest) ([]byte, error) {
 		return nil, fmt.Errorf("script not found: %s", scriptPath)
 	}
 
+	// Read the script source and check if it calls parse().
+	// Scripts that don't use parse() have no arguments to report,
+	// so we skip the expensive compilation + execution entirely.
+	source, err := os.ReadFile(scriptPath)
+	if err != nil {
+		return nil, fmt.Errorf("reading script: %w", err)
+	}
+	src := string(source)
+
 	ext := strings.ToLower(filepath.Ext(scriptPath))
+
+	hasParse := false
+	switch ext {
+	case ".go":
+		hasParse = strings.Contains(src, ".Parse()")
+	case ".ts":
+		hasParse = strings.Contains(src, ".parse()")
+	case ".cs":
+		hasParse = strings.Contains(src, ".Parse()")
+	}
+
+	if !hasParse {
+		return nil, nil
+	}
 
 	var metaCmd *exec.Cmd
 
@@ -527,7 +552,7 @@ func Meta(cmd manifest.Command, m *manifest.Manifest) ([]byte, error) {
 		metaCmd = exec.Command(bin, "--forge-meta")
 
 	case ".ts":
-		absScript, err := prepareTs(scriptPath, cmd.ManifestDir)
+		absScript, err := PrepareTs(scriptPath, cmd.ManifestDir)
 		if err != nil {
 			return nil, err
 		}
@@ -545,11 +570,31 @@ func Meta(cmd manifest.Command, m *manifest.Manifest) ([]byte, error) {
 	}
 
 	metaCmd.Dir = cmd.ManifestDir
-	output, err := metaCmd.Output()
-	if err != nil {
-		// Script doesn't support --forge-meta introspection.
-		return nil, nil
-	}
 
-	return output, nil
+	// Use a timeout so slow scripts (e.g. TS cold-start) don't hang forever.
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	done := make(chan struct{})
+	var output []byte
+	var metaErr error
+
+	go func() {
+		output, metaErr = metaCmd.Output()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		if metaErr != nil {
+			// Script doesn't support --forge-meta introspection.
+			return nil, nil
+		}
+		return output, nil
+	case <-ctx.Done():
+		if metaCmd.Process != nil {
+			metaCmd.Process.Kill()
+		}
+		return nil, fmt.Errorf("meta timed out after 30s")
+	}
 }

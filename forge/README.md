@@ -435,6 +435,26 @@ A palette of ANSI color constants is available for tagged output:
 
 Plus a `Colors` array for cycling through colors in multi-stream output.
 
+## Documentation Site
+
+Forge can serve an interactive documentation site for your project — generated from your manifest and script metadata:
+
+```bash
+forge --docs
+```
+
+This opens a browser with a single-page reference showing all commands, their arguments, flags, options, and composite step sequences. The data is gathered by running `--forge-meta` on all script commands in parallel.
+
+Features:
+
+- **Grouped sidebar** — nested commands (`:`) displayed under their group prefix
+- **Full argument docs** — positionals, flags, and options with types and defaults
+- **Composite step visualization** — sequential and parallel steps with clickable cross-references
+- **Search** — filter commands by name or description (`/` to focus)
+- **Auto-close** — the server shuts down when you close the browser tab
+
+No external dependencies — the HTML is embedded in the forge binary.
+
 ## Manifest Discovery
 
 Forge walks up from the current directory looking for `forge.yaml` files. Commands from child manifests override parent ones, allowing hierarchical command definitions across monorepos.

@@ -173,12 +173,18 @@ interface ArgDef {
 
 /** Holds a parsed string argument value. */
 export class StringValue {
-	constructor(public value: string = '') {}
+	value: string;
+	constructor(value: string = '') {
+		this.value = value;
+	}
 }
 
 /** Holds a parsed boolean flag value. */
 export class BoolValue {
-	constructor(public value: boolean = false) {}
+	value: boolean;
+	constructor(value: boolean = false) {
+		this.value = value;
+	}
 }
 
 /**
@@ -197,11 +203,13 @@ export function command(name: string, description: string): CmdBuilder {
 
 class CmdBuilder {
 	protected defs: ArgDef[] = [];
+	protected readonly cmdName: string;
+	protected readonly cmdDescription: string;
 
-	constructor(
-		protected readonly cmdName: string,
-		protected readonly cmdDescription: string,
-	) {}
+	constructor(cmdName: string, cmdDescription: string) {
+		this.cmdName = cmdName;
+		this.cmdDescription = cmdDescription;
+	}
 
 	/** Define a required positional argument. */
 	arg(name: string, description: string): StringValue {
