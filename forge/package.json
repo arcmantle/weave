@@ -1,14 +1,22 @@
 {
 	"name": "@arcmantle/forge",
-	"version": "0.3.0",
+	"version": "0.4.0",
 	"description": "Universal repo script runner",
 	"bin": {
 		"forge": "bin/forge.js"
 	},
 	"files": [
 		"bin/",
-		"dist/"
+		"README.md"
 	],
+	"optionalDependencies": {
+		"@arcmantle/forge-darwin-arm64": "0.4.0",
+		"@arcmantle/forge-darwin-x64": "0.4.0",
+		"@arcmantle/forge-linux-arm64": "0.4.0",
+		"@arcmantle/forge-linux-x64": "0.4.0",
+		"@arcmantle/forge-win32-arm64": "0.4.0",
+		"@arcmantle/forge-win32-x64": "0.4.0"
+	},
 	"publishConfig": {
 		"access": "public"
 	}
