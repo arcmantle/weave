@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -32,25 +33,49 @@ func main() {
 
 	fmt.Printf("Building %d targets...\n\n", len(targets))
 
-	for _, t := range targets {
-		out := "bin/" + t.name
-		fmt.Printf("  %-36s", t.name)
+	type buildResult struct {
+		name string
+		size int64
+		err  error
+	}
 
-		cmd := exec.Command("go", "build", "-trimpath", "-ldflags", ldflags, "-o", out, ".")
-		cmd.Env = append(os.Environ(),
-			"CGO_ENABLED=0",
-			"GOOS="+t.goos,
-			"GOARCH="+t.goarch,
-		)
-		cmd.Stderr = os.Stderr
+	results := make([]buildResult, len(targets))
 
-		if err := cmd.Run(); err != nil {
-			fmt.Printf("FAILED: %v\n", err)
+	var wg sync.WaitGroup
+	for i, t := range targets {
+		wg.Add(1)
+
+		go func(idx int, t target) {
+			defer wg.Done()
+
+			out := "bin/" + t.name
+			cmd := exec.Command("go", "build", "-trimpath", "-ldflags", ldflags, "-o", out, ".")
+			cmd.Env = append(os.Environ(),
+				"CGO_ENABLED=0",
+				"GOOS="+t.goos,
+				"GOARCH="+t.goarch,
+			)
+
+			if err := cmd.Run(); err != nil {
+				results[idx] = buildResult{name: t.name, err: err}
+
+				return
+			}
+
+			info, _ := os.Stat(out)
+			results[idx] = buildResult{name: t.name, size: info.Size()}
+		}(i, t)
+	}
+
+	wg.Wait()
+
+	for _, r := range results {
+		if r.err != nil {
+			fmt.Printf("  %-36s FAILED: %v\n", r.name, r.err)
 			os.Exit(1)
 		}
 
-		info, _ := os.Stat(out)
-		fmt.Printf("%6d KB\n", info.Size()/1024)
+		fmt.Printf("  %-36s%6d KB\n", r.name, r.size/1024)
 	}
 
 	// Try UPX compression if available.

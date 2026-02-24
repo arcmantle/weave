@@ -7,12 +7,14 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
 )
 
-var version = "1.0.0"
+var version = "1.2.0"
 
 func main() {
 	dryRun := flag.Bool("dry-run", false, "List what would be removed without deleting")
@@ -23,6 +25,9 @@ func main() {
 
 	yes := flag.Bool("yes", false, "Skip confirmation prompt")
 	shortYes := flag.Bool("y", false, "Shorthand for --yes")
+
+	jobs := flag.Int("jobs", 0, "Number of concurrent workers (default: number of CPUs)")
+	shortJobs := flag.Int("j", 0, "Shorthand for --jobs")
 
 	var excludes stringSlice
 	flag.Var(&excludes, "exclude", "Exclude directories from scanning (repeatable)")
@@ -56,11 +61,20 @@ func main() {
 		os.Exit(1)
 	}
 
+	j := *jobs
+	if *shortJobs > 0 {
+		j = *shortJobs
+	}
+	if j <= 0 {
+		j = runtime.NumCPU()
+	}
+
 	opts := options{
 		targetDir: absTarget,
 		dryRun:    *dryRun || *shortDryRun,
 		verbose:   *verbose || *shortVerbose,
 		yes:       *yes || *shortYes,
+		jobs:      j,
 		exclude:   buildExcludeSet(excludes),
 	}
 
@@ -81,6 +95,7 @@ type options struct {
 	dryRun    bool
 	verbose   bool
 	yes       bool
+	jobs      int
 	exclude   map[string]bool
 }
 
@@ -109,6 +124,7 @@ func printHelp() {
     -y, --yes              Skip confirmation prompt
     -d, --dry-run          List what would be removed without deleting
     -v, --verbose          Show size of each node_modules folder
+    -j, --jobs <n>         Number of concurrent workers (default: number of CPUs)
     -e, --exclude <dir>    Exclude directories from scanning (repeatable)
     -h, --help             Show this help message
     --version              Show version number
@@ -119,6 +135,7 @@ func printHelp() {
     yeetm --dry-run --verbose              Preview with sizes
     yeetm -y -e vendor                     Skip prompt, ignore vendor/
     yeetm -e dist -e build                 Exclude multiple directories
+    yeetm -j 16                            Use 16 workers for fast SSDs
 
   Install:
     go install github.com/arcmantle/yeetm@latest
@@ -129,13 +146,15 @@ func printHelp() {
 func run(opts options) int {
 	fmt.Printf("\n🔍 Scanning for node_modules in %s...\n\n", opts.targetDir)
 
-	dirs := findNodeModules(opts.targetDir, opts.exclude)
+	dirs := findNodeModules(opts.targetDir, opts.exclude, opts.jobs)
 
 	if len(dirs) == 0 {
 		fmt.Println("✨ No node_modules folders found. Already clean!")
 
 		return 0
 	}
+
+	sort.Strings(dirs)
 
 	plural := ""
 	if len(dirs) > 1 {
@@ -144,19 +163,20 @@ func run(opts options) int {
 
 	fmt.Printf("Found %d node_modules folder%s:\n\n", len(dirs), plural)
 
-	var totalSize int64
-	for _, dir := range dirs {
-		if opts.verbose {
-			size := getDirSize(dir)
-			totalSize += size
-			fmt.Printf("  📁 %s (%s)\n", dir, formatBytes(size))
-		} else {
+	if opts.verbose {
+		sizes := getDirSizes(dirs, opts.jobs)
+
+		var totalSize int64
+		for i, dir := range dirs {
+			totalSize += sizes[i]
+			fmt.Printf("  📁 %s (%s)\n", dir, formatBytes(sizes[i]))
+		}
+
+		fmt.Printf("\nTotal size: %s\n", formatBytes(totalSize))
+	} else {
+		for _, dir := range dirs {
 			fmt.Printf("  📁 %s\n", dir)
 		}
-	}
-
-	if opts.verbose {
-		fmt.Printf("\nTotal size: %s\n", formatBytes(totalSize))
 	}
 
 	if opts.dryRun {
@@ -176,7 +196,7 @@ func run(opts options) int {
 
 	fmt.Println("\n🗑️  Removing...")
 
-	removed, failed := removeDirs(dirs)
+	removed, failed := removeDirs(dirs, opts.jobs)
 
 	if failed == 0 {
 		fmt.Printf("\n✨ Yeeted %d folder%s!\n", removed, plural)
@@ -187,72 +207,162 @@ func run(opts options) int {
 	return 0
 }
 
-func findNodeModules(root string, exclude map[string]bool) []string {
-	var found []string
+// findNodeModules concurrently walks the directory tree to find all node_modules
+// folders. It uses a semaphore to bound concurrency and falls back to inline
+// processing when all workers are busy, preventing deadlocks.
+func findNodeModules(root string, exclude map[string]bool, jobs int) []string {
+	var (
+		mu    sync.Mutex
+		found = make([]string, 0, 32)
+		wg    sync.WaitGroup
+		sem   = make(chan struct{}, jobs)
+	)
 
-	entries, err := os.ReadDir(root)
-	if err != nil {
-		return found
+	var walk func(dir string)
+	walk = func(dir string) {
+		defer wg.Done()
+
+		entries, err := readDirUnsorted(dir)
+		if err != nil {
+			return
+		}
+
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+
+			name := entry.Name()
+
+			if exclude[name] {
+				continue
+			}
+
+			fullPath := filepath.Join(dir, name)
+
+			if name == "node_modules" {
+				mu.Lock()
+				found = append(found, fullPath)
+				mu.Unlock()
+			} else {
+				wg.Add(1)
+
+				select {
+				case sem <- struct{}{}:
+					go func() {
+						walk(fullPath)
+						<-sem
+					}()
+				default:
+					walk(fullPath)
+				}
+			}
+		}
 	}
 
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-
-		name := entry.Name()
-
-		if exclude[name] {
-			continue
-		}
-
-		fullPath := filepath.Join(root, name)
-
-		if name == "node_modules" {
-			found = append(found, fullPath)
-		} else {
-			found = append(found, findNodeModules(fullPath, exclude)...)
-		}
-	}
+	wg.Add(1)
+	walk(root)
+	wg.Wait()
 
 	return found
 }
 
-func getDirSize(path string) int64 {
-	var size int64
+// readDirUnsorted reads directory entries without sorting them, avoiding the
+// O(n log n) sort overhead imposed by os.ReadDir on every directory.
+func readDirUnsorted(dir string) ([]fs.DirEntry, error) {
+	f, err := os.Open(dir)
+	if err != nil {
+		return nil, err
+	}
 
-	_ = filepath.WalkDir(path, func(_ string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return nil
-		}
-		if !d.IsDir() {
-			info, err := d.Info()
-			if err == nil {
-				size += info.Size()
-			}
-		}
+	entries, err := f.ReadDir(-1)
+	f.Close()
 
-		return nil
-	})
-
-	return size
+	return entries, err
 }
+
+// getDirSizes concurrently computes the size of each directory using a shared
+// semaphore for bounded concurrency across all trees simultaneously.
+func getDirSizes(dirs []string, jobs int) []int64 {
+	sizes := make([]int64, len(dirs))
+
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, jobs)
+
+	for i, dir := range dirs {
+		wg.Add(1)
+
+		go func(idx int, path string) {
+			defer wg.Done()
+
+			var total atomic.Int64
+			getDirSize(path, sem, &total)
+			sizes[idx] = total.Load()
+		}(i, dir)
+	}
+
+	wg.Wait()
+
+	return sizes
+}
+
+// getDirSize concurrently computes total file size using the semaphore+select
+// fallback pattern. Falls back to inline processing when all workers are busy,
+// preventing deadlocks in recursive tree walks.
+func getDirSize(path string, sem chan struct{}, total *atomic.Int64) {
+	entries, err := readDirUnsorted(path)
+	if err != nil {
+		return
+	}
+
+	var (
+		wg   sync.WaitGroup
+		size int64
+	)
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			child := filepath.Join(path, entry.Name())
+
+			wg.Add(1)
+
+			select {
+			case sem <- struct{}{}:
+				go func(p string) {
+					defer wg.Done()
+					defer func() { <-sem }()
+
+					getDirSize(p, sem, total)
+				}(child)
+			default:
+				getDirSize(child, sem, total)
+				wg.Done()
+			}
+		} else if info, err := entry.Info(); err == nil {
+			size += info.Size()
+		}
+	}
+
+	total.Add(size)
+	wg.Wait()
+}
+
+var byteUnits = [...]string{"B", "KB", "MB", "GB", "TB"}
 
 func formatBytes(bytes int64) string {
 	if bytes == 0 {
 		return "0 B"
 	}
 
-	units := []string{"B", "KB", "MB", "GB", "TB"}
 	size := float64(bytes)
 	i := 0
 
-	for size >= 1024 && i < len(units)-1 {
+	for size >= 1024 && i < len(byteUnits)-1 {
 		size /= 1024
 		i++
 	}
 
-	return fmt.Sprintf("%.2f %s", size, units[i])
+	return fmt.Sprintf("%.2f %s", size, byteUnits[i])
 }
 
 func confirm() bool {
@@ -264,17 +374,94 @@ func confirm() bool {
 	return false
 }
 
-func removeDirs(dirs []string) (removed int, failed int) {
+// parallelRemoveAll deletes a directory tree using concurrent workers for both
+// subdirectory traversal and batched file deletion. Falls back to inline
+// processing when all workers are busy, preventing deadlocks.
+func parallelRemoveAll(root string, sem chan struct{}) error {
+	entries, err := readDirUnsorted(root)
+	if err != nil {
+		// Can't read — try direct remove (might be a file, symlink, or empty dir).
+		return os.Remove(root)
+	}
+
+	var (
+		wg    sync.WaitGroup
+		files = make([]string, 0, len(entries))
+	)
+
+	// Process subdirectories concurrently.
+	for _, entry := range entries {
+		child := filepath.Join(root, entry.Name())
+
+		if entry.IsDir() {
+			wg.Add(1)
+
+			select {
+			case sem <- struct{}{}:
+				go func(p string) {
+					defer wg.Done()
+					defer func() { <-sem }()
+
+					parallelRemoveAll(p, sem)
+				}(child)
+			default:
+				parallelRemoveAll(child, sem)
+				wg.Done()
+			}
+		} else {
+			files = append(files, child)
+		}
+	}
+
+	// Delete files in batches across goroutines to avoid per-file goroutine overhead
+	// while still parallelizing I/O across the filesystem.
+	const batchSize = 128
+	for i := 0; i < len(files); i += batchSize {
+		end := min(i+batchSize, len(files))
+		batch := files[i:end]
+
+		wg.Add(1)
+
+		select {
+		case sem <- struct{}{}:
+			go func(b []string) {
+				defer wg.Done()
+				defer func() { <-sem }()
+
+				for _, p := range b {
+					os.Remove(p)
+				}
+			}(batch)
+		default:
+			for _, p := range batch {
+				os.Remove(p)
+			}
+			wg.Done()
+		}
+	}
+
+	wg.Wait()
+
+	return os.Remove(root)
+}
+
+// removeDirs deletes directories concurrently using parallelRemoveAll with a
+// shared semaphore, allowing work to be distributed across all directory trees.
+func removeDirs(dirs []string, jobs int) (removed int, failed int) {
 	var wg sync.WaitGroup
 	var successCount atomic.Int32
 	var failCount atomic.Int32
 
+	// Shared semaphore across all directory trees for bounded I/O concurrency.
+	sem := make(chan struct{}, jobs*4)
+
 	for _, dir := range dirs {
 		wg.Add(1)
+
 		go func(d string) {
 			defer wg.Done()
 
-			if err := os.RemoveAll(d); err != nil {
+			if err := parallelRemoveAll(d, sem); err != nil {
 				fmt.Fprintf(os.Stderr, "  ❌ %s: %v\n", d, err)
 				failCount.Add(1)
 			} else {
