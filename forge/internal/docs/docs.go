@@ -336,7 +336,19 @@ func Serve(m *manifest.Manifest, version string) error {
 		w.WriteHeader(http.StatusOK)
 	})
 
+	// Shutdown on explicit tab-close signal.
 	server := &http.Server{Handler: mux}
+	mux.HandleFunc("/api/shutdown", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			server.Shutdown(context.Background())
+		}()
+	})
 
 	// Shutdown context — cancelled when heartbeat expires.
 	ctx, cancel := context.WithCancel(context.Background())

@@ -980,6 +980,16 @@ setInterval(() => {
 	fetch('/api/ping', { method: 'POST' }).catch(() => {});
 }, 2000);
 
+// Signal server shutdown when the tab/window is closed.
+document.addEventListener('visibilitychange', () => {
+	if (document.visibilityState === 'hidden') {
+		navigator.sendBeacon('/api/shutdown');
+	}
+});
+window.addEventListener('pagehide', () => {
+	navigator.sendBeacon('/api/shutdown');
+});
+
 // ─── State ───
 let activeCommand = null;
 let searchQuery = '';

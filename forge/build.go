@@ -160,7 +160,7 @@ func main() {
 		pkgDir := filepath.Join(distDir, "npm", platformPkgName(t))
 		color := colors[i%len(colors)]
 
-		fmt.Printf("  %s%s\033[0m publishing...", color, pkgName)
+		fmt.Printf("  %s%s\033[0m publishing...\n", color, pkgName)
 
 		publishArgs := []string{"publish", "--access", "public"}
 		if otp != "" {
@@ -168,18 +168,18 @@ func main() {
 		}
 		cmd := exec.Command("npm", publishArgs...)
 		cmd.Dir = pkgDir
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			fmt.Printf(" \033[31m✗ failed\033[0m\n")
-			fmt.Fprintf(os.Stderr, "%s\n", output)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
 			fatal("npm publish failed for %s: %v", pkgName, err)
 		}
 
-		fmt.Printf("\r  %s%s\033[0m \033[32m✓\033[0m published\n", color, pkgName)
+		fmt.Printf("  %s%s\033[0m \033[32m✓\033[0m published\n", color, pkgName)
 	}
 
 	// Publish main package.
-	fmt.Printf("  \033[36m@arcmantle/forge\033[0m publishing...")
+	fmt.Printf("  \033[36m@arcmantle/forge\033[0m publishing...\n")
 
 	mainArgs := []string{"publish", "--access", "public"}
 	if otp != "" {
@@ -187,10 +187,10 @@ func main() {
 	}
 	cmd := exec.Command("npm", mainArgs...)
 	cmd.Dir = forgeDir
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		fmt.Printf(" \033[31m✗ failed\033[0m\n")
-		fmt.Fprintf(os.Stderr, "%s\n", output)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
 		fatal("npm publish failed for @arcmantle/forge: %v", err)
 	}
 
