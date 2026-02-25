@@ -1,6 +1,6 @@
 {
 	"name": "yeetm",
-	"version": "1.0.0",
+	"version": "1.2.0",
 	"description": "Recursively remove all node_modules folders from any directory. Fast, safe, satisfying.",
 	"keywords": [
 		"node_modules",
@@ -32,6 +32,9 @@
 		"README.md",
 		"LICENSE"
 	],
+	"scripts": {
+		"prepublishOnly": "go run build.go"
+	},
 	"engines": {
 		"node": ">=18.0.0"
 	}
