@@ -29,10 +29,20 @@ class ForgeCommand extends HTMLElement {
 			const isLocal = cmd.source === 'local';
 			const sourceClass = isLocal ? 'meta-chip-local' : 'meta-chip-inherited';
 			const sourceLabel = isLocal ? 'local' : 'inherited from ' + esc(cmd.source);
-			html += '<div class="meta-chip ' + sourceClass + '">' + sourceLabel + '</div>';
+			if (!isLocal && cmd.sourcePath) {
+				const sourceUrl = vscodeFileUrl(cmd.sourcePath);
+				html += '<a class="meta-chip ' + sourceClass + ' meta-chip-link" href="' + esc(sourceUrl) + '" title="Open source directory in VS Code">' + sourceLabel + '</a>';
+			} else {
+				html += '<div class="meta-chip ' + sourceClass + '">' + sourceLabel + '</div>';
+			}
 		}
 		if (cmd.script) {
-			html += '<div class="meta-chip">' + fileSvg() + esc(cmd.script) + '</div>';
+			const scriptUrl = vscodeFileUrl(cmd.scriptPath);
+			if (scriptUrl) {
+				html += '<a class="meta-chip meta-chip-link" href="' + esc(scriptUrl) + '" title="Open in VS Code">' + fileSvg() + esc(cmd.script) + '</a>';
+			} else {
+				html += '<div class="meta-chip">' + fileSvg() + esc(cmd.script) + '</div>';
+			}
 		}
 		if (cmd.language) {
 			html += '<div class="meta-chip">' + esc(cmd.language) + '</div>';

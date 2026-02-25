@@ -42,7 +42,9 @@ type DocCommand struct {
 	Description string    `json:"description"`
 	CommandType string    `json:"commandType"` // "script" or "composite"
 	Source      string    `json:"source,omitempty"`
+	SourcePath  string    `json:"sourcePath,omitempty"`
 	Script      string    `json:"script,omitempty"`
+	ScriptPath  string    `json:"scriptPath,omitempty"`
 	Language    string    `json:"language,omitempty"`
 	Example     string    `json:"example,omitempty"`
 	Positionals []DocArg  `json:"positionals,omitempty"`
@@ -77,14 +79,19 @@ func Serve(m *manifest.Manifest, version string) error {
 		return fmt.Errorf("marshaling basic data: %w", err)
 	}
 
-	// Find an available port.
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return fmt.Errorf("finding available port: %w", err)
+	// Find an available port, starting from a stable default.
+	const basePort = 4000
+	var listener net.Listener
+	for port := basePort; ; port++ {
+		l, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+		if err == nil {
+			listener = l
+			break
+		}
 	}
 
 	port := listener.Addr().(*net.TCPAddr).Port
-	url := fmt.Sprintf("http://127.0.0.1:%d", port)
+	url := fmt.Sprintf("http://localhost:%d", port)
 
 	// Heartbeat tracking for auto-close.
 	var (
@@ -416,7 +423,6 @@ func Serve(m *manifest.Manifest, version string) error {
 	}()
 
 	fmt.Printf("\033[36mforge docs\033[0m serving at %s\n", url)
-	fmt.Println("The server will stop when you close the browser tab.")
 
 	// Open in chromeless app window.
 	openAppWindow(url)
@@ -425,8 +431,6 @@ func Serve(m *manifest.Manifest, version string) error {
 	if err := server.Serve(listener); err != http.ErrServerClosed {
 		return fmt.Errorf("server error: %w", err)
 	}
-
-	fmt.Println("\nBrowser tab closed — shutting down.")
 
 	return nil
 }
@@ -453,6 +457,7 @@ func collectBasicData(m *manifest.Manifest, version string) DocData {
 			Name:        name,
 			Description: cmd.Description,
 			Source:      commandSource(cmd.ManifestDir, cwd),
+			SourcePath:  filepath.Join(cmd.ManifestDir, manifest.ManifestFile),
 		}
 
 		if len(cmd.Run) > 0 {
@@ -481,6 +486,7 @@ func collectBasicData(m *manifest.Manifest, version string) DocData {
 			if !filepath.IsAbs(scriptPath) {
 				scriptPath = filepath.Join(cmd.ManifestDir, scriptPath)
 			}
+			doc.ScriptPath = filepath.Clean(scriptPath)
 			examplePath := filepath.Join(filepath.Dir(scriptPath), "example.md")
 			if content, err := os.ReadFile(examplePath); err == nil {
 				doc.Example = string(content)

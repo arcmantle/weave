@@ -300,7 +300,6 @@ absScript, err := PrepareTs(scriptPath, manifestDir)
 	nodeArgs = append(nodeArgs, args...)
 
 	runCmd := exec.Command("node", nodeArgs...)
-	runCmd.Dir = manifestDir
 	runCmd.Stdout = os.Stdout
 	runCmd.Stderr = os.Stderr
 	runCmd.Stdin = os.Stdin
@@ -492,10 +491,11 @@ func generateCsproj(helpersProjectDir string) string {
 `, helpersCsproj)
 }
 
-// execBinary runs a compiled binary from the manifest directory.
+// execBinary runs a compiled binary from the current working directory.
+// The CWD is the directory where forge was invoked, ensuring consistent
+// behavior regardless of which manifest defined the command.
 func execBinary(bin string, manifestDir string, args []string) error {
 	runCmd := exec.Command(bin, args...)
-	runCmd.Dir = manifestDir
 	runCmd.Stdout = os.Stdout
 	runCmd.Stderr = os.Stderr
 	runCmd.Stdin = os.Stdin
