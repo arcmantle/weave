@@ -57,10 +57,6 @@ func main() {
 		}
 	}
 
-	if version == "" {
-		fatal("usage: go run build.go <version> [--publish] [--otp=CODE]")
-	}
-
 	forgeDir, err := os.Getwd()
 	if err != nil {
 		fatal("failed to get working directory: %v", err)
@@ -68,6 +64,20 @@ func main() {
 
 	if _, err := os.Stat(filepath.Join(forgeDir, "go.mod")); os.IsNotExist(err) {
 		fatal("build.go must be run from the forge/ directory")
+	}
+
+	// If no version provided, read it from package.json.
+	if version == "" {
+		version, err = readVersionFromPackageJSON(forgeDir)
+		if err != nil {
+			fatal("no version argument and failed to read package.json: %v", err)
+		}
+
+		info("using version %s from package.json", version)
+	}
+
+	if publish && otp == "" {
+		fatal("--otp is required when publishing. Usage: go run build.go --publish --otp=CODE")
 	}
 
 	distDir := filepath.Join(forgeDir, "dist")
@@ -203,6 +213,27 @@ func main() {
 // platformPkgName returns the npm package name suffix, e.g. "forge-linux-x64".
 func platformPkgName(t target) string {
 	return fmt.Sprintf("forge-%s-%s", t.npmOs, t.npmCpu)
+}
+
+func readVersionFromPackageJSON(dir string) (string, error) {
+	data, err := os.ReadFile(filepath.Join(dir, "package.json"))
+	if err != nil {
+		return "", err
+	}
+
+	var pkg struct {
+		Version string `json:"version"`
+	}
+
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		return "", err
+	}
+
+	if pkg.Version == "" {
+		return "", fmt.Errorf("version field is empty in package.json")
+	}
+
+	return pkg.Version, nil
 }
 
 func writePlatformPackageJSON(dir string, t target, version string) error {
