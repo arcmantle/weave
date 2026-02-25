@@ -7,7 +7,7 @@ import (
 	"bufio"
 	"context"
 	"crypto/sha256"
-	_ "embed"
+	"embed"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -26,8 +26,8 @@ import (
 	"github.com/arcmantle/forge/internal/runner"
 )
 
-//go:embed template.html
-var templateHTML []byte
+//go:embed index.html styles.css utils.js markdown.js runner.js forge-sidebar.js forge-command.js app.js
+var staticFiles embed.FS
 
 // DocData is the top-level JSON structure injected into the HTML template.
 type DocData struct {
@@ -41,6 +41,7 @@ type DocCommand struct {
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
 	CommandType string    `json:"commandType"` // "script" or "composite"
+	Source      string    `json:"source,omitempty"`
 	Script      string    `json:"script,omitempty"`
 	Language    string    `json:"language,omitempty"`
 	Example     string    `json:"example,omitempty"`
@@ -120,22 +121,61 @@ func Serve(m *manifest.Manifest, version string) error {
 
 	mux := http.NewServeMux()
 
-	// Compute ETag from template content for browser caching.
-	hash := sha256.Sum256(templateHTML)
-	etag := `"` + hex.EncodeToString(hash[:8]) + `"`
+	// Serve embedded static files with ETag caching.
+	type staticAsset struct {
+		data        []byte
+		contentType string
+	}
 
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Header().Set("Cache-Control", "no-cache") // Always revalidate, but use 304 if unchanged.
-		w.Header().Set("ETag", etag)
+	assets := map[string]staticAsset{}
+	for _, entry := range []struct {
+		path        string
+		contentType string
+	}{
+		{"index.html", "text/html; charset=utf-8"},
+		{"styles.css", "text/css; charset=utf-8"},
+		{"utils.js", "application/javascript; charset=utf-8"},
+		{"markdown.js", "application/javascript; charset=utf-8"},
+		{"runner.js", "application/javascript; charset=utf-8"},
+		{"forge-sidebar.js", "application/javascript; charset=utf-8"},
+		{"forge-command.js", "application/javascript; charset=utf-8"},
+		{"app.js", "application/javascript; charset=utf-8"},
+	} {
+		data, _ := staticFiles.ReadFile(entry.path)
+		assets[entry.path] = staticAsset{data: data, contentType: entry.contentType}
+	}
 
-		if match := r.Header.Get("If-None-Match"); match == etag {
-			w.WriteHeader(http.StatusNotModified)
-			return
+	// Compute a combined ETag from all static assets.
+	h := sha256.New()
+	for _, name := range []string{"index.html", "styles.css", "utils.js", "markdown.js", "runner.js", "forge-sidebar.js", "forge-command.js", "app.js"} {
+		h.Write(assets[name].data)
+	}
+	etag := `"` + hex.EncodeToString(h.Sum(nil)[:8]) + `"`
+
+	serveAsset := func(name string) http.HandlerFunc {
+		asset := assets[name]
+		return func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", asset.contentType)
+			w.Header().Set("Cache-Control", "no-cache")
+			w.Header().Set("ETag", etag)
+
+			if match := r.Header.Get("If-None-Match"); match == etag {
+				w.WriteHeader(http.StatusNotModified)
+				return
+			}
+
+			w.Write(asset.data)
 		}
+	}
 
-		w.Write(templateHTML)
-	})
+	mux.HandleFunc("/", serveAsset("index.html"))
+	mux.HandleFunc("/styles.css", serveAsset("styles.css"))
+	mux.HandleFunc("/utils.js", serveAsset("utils.js"))
+	mux.HandleFunc("/markdown.js", serveAsset("markdown.js"))
+	mux.HandleFunc("/runner.js", serveAsset("runner.js"))
+	mux.HandleFunc("/forge-sidebar.js", serveAsset("forge-sidebar.js"))
+	mux.HandleFunc("/forge-command.js", serveAsset("forge-command.js"))
+	mux.HandleFunc("/app.js", serveAsset("app.js"))
 
 	// Returns basic manifest data immediately (no compilation required).
 	mux.HandleFunc("/api/data", func(w http.ResponseWriter, r *http.Request) {
@@ -399,6 +439,8 @@ func collectBasicData(m *manifest.Manifest, version string) DocData {
 		Version:     version,
 	}
 
+	cwd, _ := os.Getwd()
+
 	names := make([]string, 0, len(m.Commands))
 	for name := range m.Commands {
 		names = append(names, name)
@@ -410,6 +452,7 @@ func collectBasicData(m *manifest.Manifest, version string) DocData {
 		doc := DocCommand{
 			Name:        name,
 			Description: cmd.Description,
+			Source:      commandSource(cmd.ManifestDir, cwd),
 		}
 
 		if len(cmd.Run) > 0 {
@@ -576,6 +619,24 @@ func detectLanguage(script string) string {
 	default:
 		return ""
 	}
+}
+
+// commandSource returns a human-readable label indicating where a command is
+// defined. If the command is from the current working directory it returns
+// "local"; otherwise it returns the base directory name of the manifest.
+func commandSource(manifestDir, cwd string) string {
+	if manifestDir == "" || cwd == "" {
+		return ""
+	}
+
+	clean := filepath.Clean(manifestDir)
+	cwdClean := filepath.Clean(cwd)
+
+	if strings.EqualFold(clean, cwdClean) {
+		return "local"
+	}
+
+	return filepath.Base(clean)
 }
 
 // detectProjectName tries to derive a project name from the manifest directory.

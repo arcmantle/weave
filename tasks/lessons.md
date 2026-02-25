@@ -1,0 +1,8 @@
+# Lessons
+
+## Don't invent flags when the tool should just work
+
+**Date**: 2025-02-25
+**Context**: Added a `--local` flag to `forge add` for creating scripts in subdirectories.
+**Mistake**: Instead of making `forge add` smart enough to bootstrap a full setup when no forge.yaml exists in CWD, I added a separate `--local` flag with different behavior and required a separate `forge setup` call for intellisense.
+**Rule**: When a tool can detect the right thing to do from context (e.g. "no forge.yaml here, I should create one"), it should just do it. Don't add flags that force the user to understand internal distinctions. The command should do the complete job — create the manifest, the .forge/ directory, language support files, and the script — all in one step.

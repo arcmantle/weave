@@ -302,7 +302,7 @@ Creates `forge.yaml`, `.forge/` directory with helpers, schema, and project file
 
 ### `forge add <name>`
 
-Adds a new script with the correct boilerplate. Defaults to Go.
+Adds a new script with the correct boilerplate. Defaults to Go. If no `forge.yaml` exists in the current directory, forge bootstraps the full setup automatically — creating `forge.yaml`, `.forge/` directory, and language support files so intellisense works immediately.
 
 ```bash
 forge add deploy            # Go script
@@ -310,9 +310,18 @@ forge add deploy --ts       # TypeScript script
 forge add deploy --cs       # C# script
 ```
 
+This makes it easy to set up subdirectory-specific scripts in monorepos:
+
+```bash
+cd apps/frontend
+forge add dev --ts          # creates forge.yaml, .forge/, and the dev script
+forge dev                   # runs the local script
+forge install               # still works — inherited from parent forge.yaml
+```
+
 ### `forge setup <runtime>`
 
-Add support for a runtime after initial setup. Idempotent — safe to run multiple times.
+Add support for a runtime to enable intellisense. If the current directory has a `.forge/` directory, support files are created there. Otherwise, targets the closest manifest's project root. Idempotent — safe to run multiple times.
 
 ```bash
 forge setup ts              # Add TypeScript support
@@ -468,6 +477,38 @@ repo/
 ```
 
 Running `forge build` inside `apps/frontend/` will use the frontend manifest's `build` command if defined, falling back to the repo-wide one.
+
+### Auto-Discovered Scripts
+
+In addition to explicit `forge.yaml` entries, forge auto-discovers scripts from `.forge/scripts/` directories. Any subdirectory in `.forge/scripts/` that contains a script file matching `<name>.{go,ts,cs}` is automatically available as a command — no `forge.yaml` entry required.
+
+```bash
+repo/
+  forge.yaml              # repo-wide commands
+  .forge/scripts/
+    install/install.go    # auto-discovered as "install"
+  apps/
+    frontend/
+      .forge/scripts/
+        dev/dev.ts        # auto-discovered as "dev" (only from apps/frontend/)
+```
+
+Running `forge dev` inside `apps/frontend/` will find the auto-discovered `dev` script. Running `forge install` from anywhere under `repo/` will find the repo-wide `install` script.
+
+**Priority rules:**
+
+1. Explicit `forge.yaml` commands always override auto-discovered scripts at any level
+2. Closer directories override further ones (same as manifest discovery)
+3. Among auto-discovered scripts, the first matching extension wins (`.go` → `.ts` → `.cs`)
+
+This is useful for monorepos where subdirectories need local scripts without cluttering the root `forge.yaml`.
+
+To add scripts to a subdirectory:
+
+```bash
+cd apps/frontend
+forge add dev --ts           # bootstraps forge.yaml, .forge/, and the dev script
+```
 
 ## Compilation & Caching
 

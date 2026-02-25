@@ -58,6 +58,8 @@ func main() {
 		listCommands()
 	case "--docs":
 		runDocs()
+	case "--docs-serve":
+		runDocsServe()
 	case "init":
 		runInit()
 	case "add":
@@ -86,8 +88,9 @@ Usage:
   forge help <command>      Show detailed help for a command
 
 Commands are defined in forge.yaml and executed from .forge/ scripts.
-Manifests are discovered by walking up from the current directory,
-allowing hierarchical command definitions.`)
+Scripts in .forge/scripts/ are also auto-discovered without YAML entries.
+Manifests and scripts are discovered by walking up from the current
+directory, allowing hierarchical command definitions.`)
 }
 
 func getManifest() *manifest.Manifest {
@@ -103,13 +106,27 @@ func getManifest() *manifest.Manifest {
 		os.Exit(1)
 	}
 
-	if len(manifests) == 0 {
-		fmt.Fprintf(os.Stderr, "error: no forge.yaml found in current or parent directories\n")
+	// Auto-discover scripts from .forge/scripts/ directories.
+	// These provide commands without needing forge.yaml entries, but
+	// explicit YAML commands always take priority.
+	scriptManifests, err := manifest.DiscoverScripts(cwd)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+
+	if len(manifests) == 0 && len(scriptManifests) == 0 {
+		fmt.Fprintf(os.Stderr, "error: no forge.yaml or .forge/scripts/ found in current or parent directories\n")
 		fmt.Fprintf(os.Stderr, "  run 'forge init' to create one\n")
 		os.Exit(1)
 	}
 
-	return manifest.Merge(manifests)
+	// Merge script manifests first, then YAML manifests.
+	// Merge iterates in reverse, so YAML entries (last) take priority
+	// over auto-discovered scripts (first).
+	all := append(scriptManifests, manifests...)
+
+	return manifest.Merge(all)
 }
 
 // resolveCommand performs greedy longest-match resolution on CLI tokens.
@@ -247,6 +264,26 @@ func listCommands() {
 }
 
 func runDocs() {
+	// Re-exec ourselves with --docs-serve as a detached background process.
+	exePath, err := os.Executable()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+
+	cmd := exec.Command(exePath, "--docs-serve")
+	cmd.Dir, _ = os.Getwd()
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	detachProcess(cmd)
+
+	if err := cmd.Start(); err != nil {
+		fmt.Fprintf(os.Stderr, "error starting docs server: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func runDocsServe() {
 	m := getManifest()
 	if err := docs.Serve(m, version); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
@@ -361,41 +398,29 @@ func runAdd(args []string) {
 		}
 	}
 
-	// Find the manifest.
 	cwd, err := os.Getwd()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
 
-	manifests, err := manifest.Discover(cwd)
-	if err != nil || len(manifests) == 0 {
-		fmt.Fprintf(os.Stderr, "error: no forge.yaml found — run 'forge init' first\n")
+	manifestPath := filepath.Join(cwd, manifest.ManifestFile)
+
+	// If no forge.yaml exists in CWD, bootstrap the full setup here.
+	// This creates the .forge/ directory, language support files, and forge.yaml
+	// so intellisense works immediately.
+	if _, err := os.Stat(manifestPath); os.IsNotExist(err) {
+		bootstrapForge(cwd, lang)
+	}
+
+	// Now load the manifest (either pre-existing or just created).
+	m, err := manifest.Load(manifestPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
 
-	// Use the closest manifest.
-	m := manifests[0]
-	manifestDir := ""
-	for n, cmd := range m.Commands {
-		_ = n
-		manifestDir = cmd.ManifestDir
-		break
-	}
-
-	// Fallback: derive from the manifest file discovery.
-	if manifestDir == "" {
-		manifestDir = cwd
-	}
-
-	// Discover manifestPath by walking up.
-	manifestPath := filepath.Join(manifestDir, manifest.ManifestFile)
-	if _, err := os.Stat(manifestPath); os.IsNotExist(err) {
-		// Try CWD.
-		manifestPath = filepath.Join(cwd, manifest.ManifestFile)
-	}
-
-	forgeDir := filepath.Join(manifestDir, ".forge")
+	forgeDir := filepath.Join(cwd, ".forge")
 
 	// For colon-delimited names, use a hyphenated form for directories/files.
 	scriptName := strings.ReplaceAll(name, ":", "-")
@@ -466,6 +491,102 @@ Log.Info("running %s");
 	fmt.Printf("  manifest: %s\n", manifestPath)
 }
 
+// bootstrapForge creates a forge.yaml and .forge/ directory with language
+// support files in the given directory. This is a lightweight version of
+// runInit that only sets up the requested language, intended for when
+// forge add is run from a directory without an existing forge setup.
+func bootstrapForge(dir string, lang string) {
+	forgeDir := filepath.Join(dir, ".forge")
+	manifestPath := filepath.Join(dir, manifest.ManifestFile)
+
+	// Create .forge/scripts/ directory.
+	scriptsDir := filepath.Join(forgeDir, "scripts")
+	if err := os.MkdirAll(scriptsDir, 0o755); err != nil {
+		fmt.Fprintf(os.Stderr, "error creating .forge/scripts/: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Create .forge/.gitignore.
+	gitignore := "cache/\nforge-schema.json\n"
+	switch lang {
+	case "ts":
+		gitignore += "node_modules/\npackage-lock.json\npnpm-lock.yaml\n"
+	case "cs":
+		gitignore += "bin/\nobj/\n"
+	}
+	gitignorePath := filepath.Join(forgeDir, ".gitignore")
+	if err := os.WriteFile(gitignorePath, []byte(gitignore), 0o644); err != nil {
+		fmt.Fprintf(os.Stderr, "error writing .forge/.gitignore: %v\n", err)
+		os.Exit(1)
+	}
+
+	helpersDir := filepath.Join(forgeDir, "cache", "_helpers")
+
+	// Set up language support files for intellisense.
+	switch lang {
+	case "go":
+		goMod := "module forge-scripts\n\ngo 1.22\n\nrequire github.com/arcmantle/forge v0.0.0\n\nreplace github.com/arcmantle/forge => ./cache/_helpers\n"
+		goModPath := filepath.Join(forgeDir, "go.mod")
+		if err := os.WriteFile(goModPath, []byte(goMod), 0o644); err != nil {
+			fmt.Fprintf(os.Stderr, "error writing go.mod: %v\n", err)
+			os.Exit(1)
+		}
+		if _, err := embedded.ExtractHelpers(helpersDir); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not extract Go helpers: %v\n", err)
+		}
+
+	case "ts":
+		if _, err := embedded.ExtractHelpersTS(helpersDir); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not extract TS helpers: %v\n", err)
+		}
+		if err := embedded.EnsurePackageJSON(forgeDir, filepath.Join(forgeDir, "cache")); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not create package.json: %v\n", err)
+		}
+		if err := embedded.EnsureTSConfig(forgeDir); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not create tsconfig.json: %v\n", err)
+		}
+		// Install @types/node.
+		fmt.Println("\033[90minstalling @types/node...\033[0m")
+		installer := "pnpm"
+		installerArgs := []string{"install", "--silent"}
+		if !hasPnpm() {
+			installer = "npm"
+		}
+		installCmd := exec.Command(installer, installerArgs...)
+		installCmd.Dir = forgeDir
+		installCmd.Stdout = os.Stdout
+		installCmd.Stderr = os.Stderr
+		if err := installCmd.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not install @types/node: %v\n", err)
+		}
+
+	case "cs":
+		if _, err := embedded.ExtractHelpersCS(helpersDir); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not extract C# helpers: %v\n", err)
+		}
+		if err := embedded.EnsureCSProj(forgeDir); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not create ForgeScripts.csproj: %v\n", err)
+		}
+		if err := embedded.EnsureSLNX(forgeDir); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not create ForgeScripts.slnx: %v\n", err)
+		}
+	}
+
+	// Extract schema for forge.yaml intellisense.
+	if _, err := embedded.ExtractSchema(forgeDir); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not extract schema: %v\n", err)
+	}
+
+	// Create an empty forge.yaml.
+	forgeYaml := "# yaml-language-server: $schema=.forge/forge-schema.json\ncommands:\n"
+	if err := os.WriteFile(manifestPath, []byte(forgeYaml), 0o644); err != nil {
+		fmt.Fprintf(os.Stderr, "error writing forge.yaml: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Initialized forge in %s\n", dir)
+}
+
 func runSetup(args []string) {
 	if len(args) == 0 {
 		fmt.Fprintf(os.Stderr, "error: forge setup requires a runtime name\n")
@@ -501,27 +622,35 @@ func runSetup(args []string) {
 		}
 	}
 
-	// Find the forge project root.
+	// Determine the target directory for setup.
+	// If CWD has its own .forge/ directory, set up support files there.
+	// Otherwise, fall back to the closest manifest's project root.
 	cwd, err := os.Getwd()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
 
-	manifests, err := manifest.Discover(cwd)
-	if err != nil || len(manifests) == 0 {
-		fmt.Fprintf(os.Stderr, "error: no forge.yaml found — run 'forge init' first\n")
-		os.Exit(1)
-	}
-
-	// Derive the project root from the closest manifest.
 	projectDir := ""
-	for _, cmd := range manifests[0].Commands {
-		projectDir = cmd.ManifestDir
-		break
-	}
-	if projectDir == "" {
+	localForgeDir := filepath.Join(cwd, ".forge")
+	if info, err := os.Stat(localForgeDir); err == nil && info.IsDir() {
+		// CWD has its own .forge/ directory — set up here.
 		projectDir = cwd
+	} else {
+		// Fall back to the closest manifest's directory.
+		manifests, err := manifest.Discover(cwd)
+		if err != nil || len(manifests) == 0 {
+			fmt.Fprintf(os.Stderr, "error: no forge.yaml or .forge/ found — run 'forge init' first\n")
+			os.Exit(1)
+		}
+
+		for _, cmd := range manifests[0].Commands {
+			projectDir = cmd.ManifestDir
+			break
+		}
+		if projectDir == "" {
+			projectDir = cwd
+		}
 	}
 
 	forgeDir := filepath.Join(projectDir, ".forge")
