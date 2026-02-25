@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -14,7 +15,7 @@ import (
 	"sync/atomic"
 )
 
-var version = "1.2.0"
+var version = "dev"
 
 func main() {
 	dryRun := flag.Bool("dry-run", false, "List what would be removed without deleting")
@@ -25,6 +26,9 @@ func main() {
 
 	yes := flag.Bool("yes", false, "Skip confirmation prompt")
 	shortYes := flag.Bool("y", false, "Shorthand for --yes")
+
+	debug := flag.Bool("debug", false, "Show scan and removal errors")
+	shortDebug := flag.Bool("D", false, "Shorthand for --debug")
 
 	jobs := flag.Int("jobs", 0, "Number of concurrent workers (default: number of CPUs)")
 	shortJobs := flag.Int("j", 0, "Shorthand for --jobs")
@@ -73,6 +77,7 @@ func main() {
 		targetDir: absTarget,
 		dryRun:    *dryRun || *shortDryRun,
 		verbose:   *verbose || *shortVerbose,
+		debug:     *debug || *shortDebug,
 		yes:       *yes || *shortYes,
 		jobs:      j,
 		exclude:   buildExcludeSet(excludes),
@@ -94,6 +99,7 @@ type options struct {
 	targetDir string
 	dryRun    bool
 	verbose   bool
+	debug     bool
 	yes       bool
 	jobs      int
 	exclude   map[string]bool
@@ -124,6 +130,7 @@ func printHelp() {
     -y, --yes              Skip confirmation prompt
     -d, --dry-run          List what would be removed without deleting
     -v, --verbose          Show size of each node_modules folder
+    -D, --debug            Show scan and removal errors
     -j, --jobs <n>         Number of concurrent workers (default: number of CPUs)
     -e, --exclude <dir>    Exclude directories from scanning (repeatable)
     -h, --help             Show this help message
@@ -138,15 +145,20 @@ func printHelp() {
     yeetm -j 16                            Use 16 workers for fast SSDs
 
   Install:
-    go install github.com/arcmantle/yeetm@latest
+    go install github.com/arcmantle/weave/tooling/yeetm@latest
 `
 	fmt.Print(help)
 }
 
 func run(opts options) int {
+	var errw io.Writer
+	if opts.verbose || opts.debug {
+		errw = os.Stderr
+	}
+
 	fmt.Printf("\n🔍 Scanning for node_modules in %s...\n\n", opts.targetDir)
 
-	dirs := findNodeModules(opts.targetDir, opts.exclude, opts.jobs)
+	dirs := findNodeModules(opts.targetDir, opts.exclude, opts.jobs, errw)
 
 	if len(dirs) == 0 {
 		fmt.Println("✨ No node_modules folders found. Already clean!")
@@ -164,7 +176,7 @@ func run(opts options) int {
 	fmt.Printf("Found %d node_modules folder%s:\n\n", len(dirs), plural)
 
 	if opts.verbose {
-		sizes := getDirSizes(dirs, opts.jobs)
+		sizes := getDirSizes(dirs, opts.jobs, errw)
 
 		var totalSize int64
 		for i, dir := range dirs {
@@ -200,17 +212,19 @@ func run(opts options) int {
 
 	if failed == 0 {
 		fmt.Printf("\n✨ Yeeted %d folder%s!\n", removed, plural)
-	} else {
-		fmt.Printf("\n⚠️  Removed %d/%d folders. Some failed — check errors above.\n", removed, len(dirs))
+
+		return 0
 	}
 
-	return 0
+	fmt.Printf("\n⚠️  Removed %d/%d folders. Some failed — check errors above.\n", removed, len(dirs))
+
+	return 1
 }
 
 // findNodeModules concurrently walks the directory tree to find all node_modules
 // folders. It uses a semaphore to bound concurrency and falls back to inline
 // processing when all workers are busy, preventing deadlocks.
-func findNodeModules(root string, exclude map[string]bool, jobs int) []string {
+func findNodeModules(root string, exclude map[string]bool, jobs int, errw io.Writer) []string {
 	var (
 		mu    sync.Mutex
 		found = make([]string, 0, 32)
@@ -224,6 +238,10 @@ func findNodeModules(root string, exclude map[string]bool, jobs int) []string {
 
 		entries, err := readDirUnsorted(dir)
 		if err != nil {
+			if errw != nil {
+				fmt.Fprintf(errw, "  ⚠️  Could not scan %s: %v\n", dir, err)
+			}
+
 			return
 		}
 
@@ -283,7 +301,7 @@ func readDirUnsorted(dir string) ([]fs.DirEntry, error) {
 
 // getDirSizes concurrently computes the size of each directory using a shared
 // semaphore for bounded concurrency across all trees simultaneously.
-func getDirSizes(dirs []string, jobs int) []int64 {
+func getDirSizes(dirs []string, jobs int, errw io.Writer) []int64 {
 	sizes := make([]int64, len(dirs))
 
 	var wg sync.WaitGroup
@@ -296,7 +314,7 @@ func getDirSizes(dirs []string, jobs int) []int64 {
 			defer wg.Done()
 
 			var total atomic.Int64
-			getDirSize(path, sem, &total)
+			getDirSize(path, sem, &total, errw)
 			sizes[idx] = total.Load()
 		}(i, dir)
 	}
@@ -309,9 +327,13 @@ func getDirSizes(dirs []string, jobs int) []int64 {
 // getDirSize concurrently computes total file size using the semaphore+select
 // fallback pattern. Falls back to inline processing when all workers are busy,
 // preventing deadlocks in recursive tree walks.
-func getDirSize(path string, sem chan struct{}, total *atomic.Int64) {
+func getDirSize(path string, sem chan struct{}, total *atomic.Int64, errw io.Writer) {
 	entries, err := readDirUnsorted(path)
 	if err != nil {
+		if errw != nil {
+			fmt.Fprintf(errw, "  ⚠️  Could not read %s: %v\n", path, err)
+		}
+
 		return
 	}
 
@@ -332,11 +354,13 @@ func getDirSize(path string, sem chan struct{}, total *atomic.Int64) {
 					defer wg.Done()
 					defer func() { <-sem }()
 
-					getDirSize(p, sem, total)
+					getDirSize(p, sem, total, errw)
 				}(child)
 			default:
-				getDirSize(child, sem, total)
-				wg.Done()
+				func() {
+					defer wg.Done()
+					getDirSize(child, sem, total, errw)
+				}()
 			}
 		} else if info, err := entry.Info(); err == nil {
 			size += info.Size()
@@ -405,8 +429,10 @@ func parallelRemoveAll(root string, sem chan struct{}) error {
 					parallelRemoveAll(p, sem)
 				}(child)
 			default:
-				parallelRemoveAll(child, sem)
-				wg.Done()
+				func() {
+					defer wg.Done()
+					parallelRemoveAll(child, sem)
+				}()
 			}
 		} else {
 			files = append(files, child)
@@ -433,10 +459,12 @@ func parallelRemoveAll(root string, sem chan struct{}) error {
 				}
 			}(batch)
 		default:
-			for _, p := range batch {
-				os.Remove(p)
-			}
-			wg.Done()
+			func() {
+				defer wg.Done()
+				for _, p := range batch {
+					os.Remove(p)
+				}
+			}()
 		}
 	}
 

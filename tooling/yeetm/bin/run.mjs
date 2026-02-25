@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 const dir = join(fileURLToPath(import.meta.url), '..');
 
 const platform = process.platform;
-const arch = process.arch === 'x64' ? 'x64' : 'arm64';
+const arch = process.arch;
 
 const binaries = {
 	'win32-x64':    'yeetm-win-x64.exe',

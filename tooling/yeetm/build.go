@@ -3,6 +3,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -29,7 +30,8 @@ var targets = []target{
 
 func main() {
 	start := time.Now()
-	ldflags := "-s -w"
+	ver := readVersion()
+	ldflags := "-s -w -X main.version=" + ver
 
 	fmt.Printf("Building %d targets...\n\n", len(targets))
 
@@ -135,4 +137,22 @@ func main() {
 	}
 
 	fmt.Printf("\n  Total: %d KB\n", total/1024)
+}
+
+func readVersion() string {
+	data, err := os.ReadFile("package.json")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: could not read package.json: %v\n", err)
+
+		return "dev"
+	}
+
+	var pkg struct{ Version string }
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: could not parse package.json: %v\n", err)
+
+		return "dev"
+	}
+
+	return pkg.Version
 }

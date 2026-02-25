@@ -15,7 +15,7 @@ pnpx yeetm
 npm i -g yeetm
 
 # Or via Go
-go install github.com/arcmantle/yeetm@latest
+go install github.com/arcmantle/weave/tooling/yeetm@latest
 ```
 
 ## Usage
@@ -35,6 +35,8 @@ yeetm -e dist -e build                 # Exclude multiple directories
 | `--yes` | `-y` | Skip confirmation prompt |
 | `--dry-run` | `-d` | List what would be removed without deleting |
 | `--verbose` | `-v` | Show size of each node_modules folder |
+| `--debug` | `-D` | Show scan and removal errors |
+| `--jobs <n>` | `-j` | Number of concurrent workers (default: number of CPUs) |
 | `--exclude <dir>` | `-e` | Exclude directories from scanning (repeatable) |
 | `--help` | `-h` | Show help message |
 | `--version` | | Show version number |
