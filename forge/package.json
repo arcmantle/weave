@@ -1,6 +1,6 @@
 {
 	"name": "@arcmantle/forge",
-	"version": "0.5.0",
+	"version": "0.5.2",
 	"description": "Universal repo script runner",
 	"bin": {
 		"forge": "bin/forge.js"
@@ -10,16 +10,15 @@
 		"README.md"
 	],
 	"scripts": {
-		"build": "go run build.go",
-		"prepublishOnly": "go run build.go"
+		"build": "go run build.go"
 	},
 	"optionalDependencies": {
-		"@arcmantle/forge-darwin-arm64": "0.5.0",
-		"@arcmantle/forge-darwin-x64": "0.5.0",
-		"@arcmantle/forge-linux-arm64": "0.5.0",
-		"@arcmantle/forge-linux-x64": "0.5.0",
-		"@arcmantle/forge-win32-arm64": "0.5.0",
-		"@arcmantle/forge-win32-x64": "0.5.0"
+		"@arcmantle/forge-darwin-arm64": "0.5.2",
+		"@arcmantle/forge-darwin-x64": "0.5.2",
+		"@arcmantle/forge-linux-arm64": "0.5.2",
+		"@arcmantle/forge-linux-x64": "0.5.2",
+		"@arcmantle/forge-win32-arm64": "0.5.2",
+		"@arcmantle/forge-win32-x64": "0.5.2"
 	},
 	"publishConfig": {
 		"access": "public"

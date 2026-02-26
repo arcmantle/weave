@@ -10,6 +10,8 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -18,6 +20,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -76,9 +79,7 @@ func main() {
 		info("using version %s from package.json", version)
 	}
 
-	if publish && otp == "" {
-		fatal("--otp is required when publishing. Usage: go run build.go --publish --otp=CODE")
-	}
+
 
 	distDir := filepath.Join(forgeDir, "dist")
 
@@ -160,54 +161,111 @@ func main() {
 		return
 	}
 
-	fmt.Println()
-	info("publishing %d platform packages + main package...", len(targets))
-	fmt.Println()
+	// Prompt for OTP after build if not provided via flag.
+	if otp == "" {
+		fmt.Println()
+		fmt.Print("\033[36m?\033[0m Enter npm OTP code: ")
 
-	// Publish each platform package.
+		scanner := bufio.NewScanner(os.Stdin)
+		if scanner.Scan() {
+			otp = strings.TrimSpace(scanner.Text())
+		}
+
+		if otp == "" {
+			fatal("OTP is required for publishing")
+		}
+	}
+
+	// Build list of all packages to publish.
+	type publishJob struct {
+		name  string
+		dir   string
+		color string
+	}
+
+	var jobs []publishJob
 	for i, t := range targets {
-		pkgName := "@arcmantle/" + platformPkgName(t)
-		pkgDir := filepath.Join(distDir, "npm", platformPkgName(t))
-		color := colors[i%len(colors)]
-
-		fmt.Printf("  %s%s\033[0m publishing...\n", color, pkgName)
-
-		publishArgs := []string{"publish", "--access", "public"}
-		if otp != "" {
-			publishArgs = append(publishArgs, "--otp="+otp)
-		}
-		cmd := exec.Command("npm", publishArgs...)
-		cmd.Dir = pkgDir
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			fatal("npm publish failed for %s: %v", pkgName, err)
-		}
-
-		fmt.Printf("  %s%s\033[0m \033[32m✓\033[0m published\n", color, pkgName)
+		jobs = append(jobs, publishJob{
+			name:  "@arcmantle/" + platformPkgName(t),
+			dir:   filepath.Join(distDir, "npm", platformPkgName(t)),
+			color: colors[i%len(colors)],
+		})
 	}
-
-	// Publish main package.
-	fmt.Printf("  \033[36m@arcmantle/forge\033[0m publishing...\n")
-
-	mainArgs := []string{"publish", "--access", "public"}
-	if otp != "" {
-		mainArgs = append(mainArgs, "--otp="+otp)
-	}
-	cmd := exec.Command("npm", mainArgs...)
-	cmd.Dir = forgeDir
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		fatal("npm publish failed for @arcmantle/forge: %v", err)
-	}
-
-	fmt.Printf("\r  \033[36m@arcmantle/forge\033[0m \033[32m✓\033[0m published\n")
+	jobs = append(jobs, publishJob{
+		name:  "@arcmantle/forge",
+		dir:   forgeDir,
+		color: "\033[36m",
+	})
 
 	fmt.Println()
-	success("published forge v%s (%d packages)", version, len(targets)+1)
+	info("publishing %d packages in parallel...", len(jobs))
+	fmt.Println()
+
+	for _, j := range jobs {
+		fmt.Printf("  %s%s\033[0m publishing...\n", j.color, j.name)
+	}
+
+	type publishResult struct {
+		name   string
+		color  string
+		output string
+		err    error
+	}
+
+	results := make([]publishResult, len(jobs))
+	var wg sync.WaitGroup
+
+	for i, j := range jobs {
+		wg.Add(1)
+		go func(idx int, job publishJob) {
+			defer wg.Done()
+
+			publishArgs := []string{"publish", "--access", "public"}
+			if otp != "" {
+				publishArgs = append(publishArgs, "--otp="+otp)
+			}
+
+			cmd := exec.Command("npm", publishArgs...)
+			cmd.Dir = job.dir
+
+			var buf bytes.Buffer
+			cmd.Stdout = &buf
+			cmd.Stderr = &buf
+
+			err := cmd.Run()
+			results[idx] = publishResult{
+				name:   job.name,
+				color:  job.color,
+				output: buf.String(),
+				err:    err,
+			}
+		}(i, j)
+	}
+
+	wg.Wait()
+
+	fmt.Println()
+
+	var failed []publishResult
+	for _, r := range results {
+		if r.err != nil {
+			fmt.Printf("  %s%s\033[0m \033[31m✗ failed\033[0m\n", r.color, r.name)
+			failed = append(failed, r)
+		} else {
+			fmt.Printf("  %s%s\033[0m \033[32m✓\033[0m published\n", r.color, r.name)
+		}
+	}
+
+	if len(failed) > 0 {
+		fmt.Println()
+		for _, r := range failed {
+			fmt.Fprintf(os.Stderr, "\033[31m--- %s ---\033[0m\n%s\n", r.name, r.output)
+		}
+		fatal("%d of %d packages failed to publish", len(failed), len(jobs))
+	}
+
+	fmt.Println()
+	success("published forge v%s (%d packages)", version, len(jobs))
 }
 
 // platformPkgName returns the npm package name suffix, e.g. "forge-linux-x64".
