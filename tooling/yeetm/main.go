@@ -21,7 +21,7 @@ func main() {
 	dryRun := flag.Bool("dry-run", false, "List what would be removed without deleting")
 	shortDryRun := flag.Bool("d", false, "Shorthand for --dry-run")
 
-	verbose := flag.Bool("verbose", false, "Show size of each node_modules folder")
+	verbose := flag.Bool("verbose", false, "Show size of each matching folder")
 	shortVerbose := flag.Bool("v", false, "Shorthand for --verbose")
 
 	yes := flag.Bool("yes", false, "Skip confirmation prompt")
@@ -32,6 +32,9 @@ func main() {
 
 	jobs := flag.Int("jobs", 0, "Number of concurrent workers (default: number of CPUs)")
 	shortJobs := flag.Int("j", 0, "Shorthand for --jobs")
+
+	dir := flag.String("dir", "", "Target directory to scan (defaults to cwd)")
+	shortDir := flag.String("C", "", "Shorthand for --dir")
 
 	var excludes stringSlice
 	flag.Var(&excludes, "exclude", "Exclude directories from scanning (repeatable)")
@@ -54,9 +57,24 @@ func main() {
 		os.Exit(0)
 	}
 
-	targetDir := "."
-	if flag.NArg() > 0 {
-		targetDir = flag.Arg(0)
+	patterns := flag.Args()
+	if len(patterns) == 0 {
+		patterns = []string{"node_modules"}
+	}
+
+	for _, p := range patterns {
+		if _, err := filepath.Match(p, ""); err != nil {
+			fmt.Fprintf(os.Stderr, "Invalid glob pattern %q: %v\n", p, err)
+			os.Exit(1)
+		}
+	}
+
+	targetDir := *dir
+	if *shortDir != "" {
+		targetDir = *shortDir
+	}
+	if targetDir == "" {
+		targetDir = "."
 	}
 
 	absTarget, err := filepath.Abs(targetDir)
@@ -75,6 +93,7 @@ func main() {
 
 	opts := options{
 		targetDir: absTarget,
+		patterns:  patterns,
 		dryRun:    *dryRun || *shortDryRun,
 		verbose:   *verbose || *shortVerbose,
 		debug:     *debug || *shortDebug,
@@ -97,6 +116,7 @@ func (s *stringSlice) Set(val string) error {
 
 type options struct {
 	targetDir string
+	patterns  []string
 	dryRun    bool
 	verbose   bool
 	debug     bool
@@ -118,18 +138,19 @@ func buildExcludeSet(extra []string) map[string]bool {
 
 func printHelp() {
 	help := `
-  yeetm — Recursively remove all node_modules folders
+  yeetm — Recursively find and remove directories and files by name
 
   Usage:
-    yeetm [directory] [options]
+    yeetm [patterns...] [options]
 
   Arguments:
-    directory              Target directory to scan (defaults to cwd)
+    patterns               Glob patterns to match names (default: node_modules)
 
   Options:
+    -C, --dir <path>       Target directory to scan (defaults to cwd)
     -y, --yes              Skip confirmation prompt
     -d, --dry-run          List what would be removed without deleting
-    -v, --verbose          Show size of each node_modules folder
+    -v, --verbose          Show size of each match
     -D, --debug            Show scan and removal errors
     -j, --jobs <n>         Number of concurrent workers (default: number of CPUs)
     -e, --exclude <dir>    Exclude directories from scanning (repeatable)
@@ -138,16 +159,32 @@ func printHelp() {
 
   Examples:
     yeetm                                 Yeet all node_modules from cwd
-    yeetm ./projects                      Target a specific directory
+    yeetm dist                             Remove all dist directories
+    yeetm node_modules dist                Remove both node_modules and dist
+    yeetm "*.log"                           Remove all .log files
+    yeetm -C ./projects                    Target a specific directory
     yeetm --dry-run --verbose              Preview with sizes
     yeetm -y -e vendor                     Skip prompt, ignore vendor/
-    yeetm -e dist -e build                 Exclude multiple directories
+    yeetm -e .cache -e build               Exclude multiple directories
     yeetm -j 16                            Use 16 workers for fast SSDs
 
   Install:
     go install github.com/arcmantle/weave/tooling/yeetm@latest
+
+	Safety:
+	  Never traverses symlinked/reparse-point directories
 `
 	fmt.Print(help)
+}
+
+func patternLabel(patterns []string) string {
+	return strings.Join(patterns, ", ")
+}
+
+// match represents a found file or directory that matched a pattern.
+type match struct {
+	path  string
+	isDir bool
 }
 
 func run(opts options) int {
@@ -156,49 +193,61 @@ func run(opts options) int {
 		errw = os.Stderr
 	}
 
-	fmt.Printf("\n🔍 Scanning for node_modules in %s...\n\n", opts.targetDir)
+	label := patternLabel(opts.patterns)
 
-	dirs := findNodeModules(opts.targetDir, opts.exclude, opts.jobs, errw)
+	fmt.Printf("\n🔍 Scanning for %s in %s...\n\n", label, opts.targetDir)
 
-	if len(dirs) == 0 {
-		fmt.Println("✨ No node_modules folders found. Already clean!")
+	matches := findMatches(opts.targetDir, opts.patterns, opts.exclude, opts.jobs, errw)
+
+	if len(matches) == 0 {
+		fmt.Printf("✨ No matches for %s found. Already clean!\n", label)
 
 		return 0
 	}
 
-	sort.Strings(dirs)
+	sort.Slice(matches, func(i, j int) bool {
+		return matches[i].path < matches[j].path
+	})
 
-	plural := ""
-	if len(dirs) > 1 {
-		plural = "s"
+	var dirCount, fileCount int
+	for _, m := range matches {
+		if m.isDir {
+			dirCount++
+		} else {
+			fileCount++
+		}
 	}
 
-	fmt.Printf("Found %d node_modules folder%s:\n\n", len(dirs), plural)
+	fmt.Printf("Found %d match%s", len(matches), matchPlural(len(matches)))
+	if dirCount > 0 && fileCount > 0 {
+		fmt.Printf(" (%d folder%s, %d file%s)", dirCount, plural2(dirCount), fileCount, plural2(fileCount))
+	}
+	fmt.Print(":\n\n")
 
 	if opts.verbose {
-		sizes := getDirSizes(dirs, opts.jobs, errw)
+		sizes := getMatchSizes(matches, opts.jobs, errw)
 
 		var totalSize int64
-		for i, dir := range dirs {
+		for i, m := range matches {
 			totalSize += sizes[i]
-			fmt.Printf("  📁 %s (%s)\n", dir, formatBytes(sizes[i]))
+			fmt.Printf("  %s %s (%s)\n", matchIcon(m.isDir), m.path, formatBytes(sizes[i]))
 		}
 
 		fmt.Printf("\nTotal size: %s\n", formatBytes(totalSize))
 	} else {
-		for _, dir := range dirs {
-			fmt.Printf("  📁 %s\n", dir)
+		for _, m := range matches {
+			fmt.Printf("  %s %s\n", matchIcon(m.isDir), m.path)
 		}
 	}
 
 	if opts.dryRun {
-		fmt.Println("\n🏃 Dry run — no folders were removed.")
+		fmt.Println("\n🏃 Dry run — nothing was removed.")
 
 		return 0
 	}
 
 	if !opts.yes {
-		fmt.Printf("\nRemove %d folder%s? (y/N) ", len(dirs), plural)
+		fmt.Printf("\nRemove %d match%s? (y/N) ", len(matches), matchPlural(len(matches)))
 		if !confirm() {
 			fmt.Println("\n👋 Aborted.")
 
@@ -208,26 +257,109 @@ func run(opts options) int {
 
 	fmt.Println("\n🗑️  Removing...")
 
-	removed, failed := removeDirs(dirs, opts.jobs)
+	removed, failed := removeMatches(matches, opts.jobs)
 
 	if failed == 0 {
-		fmt.Printf("\n✨ Yeeted %d folder%s!\n", removed, plural)
+		fmt.Printf("\n✨ Yeeted %d match%s!\n", removed, matchPlural(removed))
 
 		return 0
 	}
 
-	fmt.Printf("\n⚠️  Removed %d/%d folders. Some failed — check errors above.\n", removed, len(dirs))
+	fmt.Printf("\n⚠️  Removed %d/%d. Some failed — check errors above.\n", removed, len(matches))
 
 	return 1
 }
 
-// findNodeModules concurrently walks the directory tree to find all node_modules
-// folders. It uses a semaphore to bound concurrency and falls back to inline
-// processing when all workers are busy, preventing deadlocks.
-func findNodeModules(root string, exclude map[string]bool, jobs int, errw io.Writer) []string {
+func matchPlural(n int) string {
+	if n == 1 {
+		return ""
+	}
+
+	return "es"
+}
+
+func plural2(n int) string {
+	if n == 1 {
+		return ""
+	}
+
+	return "s"
+}
+
+func matchIcon(isDir bool) string {
+	if isDir {
+		return "📁"
+	}
+
+	return "📄"
+}
+
+// isLinkedPath returns true if path resolves through a symlink/reparse-point
+// to a different location. This catches regular symlinks and Windows junctions.
+func isLinkedPath(path string) bool {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return false
+	}
+
+	if info.Mode()&os.ModeSymlink != 0 {
+		return true
+	}
+
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return false
+	}
+
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return false
+	}
+
+	absResolved, err := filepath.Abs(resolved)
+	if err != nil {
+		return false
+	}
+
+	cleanPath := filepath.Clean(absPath)
+	cleanResolved := filepath.Clean(absResolved)
+
+	if runtime.GOOS == "windows" {
+		return !strings.EqualFold(cleanPath, cleanResolved)
+	}
+
+	return cleanPath != cleanResolved
+}
+
+// isGlob returns true if the pattern contains glob metacharacters.
+func isGlob(pattern string) bool {
+	return strings.ContainsAny(pattern, "*?[")
+}
+
+// matchesAny returns true if name matches any of the given glob patterns.
+// Plain patterns (no glob syntax) use direct string comparison for speed.
+func matchesAny(name string, patterns []string) bool {
+	for _, p := range patterns {
+		if isGlob(p) {
+			if matched, _ := filepath.Match(p, name); matched {
+				return true
+			}
+		} else if name == p {
+			return true
+		}
+	}
+
+	return false
+}
+
+// findMatches concurrently walks the directory tree to find all files and
+// directories matching any of the given glob patterns. It uses a semaphore to
+// bound concurrency and falls back to inline processing when all workers are
+// busy, preventing deadlocks.
+func findMatches(root string, patterns []string, exclude map[string]bool, jobs int, errw io.Writer) []match {
 	var (
 		mu    sync.Mutex
-		found = make([]string, 0, 32)
+		found = make([]match, 0, 32)
 		wg    sync.WaitGroup
 		sem   = make(chan struct{}, jobs)
 	)
@@ -246,34 +378,39 @@ func findNodeModules(root string, exclude map[string]bool, jobs int, errw io.Wri
 		}
 
 		for _, entry := range entries {
-			if !entry.IsDir() {
-				continue
-			}
-
 			name := entry.Name()
-
-			if exclude[name] {
-				continue
-			}
-
 			fullPath := filepath.Join(dir, name)
 
-			if name == "node_modules" {
-				mu.Lock()
-				found = append(found, fullPath)
-				mu.Unlock()
-			} else {
-				wg.Add(1)
+			if entry.IsDir() {
+				isLinkedDir := isLinkedPath(fullPath)
 
-				select {
-				case sem <- struct{}{}:
-					go func() {
-						walk(fullPath)
-						<-sem
-					}()
-				default:
-					walk(fullPath)
+				if exclude[name] {
+					continue
 				}
+
+				if matchesAny(name, patterns) {
+					mu.Lock()
+					found = append(found, match{path: fullPath, isDir: true})
+					mu.Unlock()
+				} else if isLinkedDir {
+					continue
+				} else {
+					wg.Add(1)
+
+					select {
+					case sem <- struct{}{}:
+						go func() {
+							walk(fullPath)
+							<-sem
+						}()
+					default:
+						walk(fullPath)
+					}
+				}
+			} else if matchesAny(name, patterns) {
+				mu.Lock()
+				found = append(found, match{path: fullPath, isDir: false})
+				mu.Unlock()
 			}
 		}
 	}
@@ -299,24 +436,30 @@ func readDirUnsorted(dir string) ([]fs.DirEntry, error) {
 	return entries, err
 }
 
-// getDirSizes concurrently computes the size of each directory using a shared
-// semaphore for bounded concurrency across all trees simultaneously.
-func getDirSizes(dirs []string, jobs int, errw io.Writer) []int64 {
-	sizes := make([]int64, len(dirs))
+// getMatchSizes concurrently computes the size of each match. Directories use
+// the concurrent tree-walking size computation. Files use a single stat call.
+func getMatchSizes(matches []match, jobs int, errw io.Writer) []int64 {
+	sizes := make([]int64, len(matches))
 
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, jobs)
 
-	for i, dir := range dirs {
-		wg.Add(1)
+	for i, m := range matches {
+		if m.isDir {
+			wg.Add(1)
 
-		go func(idx int, path string) {
-			defer wg.Done()
+			go func(idx int, path string) {
+				defer wg.Done()
 
-			var total atomic.Int64
-			getDirSize(path, sem, &total, errw)
-			sizes[idx] = total.Load()
-		}(i, dir)
+				var total atomic.Int64
+				getDirSize(path, sem, &total, errw)
+				sizes[idx] = total.Load()
+			}(i, m.path)
+		} else {
+			if info, err := os.Stat(m.path); err == nil {
+				sizes[i] = info.Size()
+			}
+		}
 	}
 
 	wg.Wait()
@@ -345,6 +488,13 @@ func getDirSize(path string, sem chan struct{}, total *atomic.Int64, errw io.Wri
 	for _, entry := range entries {
 		if entry.IsDir() {
 			child := filepath.Join(path, entry.Name())
+			if isLinkedPath(child) {
+				if info, err := os.Lstat(child); err == nil {
+					size += info.Size()
+				}
+
+				continue
+			}
 
 			wg.Add(1)
 
@@ -418,6 +568,12 @@ func parallelRemoveAll(root string, sem chan struct{}) error {
 		child := filepath.Join(root, entry.Name())
 
 		if entry.IsDir() {
+			if isLinkedPath(child) {
+				files = append(files, child)
+
+				continue
+			}
+
 			wg.Add(1)
 
 			select {
@@ -473,9 +629,9 @@ func parallelRemoveAll(root string, sem chan struct{}) error {
 	return os.Remove(root)
 }
 
-// removeDirs deletes directories concurrently using parallelRemoveAll with a
-// shared semaphore, allowing work to be distributed across all directory trees.
-func removeDirs(dirs []string, jobs int) (removed int, failed int) {
+// removeMatches deletes matches concurrently. Directories use parallelRemoveAll
+// with a shared semaphore. Files use a simple os.Remove.
+func removeMatches(matches []match, jobs int) (removed int, failed int) {
 	var wg sync.WaitGroup
 	var successCount atomic.Int32
 	var failCount atomic.Int32
@@ -483,20 +639,31 @@ func removeDirs(dirs []string, jobs int) (removed int, failed int) {
 	// Shared semaphore across all directory trees for bounded I/O concurrency.
 	sem := make(chan struct{}, jobs*4)
 
-	for _, dir := range dirs {
+	for _, m := range matches {
 		wg.Add(1)
 
-		go func(d string) {
+		go func(m match) {
 			defer wg.Done()
 
-			if err := parallelRemoveAll(d, sem); err != nil {
-				fmt.Fprintf(os.Stderr, "  ❌ %s: %v\n", d, err)
+			var err error
+			if m.isDir {
+				if isLinkedPath(m.path) {
+					err = os.Remove(m.path)
+				} else {
+					err = parallelRemoveAll(m.path, sem)
+				}
+			} else {
+				err = os.Remove(m.path)
+			}
+
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "  ❌ %s: %v\n", m.path, err)
 				failCount.Add(1)
 			} else {
-				fmt.Printf("  ✅ %s\n", d)
+				fmt.Printf("  ✅ %s\n", m.path)
 				successCount.Add(1)
 			}
-		}(dir)
+		}(m)
 	}
 
 	wg.Wait()

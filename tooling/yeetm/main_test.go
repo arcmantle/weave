@@ -65,42 +65,62 @@ func mkNodeModules(t *testing.T, root string, projects []string) {
 	}
 }
 
-// --- Functional Tests: findNodeModules ---
+// --- Functional Tests: findMatches ---
 
-func TestFindNodeModulesBasic(t *testing.T) {
+var defaultPatterns = []string{"node_modules"}
+
+// matchPaths extracts sorted paths from a slice of matches.
+func matchPaths(matches []match) []string {
+	paths := make([]string, len(matches))
+	for i, m := range matches {
+		paths[i] = m.path
+	}
+
+	sort.Strings(paths)
+
+	return paths
+}
+
+func TestFindMatchesBasic(t *testing.T) {
 	root := t.TempDir()
 	projects := []string{"app", "lib", "tools"}
 	mkNodeModules(t, root, projects)
 
-	dirs := findNodeModules(root, map[string]bool{".git": true}, 4, nil)
-	sort.Strings(dirs)
+	matches := findMatches(root, defaultPatterns, map[string]bool{".git": true}, 4, nil)
+	paths := matchPaths(matches)
 
-	if len(dirs) != len(projects) {
-		t.Fatalf("expected %d dirs, got %d", len(projects), len(dirs))
+	if len(paths) != len(projects) {
+		t.Fatalf("expected %d matches, got %d", len(projects), len(paths))
 	}
 
 	sort.Strings(projects)
 	for i, p := range projects {
 		expected := filepath.Join(root, p, "node_modules")
-		if dirs[i] != expected {
-			t.Errorf("dirs[%d] = %q, want %q", i, dirs[i], expected)
+		if paths[i] != expected {
+			t.Errorf("paths[%d] = %q, want %q", i, paths[i], expected)
+		}
+	}
+
+	for _, m := range matches {
+		if !m.isDir {
+			t.Errorf("%q should be a directory match", m.path)
 		}
 	}
 }
 
-func TestFindNodeModulesNested(t *testing.T) {
+func TestFindMatchesNested(t *testing.T) {
 	root := t.TempDir()
 	projects := []string{"packages/core", "packages/ui"}
 	mkNodeModules(t, root, projects)
 
-	dirs := findNodeModules(root, map[string]bool{".git": true}, 4, nil)
+	matches := findMatches(root, defaultPatterns, map[string]bool{".git": true}, 4, nil)
 
-	if len(dirs) != 2 {
-		t.Fatalf("expected 2 dirs, got %d: %v", len(dirs), dirs)
+	if len(matches) != 2 {
+		t.Fatalf("expected 2 matches, got %d: %v", len(matches), matchPaths(matches))
 	}
 }
 
-func TestFindNodeModulesDoesNotRecurseIntoNodeModules(t *testing.T) {
+func TestFindMatchesDoesNotRecurseIntoMatch(t *testing.T) {
 	root := t.TempDir()
 
 	// Create node_modules with a nested node_modules inside.
@@ -109,35 +129,35 @@ func TestFindNodeModulesDoesNotRecurseIntoNodeModules(t *testing.T) {
 	os.MkdirAll(inner, 0o755)
 	os.WriteFile(filepath.Join(inner, "index.js"), []byte("x"), 0o644)
 
-	dirs := findNodeModules(root, map[string]bool{".git": true}, 4, nil)
+	matches := findMatches(root, defaultPatterns, map[string]bool{".git": true}, 4, nil)
 
-	if len(dirs) != 1 {
-		t.Fatalf("expected 1 dir (should not recurse into node_modules), got %d: %v", len(dirs), dirs)
+	if len(matches) != 1 {
+		t.Fatalf("expected 1 match (should not recurse into match), got %d: %v", len(matches), matchPaths(matches))
 	}
 
-	if dirs[0] != outer {
-		t.Errorf("got %q, want %q", dirs[0], outer)
+	if matches[0].path != outer {
+		t.Errorf("got %q, want %q", matches[0].path, outer)
 	}
 }
 
-func TestFindNodeModulesExclude(t *testing.T) {
+func TestFindMatchesExclude(t *testing.T) {
 	root := t.TempDir()
 	mkNodeModules(t, root, []string{"app", "vendor"})
 
 	exclude := map[string]bool{".git": true, "vendor": true}
-	dirs := findNodeModules(root, exclude, 4, nil)
+	matches := findMatches(root, defaultPatterns, exclude, 4, nil)
 
-	if len(dirs) != 1 {
-		t.Fatalf("expected 1 dir (vendor excluded), got %d: %v", len(dirs), dirs)
+	if len(matches) != 1 {
+		t.Fatalf("expected 1 match (vendor excluded), got %d: %v", len(matches), matchPaths(matches))
 	}
 
 	expected := filepath.Join(root, "app", "node_modules")
-	if dirs[0] != expected {
-		t.Errorf("got %q, want %q", dirs[0], expected)
+	if matches[0].path != expected {
+		t.Errorf("got %q, want %q", matches[0].path, expected)
 	}
 }
 
-func TestFindNodeModulesGitExcludedByDefault(t *testing.T) {
+func TestFindMatchesGitExcludedByDefault(t *testing.T) {
 	root := t.TempDir()
 
 	// Create a .git directory with a node_modules inside.
@@ -147,23 +167,23 @@ func TestFindNodeModulesGitExcludedByDefault(t *testing.T) {
 	// Also create a normal one.
 	mkNodeModules(t, root, []string{"app"})
 
-	dirs := findNodeModules(root, buildExcludeSet(nil), 4, nil)
+	matches := findMatches(root, defaultPatterns, buildExcludeSet(nil), 4, nil)
 
-	if len(dirs) != 1 {
-		t.Fatalf("expected 1 dir (.git excluded), got %d: %v", len(dirs), dirs)
+	if len(matches) != 1 {
+		t.Fatalf("expected 1 match (.git excluded), got %d: %v", len(matches), matchPaths(matches))
 	}
 }
 
-func TestFindNodeModulesEmpty(t *testing.T) {
+func TestFindMatchesEmpty(t *testing.T) {
 	root := t.TempDir()
-	dirs := findNodeModules(root, map[string]bool{".git": true}, 4, nil)
+	matches := findMatches(root, defaultPatterns, map[string]bool{".git": true}, 4, nil)
 
-	if len(dirs) != 0 {
-		t.Fatalf("expected 0 dirs, got %d", len(dirs))
+	if len(matches) != 0 {
+		t.Fatalf("expected 0 matches, got %d", len(matches))
 	}
 }
 
-func TestFindNodeModulesErrorLogging(t *testing.T) {
+func TestFindMatchesErrorLogging(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("directory permissions work differently on Windows")
 	}
@@ -178,11 +198,11 @@ func TestFindNodeModulesErrorLogging(t *testing.T) {
 	t.Cleanup(func() { os.Chmod(unreadable, 0o755) })
 
 	var buf bytes.Buffer
-	dirs := findNodeModules(root, map[string]bool{".git": true}, 4, &buf)
+	matches := findMatches(root, defaultPatterns, map[string]bool{".git": true}, 4, &buf)
 
 	// Should still find the one we can access.
-	if len(dirs) != 1 {
-		t.Fatalf("expected 1 dir, got %d", len(dirs))
+	if len(matches) != 1 {
+		t.Fatalf("expected 1 match, got %d", len(matches))
 	}
 
 	// The error should have been logged.
@@ -191,26 +211,365 @@ func TestFindNodeModulesErrorLogging(t *testing.T) {
 	}
 }
 
-func TestFindNodeModulesNoErrorLogWithoutWriter(t *testing.T) {
+func TestFindMatchesNoErrorLogWithoutWriter(t *testing.T) {
 	root := t.TempDir()
 
 	// With nil errw, errors are silently ignored (no panic, no crash).
-	dirs := findNodeModules(root, map[string]bool{".git": true}, 4, nil)
+	matches := findMatches(root, defaultPatterns, map[string]bool{".git": true}, 4, nil)
 
-	if len(dirs) != 0 {
-		t.Fatalf("expected 0 dirs, got %d", len(dirs))
+	if len(matches) != 0 {
+		t.Fatalf("expected 0 matches, got %d", len(matches))
 	}
 }
 
-func TestFindNodeModulesMultipleExcludes(t *testing.T) {
+func TestFindMatchesMultipleExcludes(t *testing.T) {
 	root := t.TempDir()
 	mkNodeModules(t, root, []string{"app", "vendor", "dist", "build"})
 
 	exclude := buildExcludeSet([]string{"vendor", "dist", "build"})
-	dirs := findNodeModules(root, exclude, 4, nil)
+	matches := findMatches(root, defaultPatterns, exclude, 4, nil)
 
-	if len(dirs) != 1 {
-		t.Fatalf("expected 1 dir, got %d: %v", len(dirs), dirs)
+	if len(matches) != 1 {
+		t.Fatalf("expected 1 match, got %d: %v", len(matches), matchPaths(matches))
+	}
+}
+
+func TestFindMatchesCustomPattern(t *testing.T) {
+	root := t.TempDir()
+
+	// Create dist directories instead of node_modules.
+	for _, p := range []string{"app", "lib"} {
+		d := filepath.Join(root, p, "dist")
+		os.MkdirAll(d, 0o755)
+		os.WriteFile(filepath.Join(d, "bundle.js"), []byte("x"), 0o644)
+	}
+
+	matches := findMatches(root, []string{"dist"}, map[string]bool{".git": true}, 4, nil)
+	paths := matchPaths(matches)
+
+	if len(paths) != 2 {
+		t.Fatalf("expected 2 matches, got %d: %v", len(paths), paths)
+	}
+}
+
+func TestFindMatchesMultiplePatterns(t *testing.T) {
+	root := t.TempDir()
+
+	// Create both node_modules and dist directories.
+	os.MkdirAll(filepath.Join(root, "app", "node_modules"), 0o755)
+	os.MkdirAll(filepath.Join(root, "app", "dist"), 0o755)
+	os.MkdirAll(filepath.Join(root, "lib", "dist"), 0o755)
+
+	matches := findMatches(root, []string{"node_modules", "dist"}, map[string]bool{".git": true}, 4, nil)
+
+	if len(matches) != 3 {
+		t.Fatalf("expected 3 matches, got %d: %v", len(matches), matchPaths(matches))
+	}
+}
+
+func TestFindMatchesGlobWildcard(t *testing.T) {
+	root := t.TempDir()
+
+	// Create directories matching a wildcard pattern.
+	os.MkdirAll(filepath.Join(root, "app", ".cache"), 0o755)
+	os.MkdirAll(filepath.Join(root, "lib", ".cached"), 0o755)
+	os.MkdirAll(filepath.Join(root, "tools", "cache"), 0o755)
+
+	matches := findMatches(root, []string{".cache*"}, map[string]bool{".git": true}, 4, nil)
+	paths := matchPaths(matches)
+
+	if len(paths) != 2 {
+		t.Fatalf("expected 2 matches (.cache and .cached), got %d: %v", len(paths), paths)
+	}
+}
+
+func TestFindMatchesFiles(t *testing.T) {
+	root := t.TempDir()
+
+	// Create files matching a glob pattern.
+	os.MkdirAll(filepath.Join(root, "app"), 0o755)
+	os.MkdirAll(filepath.Join(root, "lib"), 0o755)
+	os.WriteFile(filepath.Join(root, "app", "debug.log"), []byte("log1"), 0o644)
+	os.WriteFile(filepath.Join(root, "lib", "error.log"), []byte("log2"), 0o644)
+	os.WriteFile(filepath.Join(root, "app", "main.go"), []byte("code"), 0o644)
+
+	matches := findMatches(root, []string{"*.log"}, map[string]bool{".git": true}, 4, nil)
+	paths := matchPaths(matches)
+
+	if len(paths) != 2 {
+		t.Fatalf("expected 2 file matches, got %d: %v", len(paths), paths)
+	}
+
+	for _, m := range matches {
+		if m.isDir {
+			t.Errorf("%q should be a file match, not dir", m.path)
+		}
+	}
+}
+
+func TestFindMatchesMixedFilesAndDirs(t *testing.T) {
+	root := t.TempDir()
+
+	// Create both a directory and file that match different patterns.
+	os.MkdirAll(filepath.Join(root, "app", "node_modules"), 0o755)
+	os.WriteFile(filepath.Join(root, "app", "debug.log"), []byte("log"), 0o644)
+
+	matches := findMatches(root, []string{"node_modules", "*.log"}, map[string]bool{".git": true}, 4, nil)
+
+	if len(matches) != 2 {
+		t.Fatalf("expected 2 matches (1 dir + 1 file), got %d: %v", len(matches), matchPaths(matches))
+	}
+
+	var dirs, files int
+	for _, m := range matches {
+		if m.isDir {
+			dirs++
+		} else {
+			files++
+		}
+	}
+
+	if dirs != 1 || files != 1 {
+		t.Errorf("expected 1 dir + 1 file, got %d dirs + %d files", dirs, files)
+	}
+}
+
+func TestFindMatchesFileExactName(t *testing.T) {
+	root := t.TempDir()
+
+	// Match files by exact name (no glob).
+	os.MkdirAll(filepath.Join(root, "a"), 0o755)
+	os.MkdirAll(filepath.Join(root, "b"), 0o755)
+	os.WriteFile(filepath.Join(root, "a", ".DS_Store"), []byte("x"), 0o644)
+	os.WriteFile(filepath.Join(root, "b", ".DS_Store"), []byte("x"), 0o644)
+	os.WriteFile(filepath.Join(root, "b", "keep.txt"), []byte("x"), 0o644)
+
+	matches := findMatches(root, []string{".DS_Store"}, map[string]bool{".git": true}, 4, nil)
+
+	if len(matches) != 2 {
+		t.Fatalf("expected 2 matches, got %d: %v", len(matches), matchPaths(matches))
+	}
+
+	for _, m := range matches {
+		if m.isDir {
+			t.Errorf("%q should be a file match", m.path)
+		}
+	}
+}
+
+func TestMatchesAny(t *testing.T) {
+	tests := []struct {
+		name     string
+		patterns []string
+		want     bool
+	}{
+		{"node_modules", []string{"node_modules"}, true},
+		{"dist", []string{"node_modules"}, false},
+		{"dist", []string{"node_modules", "dist"}, true},
+		{".cache", []string{".cache*"}, true},
+		{".cached", []string{".cache*"}, true},
+		{"cache", []string{".cache*"}, false},
+		{"build-output", []string{"build*"}, true},
+		{"my-build", []string{"build*"}, false},
+	}
+
+	for _, tt := range tests {
+		got := matchesAny(tt.name, tt.patterns)
+		if got != tt.want {
+			t.Errorf("matchesAny(%q, %v) = %v, want %v", tt.name, tt.patterns, got, tt.want)
+		}
+	}
+}
+
+func TestIsGlob(t *testing.T) {
+	tests := []struct {
+		pattern string
+		want    bool
+	}{
+		{"node_modules", false},
+		{"dist", false},
+		{".cache", false},
+		{".cache*", true},
+		{"build-*", true},
+		{"dist?", true},
+		{"[abc]", true},
+		{"node_modules*", true},
+		{"plain-name", false},
+	}
+
+	for _, tt := range tests {
+		got := isGlob(tt.pattern)
+		if got != tt.want {
+			t.Errorf("isGlob(%q) = %v, want %v", tt.pattern, got, tt.want)
+		}
+	}
+}
+
+func TestRunCustomPattern(t *testing.T) {
+	root := t.TempDir()
+
+	for _, p := range []string{"app", "lib"} {
+		d := filepath.Join(root, p, "dist")
+		os.MkdirAll(d, 0o755)
+		os.WriteFile(filepath.Join(d, "bundle.js"), []byte("x"), 0o644)
+	}
+
+	code := run(options{
+		targetDir: root,
+		patterns:  []string{"dist"},
+		yes:       true,
+		jobs:      4,
+		exclude:   buildExcludeSet(nil),
+	})
+
+	if code != 0 {
+		t.Errorf("exit code = %d, want 0", code)
+	}
+
+	for _, p := range []string{"app", "lib"} {
+		d := filepath.Join(root, p, "dist")
+		if _, err := os.Stat(d); !os.IsNotExist(err) {
+			t.Errorf("%s should have been removed", d)
+		}
+	}
+}
+
+func TestRunMultiplePatterns(t *testing.T) {
+	root := t.TempDir()
+
+	os.MkdirAll(filepath.Join(root, "app", "node_modules"), 0o755)
+	os.MkdirAll(filepath.Join(root, "app", "dist"), 0o755)
+
+	code := run(options{
+		targetDir: root,
+		patterns:  []string{"node_modules", "dist"},
+		yes:       true,
+		jobs:      4,
+		exclude:   buildExcludeSet(nil),
+	})
+
+	if code != 0 {
+		t.Errorf("exit code = %d, want 0", code)
+	}
+
+	for _, name := range []string{"node_modules", "dist"} {
+		d := filepath.Join(root, "app", name)
+		if _, err := os.Stat(d); !os.IsNotExist(err) {
+			t.Errorf("%s should have been removed", d)
+		}
+	}
+}
+
+func TestMatchPlural(t *testing.T) {
+	tests := []struct {
+		n    int
+		want string
+	}{
+		{0, "es"},
+		{1, ""},
+		{2, "es"},
+		{10, "es"},
+	}
+
+	for _, tt := range tests {
+		got := matchPlural(tt.n)
+		if got != tt.want {
+			t.Errorf("matchPlural(%d) = %q, want %q", tt.n, got, tt.want)
+		}
+	}
+}
+
+func TestMatchIcon(t *testing.T) {
+	if matchIcon(true) != "📁" {
+		t.Error("dir icon should be \U0001f4c1")
+	}
+
+	if matchIcon(false) != "📄" {
+		t.Error("file icon should be \U0001f4c4")
+	}
+}
+
+func TestRunFileGlob(t *testing.T) {
+	root := t.TempDir()
+
+	os.MkdirAll(filepath.Join(root, "app"), 0o755)
+	os.MkdirAll(filepath.Join(root, "lib"), 0o755)
+	os.WriteFile(filepath.Join(root, "app", "debug.log"), []byte("log1"), 0o644)
+	os.WriteFile(filepath.Join(root, "lib", "error.log"), []byte("log2"), 0o644)
+	os.WriteFile(filepath.Join(root, "app", "main.go"), []byte("code"), 0o644)
+
+	code := run(options{
+		targetDir: root,
+		patterns:  []string{"*.log"},
+		yes:       true,
+		jobs:      4,
+		exclude:   buildExcludeSet(nil),
+	})
+
+	if code != 0 {
+		t.Errorf("exit code = %d, want 0", code)
+	}
+
+	// .log files should be removed.
+	for _, f := range []string{"app/debug.log", "lib/error.log"} {
+		p := filepath.Join(root, f)
+		if _, err := os.Stat(p); !os.IsNotExist(err) {
+			t.Errorf("%s should have been removed", p)
+		}
+	}
+
+	// .go file should still exist.
+	p := filepath.Join(root, "app", "main.go")
+	if _, err := os.Stat(p); os.IsNotExist(err) {
+		t.Error("main.go should still exist")
+	}
+}
+
+func TestRunMixedDirsAndFiles(t *testing.T) {
+	root := t.TempDir()
+
+	os.MkdirAll(filepath.Join(root, "app", "node_modules"), 0o755)
+	os.WriteFile(filepath.Join(root, "app", "node_modules", "pkg.json"), []byte("{}"), 0o644)
+	os.WriteFile(filepath.Join(root, "app", ".DS_Store"), []byte("x"), 0o644)
+
+	code := run(options{
+		targetDir: root,
+		patterns:  []string{"node_modules", ".DS_Store"},
+		yes:       true,
+		jobs:      4,
+		exclude:   buildExcludeSet(nil),
+	})
+
+	if code != 0 {
+		t.Errorf("exit code = %d, want 0", code)
+	}
+
+	nm := filepath.Join(root, "app", "node_modules")
+	if _, err := os.Stat(nm); !os.IsNotExist(err) {
+		t.Error("node_modules should have been removed")
+	}
+
+	ds := filepath.Join(root, "app", ".DS_Store")
+	if _, err := os.Stat(ds); !os.IsNotExist(err) {
+		t.Error(".DS_Store should have been removed")
+	}
+}
+
+func TestPatternLabel(t *testing.T) {
+	tests := []struct {
+		patterns []string
+		want     string
+	}{
+		{[]string{"node_modules"}, "node_modules"},
+		{[]string{"node_modules", "dist"}, "node_modules, dist"},
+		{[]string{"dist", ".cache", "build"}, "dist, .cache, build"},
+	}
+
+	for _, tt := range tests {
+		got := patternLabel(tt.patterns)
+		if got != tt.want {
+			t.Errorf("patternLabel(%v) = %q, want %q", tt.patterns, got, tt.want)
+		}
 	}
 }
 
@@ -272,9 +631,9 @@ func TestBuildExcludeSetCustom(t *testing.T) {
 	}
 }
 
-// --- Functional Tests: getDirSizes / getDirSize ---
+// --- Functional Tests: getMatchSizes / getDirSize ---
 
-func TestGetDirSizes(t *testing.T) {
+func TestGetMatchSizesDirs(t *testing.T) {
 	root := t.TempDir()
 
 	dir1 := filepath.Join(root, "a")
@@ -286,7 +645,12 @@ func TestGetDirSizes(t *testing.T) {
 	os.WriteFile(filepath.Join(dir1, "f2.txt"), make([]byte, 2000), 0o644)
 	os.WriteFile(filepath.Join(dir2, "f1.txt"), make([]byte, 500), 0o644)
 
-	sizes := getDirSizes([]string{dir1, dir2}, 4, nil)
+	matches := []match{
+		{path: dir1, isDir: true},
+		{path: dir2, isDir: true},
+	}
+
+	sizes := getMatchSizes(matches, 4, nil)
 
 	if sizes[0] != 3000 {
 		t.Errorf("dir1 size = %d, want 3000", sizes[0])
@@ -297,7 +661,57 @@ func TestGetDirSizes(t *testing.T) {
 	}
 }
 
-func TestGetDirSizesNested(t *testing.T) {
+func TestGetMatchSizesFiles(t *testing.T) {
+	root := t.TempDir()
+
+	file1 := filepath.Join(root, "a.log")
+	file2 := filepath.Join(root, "b.log")
+	os.WriteFile(file1, make([]byte, 1234), 0o644)
+	os.WriteFile(file2, make([]byte, 5678), 0o644)
+
+	matches := []match{
+		{path: file1, isDir: false},
+		{path: file2, isDir: false},
+	}
+
+	sizes := getMatchSizes(matches, 4, nil)
+
+	if sizes[0] != 1234 {
+		t.Errorf("file1 size = %d, want 1234", sizes[0])
+	}
+
+	if sizes[1] != 5678 {
+		t.Errorf("file2 size = %d, want 5678", sizes[1])
+	}
+}
+
+func TestGetMatchSizesMixed(t *testing.T) {
+	root := t.TempDir()
+
+	dir1 := filepath.Join(root, "nm")
+	os.MkdirAll(dir1, 0o755)
+	os.WriteFile(filepath.Join(dir1, "f.txt"), make([]byte, 100), 0o644)
+
+	file1 := filepath.Join(root, "a.log")
+	os.WriteFile(file1, make([]byte, 200), 0o644)
+
+	matches := []match{
+		{path: dir1, isDir: true},
+		{path: file1, isDir: false},
+	}
+
+	sizes := getMatchSizes(matches, 4, nil)
+
+	if sizes[0] != 100 {
+		t.Errorf("dir size = %d, want 100", sizes[0])
+	}
+
+	if sizes[1] != 200 {
+		t.Errorf("file size = %d, want 200", sizes[1])
+	}
+}
+
+func TestGetMatchSizesNested(t *testing.T) {
 	root := t.TempDir()
 
 	sub := filepath.Join(root, "sub")
@@ -306,24 +720,26 @@ func TestGetDirSizesNested(t *testing.T) {
 	os.WriteFile(filepath.Join(root, "f1.txt"), make([]byte, 100), 0o644)
 	os.WriteFile(filepath.Join(sub, "f2.txt"), make([]byte, 200), 0o644)
 
-	sizes := getDirSizes([]string{root}, 4, nil)
+	matches := []match{{path: root, isDir: true}}
+	sizes := getMatchSizes(matches, 4, nil)
 
 	if sizes[0] != 300 {
 		t.Errorf("total size = %d, want 300", sizes[0])
 	}
 }
 
-func TestGetDirSizesEmpty(t *testing.T) {
+func TestGetMatchSizesEmpty(t *testing.T) {
 	root := t.TempDir()
 
-	sizes := getDirSizes([]string{root}, 4, nil)
+	matches := []match{{path: root, isDir: true}}
+	sizes := getMatchSizes(matches, 4, nil)
 
 	if sizes[0] != 0 {
 		t.Errorf("empty dir size = %d, want 0", sizes[0])
 	}
 }
 
-func TestGetDirSizesErrorLogging(t *testing.T) {
+func TestGetMatchSizesDirErrorLogging(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("directory permissions work differently on Windows")
 	}
@@ -338,7 +754,8 @@ func TestGetDirSizesErrorLogging(t *testing.T) {
 	t.Cleanup(func() { os.Chmod(unreadable, 0o755) })
 
 	var buf bytes.Buffer
-	sizes := getDirSizes([]string{root}, 4, &buf)
+	matches := []match{{path: root, isDir: true}}
+	sizes := getMatchSizes(matches, 4, &buf)
 
 	// Should still count the accessible file.
 	if sizes[0] != 100 {
@@ -487,20 +904,20 @@ func TestParallelRemoveAllManyFiles(t *testing.T) {
 	}
 }
 
-// --- Functional Tests: removeDirs ---
+// --- Functional Tests: removeMatches ---
 
-func TestRemoveDirs(t *testing.T) {
+func TestRemoveMatchesDirs(t *testing.T) {
 	root := t.TempDir()
-	dirs := make([]string, 3)
+	matches := make([]match, 3)
 
-	for i := range dirs {
+	for i := range matches {
 		d := filepath.Join(root, "nm_"+itoa(i))
 		os.MkdirAll(d, 0o755)
 		os.WriteFile(filepath.Join(d, "f.txt"), []byte("x"), 0o644)
-		dirs[i] = d
+		matches[i] = match{path: d, isDir: true}
 	}
 
-	removed, failed := removeDirs(dirs, 4)
+	removed, failed := removeMatches(matches, 4)
 
 	if removed != 3 {
 		t.Errorf("removed = %d, want 3", removed)
@@ -510,18 +927,74 @@ func TestRemoveDirs(t *testing.T) {
 		t.Errorf("failed = %d, want 0", failed)
 	}
 
-	for _, d := range dirs {
-		if _, err := os.Stat(d); !os.IsNotExist(err) {
-			t.Errorf("directory %q should have been removed", d)
+	for _, m := range matches {
+		if _, err := os.Stat(m.path); !os.IsNotExist(err) {
+			t.Errorf("directory %q should have been removed", m.path)
 		}
 	}
 }
 
-func TestRemoveDirsNonExistent(t *testing.T) {
+func TestRemoveMatchesFiles(t *testing.T) {
 	root := t.TempDir()
-	dirs := []string{filepath.Join(root, "nonexistent")}
 
-	removed, failed := removeDirs(dirs, 4)
+	file1 := filepath.Join(root, "a.log")
+	file2 := filepath.Join(root, "b.log")
+	os.WriteFile(file1, []byte("log1"), 0o644)
+	os.WriteFile(file2, []byte("log2"), 0o644)
+
+	matches := []match{
+		{path: file1, isDir: false},
+		{path: file2, isDir: false},
+	}
+
+	removed, failed := removeMatches(matches, 4)
+
+	if removed != 2 {
+		t.Errorf("removed = %d, want 2", removed)
+	}
+
+	if failed != 0 {
+		t.Errorf("failed = %d, want 0", failed)
+	}
+
+	for _, m := range matches {
+		if _, err := os.Stat(m.path); !os.IsNotExist(err) {
+			t.Errorf("file %q should have been removed", m.path)
+		}
+	}
+}
+
+func TestRemoveMatchesMixed(t *testing.T) {
+	root := t.TempDir()
+
+	dir1 := filepath.Join(root, "nm")
+	os.MkdirAll(dir1, 0o755)
+	os.WriteFile(filepath.Join(dir1, "f.txt"), []byte("x"), 0o644)
+
+	file1 := filepath.Join(root, "a.log")
+	os.WriteFile(file1, []byte("log"), 0o644)
+
+	matches := []match{
+		{path: dir1, isDir: true},
+		{path: file1, isDir: false},
+	}
+
+	removed, failed := removeMatches(matches, 4)
+
+	if removed != 2 {
+		t.Errorf("removed = %d, want 2", removed)
+	}
+
+	if failed != 0 {
+		t.Errorf("failed = %d, want 0", failed)
+	}
+}
+
+func TestRemoveMatchesNonExistent(t *testing.T) {
+	root := t.TempDir()
+	matches := []match{{path: filepath.Join(root, "nonexistent"), isDir: true}}
+
+	removed, failed := removeMatches(matches, 4)
 
 	if removed != 0 {
 		t.Errorf("removed = %d, want 0", removed)
@@ -540,6 +1013,7 @@ func TestRunDryRun(t *testing.T) {
 
 	code := run(options{
 		targetDir: root,
+		patterns:  defaultPatterns,
 		dryRun:    true,
 		yes:       true,
 		jobs:      4,
@@ -565,6 +1039,7 @@ func TestRunYes(t *testing.T) {
 
 	code := run(options{
 		targetDir: root,
+		patterns:  defaultPatterns,
 		yes:       true,
 		jobs:      4,
 		exclude:   buildExcludeSet(nil),
@@ -585,6 +1060,7 @@ func TestRunNoModules(t *testing.T) {
 
 	code := run(options{
 		targetDir: root,
+		patterns:  defaultPatterns,
 		yes:       true,
 		jobs:      4,
 		exclude:   buildExcludeSet(nil),
@@ -601,6 +1077,7 @@ func TestRunVerbose(t *testing.T) {
 
 	code := run(options{
 		targetDir: root,
+		patterns:  defaultPatterns,
 		verbose:   true,
 		yes:       true,
 		jobs:      4,
@@ -618,6 +1095,7 @@ func TestRunVerboseDryRun(t *testing.T) {
 
 	code := run(options{
 		targetDir: root,
+		patterns:  defaultPatterns,
 		verbose:   true,
 		dryRun:    true,
 		yes:       true,
@@ -643,6 +1121,7 @@ func TestRunMultipleProjects(t *testing.T) {
 
 	code := run(options{
 		targetDir: root,
+		patterns:  defaultPatterns,
 		yes:       true,
 		jobs:      4,
 		exclude:   buildExcludeSet(nil),
@@ -666,6 +1145,7 @@ func TestRunWithExcludes(t *testing.T) {
 
 	code := run(options{
 		targetDir: root,
+		patterns:  defaultPatterns,
 		yes:       true,
 		jobs:      4,
 		exclude:   buildExcludeSet([]string{"vendor"}),
@@ -725,7 +1205,7 @@ func TestStringSliceSingle(t *testing.T) {
 
 // --- Benchmarks ---
 
-func BenchmarkFindNodeModules(b *testing.B) {
+func BenchmarkFindMatches(b *testing.B) {
 	root := b.TempDir()
 
 	// Create 5 node_modules directories scattered in a tree.
@@ -741,9 +1221,9 @@ func BenchmarkFindNodeModules(b *testing.B) {
 	b.ResetTimer()
 
 	for range b.N {
-		dirs := findNodeModules(root, exclude, 4, nil)
-		if len(dirs) != len(projects) {
-			b.Fatalf("expected %d dirs, got %d", len(projects), len(dirs))
+		matches := findMatches(root, defaultPatterns, exclude, 4, nil)
+		if len(matches) != len(projects) {
+			b.Fatalf("expected %d matches, got %d", len(projects), len(matches))
 		}
 	}
 }
@@ -768,22 +1248,22 @@ func BenchmarkGetDirSize(b *testing.B) {
 	}
 }
 
-func BenchmarkGetDirSizes(b *testing.B) {
+func BenchmarkGetMatchSizes(b *testing.B) {
 	root := b.TempDir()
 
 	// Create 3 independent trees to measure cross-tree parallelism.
-	dirs := make([]string, 3)
-	for i := range dirs {
+	matches := make([]match, 3)
+	for i := range matches {
 		d := filepath.Join(root, "tree_"+itoa(i))
 		os.MkdirAll(d, 0o755)
 		createTestTree(b, d, 4, 3, 10)
-		dirs[i] = d
+		matches[i] = match{path: d, isDir: true}
 	}
 
 	b.ResetTimer()
 
 	for range b.N {
-		sizes := getDirSizes(dirs, 4, nil)
+		sizes := getMatchSizes(matches, 4, nil)
 		for i, s := range sizes {
 			if s == 0 {
 				b.Fatalf("tree %d returned zero size", i)
