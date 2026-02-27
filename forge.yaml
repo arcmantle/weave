@@ -1,60 +1,55 @@
 # yaml-language-server: $schema=.forge/forge-schema.json
+registries:
+  - ../../forge-template-test-registry
+
 commands:
   install-all:
     description: "Install pnpm dependencies in all workspaces"
     script: .forge/scripts/install-all/install-all.go
-
   clean:
     description: "Remove all node_modules directories recursively"
     script: .forge/scripts/clean/clean.go
-
   hello:
     description: "Say hello"
     script: .forge/scripts/hello/hello.go
-
   world:
     description: "Say world"
     script: .forge/scripts/world/world.go
-
   reset:
     description: "Clean node_modules and reinstall all workspaces"
     run:
       - clean
       - install-all
-
   greet:
     description: "Say hello and world sequentially"
     run:
       - hello
       - world
-
   greet-parallel:
     description: "Say hello and world in parallel"
     run:
       - parallel: [hello, world]
-
   hello-ts:
     description: "Say hello from TypeScript"
     script: .forge/scripts/hello-ts/hello-ts.ts
-
   world-ts:
     description: "Say world from TypeScript"
     script: .forge/scripts/world-ts/world-ts.ts
-
   greet-mixed:
     description: "Run Go and TS scripts together in parallel"
     run:
       - parallel: [hello, hello-ts]
-
   hello-cs:
     description: "Say hello from C#"
     script: .forge/scripts/hello-cs/hello-cs.cs
-
   greet-all:
     description: "Run Go, TS, and C# scripts together in parallel"
     run:
       - parallel: [hello, hello-ts, hello-cs]
-
   stress-test:
     description: "Generate 1000 lines of colorful simulated log output to test terminal virtualization"
     script: .forge/scripts/stress-test/stress-test.go
+  deploy:
+    description: "Deploy template package"
+    script: .forge/scripts/deploy/deploy.go
+
