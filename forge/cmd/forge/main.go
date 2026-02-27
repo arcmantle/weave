@@ -13,6 +13,7 @@ import (
 	"github.com/arcmantle/forge/internal/embedded"
 	"github.com/arcmantle/forge/internal/manifest"
 	"github.com/arcmantle/forge/internal/runner"
+	"github.com/arcmantle/forge/internal/templates"
 )
 
 // version is set at build time via -ldflags.
@@ -66,6 +67,10 @@ func main() {
 		runAdd(args)
 	case "setup":
 		runSetup(args)
+	case "templates":
+		runTemplates()
+	case "auth":
+		runAuth(args)
 	case "help":
 		runHelp(args)
 	default:
@@ -74,23 +79,7 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Println(`forge — universal repo script runner
-
-Usage:
-  forge <command> [args...]
-  forge --list              List available commands
-  forge --docs              Open interactive documentation
-  forge --help              Show this help
-  forge --version           Show version
-  forge init                Scaffold forge.yaml and .forge/ directory
-  forge add <name> [--lang] Add a new script (go, ts, cs — default: go)
-  forge setup <runtime>     Add scaffolding for a runtime (go, ts, cs)
-  forge help <command>      Show detailed help for a command
-
-Commands are defined in forge.yaml and executed from .forge/ scripts.
-Scripts in .forge/scripts/ are also auto-discovered without YAML entries.
-Manifests and scripts are discovered by walking up from the current
-directory, allowing hierarchical command definitions.`)
+	fmt.Println(mainUsageText)
 }
 
 func getManifest() *manifest.Manifest {
@@ -125,6 +114,58 @@ func getManifest() *manifest.Manifest {
 	// Merge iterates in reverse, so YAML entries (last) take priority
 	// over auto-discovered scripts (first).
 	all := append(scriptManifests, manifests...)
+
+	return manifest.Merge(all)
+}
+
+// getFullManifest combines upward and downward discovery, returning commands
+// from the entire project tree. Used by --docs and --list where a global
+// view of all commands is desirable.
+func getFullManifest() *manifest.Manifest {
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: could not get working directory: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Upward discovery (same as getManifest).
+	manifests, err := manifest.Discover(cwd)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+
+	scriptManifests, err := manifest.DiscoverScripts(cwd)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Downward discovery — finds nested forge.yaml and scripts in subdirectories.
+	downManifests, err := manifest.DiscoverDown(cwd)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+
+	downScriptManifests, err := manifest.DiscoverScriptsDown(cwd)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+
+	if len(manifests) == 0 && len(scriptManifests) == 0 &&
+		len(downManifests) == 0 && len(downScriptManifests) == 0 {
+		fmt.Fprintf(os.Stderr, "error: no forge.yaml or .forge/scripts/ found in current, parent, or child directories\n")
+		fmt.Fprintf(os.Stderr, "  run 'forge init' to create one\n")
+		os.Exit(1)
+	}
+
+	// Merge order: downward scripts, downward yaml, upward scripts, upward yaml.
+	// Later entries win in Merge, so upward (closest) yaml has highest priority.
+	all := append(downScriptManifests, downManifests...)
+	all = append(all, scriptManifests...)
+	all = append(all, manifests...)
 
 	return manifest.Merge(all)
 }
@@ -164,24 +205,92 @@ func commandsWithPrefix(prefix string, commands map[string]manifest.Command) []s
 }
 
 func listCommands() {
-	m := getManifest()
+	m := getFullManifest()
 
 	if len(m.Commands) == 0 {
 		fmt.Println("No commands defined.")
 		return
 	}
 
-	// Sort command names for stable output.
-	names := make([]string, 0, len(m.Commands))
-	for name := range m.Commands {
+	cwd, _ := os.Getwd()
+	cwdClean := filepath.Clean(cwd)
+
+	// Partition commands by source directory.
+	type sourceGroup struct {
+		relPath  string
+		commands map[string]manifest.Command
+	}
+
+	bySource := map[string]*sourceGroup{}
+	var sourceOrder []string
+
+	for name, cmd := range m.Commands {
+		dir := filepath.Clean(cmd.ManifestDir)
+		if _, ok := bySource[dir]; !ok {
+			rel, err := filepath.Rel(cwdClean, dir)
+			if err != nil {
+				rel = dir
+			}
+
+			// Normalize to forward slashes and use "." for cwd.
+			rel = filepath.ToSlash(rel)
+			if rel == "." {
+				rel = ""
+			}
+
+			bySource[dir] = &sourceGroup{
+				relPath:  rel,
+				commands: make(map[string]manifest.Command),
+			}
+			sourceOrder = append(sourceOrder, dir)
+		}
+		bySource[dir].commands[name] = cmd
+	}
+
+	// Sort sources: local (empty relPath) first, then alphabetical.
+	sort.Slice(sourceOrder, func(i, j int) bool {
+		a, b := bySource[sourceOrder[i]].relPath, bySource[sourceOrder[j]].relPath
+		if a == "" {
+			return true
+		}
+		if b == "" {
+			return false
+		}
+
+		return a < b
+	})
+
+	hasMultipleSources := len(sourceOrder) > 1
+
+	fmt.Println("Available commands:")
+
+	for _, dir := range sourceOrder {
+		sg := bySource[dir]
+
+		if hasMultipleSources {
+			if sg.relPath == "" {
+				fmt.Printf("\n  \033[33m[local]\033[0m\n")
+			} else {
+				fmt.Printf("\n  \033[33m[%s]\033[0m\n", sg.relPath)
+			}
+		} else {
+			fmt.Println()
+		}
+
+		printCommandGroup(sg.commands)
+	}
+}
+
+// printCommandGroup prints a sorted, colon-grouped set of commands.
+func printCommandGroup(commands map[string]manifest.Command) {
+	names := make([]string, 0, len(commands))
+	for name := range commands {
 		names = append(names, name)
 	}
 	sort.Strings(names)
 
-	// Separate top-level commands from nested ones.
-	// A top-level command either has no colon or is a root-level group member.
 	type group struct {
-		children []string // full command names
+		children []string
 	}
 	groups := map[string]*group{}
 	var topLevel []string
@@ -200,8 +309,6 @@ func listCommands() {
 		}
 	}
 
-	// Collect the display names: top-level commands + groups that aren't
-	// already a top-level command.
 	var displayOrder []string
 	shown := map[string]bool{}
 	for _, name := range topLevel {
@@ -215,7 +322,6 @@ func listCommands() {
 	}
 	sort.Strings(displayOrder)
 
-	// Find max display name length for alignment.
 	maxLen := 0
 	for _, name := range displayOrder {
 		if len(name) > maxLen {
@@ -223,9 +329,8 @@ func listCommands() {
 		}
 		if g, ok := groups[name]; ok {
 			for _, child := range g.children {
-				// Display name is the part after the last colon, indented.
 				suffix := child[strings.LastIndex(child, ":")+1:]
-				padded := len(suffix) + 2 // 2 extra indent
+				padded := len(suffix) + 2
 				if padded > maxLen {
 					maxLen = padded
 				}
@@ -233,27 +338,21 @@ func listCommands() {
 		}
 	}
 
-	fmt.Println("Available commands:")
-	fmt.Println()
-
 	for _, name := range displayOrder {
-		// Print the command itself (if it exists as a real command).
-		if cmd, ok := m.Commands[name]; ok {
+		if cmd, ok := commands[name]; ok {
 			desc := cmd.Description
 			if desc == "" {
 				desc = "\033[90m(no description)\033[0m"
 			}
 			fmt.Printf("  \033[36m%-*s\033[0m  %s\n", maxLen, name, desc)
 		} else {
-			// Group header with no backing command.
 			fmt.Printf("  \033[36m%s\033[0m\n", name)
 		}
 
-		// Print nested children.
 		if g, ok := groups[name]; ok {
 			for _, child := range g.children {
 				suffix := child[strings.LastIndex(child, ":")+1:]
-				desc := m.Commands[child].Description
+				desc := commands[child].Description
 				if desc == "" {
 					desc = "\033[90m(no description)\033[0m"
 				}
@@ -284,7 +383,7 @@ func runDocs() {
 }
 
 func runDocsServe() {
-	m := getManifest()
+	m := getFullManifest()
 	if err := docs.Serve(m, version); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
@@ -343,25 +442,65 @@ func runCommand(tokens []string) {
 func runAdd(args []string) {
 	if len(args) == 0 {
 		fmt.Fprintf(os.Stderr, "error: forge add requires a command name\n")
-		fmt.Fprintf(os.Stderr, "  usage: forge add <name> [--go|--ts|--cs]\n")
+		fmt.Fprintf(os.Stderr, "  usage: forge add <name> [--go|--ts|--cs] [--from <template[@ref]>] [--var key=value]\n")
 		os.Exit(1)
 	}
 
 	name := args[0]
-	lang := "" // will pick default based on available runtimes
+	lang := ""   // will pick default based on available runtimes
+	from := ""   // template source
+	vars := map[string]string{}
 
-	for _, arg := range args[1:] {
-		switch arg {
-		case "--go":
+	for i := 1; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--go":
 			lang = "go"
-		case "--ts":
+		case arg == "--ts":
 			lang = "ts"
-		case "--cs":
+		case arg == "--cs":
 			lang = "cs"
+		case arg == "--from":
+			if i+1 >= len(args) {
+				fmt.Fprintf(os.Stderr, "error: --from requires a template name or URL\n")
+				os.Exit(1)
+			}
+			i++
+			from = args[i]
+		case strings.HasPrefix(arg, "--from="):
+			from = strings.TrimPrefix(arg, "--from=")
+		case arg == "--var":
+			if i+1 >= len(args) {
+				fmt.Fprintf(os.Stderr, "error: --var requires a key=value argument\n")
+				os.Exit(1)
+			}
+			i++
+			kv := args[i]
+			eqIdx := strings.Index(kv, "=")
+			if eqIdx == -1 {
+				fmt.Fprintf(os.Stderr, "error: --var value must be key=value, got '%s'\n", kv)
+				os.Exit(1)
+			}
+			vars[kv[:eqIdx]] = kv[eqIdx+1:]
+		case strings.HasPrefix(arg, "--var="):
+			kv := strings.TrimPrefix(arg, "--var=")
+			eqIdx := strings.Index(kv, "=")
+			if eqIdx == -1 {
+				fmt.Fprintf(os.Stderr, "error: --var value must be key=value, got '%s'\n", kv)
+				os.Exit(1)
+			}
+			vars[kv[:eqIdx]] = kv[eqIdx+1:]
 		default:
-			fmt.Fprintf(os.Stderr, "error: unknown flag '%s' (expected --go, --ts, or --cs)\n", arg)
+			fmt.Fprintf(os.Stderr, "error: unknown flag '%s'\n", arg)
+			fmt.Fprintf(os.Stderr, "  usage: forge add <name> [--go|--ts|--cs] [--from <template[@ref]>] [--var key=value]\n")
 			os.Exit(1)
 		}
+	}
+
+	// If using a template, delegate to the template flow.
+	if from != "" {
+		runAddFromTemplate(name, lang, from, vars)
+		return
 	}
 
 	// Validate the requested language is available.
@@ -471,24 +610,341 @@ Log.Info("running %s");
 		os.Exit(1)
 	}
 
-	// Append the command to forge.yaml.
-	f, err := os.OpenFile(manifestPath, os.O_APPEND|os.O_WRONLY, 0o644)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error opening forge.yaml: %v\n", err)
-		os.Exit(1)
-	}
-	defer f.Close()
-
 	relScript := filepath.ToSlash(filepath.Join(".forge", "scripts", scriptName, scriptName+ext))
-	entry := fmt.Sprintf("\n  %s:\n    description: \"\"\n    script: %s\n", name, relScript)
-	if _, err := f.WriteString(entry); err != nil {
-		fmt.Fprintf(os.Stderr, "error writing to forge.yaml: %v\n", err)
+	if err := upsertCommandInManifest(manifestPath, name, "", relScript); err != nil {
+		fmt.Fprintf(os.Stderr, "error writing forge.yaml: %v\n", err)
 		os.Exit(1)
 	}
 
 	fmt.Printf("Added command '\033[36m%s\033[0m' (%s)\n", name, lang)
 	fmt.Printf("  script: %s\n", relScript)
 	fmt.Printf("  manifest: %s\n", manifestPath)
+}
+
+// runAddFromTemplate handles `forge add <name> --from <template>`.
+// It resolves the template, applies variable substitution, and writes
+// the resulting script to the .forge/scripts/ directory.
+func runAddFromTemplate(name, lang, from string, vars map[string]string) {
+	// Collect registries from discovered manifests for resolution.
+	registries := collectRegistries()
+
+	// Resolve the template from the source (built-in → registries → local → git).
+	tpl, err := templates.ResolveWithRegistries(from, registries)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Pick a language if not specified.
+	if lang == "" {
+		// Prefer the user's available runtimes, then fall back to what the template offers.
+		switch {
+		case hasGo() && tpl.HasLanguage("go"):
+			lang = "go"
+		case hasNode() && tpl.HasLanguage("ts"):
+			lang = "ts"
+		case hasDotnet() && tpl.HasLanguage("cs"):
+			lang = "cs"
+		default:
+			// Use whatever the template has, even if the runtime might not be installed.
+			available := tpl.AvailableLanguages()
+			if len(available) == 0 {
+				fmt.Fprintf(os.Stderr, "error: template '%s' has no script files\n", from)
+				os.Exit(1)
+			}
+			lang = available[0]
+		}
+	} else if !tpl.HasLanguage(lang) {
+		fmt.Fprintf(os.Stderr, "error: template '%s' does not support %s (available: %s)\n",
+			from, lang, strings.Join(tpl.AvailableLanguages(), ", "))
+		os.Exit(1)
+	}
+
+	// Validate the runtime is available.
+	switch lang {
+	case "go":
+		if !hasGo() {
+			fmt.Fprintf(os.Stderr, "error: Go is not installed (required for this template)\n")
+			os.Exit(1)
+		}
+	case "ts":
+		if !hasNode() {
+			fmt.Fprintf(os.Stderr, "error: Node.js is not installed (required for this template)\n")
+			os.Exit(1)
+		}
+	case "cs":
+		if !hasDotnet() {
+			fmt.Fprintf(os.Stderr, "error: .NET SDK is not installed (required for this template)\n")
+			os.Exit(1)
+		}
+	}
+
+	// Apply the template.
+	scriptContent, err := tpl.Apply(name, lang, vars)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+
+	manifestPath := filepath.Join(cwd, manifest.ManifestFile)
+
+	// Bootstrap forge if needed.
+	if _, err := os.Stat(manifestPath); os.IsNotExist(err) {
+		bootstrapForge(cwd, lang)
+	}
+
+	// Load the manifest.
+	m, err := manifest.Load(manifestPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+
+	forgeDir := filepath.Join(cwd, ".forge")
+	scriptName := strings.ReplaceAll(name, ":", "-")
+	scriptDir := filepath.Join(forgeDir, "scripts", scriptName)
+
+	// Check if command already exists.
+	if _, ok := m.Commands[name]; ok {
+		fmt.Fprintf(os.Stderr, "error: command '%s' already exists\n", name)
+		os.Exit(1)
+	}
+
+	// Create script directory.
+	if err := os.MkdirAll(scriptDir, 0o755); err != nil {
+		fmt.Fprintf(os.Stderr, "error creating script directory: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Write the script file.
+	ext := map[string]string{"go": ".go", "ts": ".ts", "cs": ".cs"}[lang]
+	scriptFile := filepath.Join(scriptDir, scriptName+ext)
+	if err := os.WriteFile(scriptFile, []byte(scriptContent), 0o644); err != nil {
+		fmt.Fprintf(os.Stderr, "error writing script: %v\n", err)
+		os.Exit(1)
+	}
+
+	relScript := filepath.ToSlash(filepath.Join(".forge", "scripts", scriptName, scriptName+ext))
+	if err := upsertCommandInManifest(manifestPath, name, tpl.Meta.Description, relScript); err != nil {
+		fmt.Fprintf(os.Stderr, "error writing forge.yaml: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Added command '\033[36m%s\033[0m' from template '\033[33m%s\033[0m' (%s)\n", name, from, lang)
+	fmt.Printf("  script: %s\n", relScript)
+	fmt.Printf("  manifest: %s\n", manifestPath)
+
+	// Show applied variables.
+	if len(tpl.Meta.Variables) > 0 {
+		fmt.Println("  variables:")
+		for _, v := range tpl.Meta.Variables {
+			value := v.Default
+			if val, ok := vars[v.Name]; ok {
+				value = val
+			}
+			fmt.Printf("    %s = %s\n", v.Name, value)
+		}
+	}
+
+	fmt.Printf("\nCustomize the script at %s\n", relScript)
+}
+
+func runTemplates() {
+	registries := collectRegistries()
+	allTemplates := templates.ListAllTemplates(registries)
+
+	if len(allTemplates) == 0 {
+		fmt.Println("No templates available.")
+		return
+	}
+
+	fmt.Println("Available templates:")
+
+	// Group by source.
+	groups := map[string][]templates.TemplateInfo{}
+	var sourceOrder []string
+	for _, t := range allTemplates {
+		if _, ok := groups[t.Source]; !ok {
+			sourceOrder = append(sourceOrder, t.Source)
+		}
+		groups[t.Source] = append(groups[t.Source], t)
+	}
+
+	for _, source := range sourceOrder {
+		tpls := groups[source]
+		sourceType := ""
+		if len(tpls) > 0 {
+			sourceType = templateSourceTypeLabel(tpls[0].SourceType)
+		}
+
+		fmt.Println()
+		if source == "built-in" {
+			fmt.Printf("  \033[33m[built-in]\033[0m")
+		} else {
+			fmt.Printf("  \033[33m[%s]\033[0m", source)
+		}
+		if sourceType != "" {
+			fmt.Printf(" \033[90m(%s)\033[0m", sourceType)
+		}
+		fmt.Println()
+
+		maxNameLen := 0
+		for _, t := range tpls {
+			if len(t.Name) > maxNameLen {
+				maxNameLen = len(t.Name)
+			}
+		}
+
+		for _, t := range tpls {
+			langs := strings.Join(t.Languages, ", ")
+			description := t.Description
+			if t.LatestTag != "" {
+				description = fmt.Sprintf("%s \033[90m(latest: %s)\033[0m", t.Description, t.LatestTag)
+			}
+			fmt.Printf("    \033[36m%-*s\033[0m  %s \033[90m(%s)\033[0m\n", maxNameLen, t.Name, description, langs)
+
+			if len(t.Variables) > 0 {
+				for _, v := range t.Variables {
+					defStr := ""
+					if v.Default != "" {
+						defStr = fmt.Sprintf(" \033[90m(default: %s)\033[0m", v.Default)
+					}
+					fmt.Printf("    %-*s    --var %s=<value>%s\n", maxNameLen, "", v.Name, defStr)
+				}
+			}
+		}
+	}
+
+	fmt.Println()
+	fmt.Println("Usage:")
+	fmt.Println("  forge add <name> --from <template[@ref]> [--go|--ts|--cs] [--var key=value]")
+	fmt.Println()
+	fmt.Println("Pin a registry template version with @tag:")
+	fmt.Println("  forge add deploy --from deploy-k8s@v1.2.0")
+	fmt.Println()
+	fmt.Println("Templates can also be loaded from local directories or git URLs:")
+	fmt.Println("  forge add deploy --from ./my-templates/deploy")
+	fmt.Println("  forge add deploy --from https://github.com/user/repo#path/to/template")
+	fmt.Println()
+	fmt.Println("Configure registries in forge.yaml:")
+	fmt.Println("  registries:")
+	fmt.Println("    - https://github.com/user/forge-templates")
+	fmt.Println("    - ./local-templates")
+}
+
+// collectRegistries gathers registries from all discovered manifests.
+// Returns nil if no manifests are found (non-fatal for templates listing).
+func collectRegistries() []string {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil
+	}
+
+	manifests, err := manifest.Discover(cwd)
+	if err != nil || len(manifests) == 0 {
+		return nil
+	}
+
+	merged := manifest.Merge(manifests)
+	return merged.Registries
+}
+
+func upsertCommandInManifest(path string, name string, description string, script string) error {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	text := strings.ReplaceAll(string(raw), "\r\n", "\n")
+	lines := strings.Split(text, "\n")
+
+	commandsIdx := -1
+	for i, line := range lines {
+		if strings.TrimSpace(line) == "commands:" {
+			commandsIdx = i
+			break
+		}
+	}
+	if commandsIdx == -1 {
+		return fmt.Errorf("manifest missing commands: section")
+	}
+
+	insertIdx := len(lines)
+	for i := commandsIdx + 1; i < len(lines); i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+
+		if !strings.HasPrefix(lines[i], " ") && !strings.HasPrefix(lines[i], "\t") {
+			insertIdx = i
+			break
+		}
+	}
+
+	indent := "  "
+	for i := commandsIdx + 1; i < insertIdx; i++ {
+		line := lines[i]
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+
+		prefixLen := len(line) - len(strings.TrimLeft(line, " \t"))
+		if prefixLen > 0 && strings.HasSuffix(trimmed, ":") {
+			indent = line[:prefixLen]
+			break
+		}
+	}
+
+	block := []string{
+		indent + name + ":",
+		indent + "  description: " + yamlDoubleQuote(description),
+		indent + "  script: " + script,
+	}
+
+	newLines := append([]string{}, lines[:insertIdx]...)
+	if insertIdx > 0 && strings.TrimSpace(newLines[len(newLines)-1]) != "" {
+		newLines = append(newLines, "")
+	}
+	newLines = append(newLines, block...)
+	newLines = append(newLines, lines[insertIdx:]...)
+
+	out := strings.Join(newLines, "\n")
+	if strings.HasSuffix(string(raw), "\r\n") {
+		out = strings.ReplaceAll(out, "\n", "\r\n")
+	}
+
+	return os.WriteFile(path, []byte(out), 0o644)
+}
+
+func yamlDoubleQuote(value string) string {
+	escaped := strings.ReplaceAll(value, "\\", "\\\\")
+	escaped = strings.ReplaceAll(escaped, "\"", "\\\"")
+	return "\"" + escaped + "\""
+}
+
+func templateSourceTypeLabel(sourceType string) string {
+	switch strings.TrimSpace(sourceType) {
+	case "built-in":
+		return "built-in"
+	case "github-git":
+		return "github-git"
+	case "local-git":
+		return "local-git"
+	case "folder-index":
+		return "folder-index"
+	case "folder-scan":
+		return "folder-scan"
+	default:
+		return ""
+	}
 }
 
 // bootstrapForge creates a forge.yaml and .forge/ directory with language
@@ -787,6 +1243,16 @@ func runHelp(args []string) {
 		return
 	}
 
+	if args[0] == "auth" {
+		if len(args) >= 2 && args[1] == "github" {
+			fmt.Println(authGitHubHelpText)
+			return
+		}
+
+		fmt.Println(authHelpText)
+		return
+	}
+
 	m := getManifest()
 	name, _ := resolveCommand(args, m.Commands)
 
@@ -943,6 +1409,102 @@ func runHelp(args []string) {
 			fmt.Printf("  %-*s    %s\n", maxLen, e.display, e.desc)
 		}
 	}
+}
+
+func runAuth(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintf(os.Stderr, "error: forge auth requires a provider\n")
+		fmt.Fprintf(os.Stderr, "  usage: %s\n", authGitHubUsageLine)
+		os.Exit(1)
+	}
+
+	provider := strings.TrimSpace(args[0])
+	if provider != "github" {
+		fmt.Fprintf(os.Stderr, "error: unsupported auth provider '%s'\n", provider)
+		fmt.Fprintf(os.Stderr, "  supported: github\n")
+		os.Exit(1)
+	}
+
+	tokenArg := ""
+	clearToken := false
+	showStatus := false
+	for i := 1; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--clear":
+			clearToken = true
+		case arg == "--status":
+			showStatus = true
+		case arg == "--token":
+			if i+1 >= len(args) {
+				fmt.Fprintf(os.Stderr, "error: --token requires a value\n")
+				os.Exit(1)
+			}
+			i++
+			tokenArg = args[i]
+		case strings.HasPrefix(arg, "--token="):
+			tokenArg = strings.TrimPrefix(arg, "--token=")
+		default:
+			fmt.Fprintf(os.Stderr, "error: unknown flag '%s'\n", arg)
+			fmt.Fprintf(os.Stderr, "  usage: %s\n", authGitHubUsageLine)
+			os.Exit(1)
+		}
+	}
+
+	if clearToken && tokenArg != "" {
+		fmt.Fprintf(os.Stderr, "error: --clear cannot be combined with --token\n")
+		os.Exit(1)
+	}
+
+	if showStatus && (clearToken || tokenArg != "") {
+		fmt.Fprintf(os.Stderr, "error: --status cannot be combined with --clear or --token\n")
+		os.Exit(1)
+	}
+
+	if showStatus {
+		envConfigured, configConfigured, configPath, err := templates.GitHubTokenStatus()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Println("GitHub auth status:")
+		fmt.Printf("  env (GITHUB_TOKEN): %s\n", boolLabel(envConfigured))
+		fmt.Printf("  config token:        %s\n", boolLabel(configConfigured))
+		fmt.Printf("  config path:         %s\n", configPath)
+		return
+	}
+
+	if clearToken {
+		if err := templates.ClearGitHubToken(); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("GitHub token cleared.")
+		return
+	}
+
+	if tokenArg != "" {
+		if err := templates.SaveGitHubToken(tokenArg); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("GitHub token saved.")
+		return
+	}
+
+	if _, err := templates.PromptAndSaveGitHubToken(); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func boolLabel(v bool) string {
+	if v {
+		return "configured"
+	}
+
+	return "not configured"
 }
 
 func runInit() {

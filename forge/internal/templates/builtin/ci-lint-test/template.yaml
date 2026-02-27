@@ -1,0 +1,8 @@
+description: "Run lint and test in parallel for CI pipelines"
+variables:
+  - name: lint_command
+    description: "Command to run for linting"
+    default: "npm run lint"
+  - name: test_command
+    description: "Command to run for testing"
+    default: "npm test"

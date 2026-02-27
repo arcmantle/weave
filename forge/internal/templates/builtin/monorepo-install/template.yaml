@@ -1,0 +1,5 @@
+description: "Parallel pnpm/npm install across workspace directories"
+variables:
+  - name: package_manager
+    description: "Package manager to use (pnpm or npm)"
+    default: pnpm

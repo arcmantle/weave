@@ -24,16 +24,44 @@ import (
 
 	"github.com/arcmantle/forge/internal/manifest"
 	"github.com/arcmantle/forge/internal/runner"
+	"github.com/arcmantle/forge/internal/templates"
 )
 
-//go:embed index.html styles.css utils.js markdown.js runner.js forge-sidebar.js forge-command.js app.js
+//go:embed index.html styles.css utils.js markdown.js runner.js forge-sidebar.js forge-command.js forge-templates.js app.js
 var staticFiles embed.FS
 
 // DocData is the top-level JSON structure injected into the HTML template.
 type DocData struct {
-	ProjectName string       `json:"projectName"`
-	Version     string       `json:"version"`
-	Commands    []DocCommand `json:"commands"`
+	ProjectName string        `json:"projectName"`
+	Version     string        `json:"version"`
+	Commands    []DocCommand  `json:"commands"`
+	Templates   []DocTemplate `json:"templates,omitempty"`
+	InstallTargets []DocInstallTarget `json:"installTargets,omitempty"`
+}
+
+// DocInstallTarget represents a directory where template installation can occur.
+type DocInstallTarget struct {
+	Path  string `json:"path"`
+	Label string `json:"label"`
+}
+
+// DocTemplate represents a script template available from built-in or registry sources.
+type DocTemplate struct {
+	Name        string             `json:"name"`
+	Description string             `json:"description"`
+	Languages   []string           `json:"languages"`
+	Variables   []DocTemplateVar   `json:"variables,omitempty"`
+	LatestTag   string             `json:"latestTag,omitempty"`
+	Versions    []string           `json:"versions,omitempty"`
+	Source      string             `json:"source"` // "built-in" or registry name
+	SourceType  string             `json:"sourceType,omitempty"`
+}
+
+// DocTemplateVar describes a variable placeholder in a template.
+type DocTemplateVar struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Default     string `json:"default,omitempty"`
 }
 
 // DocCommand represents a single command's documentation.
@@ -146,6 +174,7 @@ func Serve(m *manifest.Manifest, version string) error {
 		{"runner.js", "application/javascript; charset=utf-8"},
 		{"forge-sidebar.js", "application/javascript; charset=utf-8"},
 		{"forge-command.js", "application/javascript; charset=utf-8"},
+		{"forge-templates.js", "application/javascript; charset=utf-8"},
 		{"app.js", "application/javascript; charset=utf-8"},
 	} {
 		data, _ := staticFiles.ReadFile(entry.path)
@@ -154,7 +183,7 @@ func Serve(m *manifest.Manifest, version string) error {
 
 	// Compute a combined ETag from all static assets.
 	h := sha256.New()
-	for _, name := range []string{"index.html", "styles.css", "utils.js", "markdown.js", "runner.js", "forge-sidebar.js", "forge-command.js", "app.js"} {
+	for _, name := range []string{"index.html", "styles.css", "utils.js", "markdown.js", "runner.js", "forge-sidebar.js", "forge-command.js", "forge-templates.js", "app.js"} {
 		h.Write(assets[name].data)
 	}
 	etag := `"` + hex.EncodeToString(h.Sum(nil)[:8]) + `"`
@@ -182,6 +211,7 @@ func Serve(m *manifest.Manifest, version string) error {
 	mux.HandleFunc("/runner.js", serveAsset("runner.js"))
 	mux.HandleFunc("/forge-sidebar.js", serveAsset("forge-sidebar.js"))
 	mux.HandleFunc("/forge-command.js", serveAsset("forge-command.js"))
+	mux.HandleFunc("/forge-templates.js", serveAsset("forge-templates.js"))
 	mux.HandleFunc("/app.js", serveAsset("app.js"))
 
 	// Returns basic manifest data immediately (no compilation required).
@@ -189,6 +219,101 @@ func Serve(m *manifest.Manifest, version string) error {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Write(basicJSON)
+	})
+
+	allowedInstallTargets := map[string]bool{}
+	for _, t := range basicData.InstallTargets {
+		allowedInstallTargets[filepath.Clean(t.Path)] = true
+	}
+
+	mux.HandleFunc("/api/templates/install", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req struct {
+			Template    string `json:"template"`
+			CommandName string `json:"commandName"`
+			Language    string `json:"language"`
+			TargetPath  string `json:"targetPath"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		template := strings.TrimSpace(req.Template)
+		commandName := strings.TrimSpace(req.CommandName)
+		if template == "" || commandName == "" {
+			http.Error(w, "template and commandName are required", http.StatusBadRequest)
+			return
+		}
+
+		targetPath := strings.TrimSpace(req.TargetPath)
+		if targetPath == "" {
+			if len(basicData.InstallTargets) == 1 {
+				targetPath = basicData.InstallTargets[0].Path
+			} else {
+				http.Error(w, "targetPath is required when multiple install targets exist", http.StatusBadRequest)
+				return
+			}
+		}
+
+		targetPath = filepath.Clean(targetPath)
+		if !allowedInstallTargets[targetPath] {
+			http.Error(w, "targetPath is not an allowed forge target", http.StatusBadRequest)
+			return
+		}
+
+		lang := strings.TrimSpace(strings.ToLower(req.Language))
+		if lang != "" && lang != "go" && lang != "ts" && lang != "cs" {
+			http.Error(w, "language must be one of go, ts, cs", http.StatusBadRequest)
+			return
+		}
+
+		forgeBin, err := os.Executable()
+		if err != nil {
+			http.Error(w, "cannot locate forge binary", http.StatusInternalServerError)
+			return
+		}
+
+		args := []string{"add", commandName, "--from", template}
+		switch lang {
+		case "go":
+			args = append(args, "--go")
+		case "ts":
+			args = append(args, "--ts")
+		case "cs":
+			args = append(args, "--cs")
+		}
+
+		cmd := exec.Command(forgeBin, args...)
+		cmd.Dir = targetPath
+		output, runErr := cmd.CombinedOutput()
+
+		resp := struct {
+			OK      bool   `json:"ok"`
+			Message string `json:"message"`
+			Output  string `json:"output,omitempty"`
+		}{
+			OK: runErr == nil,
+		}
+
+		if runErr != nil {
+			resp.Message = runErr.Error()
+			resp.Output = string(output)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
+
+		resp.Message = "Template installed"
+		resp.Output = string(output)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(resp)
 	})
 
 	// SSE endpoint for streaming metadata updates.
@@ -306,8 +431,11 @@ func Serve(m *manifest.Manifest, version string) error {
 		cmdArgs := append([]string{req.Command}, req.Args...)
 		cmd := exec.CommandContext(cmdCtx, forgeBin, cmdArgs...)
 
-		// Set working directory to where forge was originally invoked.
-		if wd, wdErr := os.Getwd(); wdErr == nil {
+		// Set working directory to the command's manifest directory so that
+		// nested commands execute from the correct location.
+		if cmdDef, ok := m.Commands[req.Command]; ok && cmdDef.ManifestDir != "" {
+			cmd.Dir = cmdDef.ManifestDir
+		} else if wd, wdErr := os.Getwd(); wdErr == nil {
 			cmd.Dir = wd
 		}
 
@@ -496,7 +624,132 @@ func collectBasicData(m *manifest.Manifest, version string) DocData {
 		data.Commands = append(data.Commands, doc)
 	}
 
+	// Collect available templates from built-in + registries.
+	allTemplates := templates.ListAllTemplates(m.Registries)
+	for _, t := range allTemplates {
+		dt := DocTemplate{
+			Name:        t.Name,
+			Description: t.Description,
+			Languages:   t.Languages,
+			LatestTag:   t.LatestTag,
+			Versions:    append([]string{}, t.Versions...),
+			Source:      t.Source,
+			SourceType:  docSourceTypeLabel(t.SourceType),
+		}
+		for _, v := range t.Variables {
+			dt.Variables = append(dt.Variables, DocTemplateVar{
+				Name:        v.Name,
+				Description: v.Description,
+				Default:     v.Default,
+			})
+		}
+		data.Templates = append(data.Templates, dt)
+	}
+
+	data.InstallTargets = collectInstallTargets()
+
 	return data
+}
+
+func docSourceTypeLabel(sourceType string) string {
+	switch strings.TrimSpace(sourceType) {
+	case "built-in":
+		return "built-in"
+	case "github-git":
+		return "github-git"
+	case "local-git":
+		return "local-git"
+	case "folder-index":
+		return "folder-index"
+	case "folder-scan":
+		return "folder-scan"
+	default:
+		return ""
+	}
+}
+
+func collectInstallTargets() []DocInstallTarget {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil
+	}
+
+	targets := map[string]DocInstallTarget{}
+
+	addTarget := func(dir string) {
+		if strings.TrimSpace(dir) == "" {
+			return
+		}
+
+		clean := filepath.Clean(dir)
+		if _, exists := targets[clean]; exists {
+			return
+		}
+
+		rel, relErr := filepath.Rel(cwd, clean)
+		label := clean
+		if relErr == nil {
+			if rel == "." {
+				label = "current directory"
+			} else {
+				label = rel
+			}
+		}
+
+		targets[clean] = DocInstallTarget{
+			Path:  clean,
+			Label: label,
+		}
+	}
+
+	if manifests, err := manifest.Discover(cwd); err == nil {
+		for _, m := range manifests {
+			for _, c := range m.Commands {
+				addTarget(c.ManifestDir)
+			}
+		}
+	}
+
+	if manifests, err := manifest.DiscoverDown(cwd); err == nil {
+		for _, m := range manifests {
+			for _, c := range m.Commands {
+				addTarget(c.ManifestDir)
+			}
+		}
+	}
+
+	if scriptManifests, err := manifest.DiscoverScripts(cwd); err == nil {
+		for _, m := range scriptManifests {
+			for _, c := range m.Commands {
+				addTarget(c.ManifestDir)
+			}
+		}
+	}
+
+	if scriptManifests, err := manifest.DiscoverScriptsDown(cwd); err == nil {
+		for _, m := range scriptManifests {
+			for _, c := range m.Commands {
+				addTarget(c.ManifestDir)
+			}
+		}
+	}
+
+	if len(targets) == 0 {
+		addTarget(cwd)
+	}
+
+	keys := make([]string, 0, len(targets))
+	for k := range targets {
+		keys = append(keys, k)
+	}
+	sortStrings(keys)
+
+	result := make([]DocInstallTarget, 0, len(keys))
+	for _, k := range keys {
+		result = append(result, targets[k])
+	}
+
+	return result
 }
 
 // MetaUpdate is sent via SSE when a script's metadata has been collected.
@@ -629,7 +882,8 @@ func detectLanguage(script string) string {
 
 // commandSource returns a human-readable label indicating where a command is
 // defined. If the command is from the current working directory it returns
-// "local"; otherwise it returns the base directory name of the manifest.
+// "local"; for child directories it returns the relative path (e.g.
+// "subfolder/super-nested"); for parent directories it returns the base name.
 func commandSource(manifestDir, cwd string) string {
 	if manifestDir == "" || cwd == "" {
 		return ""
@@ -642,15 +896,21 @@ func commandSource(manifestDir, cwd string) string {
 		return "local"
 	}
 
+	// Try relative path — if it doesn't start with ".." the manifest
+	// is in a subdirectory of the working directory.
+	rel, err := filepath.Rel(cwdClean, clean)
+	if err == nil && !strings.HasPrefix(rel, "..") {
+		return filepath.ToSlash(rel)
+	}
+
 	return filepath.Base(clean)
 }
 
-// detectProjectName tries to derive a project name from the manifest directory.
+// detectProjectName uses the current working directory to derive a
+// human-readable project name for the docs header.
 func detectProjectName(m *manifest.Manifest) string {
-	for _, cmd := range m.Commands {
-		if cmd.ManifestDir != "" {
-			return filepath.Base(cmd.ManifestDir)
-		}
+	if cwd, err := os.Getwd(); err == nil {
+		return filepath.Base(cwd)
 	}
 
 	return "forge"

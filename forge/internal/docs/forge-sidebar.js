@@ -22,12 +22,14 @@ class ForgeSidebar extends HTMLElement {
 	/**
 	 * Render the sidebar command list with grouping and search filtering.
 	 * @param {DocCommand[]} commands - All available commands.
+	 * @param {DocTemplate[]} templates - All available templates.
 	 * @param {MetaStatus} metaStatus - Current metadata loading status per command.
 	 * @param {boolean} metaDone - Whether all metadata loading is complete.
 	 * @param {string} searchQuery - Current search filter string.
 	 * @param {string | null} activeCommand - Currently selected command name.
+	 * @param {string | null} activeTemplate - Currently selected template name.
 	 */
-	render(commands, metaStatus, metaDone, searchQuery, activeCommand) {
+	render(commands, templates, metaStatus, metaDone, searchQuery, activeCommand, activeTemplate) {
 		const filtered = commands.filter(cmd => {
 			if (!searchQuery) return true;
 			const q = searchQuery.toLowerCase();
@@ -73,16 +75,69 @@ class ForgeSidebar extends HTMLElement {
 			html += '</div></details>';
 		});
 
-		if (filtered.length === 0 && searchQuery) {
-			html = '<div class="no-results"><p>No commands match "' + esc(searchQuery) + '"</p></div>';
+		// Render templates section.
+		const filteredTemplates = (templates || []).filter(tpl => {
+			if (!searchQuery) return true;
+			const q = searchQuery.toLowerCase();
+			return tpl.name.toLowerCase().includes(q) ||
+				(tpl.description || '').toLowerCase().includes(q) ||
+				(tpl.languages || []).some(l => l.toLowerCase().includes(q));
+		});
+
+		if (filteredTemplates.length > 0) {
+			// Group templates by source.
+			const tplGroups = {};
+			filteredTemplates.forEach(tpl => {
+				const src = tpl.source || 'templates';
+				if (!tplGroups[src]) tplGroups[src] = [];
+				tplGroups[src].push(tpl);
+			});
+
+			Object.keys(tplGroups).sort().forEach(source => {
+				const tpls = tplGroups[source];
+				const isOpen = searchQuery ? true : !this.closedGroups.has('tpl:' + source);
+				const openAttr = isOpen ? ' open' : '';
+
+				html += '<details class="template-group" data-source="tpl:' + esc(source) + '"' + openAttr + '>';
+				html += '<summary class="template-group-header">'
+					+ chevronSvg()
+					+ '<span class="template-group-name">' + esc(source) + ' templates</span>'
+					+ '<span class="template-count">' + tpls.length + '</span>'
+					+ '</summary>';
+				html += '<div class="template-group-items">';
+
+				tpls.forEach(tpl => {
+					const isActive = activeTemplate === tpl.name;
+					const langs = (tpl.languages || []).join(', ');
+					html += '<div class="sidebar-item sidebar-template-item' + (isActive ? ' active' : '') + '" data-tpl="' + esc(tpl.name) + '">'
+						+ esc(tpl.name)
+						+ '<span class="badge badge-template">template</span>'
+						+ '</div>';
+				});
+
+				html += '</div></details>';
+			});
+		}
+
+		if (filtered.length === 0 && filteredTemplates.length === 0 && searchQuery) {
+			html = '<div class="no-results"><p>No commands or templates match "' + esc(searchQuery) + '"</p></div>';
 		}
 
 		this.listEl.innerHTML = html;
 
-		this.listEl.querySelectorAll('.sidebar-item').forEach(el => {
+		this.listEl.querySelectorAll('.sidebar-item:not(.sidebar-template-item)').forEach(el => {
 			el.addEventListener('click', (e) => {
 				this.dispatchEvent(new CustomEvent('command-select', {
 					detail: { name: e.currentTarget.dataset.cmd },
+					bubbles: true
+				}));
+			});
+		});
+
+		this.listEl.querySelectorAll('.sidebar-template-item').forEach(el => {
+			el.addEventListener('click', (e) => {
+				this.dispatchEvent(new CustomEvent('template-select', {
+					detail: { name: e.currentTarget.dataset.tpl },
 					bubbles: true
 				}));
 			});
@@ -119,6 +174,18 @@ class ForgeSidebar extends HTMLElement {
 			});
 		});
 
+		// Track template group open/close state.
+		this.listEl.querySelectorAll('.template-group').forEach(el => {
+			el.addEventListener('toggle', (e) => {
+				const source = e.currentTarget.dataset.source;
+				if (e.currentTarget.open) {
+					this.closedGroups.delete(source);
+				} else {
+					this.closedGroups.add(source);
+				}
+			});
+		});
+
 		// Prevent source links from toggling the parent details element.
 		this.listEl.querySelectorAll('.inherited-source-link').forEach(el => {
 			el.addEventListener('click', (e) => {
@@ -129,20 +196,27 @@ class ForgeSidebar extends HTMLElement {
 		// Stats
 		const localCount = commands.filter(c => !c.source || c.source === 'local').length;
 		const inheritedCount = commands.filter(c => c.source && c.source !== 'local').length;
+		const templateCount = (templates || []).length;
 		const readyCount = Object.values(metaStatus).filter(s => s === 'ready').length;
 		const totalScripts = Object.keys(metaStatus).length;
 
-		let statsHtml = '<span>' + localCount + '</span> local';
+		let metricsHtml = '<span>' + localCount + '</span> local';
 		if (inheritedCount > 0) {
-			statsHtml += '<span class="stats-sep"></span><span>' + inheritedCount + '</span> inherited';
+			metricsHtml += '<span class="stats-sep"></span><span>' + inheritedCount + '</span> inherited';
+		}
+		if (templateCount > 0) {
+			metricsHtml += '<span class="stats-sep"></span><span>' + templateCount + '</span> templates';
 		}
 		if (!metaDone && totalScripts > 0) {
-			statsHtml += '<span class="stats-sep"></span><span class="status-loading">' + readyCount + '/' + totalScripts + ' loaded</span>';
+			metricsHtml += '<span class="stats-sep"></span><span class="status-loading">' + readyCount + '/' + totalScripts + ' loaded</span>';
 		}
+
+		let statsHtml = '<div class="sidebar-stats-main">' + metricsHtml + '</div>';
+
 		if (inheritedCount > 0) {
 			const allCollapsed = this.closedGroups.size > 0 && this.listEl.querySelectorAll('.inherited-group:not([open])').length === this.listEl.querySelectorAll('.inherited-group').length;
 			const label = allCollapsed ? 'expand' : 'collapse';
-			statsHtml += '<span class="sidebar-stats-spacer"></span><button class="sidebar-toggle-btn" data-action="toggle-all">' + label + '</button>';
+			statsHtml += '<div class="sidebar-stats-action"><button class="sidebar-toggle-btn" data-action="toggle-all">' + label + '</button></div>';
 		}
 		this.statsEl.innerHTML = statsHtml;
 

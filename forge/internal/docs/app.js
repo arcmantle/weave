@@ -21,6 +21,8 @@ window.addEventListener('beforeunload', () => {
 // ─── State ───
 /** @type {string | null} */
 let activeCommand = null;
+/** @type {string | null} */
+let activeTemplate = null;
 /** @type {string} */
 let searchQuery = '';
 
@@ -29,13 +31,19 @@ let searchQuery = '';
 async function init() {
 	const sidebar = document.querySelector('forge-sidebar');
 	const commandDetail = document.querySelector('forge-command');
+	const templateDetail = document.querySelector('forge-templates');
 
 	setupSearch(sidebar);
 	setupKeyboard(sidebar);
 
 	// Listen for command selection from sidebar or command detail (step clicks).
 	document.addEventListener('command-select', (e) => {
-		selectCommand(e.detail.name, sidebar, commandDetail);
+		selectCommand(e.detail.name, sidebar, commandDetail, templateDetail);
+	});
+
+	// Listen for template selection from sidebar.
+	document.addEventListener('template-select', (e) => {
+		selectTemplate(e.detail.name, sidebar, commandDetail, templateDetail);
 	});
 
 	try {
@@ -54,9 +62,26 @@ async function init() {
 		if (cmd.commandType === 'script') metaStatus[cmd.name] = 'pending';
 	});
 
-	sidebar.render(FORGE_DATA.commands || [], metaStatus, metaDone, searchQuery, activeCommand);
+	sidebarRender(sidebar);
 	renderWelcome();
-	connectSSE(sidebar, commandDetail);
+	connectSSE(sidebar, commandDetail, templateDetail);
+}
+
+// ─── Sidebar render helper ───
+/**
+ * Re-render the sidebar with current state.
+ * @param {ForgeSidebar} sidebar
+ */
+function sidebarRender(sidebar) {
+	sidebar.render(
+		FORGE_DATA.commands || [],
+		FORGE_DATA.templates || [],
+		metaStatus,
+		metaDone,
+		searchQuery,
+		activeCommand,
+		activeTemplate
+	);
 }
 
 // ─── SSE Connection ───
@@ -64,8 +89,9 @@ async function init() {
  * Connect to the server-sent events endpoint for progressive metadata updates.
  * @param {ForgeSidebar} sidebar
  * @param {ForgeCommand} commandDetail
+ * @param {ForgeTemplates} templateDetail
  */
-function connectSSE(sidebar, commandDetail) {
+function connectSSE(sidebar, commandDetail, templateDetail) {
 	const source = new EventSource('/api/events');
 
 	source.addEventListener('meta', (e) => {
@@ -86,18 +112,18 @@ function connectSSE(sidebar, commandDetail) {
 			}
 		}
 
-		sidebar.render(FORGE_DATA.commands || [], metaStatus, metaDone, searchQuery, activeCommand);
+		sidebarRender(sidebar);
 	});
 
 	source.addEventListener('done', () => {
 		metaDone = true;
-		sidebar.render(FORGE_DATA.commands || [], metaStatus, metaDone, searchQuery, activeCommand);
+		sidebarRender(sidebar);
 		source.close();
 	});
 
 	source.onerror = () => {
 		metaDone = true;
-		sidebar.render(FORGE_DATA.commands || [], metaStatus, metaDone, searchQuery, activeCommand);
+		sidebarRender(sidebar);
 		source.close();
 	};
 }
@@ -108,13 +134,40 @@ function connectSSE(sidebar, commandDetail) {
  * @param {string} name - Command name to select.
  * @param {ForgeSidebar} sidebar
  * @param {ForgeCommand} commandDetail
+ * @param {ForgeTemplates} templateDetail
  */
-function selectCommand(name, sidebar, commandDetail) {
+function selectCommand(name, sidebar, commandDetail, templateDetail) {
 	activeCommand = name;
-	sidebar.render(FORGE_DATA.commands || [], metaStatus, metaDone, searchQuery, activeCommand);
+	activeTemplate = null;
+
+	document.getElementById('main-content').style.display = '';
+	document.getElementById('template-content').style.display = 'none';
+
+	sidebarRender(sidebar);
 
 	const cmd = (FORGE_DATA.commands || []).find(c => c.name === name);
 	if (cmd) commandDetail.render(cmd, metaStatus);
+}
+
+// ─── Select Template ───
+/**
+ * Select a template and render its detail view.
+ * @param {string} name - Template name to select.
+ * @param {ForgeSidebar} sidebar
+ * @param {ForgeCommand} commandDetail
+ * @param {ForgeTemplates} templateDetail
+ */
+function selectTemplate(name, sidebar, commandDetail, templateDetail) {
+	activeTemplate = name;
+	activeCommand = null;
+
+	document.getElementById('main-content').style.display = 'none';
+	document.getElementById('template-content').style.display = '';
+
+	sidebarRender(sidebar);
+
+	const tpl = (FORGE_DATA.templates || []).find(t => t.name === name);
+	if (tpl) templateDetail.render(tpl, FORGE_DATA.installTargets || []);
 }
 
 // ─── Welcome Screen ───
@@ -122,6 +175,7 @@ function selectCommand(name, sidebar, commandDetail) {
 function renderWelcome() {
 	const main = document.getElementById('main-content');
 	const commands = FORGE_DATA.commands || [];
+	const tpls = FORGE_DATA.templates || [];
 	const scriptCount = commands.filter(c => c.commandType === 'script').length;
 	const compositeCount = commands.filter(c => c.commandType === 'composite').length;
 	const localCount = commands.filter(c => !c.source || c.source === 'local').length;
@@ -136,8 +190,11 @@ function renderWelcome() {
 		+ '<div class="welcome-stat"><div class="number">' + inheritedCount + '</div><div class="label">Inherited</div></div>'
 		+ '<div class="welcome-stat"><div class="number">' + scriptCount + '</div><div class="label">Scripts</div></div>'
 		+ '<div class="welcome-stat"><div class="number">' + compositeCount + '</div><div class="label">Composites</div></div>'
+		+ (tpls.length > 0
+			? '<div class="welcome-stat"><div class="number">' + tpls.length + '</div><div class="label">Templates</div></div>'
+			: '')
 		+ '</div>'
-		+ '<div class="welcome-hint">Press <kbd>/</kbd> to search · Click a command to view details</div>'
+		+ '<div class="welcome-hint">Press <kbd>/</kbd> to search · Click a command or template to view details</div>'
 		+ '</div>';
 }
 
@@ -150,7 +207,7 @@ function setupSearch(sidebar) {
 	const input = document.getElementById('search');
 	input.addEventListener('input', () => {
 		searchQuery = input.value;
-		sidebar.render(FORGE_DATA.commands || [], metaStatus, metaDone, searchQuery, activeCommand);
+		sidebarRender(sidebar);
 	});
 }
 
@@ -169,7 +226,7 @@ function setupKeyboard(sidebar) {
 			document.getElementById('search').blur();
 			document.getElementById('search').value = '';
 			searchQuery = '';
-			sidebar.render(FORGE_DATA.commands || [], metaStatus, metaDone, searchQuery, activeCommand);
+			sidebarRender(sidebar);
 		}
 	});
 }

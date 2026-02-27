@@ -10,6 +10,18 @@ const ManifestFile = "forge.yaml"
 // scriptExtensions lists the file extensions that are recognized as forge scripts.
 var scriptExtensions = []string{".go", ".ts", ".cs"}
 
+// skipDirs are directory names to ignore during downward traversal.
+var skipDirs = map[string]bool{
+	"node_modules": true,
+	".git":         true,
+	".forge":       true,
+	"bin":          true,
+	"obj":          true,
+	"dist":         true,
+	"out":          true,
+	"vendor":       true,
+}
+
 // Discover walks up from startDir to the filesystem root, collecting all
 // forge.yaml files found along the way. Returns them ordered from root
 // (furthest ancestor) to startDir (closest), so that merging gives
@@ -129,4 +141,99 @@ func discoverScriptsInDir(scriptsDir string, manifestDir string) (*Manifest, err
 	}
 
 	return m, nil
+}
+
+// DiscoverDown walks into subdirectories of startDir, collecting all
+// forge.yaml files found below (excluding startDir itself to avoid
+// double-counting with upward discovery). Returns manifests ordered
+// by path depth so shallower directories appear first.
+func DiscoverDown(startDir string) ([]*Manifest, error) {
+	var manifests []*Manifest
+
+	err := filepath.WalkDir(startDir, func(p string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil // skip unreadable entries
+		}
+
+		if d.IsDir() {
+			if skipDirs[d.Name()] {
+				return filepath.SkipDir
+			}
+
+			return nil
+		}
+
+		if d.Name() != ManifestFile {
+			return nil
+		}
+
+		// Skip the startDir's own manifest — upward discovery already covers it.
+		if filepath.Dir(p) == startDir {
+			return nil
+		}
+
+		m, loadErr := Load(p)
+		if loadErr != nil {
+			return nil // skip unparseable manifests
+		}
+
+		manifests = append(manifests, m)
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return manifests, nil
+}
+
+// DiscoverScriptsDown walks into subdirectories of startDir, collecting
+// auto-discovered scripts from .forge/scripts/ directories below
+// (excluding startDir itself). Returns manifests ordered by path depth.
+func DiscoverScriptsDown(startDir string) ([]*Manifest, error) {
+	var manifests []*Manifest
+
+	err := filepath.WalkDir(startDir, func(p string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+
+		if !d.IsDir() {
+			return nil
+		}
+
+		if skipDirs[d.Name()] {
+			return filepath.SkipDir
+		}
+
+		// Skip startDir itself — upward discovery handles it.
+		if p == startDir {
+			return nil
+		}
+
+		scriptsDir := filepath.Join(p, ".forge", "scripts")
+		info, statErr := os.Stat(scriptsDir)
+		if statErr != nil || !info.IsDir() {
+			return nil
+		}
+
+		m, discoverErr := discoverScriptsInDir(scriptsDir, p)
+		if discoverErr != nil {
+			return nil
+		}
+
+		if m != nil && len(m.Commands) > 0 {
+			manifests = append(manifests, m)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return manifests, nil
 }

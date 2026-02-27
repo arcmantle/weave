@@ -25,7 +25,7 @@
 			<circle cx="11" cy="11" r="8"/>
 			<line x1="21" y1="21" x2="16.65" y2="16.65"/>
 		</svg>
-		<input type="text" class="search-input" id="search" placeholder="Search commands..." autocomplete="off">
+		<input type="text" class="search-input" id="search" placeholder="Search commands &amp; templates..." autocomplete="off">
 	</div>
 	<span class="header-version" id="version"></span>
 </div>
@@ -40,6 +40,7 @@
 
 	<!-- Main -->
 	<forge-command class="main" id="main-content"></forge-command>
+	<forge-templates class="main" id="template-content" style="display:none"></forge-templates>
 </div>
 
 <div class="kbd-hint">
@@ -51,6 +52,7 @@
 <script src="/runner.js"></script>
 <script src="/forge-sidebar.js"></script>
 <script src="/forge-command.js"></script>
+<script src="/forge-templates.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

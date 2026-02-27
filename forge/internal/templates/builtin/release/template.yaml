@@ -1,0 +1,5 @@
+description: "Version bump, changelog, git tag, and publish"
+variables:
+  - name: changelog_file
+    description: "Path to the changelog file"
+    default: CHANGELOG.md

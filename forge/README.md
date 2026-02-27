@@ -52,6 +52,10 @@ commands:
     description: "Run linting and tests in parallel"
     run:
       - parallel: [lint, test]
+
+registries:
+  - https://github.com/org/forge-templates
+  - ./local-templates
 ```
 
 The schema comment on line 1 enables IDE autocompletion and validation.
@@ -288,6 +292,8 @@ forge --help, -h             Show help
 forge --version, -v          Show version
 forge init                   Scaffold forge.yaml and .forge/
 forge add <name> [--lang]    Add a new script (go, ts, cs)
+forge add <name> --from      Create a script from a template
+forge templates              List available script templates
 forge setup <runtime>        Add scaffolding for a runtime (go, ts, cs)
 forge help <command>         Show detailed help for a command
 ```
@@ -318,6 +324,114 @@ forge add dev --ts          # creates forge.yaml, .forge/, and the dev script
 forge dev                   # runs the local script
 forge install               # still works — inherited from parent forge.yaml
 ```
+
+### `forge add <name> --from <template>`
+
+Create a script from a reusable template. Templates provide pre-built script scaffolding with variable substitution — a starting point you own and customize.
+
+```bash
+forge add install --from monorepo-install
+forge add deploy --from docker-compose-deploy --ts
+forge add ci --from ci-lint-test --var lint_command="pnpm lint" --var test_command="pnpm test"
+forge add release --from release --go --var changelog_file=CHANGES.md
+forge add deploy --from deploy-k8s@v1.2.0
+```
+
+Templates are resolved from four sources (in order):
+
+1. **Built-in templates** — bundled with forge
+2. **Template registries** — configured in `forge.yaml` (see [Template Registries](#template-registries))
+3. **Local directories** — `--from ./path/to/template`
+4. **Git URLs** — `--from https://github.com/user/repo#path/to/template`
+
+Use `--var key=value` to override template placeholder variables. Defaults are used for any unspecified variables.
+For registry templates, append `@<tag>` to pin a specific published version (for example: `deploy-k8s@v1.2.0`).
+
+### `forge templates`
+
+List all available templates (built-in and configured registries) with their descriptions, supported languages, and configurable variables.
+
+```bash
+forge templates
+```
+
+**Built-in templates:**
+
+| Template | Description |
+|---|---|
+| `monorepo-install` | Parallel pnpm/npm install across workspace directories |
+| `docker-compose-deploy` | Build and deploy via docker-compose |
+| `ci-lint-test` | Run lint and test in parallel for CI pipelines |
+| `release` | Version bump, changelog, git tag, and publish |
+| `db-migrate` | Run database migrations with rollback support |
+
+### Template Registries
+
+A template registry is a directory (local or remote git repo) containing reusable template directories. Configure registries in `forge.yaml`:
+
+```yaml
+registries:
+  - https://github.com/org/forge-templates
+  - ./local-templates
+```
+
+Registries inherit through manifest discovery — a parent `forge.yaml` can declare registries that are available to all child projects. Multiple manifests' registries are aggregated with deduplication.
+
+A registry can optionally include a `registry.yaml` index at its root for fast listing:
+
+```yaml
+name: "My Templates"
+templates:
+  - name: deploy-k8s
+    description: "Deploy to Kubernetes"
+    languages: [go, ts]
+    variables:
+      - name: namespace
+        description: "Kubernetes namespace"
+        default: default
+```
+
+If no `registry.yaml` exists, forge scans the directory for subdirectories containing `template.yaml` files.
+
+For GitHub registry repos and local Git folders, forge supports a branch-based package model:
+
+- Each branch is treated as a template package name
+- `forge templates` lists remote branches as templates
+- A local Git folder added in `registries:` behaves the same way (local branches become packages)
+- Tags that follow `package/tag` are used to determine the latest package version
+- `forge add <name> --from <branch-name>` loads that branch as the template source
+- `forge add <name> --from <branch-name>@<tag>` loads a tagged version for that package
+- Description is read from `template.yaml` when present, with README summary fallback
+
+By default, only the latest tag is surfaced for each package. In `forge --docs`, selecting a package shows previous versions you can pin with `@tag`.
+
+This allows publishing immutable package versions via tags while keeping branch names as package entry points.
+
+Registry templates appear in `forge templates` output grouped by source, and are searchable in `forge --docs`.
+
+#### Template format
+
+Templates are directories containing a `template.yaml` metadata file and script files in one or more languages:
+
+```
+my-template/
+  template.yaml
+  my-template.go
+  my-template.ts
+  my-template.cs
+```
+
+`template.yaml`:
+
+```yaml
+description: "What this template does"
+variables:
+  - name: var_name
+    description: "What this variable controls"
+    default: default_value
+```
+
+Scripts use `__NAME__` for the command name and `__VAR_XXXX__` (uppercase variable name) for placeholder variables, which get replaced when the template is applied.
 
 ### `forge setup <runtime>`
 
@@ -459,7 +573,10 @@ Features:
 - **Grouped sidebar** — nested commands (`:`) displayed under their group prefix
 - **Full argument docs** — positionals, flags, and options with types and defaults
 - **Composite step visualization** — sequential and parallel steps with clickable cross-references
-- **Search** — filter commands by name or description (`/` to focus)
+- **Template browser** — view all available templates with descriptions, languages, variables, and usage examples
+- **Direct template install** — install templates from the docs page without leaving the explorer
+- **Target selection** — when multiple forge roots are available, choose which project folder receives the install
+- **Search** — filter commands and templates by name or description (`/` to focus)
 - **Auto-close** — the server shuts down when you close the browser tab
 
 No external dependencies — the HTML is embedded in the forge binary.

@@ -1,0 +1,8 @@
+description: "Build and deploy via docker-compose"
+variables:
+  - name: compose_file
+    description: "Path to docker-compose file"
+    default: docker-compose.yml
+  - name: project_name
+    description: "Docker compose project name"
+    default: app

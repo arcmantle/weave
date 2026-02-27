@@ -37,6 +37,33 @@
  * @property {string} projectName
  * @property {string} version
  * @property {DocCommand[]} commands
+ * @property {DocTemplate[]} [templates]
+ * @property {DocInstallTarget[]} [installTargets]
+ */
+
+/**
+ * @typedef {Object} DocTemplate
+ * @property {string} name
+ * @property {string} description
+ * @property {string[]} languages
+ * @property {DocTemplateVar[]} [variables]
+ * @property {string} [latestTag]
+ * @property {string[]} [versions]
+ * @property {string} source
+ * @property {string} [sourceType]
+ */
+
+/**
+ * @typedef {Object} DocInstallTarget
+ * @property {string} path
+ * @property {string} label
+ */
+
+/**
+ * @typedef {Object} DocTemplateVar
+ * @property {string} name
+ * @property {string} description
+ * @property {string} [default]
  */
 
 /**

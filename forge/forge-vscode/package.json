@@ -1,0 +1,122 @@
+{
+	"name": "forge-runner",
+	"displayName": "Forge Script Runner",
+	"version": "0.0.2",
+	"description": "Browse, navigate, and run forge commands from the VS Code sidebar.",
+	"categories": [
+		"Other"
+	],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/arcmantle/weave"
+	},
+	"license": "MIT",
+	"publisher": "arcmantle",
+	"main": "./dist/extension.js",
+	"scripts": {
+		"compile": "tsc -p ./ --noEmit && node esbuild.mjs",
+		"lint": "eslint src --ext ts",
+		"package": "pnpm run compile && pnpx @vscode/vsce package --allow-missing-repository --no-dependencies",
+		"watch": "tsc -watch -p ./"
+	},
+	"contributes": {
+		"commands": [
+			{
+				"command": "forge.run",
+				"title": "Forge: Run Command",
+				"icon": "$(play)"
+			},
+			{
+				"command": "forge.openScript",
+				"title": "Forge: Open Script",
+				"icon": "$(go-to-file)"
+			},
+			{
+				"command": "forge.refresh",
+				"title": "Forge: Refresh Commands",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "forge.addScript",
+				"title": "Forge: Add Script",
+				"icon": "$(add)"
+			}
+		],
+		"menus": {
+			"view/title": [
+				{
+					"command": "forge.addScript",
+					"when": "view == forgeCommands",
+					"group": "navigation"
+				},
+				{
+					"command": "forge.refresh",
+					"when": "view == forgeCommands",
+					"group": "navigation"
+				}
+			],
+			"view/item/context": [
+				{
+					"command": "forge.run",
+					"when": "viewItem =~ /runnable/ && (view == forgeCommands || view == forgeExplorer)",
+					"group": "inline"
+				},
+				{
+					"command": "forge.openScript",
+					"when": "viewItem =~ /script/ && (view == forgeCommands || view == forgeExplorer)",
+					"group": "inline"
+				},
+				{
+					"command": "forge.run",
+					"when": "viewItem =~ /runnable/ && (view == forgeCommands || view == forgeExplorer)",
+					"group": "forge@1"
+				},
+				{
+					"command": "forge.openScript",
+					"when": "viewItem =~ /script/ && (view == forgeCommands || view == forgeExplorer)",
+					"group": "forge@2"
+				}
+			]
+		},
+		"views": {
+			"forge": [
+				{
+					"id": "forgeCommands",
+					"name": "Commands"
+				}
+			],
+			"explorer": [
+				{
+					"id": "forgeExplorer",
+					"name": "Forge",
+					"when": "forge.hasManifest"
+				}
+			]
+		},
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "forge",
+					"title": "Forge",
+					"icon": "$(symbol-event)"
+				}
+			]
+		}
+	},
+	"activationEvents": [
+		"workspaceContains:**/forge.yaml",
+		"workspaceContains:**/.forge/scripts"
+	],
+	"dependencies": {
+		"yaml": "^2.7.0"
+	},
+	"devDependencies": {
+		"@types/node": "20.x",
+		"@types/vscode": "^1.85.0",
+		"esbuild": "^0.27.3",
+		"typescript": "^5.7.0"
+	},
+	"engines": {
+		"vscode": "^1.85.0"
+	}
+}

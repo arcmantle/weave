@@ -11,6 +11,14 @@
 			"additionalProperties": {
 				"$ref": "#/definitions/command"
 			}
+		},
+		"registries": {
+			"type": "array",
+			"description": "List of template registries. Each entry is a local directory path or a git URL containing reusable script templates.",
+			"items": {
+				"type": "string",
+				"description": "A local path (e.g. './templates') or git URL (e.g. 'https://github.com/org/forge-templates') pointing to a template registry."
+			}
 		}
 	},
 	"definitions": {

@@ -1,0 +1,8 @@
+description: "Run database migrations with rollback support"
+variables:
+  - name: migrations_dir
+    description: "Directory containing migration files"
+    default: migrations
+  - name: db_url_env
+    description: "Environment variable containing the database URL"
+    default: DATABASE_URL

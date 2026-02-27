@@ -83,7 +83,9 @@ type Command struct {
 
 // Manifest represents a forge.yaml file.
 type Manifest struct {
-	Commands map[string]Command `yaml:"commands"`
+	Commands   map[string]Command `yaml:"commands"`
+	Registries []string           `yaml:"registries"`
+	ManifestDir string            `yaml:"-"`
 }
 
 // Load reads and parses a forge.yaml file from the given path.
@@ -103,6 +105,7 @@ func Load(path string) (*Manifest, error) {
 	}
 
 	dir := filepath.Dir(path)
+	m.ManifestDir = dir
 	for name, cmd := range m.Commands {
 		cmd.ManifestDir = dir
 		m.Commands[name] = cmd
@@ -113,6 +116,7 @@ func Load(path string) (*Manifest, error) {
 
 // Merge combines multiple manifests in order. Later entries override earlier ones.
 // This means the closest manifest (from CWD) takes priority.
+// Registries are aggregated from all manifests with duplicates removed.
 func Merge(manifests []*Manifest) *Manifest {
 	merged := &Manifest{
 		Commands: make(map[string]Command),
@@ -123,6 +127,29 @@ func Merge(manifests []*Manifest) *Manifest {
 		for name, cmd := range manifests[i].Commands {
 			if _, exists := merged.Commands[name]; !exists {
 				merged.Commands[name] = cmd
+			}
+		}
+	}
+
+	// Aggregate registries from all manifests, preserving order and deduplicating.
+	seen := map[string]bool{}
+	for _, m := range manifests {
+		for _, r := range m.Registries {
+			resolved := strings.TrimSpace(r)
+			if resolved == "" {
+				continue
+			}
+
+			if !strings.HasPrefix(resolved, "https://") && !strings.HasPrefix(resolved, "http://") && !filepath.IsAbs(resolved) {
+				base := strings.TrimSpace(m.ManifestDir)
+				if base != "" {
+					resolved = filepath.Clean(filepath.Join(base, resolved))
+				}
+			}
+
+			if !seen[resolved] {
+				seen[resolved] = true
+				merged.Registries = append(merged.Registries, resolved)
 			}
 		}
 	}
