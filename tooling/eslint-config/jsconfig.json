@@ -1,6 +1,7 @@
 {
 	"extends": "@arcmantle/tsconfig",
 	"compilerOptions": {
+		"isolatedDeclarations": false,
 		"outDir": "../dist",
 		"rootDir": ".",
 		"baseUrl": ".",
