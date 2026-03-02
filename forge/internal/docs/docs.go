@@ -12,12 +12,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -27,7 +30,7 @@ import (
 	"github.com/arcmantle/forge/internal/templates"
 )
 
-//go:embed index.html styles.css utils.js markdown.js runner.js forge-sidebar.js forge-command.js forge-templates.js app.js
+//go:embed index.html styles.css utils.js markdown.js runner.js forge-sidebar.js forge-command.js forge-templates.js forge-registry.js app.js
 var staticFiles embed.FS
 
 // DocData is the top-level JSON structure injected into the HTML template.
@@ -35,8 +38,16 @@ type DocData struct {
 	ProjectName string        `json:"projectName"`
 	Version     string        `json:"version"`
 	Commands    []DocCommand  `json:"commands"`
-	Templates   []DocTemplate `json:"templates,omitempty"`
+	TemplateCount int         `json:"templateCount,omitempty"`
+	RegistrySources []DocRegistrySource `json:"registrySources,omitempty"`
 	InstallTargets []DocInstallTarget `json:"installTargets,omitempty"`
+}
+
+// DocRegistrySource summarizes template counts per source for registry filtering.
+type DocRegistrySource struct {
+	Name       string `json:"name"`
+	Count      int    `json:"count"`
+	SourceType string `json:"sourceType,omitempty"`
 }
 
 // DocInstallTarget represents a directory where template installation can occur.
@@ -47,14 +58,152 @@ type DocInstallTarget struct {
 
 // DocTemplate represents a script template available from built-in or registry sources.
 type DocTemplate struct {
+	ID          string             `json:"id"`
 	Name        string             `json:"name"`
 	Description string             `json:"description"`
 	Languages   []string           `json:"languages"`
 	Variables   []DocTemplateVar   `json:"variables,omitempty"`
+	Example     string             `json:"example,omitempty"`
 	LatestTag   string             `json:"latestTag,omitempty"`
 	Versions    []string           `json:"versions,omitempty"`
 	Source      string             `json:"source"` // "built-in" or registry name
 	SourceType  string             `json:"sourceType,omitempty"`
+}
+
+// DocTemplateSummary is a lightweight list item for registry search results.
+type DocTemplateSummary struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Languages   []string `json:"languages"`
+	LatestTag   string   `json:"latestTag,omitempty"`
+	Source      string   `json:"source"`
+	SourceType  string   `json:"sourceType,omitempty"`
+}
+
+type templateRegistry struct {
+	all       []DocTemplateSummary
+	fullByID  map[string]DocTemplate
+	sources   map[string][]int
+	searchIdx []string
+}
+
+func buildTemplateRegistry(allTemplates []templates.TemplateInfo) templateRegistry {
+	registry := templateRegistry{
+		fullByID: make(map[string]DocTemplate, len(allTemplates)),
+		sources:  map[string][]int{},
+	}
+
+	for _, t := range allTemplates {
+		id := templateID(t.Source, t.Name)
+		summary := DocTemplateSummary{
+			ID:          id,
+			Name:        t.Name,
+			Description: t.Description,
+			Languages:   append([]string{}, t.Languages...),
+			LatestTag:   t.LatestTag,
+			Source:      t.Source,
+			SourceType:  docSourceTypeLabel(t.SourceType),
+		}
+		full := DocTemplate{
+			ID:          id,
+			Name:        t.Name,
+			Description: t.Description,
+			Languages:   append([]string{}, t.Languages...),
+			Example:     t.Example,
+			LatestTag:   t.LatestTag,
+			Versions:    append([]string{}, t.Versions...),
+			Source:      t.Source,
+			SourceType:  docSourceTypeLabel(t.SourceType),
+		}
+		for _, v := range t.Variables {
+			full.Variables = append(full.Variables, DocTemplateVar{
+				Name:        v.Name,
+				Description: v.Description,
+				Default:     v.Default,
+			})
+		}
+
+		idx := len(registry.all)
+		registry.all = append(registry.all, summary)
+		registry.fullByID[id] = full
+		registry.sources[summary.Source] = append(registry.sources[summary.Source], idx)
+
+		searchBlob := strings.ToLower(summary.Name + "\n" + summary.Description + "\n" + strings.Join(summary.Languages, " "))
+		registry.searchIdx = append(registry.searchIdx, searchBlob)
+	}
+
+	return registry
+}
+
+func (s templateRegistry) ByID(id string) (DocTemplate, bool) {
+	tpl, ok := s.fullByID[id]
+
+	return tpl, ok
+}
+
+func (s templateRegistry) Search(query, source string, offset, limit int) (int, []DocTemplateSummary) {
+	q := strings.ToLower(strings.TrimSpace(query))
+	src := strings.TrimSpace(source)
+
+	baseIndexes := make([]int, 0)
+	if src != "" {
+		baseIndexes = append(baseIndexes, s.sources[src]...)
+	} else {
+		baseIndexes = make([]int, len(s.all))
+		for i := range s.all {
+			baseIndexes[i] = i
+		}
+	}
+
+	if q != "" {
+		filtered := make([]int, 0, len(baseIndexes))
+		for _, idx := range baseIndexes {
+			if strings.Contains(s.searchIdx[idx], q) {
+				filtered = append(filtered, idx)
+			}
+		}
+		baseIndexes = filtered
+	}
+
+	total := len(baseIndexes)
+	if offset >= total {
+		return total, []DocTemplateSummary{}
+	}
+
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+
+	out := make([]DocTemplateSummary, 0, end-offset)
+	for _, idx := range baseIndexes[offset:end] {
+		out = append(out, s.all[idx])
+	}
+
+	return total, out
+}
+
+func templateID(source, name string) string {
+	return source + "|" + name
+}
+
+func clampParseInt(value string, fallback, minVal, maxVal int) int {
+	if strings.TrimSpace(value) == "" {
+		return fallback
+	}
+	v, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil {
+		return fallback
+	}
+	if v < minVal {
+		v = minVal
+	}
+	if v > maxVal {
+		v = maxVal
+	}
+
+	return v
 }
 
 // DocTemplateVar describes a variable placeholder in a template.
@@ -100,11 +249,25 @@ type DocStep struct {
 // streams command metadata as it's collected. The page loads instantly
 // with basic manifest data, then receives progressive updates via SSE.
 func Serve(m *manifest.Manifest, version string) error {
+	allTemplates := templates.ListAllTemplates(m.Registries)
+	registry := buildTemplateRegistry(allTemplates)
+
 	// Build basic data from manifest (instant — no compilation).
-	basicData := collectBasicData(m, version)
+	basicData := collectBasicData(m, version, allTemplates)
 	basicJSON, err := json.Marshal(basicData)
 	if err != nil {
 		return fmt.Errorf("marshaling basic data: %w", err)
+	}
+
+	var stateMu sync.RWMutex
+	currentManifest := m
+	currentData := basicData
+	currentJSON := basicJSON
+	currentRegistry := registry
+
+	allowedInstallTargets := map[string]bool{}
+	for _, t := range currentData.InstallTargets {
+		allowedInstallTargets[filepath.Clean(t.Path)] = true
 	}
 
 	// Find an available port, starting from a stable default.
@@ -149,10 +312,23 @@ func Serve(m *manifest.Manifest, version string) error {
 		sseClientsMu.Unlock()
 	}
 
+	// Metadata collection is restartable (used by refresh).
+	var metaMu sync.Mutex
+	var metaCancel context.CancelFunc
+	startMetaCollection := func(man *manifest.Manifest) {
+		metaMu.Lock()
+		if metaCancel != nil {
+			metaCancel()
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		metaCancel = cancel
+		metaMu.Unlock()
+
+		go collectAndStream(ctx, man, broadcast)
+	}
+
 	// Collect metadata in background, broadcasting each result via SSE.
-	go func() {
-		collectAndStream(m, broadcast)
-	}()
+	startMetaCollection(currentManifest)
 
 	mux := http.NewServeMux()
 
@@ -175,6 +351,7 @@ func Serve(m *manifest.Manifest, version string) error {
 		{"forge-sidebar.js", "application/javascript; charset=utf-8"},
 		{"forge-command.js", "application/javascript; charset=utf-8"},
 		{"forge-templates.js", "application/javascript; charset=utf-8"},
+		{"forge-registry.js", "application/javascript; charset=utf-8"},
 		{"app.js", "application/javascript; charset=utf-8"},
 	} {
 		data, _ := staticFiles.ReadFile(entry.path)
@@ -183,7 +360,7 @@ func Serve(m *manifest.Manifest, version string) error {
 
 	// Compute a combined ETag from all static assets.
 	h := sha256.New()
-	for _, name := range []string{"index.html", "styles.css", "utils.js", "markdown.js", "runner.js", "forge-sidebar.js", "forge-command.js", "forge-templates.js", "app.js"} {
+	for _, name := range []string{"index.html", "styles.css", "utils.js", "markdown.js", "runner.js", "forge-sidebar.js", "forge-command.js", "forge-templates.js", "forge-registry.js", "app.js"} {
 		h.Write(assets[name].data)
 	}
 	etag := `"` + hex.EncodeToString(h.Sum(nil)[:8]) + `"`
@@ -212,19 +389,128 @@ func Serve(m *manifest.Manifest, version string) error {
 	mux.HandleFunc("/forge-sidebar.js", serveAsset("forge-sidebar.js"))
 	mux.HandleFunc("/forge-command.js", serveAsset("forge-command.js"))
 	mux.HandleFunc("/forge-templates.js", serveAsset("forge-templates.js"))
+	mux.HandleFunc("/forge-registry.js", serveAsset("forge-registry.js"))
 	mux.HandleFunc("/app.js", serveAsset("app.js"))
 
 	// Returns basic manifest data immediately (no compilation required).
 	mux.HandleFunc("/api/data", func(w http.ResponseWriter, r *http.Request) {
+		stateMu.RLock()
+		payload := currentJSON
+		stateMu.RUnlock()
+
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-cache")
-		w.Write(basicJSON)
+		w.Write(payload)
 	})
 
-	allowedInstallTargets := map[string]bool{}
-	for _, t := range basicData.InstallTargets {
-		allowedInstallTargets[filepath.Clean(t.Path)] = true
+	mux.HandleFunc("/api/refresh", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		newManifest, err := rediscoverManifest()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		newTemplates := templates.ListAllTemplates(newManifest.Registries)
+		newData := collectBasicData(newManifest, version, newTemplates)
+		newJSON, err := json.Marshal(newData)
+		if err != nil {
+			http.Error(w, "failed to marshal refreshed docs data", http.StatusInternalServerError)
+			return
+		}
+		newRegistry := buildTemplateRegistry(newTemplates)
+
+		newAllowedTargets := map[string]bool{}
+		for _, t := range newData.InstallTargets {
+			newAllowedTargets[filepath.Clean(t.Path)] = true
+		}
+
+		stateMu.Lock()
+		currentManifest = newManifest
+		currentData = newData
+		currentJSON = newJSON
+		currentRegistry = newRegistry
+		allowedInstallTargets = newAllowedTargets
+		stateMu.Unlock()
+
+		sseClientsMu.Lock()
+		sseHistory = nil
+		sseClientsMu.Unlock()
+
+		startMetaCollection(newManifest)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Write(newJSON)
+	})
+
+	handleRegistrySearch := func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		q := strings.TrimSpace(r.URL.Query().Get("q"))
+		source := strings.TrimSpace(r.URL.Query().Get("source"))
+		offset := clampParseInt(r.URL.Query().Get("offset"), 0, 0, 1_000_000)
+		limit := clampParseInt(r.URL.Query().Get("limit"), 50, 1, 200)
+
+		stateMu.RLock()
+		current := currentRegistry
+		stateMu.RUnlock()
+
+		total, items := current.Search(q, source, offset, limit)
+		resp := struct {
+			Total   int                   `json:"total"`
+			Offset  int                   `json:"offset"`
+			Limit   int                   `json:"limit"`
+			HasMore bool                  `json:"hasMore"`
+			Items   []DocTemplateSummary  `json:"items"`
+		}{
+			Total: total,
+			Offset: offset,
+			Limit: limit,
+			HasMore: offset+len(items) < total,
+			Items: items,
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-cache")
+		_ = json.NewEncoder(w).Encode(resp)
 	}
+	mux.HandleFunc("/api/registry/search", handleRegistrySearch)
+
+	handleRegistryTemplate := func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		id := strings.TrimSpace(r.URL.Query().Get("id"))
+		if id == "" {
+			http.Error(w, "id is required", http.StatusBadRequest)
+			return
+		}
+
+		stateMu.RLock()
+		current := currentRegistry
+		stateMu.RUnlock()
+
+		tpl, ok := current.ByID(id)
+		if !ok {
+			http.Error(w, "template not found", http.StatusNotFound)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-cache")
+		_ = json.NewEncoder(w).Encode(tpl)
+	}
+	mux.HandleFunc("/api/registry/template", handleRegistryTemplate)
 
 	mux.HandleFunc("/api/templates/install", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -251,10 +537,15 @@ func Serve(m *manifest.Manifest, version string) error {
 			return
 		}
 
+		stateMu.RLock()
+		installTargets := currentData.InstallTargets
+		allowedTargets := allowedInstallTargets
+		stateMu.RUnlock()
+
 		targetPath := strings.TrimSpace(req.TargetPath)
 		if targetPath == "" {
-			if len(basicData.InstallTargets) == 1 {
-				targetPath = basicData.InstallTargets[0].Path
+			if len(installTargets) == 1 {
+				targetPath = installTargets[0].Path
 			} else {
 				http.Error(w, "targetPath is required when multiple install targets exist", http.StatusBadRequest)
 				return
@@ -262,7 +553,7 @@ func Serve(m *manifest.Manifest, version string) error {
 		}
 
 		targetPath = filepath.Clean(targetPath)
-		if !allowedInstallTargets[targetPath] {
+		if !allowedTargets[targetPath] {
 			http.Error(w, "targetPath is not an allowed forge target", http.StatusBadRequest)
 			return
 		}
@@ -393,7 +684,11 @@ func Serve(m *manifest.Manifest, version string) error {
 			return
 		}
 
-		if _, ok := m.Commands[req.Command]; !ok {
+		stateMu.RLock()
+		activeManifest := currentManifest
+		stateMu.RUnlock()
+
+		if _, ok := activeManifest.Commands[req.Command]; !ok {
 			http.Error(w, "unknown command: "+req.Command, http.StatusNotFound)
 			return
 		}
@@ -433,7 +728,7 @@ func Serve(m *manifest.Manifest, version string) error {
 
 		// Set working directory to the command's manifest directory so that
 		// nested commands execute from the correct location.
-		if cmdDef, ok := m.Commands[req.Command]; ok && cmdDef.ManifestDir != "" {
+		if cmdDef, ok := activeManifest.Commands[req.Command]; ok && cmdDef.ManifestDir != "" {
 			cmd.Dir = cmdDef.ManifestDir
 		} else if wd, wdErr := os.Getwd(); wdErr == nil {
 			cmd.Dir = wd
@@ -528,6 +823,13 @@ func Serve(m *manifest.Manifest, version string) error {
 	// Shutdown context — cancelled when heartbeat expires.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	defer func() {
+		metaMu.Lock()
+		if metaCancel != nil {
+			metaCancel()
+		}
+		metaMu.Unlock()
+	}()
 
 	// Monitor heartbeat in background.
 	go func() {
@@ -550,7 +852,7 @@ func Serve(m *manifest.Manifest, version string) error {
 		}
 	}()
 
-	fmt.Printf("\033[36mforge docs\033[0m serving at %s\n", url)
+	fmt.Printf("\033[36mforge tasks\033[0m serving at %s\n", url)
 
 	// Open in chromeless app window.
 	openAppWindow(url)
@@ -563,9 +865,34 @@ func Serve(m *manifest.Manifest, version string) error {
 	return nil
 }
 
+func rediscoverManifest() (*manifest.Manifest, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("could not get working directory: %w", err)
+	}
+
+	upward, err := manifest.DiscoverScripts(cwd)
+	if err != nil {
+		return nil, err
+	}
+
+	downward, err := manifest.DiscoverScriptsDown(cwd)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(upward) == 0 && len(downward) == 0 {
+		return nil, fmt.Errorf("no .forge/scripts/ found in current, parent, or child directories")
+	}
+
+	all := append(downward, upward...)
+
+	return manifest.Merge(all), nil
+}
+
 // collectBasicData builds command docs from manifest data alone (no compilation).
 // Script commands will have empty positionals/flags until meta is streamed.
-func collectBasicData(m *manifest.Manifest, version string) DocData {
+func collectBasicData(m *manifest.Manifest, version string, allTemplates []templates.TemplateInfo) DocData {
 	data := DocData{
 		ProjectName: detectProjectName(m),
 		Version:     version,
@@ -585,7 +912,7 @@ func collectBasicData(m *manifest.Manifest, version string) DocData {
 			Name:        name,
 			Description: cmd.Description,
 			Source:      commandSource(cmd.ManifestDir, cwd),
-			SourcePath:  filepath.Join(cmd.ManifestDir, manifest.ManifestFile),
+			SourcePath:  filepath.Join(cmd.ManifestDir, manifest.ForgeDirName, manifest.ScriptsDirName),
 		}
 
 		if len(cmd.Run) > 0 {
@@ -624,26 +951,24 @@ func collectBasicData(m *manifest.Manifest, version string) DocData {
 		data.Commands = append(data.Commands, doc)
 	}
 
-	// Collect available templates from built-in + registries.
-	allTemplates := templates.ListAllTemplates(m.Registries)
+	data.TemplateCount = len(allTemplates)
+	sourceCounts := map[string]DocRegistrySource{}
 	for _, t := range allTemplates {
-		dt := DocTemplate{
-			Name:        t.Name,
-			Description: t.Description,
-			Languages:   t.Languages,
-			LatestTag:   t.LatestTag,
-			Versions:    append([]string{}, t.Versions...),
-			Source:      t.Source,
-			SourceType:  docSourceTypeLabel(t.SourceType),
+		entry := sourceCounts[t.Source]
+		entry.Name = t.Source
+		entry.Count++
+		if entry.SourceType == "" {
+			entry.SourceType = docSourceTypeLabel(t.SourceType)
 		}
-		for _, v := range t.Variables {
-			dt.Variables = append(dt.Variables, DocTemplateVar{
-				Name:        v.Name,
-				Description: v.Description,
-				Default:     v.Default,
-			})
-		}
-		data.Templates = append(data.Templates, dt)
+		sourceCounts[t.Source] = entry
+	}
+	for _, v := range sourceCounts {
+		data.RegistrySources = append(data.RegistrySources, v)
+	}
+	if len(data.RegistrySources) > 0 {
+		sort.Slice(data.RegistrySources, func(i, j int) bool {
+			return data.RegistrySources[i].Name < data.RegistrySources[j].Name
+		})
 	}
 
 	data.InstallTargets = collectInstallTargets()
@@ -702,22 +1027,6 @@ func collectInstallTargets() []DocInstallTarget {
 		}
 	}
 
-	if manifests, err := manifest.Discover(cwd); err == nil {
-		for _, m := range manifests {
-			for _, c := range m.Commands {
-				addTarget(c.ManifestDir)
-			}
-		}
-	}
-
-	if manifests, err := manifest.DiscoverDown(cwd); err == nil {
-		for _, m := range manifests {
-			for _, c := range m.Commands {
-				addTarget(c.ManifestDir)
-			}
-		}
-	}
-
 	if scriptManifests, err := manifest.DiscoverScripts(cwd); err == nil {
 		for _, m := range scriptManifests {
 			for _, c := range m.Commands {
@@ -733,6 +1042,29 @@ func collectInstallTargets() []DocInstallTarget {
 			}
 		}
 	}
+
+	_ = filepath.WalkDir(cwd, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return nil
+		}
+		if !entry.IsDir() {
+			return nil
+		}
+
+		switch entry.Name() {
+		case ".git", "node_modules", "bin", "obj", "cache":
+			if path != cwd {
+				return filepath.SkipDir
+			}
+		}
+
+		forgeDir := filepath.Join(path, manifest.ForgeDirName)
+		if info, statErr := os.Stat(forgeDir); statErr == nil && info.IsDir() {
+			addTarget(path)
+		}
+
+		return nil
+	})
 
 	if len(targets) == 0 {
 		addTarget(cwd)
@@ -763,7 +1095,11 @@ type MetaUpdate struct {
 
 // collectAndStream runs --forge-meta on each script command and broadcasts
 // SSE events as each one completes. Sends a "done" event when finished.
-func collectAndStream(m *manifest.Manifest, broadcast func(string, []byte)) {
+func collectAndStream(ctx context.Context, m *manifest.Manifest, broadcast func(string, []byte)) {
+	if ctx.Err() != nil {
+		return
+	}
+
 	names := make([]string, 0, len(m.Commands))
 	for name := range m.Commands {
 		cmd := m.Commands[name]
@@ -774,6 +1110,9 @@ func collectAndStream(m *manifest.Manifest, broadcast func(string, []byte)) {
 	sortStrings(names)
 
 	if len(names) == 0 {
+		if ctx.Err() != nil {
+			return
+		}
 		doneJSON, _ := json.Marshal(map[string]int{"total": 0})
 		broadcast("done", doneJSON)
 		return
@@ -781,6 +1120,9 @@ func collectAndStream(m *manifest.Manifest, broadcast func(string, []byte)) {
 
 	// Notify the client which scripts are being compiled.
 	for _, name := range names {
+		if ctx.Err() != nil {
+			return
+		}
 		update := MetaUpdate{Name: name, Status: "compiling"}
 		data, _ := json.Marshal(update)
 		broadcast("meta", data)
@@ -789,6 +1131,9 @@ func collectAndStream(m *manifest.Manifest, broadcast func(string, []byte)) {
 	// Pre-run shared setup for each language so parallel Meta() calls
 	// don't race on writing the same cached files (helpers, package.json, etc).
 	for _, name := range names {
+		if ctx.Err() != nil {
+			return
+		}
 		cmd := m.Commands[name]
 		scriptPath := cmd.Script
 		if !filepath.IsAbs(scriptPath) {
@@ -808,7 +1153,14 @@ func collectAndStream(m *manifest.Manifest, broadcast func(string, []byte)) {
 		go func(n string, cmd manifest.Command) {
 			defer wg.Done()
 
+			if ctx.Err() != nil {
+				return
+			}
+
 			meta, err := runner.Meta(cmd, m)
+			if ctx.Err() != nil {
+				return
+			}
 
 			update := MetaUpdate{Name: n}
 			if err != nil || meta == nil {
@@ -824,6 +1176,9 @@ func collectAndStream(m *manifest.Manifest, broadcast func(string, []byte)) {
 	}
 
 	wg.Wait()
+	if ctx.Err() != nil {
+		return
+	}
 
 	doneJSON, _ := json.Marshal(map[string]int{"total": len(names)})
 	broadcast("done", doneJSON)

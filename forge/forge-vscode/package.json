@@ -32,6 +32,11 @@
 				"icon": "$(go-to-file)"
 			},
 			{
+				"command": "forge.openTemplate",
+				"title": "Forge: Open Command Template",
+				"icon": "$(file-code)"
+			},
+			{
 				"command": "forge.refresh",
 				"title": "Forge: Refresh Commands",
 				"icon": "$(refresh)"
@@ -67,14 +72,24 @@
 					"group": "inline"
 				},
 				{
+					"command": "forge.openTemplate",
+					"when": "viewItem =~ /runnable/ && (view == forgeCommands || view == forgeExplorer)",
+					"group": "inline"
+				},
+				{
 					"command": "forge.run",
 					"when": "viewItem =~ /runnable/ && (view == forgeCommands || view == forgeExplorer)",
 					"group": "forge@1"
 				},
 				{
+					"command": "forge.openTemplate",
+					"when": "viewItem =~ /runnable/ && (view == forgeCommands || view == forgeExplorer)",
+					"group": "forge@2"
+				},
+				{
 					"command": "forge.openScript",
 					"when": "viewItem =~ /script/ && (view == forgeCommands || view == forgeExplorer)",
-					"group": "forge@2"
+					"group": "forge@3"
 				}
 			]
 		},
@@ -104,7 +119,7 @@
 		}
 	},
 	"activationEvents": [
-		"workspaceContains:**/forge.yaml",
+		"workspaceContains:**/.forge/scripts/**/template.yaml",
 		"workspaceContains:**/.forge/scripts"
 	],
 	"dependencies": {

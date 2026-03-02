@@ -21,7 +21,7 @@ export interface ForgeCommand {
 }
 
 export interface ResolvedManifest {
-	/** Absolute path to the forge.yaml (or synthetic for auto-discovered scripts). */
+	/** Absolute path to the scripts root for this project. */
 	manifestPath: string;
 	/** Merged command map — closest wins. */
 	commands: Map<string, ForgeCommand>;
@@ -30,8 +30,8 @@ export interface ResolvedManifest {
 // ── Manifest Service ───────────────────────────────────────────────
 
 /**
- * Discovers, parses, and merges forge.yaml manifests and auto-discovered
- * scripts for all workspace folders. Mirrors the Go CLI's discovery logic.
+ * Discovers and parses template.yaml command definitions under .forge/scripts.
+ * for all workspace folders.
  */
 export class ForgeManifestService {
 
@@ -87,16 +87,15 @@ export class ForgeManifestService {
 	 */
 	protected findAllManifests(rootDir: string): string[] {
 		const results: string[] = [];
-		this.walkForManifests(rootDir, rootDir, results);
+		this.walkForManifests(rootDir, results);
 
 		return results;
 	}
 
-	protected walkForManifests(dir: string, rootDir: string, results: string[]): void {
-		const hasYaml = fs.existsSync(path.join(dir, 'forge.yaml'));
+	protected walkForManifests(dir: string, results: string[]): void {
 		const hasScripts = fs.existsSync(path.join(dir, '.forge', 'scripts'));
 
-		if (hasYaml || hasScripts)
+		if (hasScripts)
 			results.push(dir);
 
 		try {
@@ -112,7 +111,7 @@ export class ForgeManifestService {
 					entry.name === 'out' || entry.name === 'vendor')
 					continue;
 
-				this.walkForManifests(path.join(dir, entry.name), rootDir, results);
+				this.walkForManifests(path.join(dir, entry.name), results);
 			}
 		}
 		catch {
@@ -121,70 +120,26 @@ export class ForgeManifestService {
 	}
 
 	/**
-	 * Load a manifest at a specific directory — reads forge.yaml and
-	 * auto-discovers .forge/scripts/ in that directory only.
+	 * Load a scripts manifest at a specific directory by parsing
+	 * .forge/scripts recursive template.yaml files in that directory.
 	 */
 	protected loadManifestAt(dir: string): ResolvedManifest | null {
-		const commands = new Map<string, ForgeCommand>();
-
-		// Auto-discovered scripts (lower priority).
 		const scriptsDir = path.join(dir, '.forge', 'scripts');
-		if (fs.existsSync(scriptsDir) && fs.statSync(scriptsDir).isDirectory()) {
-			const scriptManifest = this.discoverScriptsInDir(scriptsDir, dir);
-			if (scriptManifest) {
-				for (const [name, cmd] of scriptManifest.commands) {
-					commands.set(name, cmd);
-				}
-			}
-		}
+		if (!fs.existsSync(scriptsDir) || !fs.statSync(scriptsDir).isDirectory())
+			return null;
 
-		// Explicit YAML commands (higher priority — overwrites auto-discovered).
-		const yamlPath = path.join(dir, 'forge.yaml');
-		if (fs.existsSync(yamlPath)) {
-			const yamlManifest = this.loadYaml(yamlPath);
-			if (yamlManifest) {
-				for (const [name, cmd] of yamlManifest.commands) {
-					commands.set(name, cmd);
-				}
-			}
-		}
+		const commands = this.discoverScriptsInDir(scriptsDir, dir);
 
 		if (commands.size === 0)
 			return null;
 
 		return {
-			manifestPath: yamlPath,
+			manifestPath: scriptsDir,
 			commands,
 		};
 	}
 
 	// ── Parsing ──────────────────────────────────────────────────
-
-	protected loadYaml(filePath: string): ResolvedManifest | null {
-		try {
-			const content = fs.readFileSync(filePath, 'utf-8');
-			const parsed = parseYaml(content) as { commands?: Record<string, YamlCommand> } | null;
-			if (!parsed?.commands)
-				return null;
-
-			const dir = path.dirname(filePath);
-			const commands = new Map<string, ForgeCommand>();
-
-			for (const [name, def] of Object.entries(parsed.commands)) {
-				commands.set(name, {
-					description: def.description,
-					script:      def.script,
-					run:         def.run ? this.parseRunSteps(def.run) : undefined,
-					manifestDir: dir,
-				});
-			}
-
-			return { manifestPath: filePath, commands };
-		}
-		catch {
-			return null;
-		}
-	}
 
 	protected parseRunSteps(raw: unknown[]): RunStep[] {
 		const steps: RunStep[] = [];
@@ -214,34 +169,91 @@ export class ForgeManifestService {
 		return steps;
 	}
 
-	protected discoverScriptsInDir(scriptsDir: string, manifestDir: string): ResolvedManifest | null {
+	protected discoverScriptsInDir(scriptsDir: string, manifestDir: string): Map<string, ForgeCommand> {
 		const scriptExtensions = ['.go', '.ts', '.cs'];
+		const commands = new Map<string, ForgeCommand>();
 
 		try {
-			const entries = fs.readdirSync(scriptsDir, { withFileTypes: true });
-			const commands = new Map<string, ForgeCommand>();
+			const walk = (dir: string): void => {
+				const entries = fs.readdirSync(dir, { withFileTypes: true });
+				for (const entry of entries) {
+					const fullPath = path.join(dir, entry.name);
 
-			for (const entry of entries) {
-				if (!entry.isDirectory())
-					continue;
-
-				const name = entry.name;
-				const scriptSubDir = path.join(scriptsDir, name);
-
-				for (const ext of scriptExtensions) {
-					const scriptFile = path.join(scriptSubDir, name + ext);
-					if (fs.existsSync(scriptFile)) {
-						const relPath = path.join('.forge', 'scripts', name, name + ext);
-						commands.set(name, {
-							script:      relPath,
-							manifestDir: manifestDir,
-						});
-						break; // first matching extension wins
+					if (entry.isDirectory()) {
+						if (entry.name === 'node_modules' || entry.name === '.git' ||
+							entry.name === 'bin' || entry.name === 'obj' ||
+							entry.name === 'dist' || entry.name === 'out' || entry.name === 'vendor') {
+							continue;
+						}
+						walk(fullPath);
+						continue;
 					}
-				}
-			}
 
-			return { manifestPath: scriptsDir, commands };
+					if (!entry.isFile() || entry.name !== 'template.yaml')
+						continue;
+
+					const commandDir = path.dirname(fullPath);
+					const relativeCommandDir = path.relative(scriptsDir, commandDir);
+					if (!relativeCommandDir || relativeCommandDir.startsWith('..'))
+						continue;
+
+					const commandName = relativeCommandDir.split(path.sep).join(':');
+					const parsed = this.loadCommandTemplate(fullPath);
+					if (!parsed)
+						continue;
+
+					let script = parsed.script;
+					if (!script && !parsed.run) {
+						const leaf = path.basename(commandDir);
+						for (const ext of scriptExtensions) {
+							const candidate = path.join(commandDir, leaf + ext);
+							if (fs.existsSync(candidate)) {
+								script = leaf + ext;
+								break;
+							}
+						}
+					}
+
+					let resolvedScript: string | undefined;
+					if (script) {
+						const absoluteScript = path.isAbsolute(script)
+							? script
+							: path.resolve(commandDir, script);
+						resolvedScript = path.relative(manifestDir, absoluteScript);
+					}
+
+					commands.set(commandName, {
+						description: parsed.description,
+						script: resolvedScript,
+						run: parsed.run,
+						manifestDir,
+					});
+				}
+			};
+
+			walk(scriptsDir);
+		}
+		catch {
+			return commands;
+		}
+
+		return commands;
+	}
+
+	protected loadCommandTemplate(filePath: string): TemplateCommand | null {
+		try {
+			const content = fs.readFileSync(filePath, 'utf-8');
+			const parsed = parseYaml(content) as TemplateYaml | null;
+			if (!parsed || typeof parsed !== 'object')
+				return null;
+
+			const run = Array.isArray(parsed.run) ? this.parseRunSteps(parsed.run) : undefined;
+
+			return {
+				description: typeof parsed.description === 'string' ? parsed.description : undefined,
+				script: typeof parsed.script === 'string' ? parsed.script : undefined,
+				run,
+			};
 		}
 		catch {
 			return null;
@@ -251,8 +263,14 @@ export class ForgeManifestService {
 
 // ── YAML shape ─────────────────────────────────────────────────────
 
-interface YamlCommand {
+interface TemplateYaml {
 	description?: string;
 	script?: string;
 	run?: unknown[];
+}
+
+interface TemplateCommand {
+	description?: string;
+	script?: string;
+	run?: RunStep[];
 }

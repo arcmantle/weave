@@ -1,0 +1,4 @@
+# yaml-language-server: $schema=../../template-schema.json
+description: "Run Go and TS scripts together in parallel"
+run:
+  - parallel: [hello, hello-ts]

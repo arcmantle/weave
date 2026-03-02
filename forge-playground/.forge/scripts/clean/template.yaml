@@ -1,0 +1,3 @@
+# yaml-language-server: $schema=../../template-schema.json
+description: "Remove all node_modules directories recursively"
+script: clean.go

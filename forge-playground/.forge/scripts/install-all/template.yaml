@@ -1,0 +1,3 @@
+# yaml-language-server: $schema=../../template-schema.json
+description: "Install pnpm dependencies in all workspaces"
+script: install-all.go

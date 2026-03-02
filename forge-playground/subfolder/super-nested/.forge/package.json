@@ -1,0 +1,9 @@
+{
+	"type": "module",
+	"imports": {
+		"#helpers": "./cache/_helpers/helpers_ts/helpers.ts"
+	},
+	"devDependencies": {
+		"@types/node": "*"
+	}
+}

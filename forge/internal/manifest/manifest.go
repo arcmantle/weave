@@ -2,11 +2,17 @@ package manifest
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
 	"gopkg.in/yaml.v3"
+)
+
+const (
+	ForgeDirName         = ".forge"
+	ScriptsDirName       = "scripts"
+	CommandTemplateFile  = "template.yaml"
+	ConfigFileName       = "config.yaml"
 )
 
 // RunStep represents a single step in a composite command.
@@ -81,37 +87,11 @@ type Command struct {
 	ManifestDir string `yaml:"-"`
 }
 
-// Manifest represents a forge.yaml file.
+// Manifest represents a discovered command/config set for a project root.
 type Manifest struct {
 	Commands   map[string]Command `yaml:"commands"`
 	Registries []string           `yaml:"registries"`
 	ManifestDir string            `yaml:"-"`
-}
-
-// Load reads and parses a forge.yaml file from the given path.
-func Load(path string) (*Manifest, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("reading manifest %s: %w", path, err)
-	}
-
-	var m Manifest
-	if err := yaml.Unmarshal(data, &m); err != nil {
-		return nil, fmt.Errorf("parsing manifest %s: %w", path, err)
-	}
-
-	if m.Commands == nil {
-		m.Commands = make(map[string]Command)
-	}
-
-	dir := filepath.Dir(path)
-	m.ManifestDir = dir
-	for name, cmd := range m.Commands {
-		cmd.ManifestDir = dir
-		m.Commands[name] = cmd
-	}
-
-	return &m, nil
 }
 
 // Merge combines multiple manifests in order. Later entries override earlier ones.

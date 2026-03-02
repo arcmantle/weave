@@ -1,38 +1,5 @@
 # Forge Roadmap
 
-## Phase 1: VS Code Extension — `forge-vscode`
-
-A lightweight extension that surfaces forge commands inside the editor.
-
-### Scope
-
-- [ ] Scaffold extension project (TypeScript, vscode extension API)
-- [ ] Parse `forge.yaml` manifests (reuse schema, handle nested `:` commands)
-- [ ] Auto-discover `.forge/scripts/` directories (mirror CLI discovery logic)
-- [ ] **Tree view in sidebar** — show command hierarchy grouped by `:` prefix
-  - Clicking a script-backed command navigates to the script file
-  - Composite commands show their `run` steps as children
-  - Icons distinguish script vs composite vs group
-- [ ] **CodeLens on `forge.yaml`** — "Run | Open Script" above each command
-- [ ] **Run from tree view** — right-click → "Run in Terminal"
-- [ ] **Manifest discovery** — walk up from workspace root, merge like the CLI does
-- [ ] Watch `forge.yaml` and `.forge/scripts/` for changes, refresh automatically
-- [ ] Package and test locally
-
-### Out of scope (intentionally)
-
-- Command palette integration (terminal is fine)
-- Custom output panels (forge's prefixed colored output works in the terminal)
-- Duplicating `forge --docs` functionality
-
-### Notes
-
-- The extension is essentially: YAML parser + tree view + file opener + terminal launcher
-- Should work in multi-root workspaces (each root may have its own `forge.yaml`)
-- Use the existing `forge-schema.json` for validation reference
-
----
-
 ## Phase 2: Script Templates — `forge add --from`
 
 Reusable script scaffolding, not a runtime package registry.
@@ -59,12 +26,12 @@ Compare:
 
 ### Scope
 
-- [ ] Define template format (directory structure, metadata file)
-- [ ] `forge add <name> --from <source>` — fetch and scaffold from template
-- [ ] Support `--from <url>` for arbitrary git repos / URLs
-- [ ] Built-in template gallery (bundled with forge or fetched from a known repo)
-- [ ] Template metadata: description, required runtimes, placeholder variables
-- [ ] `forge templates` or `forge add --list-templates` to browse available templates
+- [x] Define template format (directory structure, metadata file)
+- [x] `forge add <name> --from <source>` — fetch and scaffold from template
+- [x] Support `--from <url>` for arbitrary git repos / URLs
+- [x] Built-in template gallery (bundled with forge or fetched from a known repo)
+- [x] Template metadata: description, required runtimes, placeholder variables
+- [x] `forge templates` or `forge add --list-templates` to browse available templates
 
 ### Example templates to seed the gallery
 
@@ -73,6 +40,25 @@ Compare:
 - `ci-lint-test` — parallel lint + test composite command
 - `release` — version bump + changelog + tag + publish
 - `db-migrate` — run database migrations with rollback support
+
+---
+
+## Phase 2b: Template Registries & Docs Integration
+
+Configurable template registries and docs UI for browsing templates.
+
+### Scope
+
+- [x] Add `registries` field to `Manifest` struct with merge/deduplication across inherited manifests
+- [x] Create registry loading system (`external.go`) — local dirs, git URLs, optional `registry.yaml` index
+- [x] Update template resolution order: built-in → registries → local → git URL
+- [x] Update `forge templates` CLI to show grouped output by source (built-in, registry names)
+- [x] Update `forge add --from` to resolve from registries
+- [x] Extend docs backend (`DocData`) with template info from `ListAllTemplates`
+- [x] Create `forge-templates.js` web component for template detail view
+- [x] Integrate templates into docs sidebar with search, grouping, and click-to-view
+- [x] Add template-specific CSS styles (badges, chips, groups, detail panel)
+- [x] Update README with registry configuration, format, and docs feature documentation
 
 ---
 
@@ -124,6 +110,15 @@ maximum reusability. Pairs with `forge --docs` already existing.
 ---
 
 ## Previous Work (Completed)
+
+### Script Templates — `forge add --from`
+
+- [x] Define template format (directory structure, metadata file)
+- [x] `forge add <name> --from <source>` — fetch and scaffold from template
+- [x] Support `--from <url>` for arbitrary git repos / URLs
+- [x] Built-in template gallery (bundled with forge or fetched from a known repo)
+- [x] Template metadata: description, required runtimes, placeholder variables
+- [x] `forge templates` — list available templates with descriptions and variables
 
 ### Nested .forge Script Discovery
 

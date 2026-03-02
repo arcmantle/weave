@@ -1,0 +1,3 @@
+# yaml-language-server: $schema=../../template-schema.json
+description: "Say hello from TypeScript"
+script: hello-ts.ts

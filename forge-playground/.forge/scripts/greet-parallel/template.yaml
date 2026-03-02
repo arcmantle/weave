@@ -1,0 +1,4 @@
+# yaml-language-server: $schema=../../template-schema.json
+description: "Say hello and world in parallel"
+run:
+  - parallel: [hello, world]

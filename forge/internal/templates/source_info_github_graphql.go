@@ -20,6 +20,7 @@ type githubBranchQueryAliases struct {
 	branch      string
 	metaAlias   string
 	readmeAlias []string
+	exampleAlias string
 	scriptAlias map[string]string
 }
 
@@ -148,6 +149,13 @@ func fetchGitHubTemplateInfosChunk(client *http.Client, token string, owner stri
 			description = fmt.Sprintf("Template from branch %s", alias.branch)
 		}
 
+		example := strings.TrimSpace(meta.Example)
+		if example == "" {
+			if text, ok := githubGraphQLBlobText(parsed.Data.Repository, alias.exampleAlias); ok {
+				example = text
+			}
+		}
+
 		var langs []string
 		for _, lang := range []string{"go", "ts", "cs"} {
 			if githubGraphQLObjectExists(parsed.Data.Repository, alias.scriptAlias[lang]) {
@@ -160,6 +168,7 @@ func fetchGitHubTemplateInfosChunk(client *http.Client, token string, owner stri
 			Description: description,
 			Languages:   langs,
 			Variables:   meta.Variables,
+			Example:     example,
 			Source:      registryName,
 			Registry:    repoURL,
 			SourceType:  "github-git",
@@ -179,6 +188,7 @@ func buildGitHubTemplateInfoQuery(branches []string) (string, []githubBranchQuer
 		readme1 := fmt.Sprintf("b%d_readme1", i)
 		readme2 := fmt.Sprintf("b%d_readme2", i)
 		readme3 := fmt.Sprintf("b%d_readme3", i)
+		exampleAlias := fmt.Sprintf("b%d_example", i)
 		goAlias := fmt.Sprintf("b%d_go", i)
 		tsAlias := fmt.Sprintf("b%d_ts", i)
 		csAlias := fmt.Sprintf("b%d_cs", i)
@@ -187,6 +197,7 @@ func buildGitHubTemplateInfoQuery(branches []string) (string, []githubBranchQuer
 			branch:      branch,
 			metaAlias:   metaAlias,
 			readmeAlias: []string{readme1, readme2, readme3},
+			exampleAlias: exampleAlias,
 			scriptAlias: map[string]string{"go": goAlias, "ts": tsAlias, "cs": csAlias},
 		})
 
@@ -194,6 +205,7 @@ func buildGitHubTemplateInfoQuery(branches []string) (string, []githubBranchQuer
 		readmeExpr1 := branch + ":README.md"
 		readmeExpr2 := branch + ":Readme.md"
 		readmeExpr3 := branch + ":readme.md"
+		exampleExpr := branch + ":example.md"
 		goExpr := fmt.Sprintf("%s:%s.go", branch, branch)
 		tsExpr := fmt.Sprintf("%s:%s.ts", branch, branch)
 		csExpr := fmt.Sprintf("%s:%s.cs", branch, branch)
@@ -202,6 +214,7 @@ func buildGitHubTemplateInfoQuery(branches []string) (string, []githubBranchQuer
 		builder.WriteString(fmt.Sprintf(" %s: object(expression: %q) { ... on Blob { text } }", readme1, readmeExpr1))
 		builder.WriteString(fmt.Sprintf(" %s: object(expression: %q) { ... on Blob { text } }", readme2, readmeExpr2))
 		builder.WriteString(fmt.Sprintf(" %s: object(expression: %q) { ... on Blob { text } }", readme3, readmeExpr3))
+		builder.WriteString(fmt.Sprintf(" %s: object(expression: %q) { ... on Blob { text } }", exampleAlias, exampleExpr))
 		builder.WriteString(fmt.Sprintf(" %s: object(expression: %q) { ... on Blob { oid } }", goAlias, goExpr))
 		builder.WriteString(fmt.Sprintf(" %s: object(expression: %q) { ... on Blob { oid } }", tsAlias, tsExpr))
 		builder.WriteString(fmt.Sprintf(" %s: object(expression: %q) { ... on Blob { oid } }", csAlias, csExpr))

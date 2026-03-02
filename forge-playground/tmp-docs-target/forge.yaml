@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=.forge/forge-schema.json
+commands:
+
+  docs-smoke-template:
+    description: "Deploy template package"
+    script: .forge/scripts/docs-smoke-template/docs-smoke-template.go
+
+  ci:
+    description: "CI lint and test package"
+    script: .forge/scripts/ci/ci.go

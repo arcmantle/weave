@@ -25,10 +25,10 @@ export function activate(context: vscode.ExtensionContext): void {
 		showCollapseAll:  true,
 	});
 
-	// CodeLens on forge.yaml files
+	// CodeLens on per-command template.yaml files
 	const codeLensProvider = new ForgeCodeLensProvider(manifestService);
 	const codeLensRegistration = vscode.languages.registerCodeLensProvider(
-		{ pattern: '**/forge.yaml' },
+		{ pattern: '**/.forge/scripts/**/template.yaml' },
 		codeLensProvider,
 	);
 
@@ -97,6 +97,36 @@ export function activate(context: vscode.ExtensionContext): void {
 		}
 	});
 
+	const openTemplateCmd = vscode.commands.registerCommand('forge.openTemplate', async (pathOrItem?: string | CommandItem) => {
+		if (!pathOrItem)
+			return;
+
+		let templatePath: string;
+		if (typeof pathOrItem === 'string') {
+			templatePath = pathOrItem;
+		}
+		else if (pathOrItem instanceof CommandItem) {
+			const parts = pathOrItem.name.split(':').map(part => part.trim()).filter(Boolean);
+			if (parts.length === 0)
+				return;
+
+			templatePath = path.join(pathOrItem.cmd.manifestDir, '.forge', 'scripts', ...parts, 'template.yaml');
+		}
+		else {
+			return;
+		}
+
+		const uri = vscode.Uri.file(templatePath);
+
+		try {
+			const doc = await vscode.workspace.openTextDocument(uri);
+			await vscode.window.showTextDocument(doc);
+		}
+		catch {
+			vscode.window.showErrorMessage(`Could not open template: ${templatePath}`);
+		}
+	});
+
 	const refreshCmd = vscode.commands.registerCommand('forge.refresh', () => {
 		manifestService.refresh();
 		treeProvider.refresh();
@@ -139,7 +169,7 @@ export function activate(context: vscode.ExtensionContext): void {
 	});
 
 	// File watchers
-	const yamlWatcher = vscode.workspace.createFileSystemWatcher('**/forge.yaml');
+	const templateWatcher = vscode.workspace.createFileSystemWatcher('**/.forge/scripts/**/template.yaml');
 	const scriptWatcher = vscode.workspace.createFileSystemWatcher('**/.forge/scripts/**/*.{go,ts,cs}');
 
 	const onChange = () => {
@@ -148,12 +178,23 @@ export function activate(context: vscode.ExtensionContext): void {
 		vscode.commands.executeCommand('setContext', 'forge.hasManifest', manifestService.getManifests().size > 0);
 	};
 
-	yamlWatcher.onDidChange(onChange);
-	yamlWatcher.onDidCreate(onChange);
-	yamlWatcher.onDidDelete(onChange);
+	templateWatcher.onDidChange(onChange);
+	templateWatcher.onDidCreate(uri => {
+		onChange();
+		injectTemplateSchemaDirective(uri);
+	});
+	templateWatcher.onDidDelete(onChange);
 	scriptWatcher.onDidChange(onChange);
 	scriptWatcher.onDidCreate(onChange);
 	scriptWatcher.onDidDelete(onChange);
+
+	vscode.workspace.onDidOpenTextDocument(document => {
+		injectTemplateSchemaDirective(document.uri);
+	});
+
+	vscode.workspace.onDidSaveTextDocument(document => {
+		injectTemplateSchemaDirective(document.uri);
+	});
 
 	context.subscriptions.push(
 		treeView,
@@ -161,11 +202,16 @@ export function activate(context: vscode.ExtensionContext): void {
 		codeLensRegistration,
 		runCmd,
 		openScriptCmd,
+		openTemplateCmd,
 		refreshCmd,
 		addScriptCmd,
-		yamlWatcher,
+		templateWatcher,
 		scriptWatcher,
 	);
+
+	for (const doc of vscode.workspace.textDocuments) {
+		injectTemplateSchemaDirective(doc.uri);
+	}
 
 	// Initial load
 	manifestService.refresh();
@@ -177,4 +223,71 @@ export function activate(context: vscode.ExtensionContext): void {
 
 export function deactivate(): void {
 	// Nothing to clean up
+}
+
+function isTemplateYamlFile(uri: vscode.Uri): boolean {
+	if (uri.scheme !== 'file')
+		return false;
+
+	const normalized = uri.fsPath.replace(/\\/g, '/').toLowerCase();
+    return /\/\.forge\/scripts\/.+\/template\.yaml$/.test(normalized);
+}
+
+function computeTemplateSchemaDirective(templatePath: string): string | null {
+	let dir = path.dirname(templatePath);
+	let forgeDir = '';
+
+	for (;;) {
+		if (path.basename(dir) === '.forge') {
+			forgeDir = dir;
+			break;
+		}
+
+		const parent = path.dirname(dir);
+		if (parent === dir)
+			break;
+		dir = parent;
+	}
+
+	if (!forgeDir)
+		return null;
+
+	const schemaPath = path.join(forgeDir, 'template-schema.json');
+	const relative = path.relative(path.dirname(templatePath), schemaPath).replace(/\\/g, '/');
+    return `# yaml-language-server: $schema=${relative}`;
+}
+
+async function injectTemplateSchemaDirective(uri: vscode.Uri): Promise<void> {
+	if (!isTemplateYamlFile(uri))
+		return;
+
+	const directive = computeTemplateSchemaDirective(uri.fsPath);
+	if (!directive)
+		return;
+
+	let contentBytes: Uint8Array;
+	try {
+		contentBytes = await vscode.workspace.fs.readFile(uri);
+	}
+	catch {
+		return;
+	}
+
+	const content = Buffer.from(contentBytes).toString('utf8');
+	const lines = content.split(/\r?\n/);
+	const schemaLineIndex = lines.findIndex(line => line.trimStart().startsWith('# yaml-language-server: $schema='));
+
+	if (schemaLineIndex === 0 && lines[0] === directive)
+		return;
+
+	if (schemaLineIndex >= 0)
+		lines[schemaLineIndex] = directive;
+	else
+		lines.unshift(directive);
+
+	const updated = lines.join('\n');
+	if (updated === content)
+		return;
+
+	await vscode.workspace.fs.writeFile(uri, Buffer.from(updated, 'utf8'));
 }

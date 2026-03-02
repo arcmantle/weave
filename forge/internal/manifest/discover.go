@@ -1,11 +1,13 @@
 package manifest
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
-)
+	"strings"
 
-const ManifestFile = "forge.yaml"
+	"gopkg.in/yaml.v3"
+)
 
 // scriptExtensions lists the file extensions that are recognized as forge scripts.
 var scriptExtensions = []string{".go", ".ts", ".cs"}
@@ -22,65 +24,31 @@ var skipDirs = map[string]bool{
 	"vendor":       true,
 }
 
-// Discover walks up from startDir to the filesystem root, collecting all
-// forge.yaml files found along the way. Returns them ordered from root
-// (furthest ancestor) to startDir (closest), so that merging gives
-// priority to the closest manifest.
-func Discover(startDir string) ([]*Manifest, error) {
-	var paths []string
-	dir := startDir
+type commandTemplate struct {
+	Description string    `yaml:"description"`
+	Script      string    `yaml:"script"`
+	Run         []RunStep `yaml:"run"`
+}
 
-	for {
-		candidate := filepath.Join(dir, ManifestFile)
-		if _, err := os.Stat(candidate); err == nil {
-			paths = append(paths, candidate)
-		}
-
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break // reached filesystem root
-		}
-		dir = parent
-	}
-
-	if len(paths) == 0 {
-		return nil, nil
-	}
-
-	// Reverse so root-level manifest is first, closest is last.
-	for i, j := 0, len(paths)-1; i < j; i, j = i+1, j-1 {
-		paths[i], paths[j] = paths[j], paths[i]
-	}
-
-	var manifests []*Manifest
-	for _, p := range paths {
-		m, err := Load(p)
-		if err != nil {
-			return nil, err
-		}
-		manifests = append(manifests, m)
-	}
-
-	return manifests, nil
+type forgeConfig struct {
+	Registries []string `yaml:"registries"`
 }
 
 // DiscoverScripts walks up from startDir to the filesystem root, collecting
-// auto-discovered scripts from .forge/scripts/ directories. Each subdirectory
-// in .forge/scripts/ that contains a script file matching <name>.{go,ts,cs}
-// becomes a command.
+// commands from .forge/scripts/**/template.yaml files.
 //
 // Returns manifests ordered from root (furthest ancestor) to startDir
-// (closest), matching the same convention as Discover.
+// (closest).
 func DiscoverScripts(startDir string) ([]*Manifest, error) {
 	var manifests []*Manifest
 	dir := startDir
 
 	for {
-		scriptsDir := filepath.Join(dir, ".forge", "scripts")
+		scriptsDir := filepath.Join(dir, ForgeDirName, ScriptsDirName)
 		if info, err := os.Stat(scriptsDir); err == nil && info.IsDir() {
-			m, err := discoverScriptsInDir(scriptsDir, dir)
-			if err != nil {
-				return nil, err
+			m, discoverErr := discoverScriptsInDir(scriptsDir, dir)
+			if discoverErr != nil {
+				return nil, discoverErr
 			}
 			if m != nil && len(m.Commands) > 0 {
 				manifests = append(manifests, m)
@@ -98,7 +66,6 @@ func DiscoverScripts(startDir string) ([]*Manifest, error) {
 		return nil, nil
 	}
 
-	// Reverse so root-level is first, closest is last.
 	for i, j := 0, len(manifests)-1; i < j; i, j = i+1, j-1 {
 		manifests[i], manifests[j] = manifests[j], manifests[i]
 	}
@@ -106,91 +73,8 @@ func DiscoverScripts(startDir string) ([]*Manifest, error) {
 	return manifests, nil
 }
 
-// discoverScriptsInDir scans a .forge/scripts/ directory and creates
-// auto-discovered commands from script subdirectories.
-//
-// Convention: .forge/scripts/<name>/<name>.{go,ts,cs}
-// The first matching extension wins (checked in order: .go, .ts, .cs).
-func discoverScriptsInDir(scriptsDir string, manifestDir string) (*Manifest, error) {
-	entries, err := os.ReadDir(scriptsDir)
-	if err != nil {
-		return nil, nil // skip unreadable directories
-	}
-
-	m := &Manifest{Commands: make(map[string]Command)}
-
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-
-		name := entry.Name()
-		scriptSubDir := filepath.Join(scriptsDir, name)
-
-		for _, ext := range scriptExtensions {
-			scriptFile := filepath.Join(scriptSubDir, name+ext)
-			if _, err := os.Stat(scriptFile); err == nil {
-				relPath := filepath.Join(".forge", "scripts", name, name+ext)
-				m.Commands[name] = Command{
-					Script:      relPath,
-					ManifestDir: manifestDir,
-				}
-				break // use first matching extension
-			}
-		}
-	}
-
-	return m, nil
-}
-
-// DiscoverDown walks into subdirectories of startDir, collecting all
-// forge.yaml files found below (excluding startDir itself to avoid
-// double-counting with upward discovery). Returns manifests ordered
-// by path depth so shallower directories appear first.
-func DiscoverDown(startDir string) ([]*Manifest, error) {
-	var manifests []*Manifest
-
-	err := filepath.WalkDir(startDir, func(p string, d os.DirEntry, err error) error {
-		if err != nil {
-			return nil // skip unreadable entries
-		}
-
-		if d.IsDir() {
-			if skipDirs[d.Name()] {
-				return filepath.SkipDir
-			}
-
-			return nil
-		}
-
-		if d.Name() != ManifestFile {
-			return nil
-		}
-
-		// Skip the startDir's own manifest — upward discovery already covers it.
-		if filepath.Dir(p) == startDir {
-			return nil
-		}
-
-		m, loadErr := Load(p)
-		if loadErr != nil {
-			return nil // skip unparseable manifests
-		}
-
-		manifests = append(manifests, m)
-
-		return nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return manifests, nil
-}
-
 // DiscoverScriptsDown walks into subdirectories of startDir, collecting
-// auto-discovered scripts from .forge/scripts/ directories below
+// commands from .forge/scripts/**/template.yaml directories below
 // (excluding startDir itself). Returns manifests ordered by path depth.
 func DiscoverScriptsDown(startDir string) ([]*Manifest, error) {
 	var manifests []*Manifest
@@ -208,12 +92,11 @@ func DiscoverScriptsDown(startDir string) ([]*Manifest, error) {
 			return filepath.SkipDir
 		}
 
-		// Skip startDir itself — upward discovery handles it.
 		if p == startDir {
 			return nil
 		}
 
-		scriptsDir := filepath.Join(p, ".forge", "scripts")
+		scriptsDir := filepath.Join(p, ForgeDirName, ScriptsDirName)
 		info, statErr := os.Stat(scriptsDir)
 		if statErr != nil || !info.IsDir() {
 			return nil
@@ -236,4 +119,255 @@ func DiscoverScriptsDown(startDir string) ([]*Manifest, error) {
 	}
 
 	return manifests, nil
+}
+
+// discoverScriptsInDir scans a .forge/scripts/ directory recursively and creates
+// commands from folder-local template.yaml files.
+//
+// Convention:
+//   .forge/scripts/deploy/prod/template.yaml -> command name "deploy:prod"
+func discoverScriptsInDir(scriptsDir string, manifestDir string) (*Manifest, error) {
+	registries, err := loadRegistries(manifestDir)
+	if err != nil {
+		return nil, err
+	}
+
+	m := &Manifest{
+		Commands:   make(map[string]Command),
+		Registries: registries,
+		ManifestDir: manifestDir,
+	}
+
+	commandDirsWithTemplate := map[string]bool{}
+
+	walkErr := filepath.WalkDir(scriptsDir, func(p string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil // skip unreadable entries
+		}
+
+		if d.IsDir() {
+			if skipDirs[d.Name()] {
+				return filepath.SkipDir
+			}
+
+			return nil
+		}
+
+		if d.Name() != CommandTemplateFile {
+			return nil
+		}
+
+		cmdDir := filepath.Dir(p)
+		commandDirsWithTemplate[filepath.Clean(cmdDir)] = true
+		relCmdDir, relErr := filepath.Rel(scriptsDir, cmdDir)
+		if relErr != nil || relCmdDir == "." {
+			return nil
+		}
+
+		commandName := commandNameFromRelativePath(relCmdDir)
+		if commandName == "" {
+			return nil
+		}
+
+		cmd, parseErr := parseCommandTemplate(p, cmdDir, manifestDir)
+		if parseErr != nil {
+			return parseErr
+		}
+		m.Commands[commandName] = cmd
+
+		return nil
+	})
+	if walkErr != nil {
+		return nil, walkErr
+	}
+
+	inferErr := filepath.WalkDir(scriptsDir, func(p string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+
+		if !d.IsDir() {
+			return nil
+		}
+
+		if skipDirs[d.Name()] {
+			if p == scriptsDir {
+				return nil
+			}
+
+			return filepath.SkipDir
+		}
+
+		if p == scriptsDir {
+			return nil
+		}
+
+		cleanDir := filepath.Clean(p)
+		if commandDirsWithTemplate[cleanDir] {
+			return nil
+		}
+
+		relCmdDir, relErr := filepath.Rel(scriptsDir, p)
+		if relErr != nil || relCmdDir == "." {
+			return nil
+		}
+
+		commandName := commandNameFromRelativePath(relCmdDir)
+		if commandName == "" {
+			return nil
+		}
+
+		if _, exists := m.Commands[commandName]; exists {
+			return nil
+		}
+
+		relScript, ok := inferScriptPathForCommandDir(p, manifestDir)
+		if !ok {
+			return nil
+		}
+
+		m.Commands[commandName] = Command{
+			Description: "",
+			Script:      relScript,
+			ManifestDir: manifestDir,
+		}
+
+		return nil
+	})
+	if inferErr != nil {
+		return nil, inferErr
+	}
+
+	return m, nil
+}
+
+func inferScriptPathForCommandDir(commandDir string, manifestDir string) (string, bool) {
+	leaf := filepath.Base(commandDir)
+	for _, ext := range scriptExtensions {
+		candidate := filepath.Join(commandDir, leaf+ext)
+		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+			relScript, relErr := filepath.Rel(manifestDir, filepath.Clean(candidate))
+			if relErr != nil {
+				return "", false
+			}
+
+			return filepath.ToSlash(relScript), true
+		}
+	}
+
+	var discovered []string
+	for _, ext := range scriptExtensions {
+		pattern := filepath.Join(commandDir, "*"+ext)
+		matches, err := filepath.Glob(pattern)
+		if err != nil {
+			continue
+		}
+		for _, match := range matches {
+			if info, statErr := os.Stat(match); statErr == nil && !info.IsDir() {
+				discovered = append(discovered, filepath.Clean(match))
+			}
+		}
+	}
+
+	if len(discovered) != 1 {
+		return "", false
+	}
+
+	relScript, relErr := filepath.Rel(manifestDir, discovered[0])
+	if relErr != nil {
+		return "", false
+	}
+
+	return filepath.ToSlash(relScript), true
+}
+
+func parseCommandTemplate(templatePath string, commandDir string, manifestDir string) (Command, error) {
+	data, err := os.ReadFile(templatePath)
+	if err != nil {
+		return Command{}, fmt.Errorf("reading command template %s: %w", templatePath, err)
+	}
+
+	var tmpl commandTemplate
+	if err := yaml.Unmarshal(data, &tmpl); err != nil {
+		return Command{}, fmt.Errorf("parsing command template %s: %w", templatePath, err)
+	}
+
+	resolvedScript := strings.TrimSpace(tmpl.Script)
+	if resolvedScript == "" && len(tmpl.Run) == 0 {
+		leaf := filepath.Base(commandDir)
+		for _, ext := range scriptExtensions {
+			candidate := filepath.Join(commandDir, leaf+ext)
+			if _, err := os.Stat(candidate); err == nil {
+				resolvedScript = leaf + ext
+				break
+			}
+		}
+	}
+
+	command := Command{
+		Description: tmpl.Description,
+		Run:         tmpl.Run,
+		ManifestDir: manifestDir,
+	}
+
+	if resolvedScript == "" {
+		return command, nil
+	}
+
+	absScript := resolvedScript
+	if !filepath.IsAbs(absScript) {
+		absScript = filepath.Join(commandDir, resolvedScript)
+	}
+	absScript = filepath.Clean(absScript)
+
+	relScript, relErr := filepath.Rel(manifestDir, absScript)
+	if relErr != nil {
+		return Command{}, fmt.Errorf("resolving script path for %s: %w", templatePath, relErr)
+	}
+
+	command.Script = filepath.ToSlash(relScript)
+
+	return command, nil
+}
+
+func commandNameFromRelativePath(relativePath string) string {
+	clean := filepath.Clean(relativePath)
+	if clean == "." || clean == "" {
+		return ""
+	}
+
+	parts := strings.Split(filepath.ToSlash(clean), "/")
+	cleanParts := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed == "" || trimmed == "." || trimmed == ".." {
+			return ""
+		}
+		cleanParts = append(cleanParts, trimmed)
+	}
+
+	return strings.Join(cleanParts, ":")
+}
+
+func loadRegistries(manifestDir string) ([]string, error) {
+	configPath := filepath.Join(manifestDir, ForgeDirName, ConfigFileName)
+	if _, err := os.Stat(configPath); err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+
+		return nil, err
+	}
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("reading config %s: %w", configPath, err)
+	}
+
+	var cfg forgeConfig
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("parsing config %s: %w", configPath, err)
+	}
+
+	return cfg.Registries, nil
 }

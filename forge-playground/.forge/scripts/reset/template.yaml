@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=../../template-schema.json
+description: "Clean node_modules and reinstall all workspaces"
+run:
+  - clean
+  - install-all

@@ -1,12 +1,13 @@
 import * as path from 'path';
 
 import * as vscode from 'vscode';
+import { parse as parseYaml } from 'yaml';
 
 import { ForgeManifestService } from './manifest-service';
 
 /**
- * Provides CodeLens annotations above each command in forge.yaml files.
- * Shows "Run" for all commands and "Open Script" for script-backed commands.
+ * Provides CodeLens annotations above each command template.yaml file under .forge/scripts.
+ * Shows "Run" for every command template and "Open Script" for script-backed templates.
  */
 export class ForgeCodeLensProvider implements vscode.CodeLensProvider {
 
@@ -16,113 +17,97 @@ export class ForgeCodeLensProvider implements vscode.CodeLensProvider {
 	constructor(protected readonly service: ForgeManifestService) {
 		// Refresh CodeLens when workspace files change.
 		vscode.workspace.onDidChangeTextDocument(e => {
-			if (e.document.fileName.endsWith('forge.yaml'))
+			if (isTemplateYamlFile(e.document.uri.fsPath))
 				this._onDidChangeCodeLenses.fire();
 		});
 	}
 
 	provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
+		if (!isTemplateYamlFile(document.uri.fsPath))
+			return [];
+
+		const context = resolveTemplateContext(document.uri.fsPath);
+		if (!context)
+			return [];
+
+		const parsed = parseTemplateDocument(document.getText());
+		const firstLine = document.lineAt(0);
+		const range = new vscode.Range(0, 0, 0, firstLine.text.length);
 		const lenses: vscode.CodeLens[] = [];
-		const text = document.getText();
-		const lines = text.split('\n');
 
-		// We're inside a forge.yaml — find command names by matching the pattern
-		// of a top-level key under `commands:`.
-		// The YAML structure is:
-		//   commands:
-		//     <name>:
-		//       description: ...
-		//       script: ...
-		let inCommands = false;
-		let commandsIndent = -1;
+		lenses.push(new vscode.CodeLens(range, {
+			title:     '$(file-code) Open Command Template',
+			command:   'forge.openTemplate',
+			arguments: [document.uri.fsPath],
+			tooltip:   'Open this template.yaml file',
+		}));
 
-		for (let i = 0; i < lines.length; i++) {
-			const line = lines[i]!;
-			const trimmed = line.trimStart();
+		lenses.push(new vscode.CodeLens(range, {
+			title:     '$(play) Run',
+			command:   'forge.run',
+			arguments: [context.commandName, context.manifestDir],
+			tooltip:   `Run "forge ${context.commandName.replace(/:/g, ' ')}"`,
+		}));
 
-			// Detect `commands:` block.
-			if (trimmed === 'commands:' || trimmed.startsWith('commands:')) {
-				inCommands = true;
-				commandsIndent = line.length - trimmed.length;
-				continue;
-			}
+		if (parsed?.script) {
+			const absolutePath = path.isAbsolute(parsed.script)
+				? parsed.script
+				: path.resolve(path.dirname(document.uri.fsPath), parsed.script);
 
-			if (!inCommands)
-				continue;
-
-			// A line at or before the commands indent level (and not blank) exits the block.
-			if (trimmed.length > 0) {
-				const currentIndent = line.length - trimmed.length;
-				if (currentIndent <= commandsIndent && !trimmed.startsWith('#')) {
-					inCommands = false;
-					continue;
-				}
-			}
-
-			// Detect command name: a key at exactly commandsIndent + 2 (standard YAML indent).
-			const commandMatch = line.match(/^(\s+)([\w:.-]+):\s*$/);
-			if (!commandMatch)
-				continue;
-
-			const indent = commandMatch[1]!.length;
-			const name = commandMatch[2]!;
-
-			// Must be a direct child of `commands:`.
-			if (indent !== commandsIndent + 2)
-				continue;
-
-			const range = new vscode.Range(i, 0, i, line.length);
-			const manifestDir = path.dirname(document.uri.fsPath);
-
-			// "Run" lens for all commands.
 			lenses.push(new vscode.CodeLens(range, {
-				title:     '$(play) Run',
-				command:   'forge.run',
-				arguments: [name, manifestDir],
-				tooltip:   `Run "forge ${name.replace(/:/g, ' ')}"`,
+				title:     '$(go-to-file) Open Script',
+				command:   'forge.openScript',
+				arguments: [absolutePath],
+				tooltip:   parsed.script,
 			}));
-
-			// "Open Script" lens — look ahead for a `script:` property.
-			const scriptPath = this.findScriptProperty(lines, i + 1, indent);
-			if (scriptPath) {
-				const absolutePath = path.resolve(manifestDir, scriptPath);
-
-				lenses.push(new vscode.CodeLens(range, {
-					title:     '$(go-to-file) Open Script',
-					command:   'forge.openScript',
-					arguments: [absolutePath],
-					tooltip:   scriptPath,
-				}));
-			}
 		}
 
 		return lenses;
 	}
 
-	/**
-	 * Look ahead from startLine for a `script:` property belonging to the
-	 * current command block (at indent > parentIndent).
-	 */
-	protected findScriptProperty(lines: string[], startLine: number, parentIndent: number): string | undefined {
-		for (let i = startLine; i < lines.length; i++) {
-			const line = lines[i]!;
-			const trimmed = line.trimStart();
+}
 
-			if (trimmed.length === 0 || trimmed.startsWith('#'))
-				continue;
+function isTemplateYamlFile(filePath: string): boolean {
+	const normalized = filePath.replace(/\\/g, '/').toLowerCase();
 
-			const currentIndent = line.length - trimmed.length;
+	return /\/\.forge\/scripts\/.+\/template\.yaml$/.test(normalized);
+}
 
-			// Exited the command block.
-			if (currentIndent <= parentIndent)
-				break;
+function resolveTemplateContext(filePath: string): { commandName: string; manifestDir: string } | null {
+	const normalized = filePath.replace(/\\/g, '/');
+	const marker = '/.forge/scripts/';
+	const idx = normalized.lastIndexOf(marker);
+	if (idx === -1)
+		return null;
 
-			const match = trimmed.match(/^script:\s*["']?(.+?)["']?\s*$/);
-			if (match)
-				return match[1];
-		}
+	const manifestDir = normalized.slice(0, idx);
+	const suffix = normalized.slice(idx + marker.length);
+	if (!suffix.endsWith('/template.yaml'))
+		return null;
 
-		return undefined;
+	const commandPath = suffix.slice(0, -'/template.yaml'.length);
+	if (!commandPath)
+		return null;
+
+	const commandName = commandPath.split('/').join(':');
+
+	return {
+		commandName,
+		manifestDir: path.normalize(manifestDir),
+	};
+}
+
+function parseTemplateDocument(content: string): { script?: string } | null {
+	try {
+		const parsed = parseYaml(content) as { script?: unknown } | null;
+		if (!parsed || typeof parsed !== 'object')
+			return null;
+
+		return {
+			script: typeof parsed.script === 'string' ? parsed.script : undefined,
+		};
 	}
-
+	catch {
+		return null;
+	}
 }

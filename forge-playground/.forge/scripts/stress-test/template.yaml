@@ -1,0 +1,3 @@
+# yaml-language-server: $schema=../../template-schema.json
+description: "Generate 1000 lines of colorful simulated log output to test terminal virtualization"
+script: stress-test.go

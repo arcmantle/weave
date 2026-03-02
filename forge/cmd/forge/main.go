@@ -68,7 +68,7 @@ func main() {
 	case "setup":
 		runSetup(args)
 	case "templates":
-		runTemplates()
+		runTemplates(args)
 	case "auth":
 		runAuth(args)
 	case "help":
@@ -89,33 +89,19 @@ func getManifest() *manifest.Manifest {
 		os.Exit(1)
 	}
 
-	manifests, err := manifest.Discover(cwd)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Auto-discover scripts from .forge/scripts/ directories.
-	// These provide commands without needing forge.yaml entries, but
-	// explicit YAML commands always take priority.
 	scriptManifests, err := manifest.DiscoverScripts(cwd)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
 
-	if len(manifests) == 0 && len(scriptManifests) == 0 {
-		fmt.Fprintf(os.Stderr, "error: no forge.yaml or .forge/scripts/ found in current or parent directories\n")
-		fmt.Fprintf(os.Stderr, "  run 'forge init' to create one\n")
+	if len(scriptManifests) == 0 {
+		fmt.Fprintf(os.Stderr, "error: no .forge/scripts/ found in current or parent directories\n")
+		fmt.Fprintf(os.Stderr, "  run 'forge init' to scaffold one\n")
 		os.Exit(1)
 	}
 
-	// Merge script manifests first, then YAML manifests.
-	// Merge iterates in reverse, so YAML entries (last) take priority
-	// over auto-discovered scripts (first).
-	all := append(scriptManifests, manifests...)
-
-	return manifest.Merge(all)
+	return manifest.Merge(scriptManifests)
 }
 
 // getFullManifest combines upward and downward discovery, returning commands
@@ -128,21 +114,7 @@ func getFullManifest() *manifest.Manifest {
 		os.Exit(1)
 	}
 
-	// Upward discovery (same as getManifest).
-	manifests, err := manifest.Discover(cwd)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
-	}
-
 	scriptManifests, err := manifest.DiscoverScripts(cwd)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Downward discovery — finds nested forge.yaml and scripts in subdirectories.
-	downManifests, err := manifest.DiscoverDown(cwd)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
@@ -154,18 +126,15 @@ func getFullManifest() *manifest.Manifest {
 		os.Exit(1)
 	}
 
-	if len(manifests) == 0 && len(scriptManifests) == 0 &&
-		len(downManifests) == 0 && len(downScriptManifests) == 0 {
-		fmt.Fprintf(os.Stderr, "error: no forge.yaml or .forge/scripts/ found in current, parent, or child directories\n")
-		fmt.Fprintf(os.Stderr, "  run 'forge init' to create one\n")
+	if len(scriptManifests) == 0 && len(downScriptManifests) == 0 {
+		fmt.Fprintf(os.Stderr, "error: no .forge/scripts/ found in current, parent, or child directories\n")
+		fmt.Fprintf(os.Stderr, "  run 'forge init' to scaffold one\n")
 		os.Exit(1)
 	}
 
-	// Merge order: downward scripts, downward yaml, upward scripts, upward yaml.
-	// Later entries win in Merge, so upward (closest) yaml has highest priority.
-	all := append(downScriptManifests, downManifests...)
-	all = append(all, scriptManifests...)
-	all = append(all, manifests...)
+	// Merge order: downward scripts, then upward scripts.
+	// Later entries win in Merge, so upward (closest) has highest priority.
+	all := append(downScriptManifests, scriptManifests...)
 
 	return manifest.Merge(all)
 }
@@ -543,31 +512,22 @@ func runAdd(args []string) {
 		os.Exit(1)
 	}
 
-	manifestPath := filepath.Join(cwd, manifest.ManifestFile)
+	forgeDir := filepath.Join(cwd, manifest.ForgeDirName)
 
-	// If no forge.yaml exists in CWD, bootstrap the full setup here.
-	// This creates the .forge/ directory, language support files, and forge.yaml
-	// so intellisense works immediately.
-	if _, err := os.Stat(manifestPath); os.IsNotExist(err) {
+	// If no .forge exists in CWD, bootstrap the full setup here.
+	if _, err := os.Stat(forgeDir); os.IsNotExist(err) {
 		bootstrapForge(cwd, lang)
 	}
 
-	// Now load the manifest (either pre-existing or just created).
-	m, err := manifest.Load(manifestPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+	// Check if command already exists in discovered command set.
+	if existing := findDiscoveredCommand(name); existing {
+		fmt.Fprintf(os.Stderr, "error: command '%s' already exists\n", name)
 		os.Exit(1)
 	}
 
-	forgeDir := filepath.Join(cwd, ".forge")
-
-	// For colon-delimited names, use a hyphenated form for directories/files.
-	scriptName := strings.ReplaceAll(name, ":", "-")
-	scriptDir := filepath.Join(forgeDir, "scripts", scriptName)
-
-	// Check if command already exists.
-	if _, ok := m.Commands[name]; ok {
-		fmt.Fprintf(os.Stderr, "error: command '%s' already exists\n", name)
+	scriptDir, scriptName, err := commandScriptDirAndLeaf(cwd, name)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -610,15 +570,26 @@ Log.Info("running %s");
 		os.Exit(1)
 	}
 
-	relScript := filepath.ToSlash(filepath.Join(".forge", "scripts", scriptName, scriptName+ext))
-	if err := upsertCommandInManifest(manifestPath, name, "", relScript); err != nil {
-		fmt.Fprintf(os.Stderr, "error writing forge.yaml: %v\n", err)
+	relScript := filepath.ToSlash(scriptName + ext)
+	templatePath := filepath.Join(scriptDir, manifest.CommandTemplateFile)
+	if err := writeCommandTemplate(templatePath, "", relScript); err != nil {
+		fmt.Fprintf(os.Stderr, "error writing %s: %v\n", manifest.CommandTemplateFile, err)
+		os.Exit(1)
+	}
+	examplePath := filepath.Join(scriptDir, "example.md")
+	if err := writeCommandExample(examplePath, name, "", false); err != nil {
+		fmt.Fprintf(os.Stderr, "error writing example.md: %v\n", err)
 		os.Exit(1)
 	}
 
+	relTemplatePath, _ := filepath.Rel(cwd, templatePath)
+	relScriptPath, _ := filepath.Rel(cwd, scriptFile)
+	relExamplePath, _ := filepath.Rel(cwd, examplePath)
+
 	fmt.Printf("Added command '\033[36m%s\033[0m' (%s)\n", name, lang)
-	fmt.Printf("  script: %s\n", relScript)
-	fmt.Printf("  manifest: %s\n", manifestPath)
+	fmt.Printf("  script: %s\n", filepath.ToSlash(relScriptPath))
+	fmt.Printf("  template: %s\n", filepath.ToSlash(relTemplatePath))
+	fmt.Printf("  example: %s\n", filepath.ToSlash(relExamplePath))
 }
 
 // runAddFromTemplate handles `forge add <name> --from <template>`.
@@ -692,27 +663,22 @@ func runAddFromTemplate(name, lang, from string, vars map[string]string) {
 		os.Exit(1)
 	}
 
-	manifestPath := filepath.Join(cwd, manifest.ManifestFile)
+	forgeDir := filepath.Join(cwd, manifest.ForgeDirName)
 
 	// Bootstrap forge if needed.
-	if _, err := os.Stat(manifestPath); os.IsNotExist(err) {
+	if _, err := os.Stat(forgeDir); os.IsNotExist(err) {
 		bootstrapForge(cwd, lang)
 	}
 
-	// Load the manifest.
-	m, err := manifest.Load(manifestPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+	// Check if command already exists.
+	if existing := findDiscoveredCommand(name); existing {
+		fmt.Fprintf(os.Stderr, "error: command '%s' already exists\n", name)
 		os.Exit(1)
 	}
 
-	forgeDir := filepath.Join(cwd, ".forge")
-	scriptName := strings.ReplaceAll(name, ":", "-")
-	scriptDir := filepath.Join(forgeDir, "scripts", scriptName)
-
-	// Check if command already exists.
-	if _, ok := m.Commands[name]; ok {
-		fmt.Fprintf(os.Stderr, "error: command '%s' already exists\n", name)
+	scriptDir, scriptName, err := commandScriptDirAndLeaf(cwd, name)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -730,15 +696,26 @@ func runAddFromTemplate(name, lang, from string, vars map[string]string) {
 		os.Exit(1)
 	}
 
-	relScript := filepath.ToSlash(filepath.Join(".forge", "scripts", scriptName, scriptName+ext))
-	if err := upsertCommandInManifest(manifestPath, name, tpl.Meta.Description, relScript); err != nil {
-		fmt.Fprintf(os.Stderr, "error writing forge.yaml: %v\n", err)
+	relScript := filepath.ToSlash(scriptName + ext)
+	templatePath := filepath.Join(scriptDir, manifest.CommandTemplateFile)
+	if err := writeCommandTemplate(templatePath, tpl.Meta.Description, relScript); err != nil {
+		fmt.Fprintf(os.Stderr, "error writing %s: %v\n", manifest.CommandTemplateFile, err)
+		os.Exit(1)
+	}
+	examplePath := filepath.Join(scriptDir, "example.md")
+	if err := writeCommandExample(examplePath, name, tpl.Meta.Description, true); err != nil {
+		fmt.Fprintf(os.Stderr, "error writing example.md: %v\n", err)
 		os.Exit(1)
 	}
 
+	relTemplatePath, _ := filepath.Rel(cwd, templatePath)
+	relScriptPath, _ := filepath.Rel(cwd, scriptFile)
+	relExamplePath, _ := filepath.Rel(cwd, examplePath)
+
 	fmt.Printf("Added command '\033[36m%s\033[0m' from template '\033[33m%s\033[0m' (%s)\n", name, from, lang)
-	fmt.Printf("  script: %s\n", relScript)
-	fmt.Printf("  manifest: %s\n", manifestPath)
+	fmt.Printf("  script: %s\n", filepath.ToSlash(relScriptPath))
+	fmt.Printf("  template: %s\n", filepath.ToSlash(relTemplatePath))
+	fmt.Printf("  example: %s\n", filepath.ToSlash(relExamplePath))
 
 	// Show applied variables.
 	if len(tpl.Meta.Variables) > 0 {
@@ -752,10 +729,25 @@ func runAddFromTemplate(name, lang, from string, vars map[string]string) {
 		}
 	}
 
-	fmt.Printf("\nCustomize the script at %s\n", relScript)
+	fmt.Printf("\nCustomize the script at %s\n", filepath.ToSlash(relScriptPath))
 }
 
-func runTemplates() {
+func runTemplates(args []string) {
+	if len(args) > 0 {
+		switch args[0] {
+		case "publish":
+			runTemplatesPublish(args[1:])
+			return
+		case "help", "--help", "-h":
+			fmt.Println(templatesHelpText)
+			return
+		default:
+			fmt.Fprintf(os.Stderr, "error: unknown templates subcommand '%s'\n", args[0])
+			fmt.Fprintf(os.Stderr, "  usage: %s\n", templatesUsageLine)
+			os.Exit(1)
+		}
+	}
+
 	registries := collectRegistries()
 	allTemplates := templates.ListAllTemplates(registries)
 
@@ -832,21 +824,21 @@ func runTemplates() {
 	fmt.Println("  forge add deploy --from ./my-templates/deploy")
 	fmt.Println("  forge add deploy --from https://github.com/user/repo#path/to/template")
 	fmt.Println()
-	fmt.Println("Configure registries in forge.yaml:")
+	fmt.Println("Configure registries in .forge/config.yaml:")
 	fmt.Println("  registries:")
 	fmt.Println("    - https://github.com/user/forge-templates")
 	fmt.Println("    - ./local-templates")
 }
 
-// collectRegistries gathers registries from all discovered manifests.
-// Returns nil if no manifests are found (non-fatal for templates listing).
+// collectRegistries gathers registries from discovered script projects.
+// Returns nil if no script projects are found (non-fatal for templates listing).
 func collectRegistries() []string {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil
 	}
 
-	manifests, err := manifest.Discover(cwd)
+	manifests, err := manifest.DiscoverScripts(cwd)
 	if err != nil || len(manifests) == 0 {
 		return nil
 	}
@@ -855,78 +847,125 @@ func collectRegistries() []string {
 	return merged.Registries
 }
 
-func upsertCommandInManifest(path string, name string, description string, script string) error {
-	raw, err := os.ReadFile(path)
+func findDiscoveredCommand(name string) bool {
+	cwd, err := os.Getwd()
 	if err != nil {
-		return err
+		return false
 	}
 
-	text := strings.ReplaceAll(string(raw), "\r\n", "\n")
-	lines := strings.Split(text, "\n")
+	manifests, err := manifest.DiscoverScripts(cwd)
+	if err != nil || len(manifests) == 0 {
+		return false
+	}
 
-	commandsIdx := -1
-	for i, line := range lines {
-		if strings.TrimSpace(line) == "commands:" {
-			commandsIdx = i
+	merged := manifest.Merge(manifests)
+	_, exists := merged.Commands[name]
+
+	return exists
+}
+
+func commandScriptDirAndLeaf(cwd string, commandName string) (string, string, error) {
+	parts := strings.Split(commandName, ":")
+	cleanParts := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed == "" || trimmed == "." || trimmed == ".." || strings.Contains(trimmed, "/") || strings.Contains(trimmed, "\\") {
+			return "", "", fmt.Errorf("invalid command name '%s'", commandName)
+		}
+		cleanParts = append(cleanParts, trimmed)
+	}
+
+	if len(cleanParts) == 0 {
+		return "", "", fmt.Errorf("invalid command name '%s'", commandName)
+	}
+
+	leaf := cleanParts[len(cleanParts)-1]
+	dirParts := append([]string{cwd, manifest.ForgeDirName, manifest.ScriptsDirName}, cleanParts...)
+
+	return filepath.Join(dirParts...), leaf, nil
+}
+
+func writeCommandTemplate(path string, description string, script string) error {
+	directive := commandTemplateSchemaDirective(path)
+
+	var b strings.Builder
+	if directive != "" {
+		b.WriteString(directive)
+		b.WriteString("\n")
+	}
+	b.WriteString("description: ")
+	b.WriteString(yamlDoubleQuote(description))
+	b.WriteString("\n")
+	b.WriteString("script: ")
+	b.WriteString(script)
+	b.WriteString("\n")
+
+	return os.WriteFile(path, []byte(b.String()), 0o644)
+}
+
+func writeCommandExample(path string, commandName string, description string, fromTemplate bool) error {
+	var b strings.Builder
+	b.WriteString("# ")
+	b.WriteString(commandName)
+	b.WriteString("\n\n")
+	if strings.TrimSpace(description) != "" {
+		b.WriteString(description)
+		b.WriteString("\n\n")
+	}
+	b.WriteString("## Run\n\n")
+	b.WriteString("```bash\n")
+	b.WriteString("forge ")
+	b.WriteString(strings.ReplaceAll(commandName, ":", " "))
+	b.WriteString("\n")
+	b.WriteString("```\n")
+
+	if fromTemplate {
+		b.WriteString("\n## Notes\n\n")
+		b.WriteString("This command was created from a template. Customize the script and metadata for your project.\n")
+	}
+
+	return os.WriteFile(path, []byte(b.String()), 0o644)
+}
+
+func commandTemplateSchemaDirective(templatePath string) string {
+	templateDir := filepath.Dir(templatePath)
+	dir := templateDir
+	forgeDir := ""
+
+	for {
+		if filepath.Base(dir) == manifest.ForgeDirName {
+			forgeDir = dir
 			break
 		}
-	}
-	if commandsIdx == -1 {
-		return fmt.Errorf("manifest missing commands: section")
-	}
 
-	insertIdx := len(lines)
-	for i := commandsIdx + 1; i < len(lines); i++ {
-		trimmed := strings.TrimSpace(lines[i])
-		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
-			continue
-		}
-
-		if !strings.HasPrefix(lines[i], " ") && !strings.HasPrefix(lines[i], "\t") {
-			insertIdx = i
+		parent := filepath.Dir(dir)
+		if parent == dir {
 			break
 		}
+
+		dir = parent
 	}
 
-	indent := "  "
-	for i := commandsIdx + 1; i < insertIdx; i++ {
-		line := lines[i]
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
-			continue
-		}
-
-		prefixLen := len(line) - len(strings.TrimLeft(line, " \t"))
-		if prefixLen > 0 && strings.HasSuffix(trimmed, ":") {
-			indent = line[:prefixLen]
-			break
-		}
+	if forgeDir == "" {
+		return ""
 	}
 
-	block := []string{
-		indent + name + ":",
-		indent + "  description: " + yamlDoubleQuote(description),
-		indent + "  script: " + script,
+	if _, err := embedded.ExtractTemplateSchema(forgeDir); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not extract template schema: %v\n", err)
 	}
 
-	newLines := append([]string{}, lines[:insertIdx]...)
-	if insertIdx > 0 && strings.TrimSpace(newLines[len(newLines)-1]) != "" {
-		newLines = append(newLines, "")
-	}
-	newLines = append(newLines, block...)
-	newLines = append(newLines, lines[insertIdx:]...)
-
-	out := strings.Join(newLines, "\n")
-	if strings.HasSuffix(string(raw), "\r\n") {
-		out = strings.ReplaceAll(out, "\n", "\r\n")
+	relSchema, err := filepath.Rel(templateDir, filepath.Join(forgeDir, "template-schema.json"))
+	if err != nil {
+		return ""
 	}
 
-	return os.WriteFile(path, []byte(out), 0o644)
+	return "# yaml-language-server: $schema=" + filepath.ToSlash(relSchema)
 }
 
 func yamlDoubleQuote(value string) string {
 	escaped := strings.ReplaceAll(value, "\\", "\\\\")
 	escaped = strings.ReplaceAll(escaped, "\"", "\\\"")
+
 	return "\"" + escaped + "\""
 }
 
@@ -947,13 +986,12 @@ func templateSourceTypeLabel(sourceType string) string {
 	}
 }
 
-// bootstrapForge creates a forge.yaml and .forge/ directory with language
-// support files in the given directory. This is a lightweight version of
-// runInit that only sets up the requested language, intended for when
-// forge add is run from a directory without an existing forge setup.
+// bootstrapForge creates a .forge/ directory with language support files
+// in the given directory. This is a lightweight version of runInit that
+// only sets up the requested language, intended for when forge add is run
+// from a directory without an existing forge setup.
 func bootstrapForge(dir string, lang string) {
 	forgeDir := filepath.Join(dir, ".forge")
-	manifestPath := filepath.Join(dir, manifest.ManifestFile)
 
 	// Create .forge/scripts/ directory.
 	scriptsDir := filepath.Join(forgeDir, "scripts")
@@ -963,7 +1001,7 @@ func bootstrapForge(dir string, lang string) {
 	}
 
 	// Create .forge/.gitignore.
-	gitignore := "cache/\nforge-schema.json\n"
+	gitignore := "cache/\nforge-schema.json\ntemplate-schema.json\n"
 	switch lang {
 	case "ts":
 		gitignore += "node_modules/\npackage-lock.json\npnpm-lock.yaml\n"
@@ -977,6 +1015,9 @@ func bootstrapForge(dir string, lang string) {
 	}
 
 	helpersDir := filepath.Join(forgeDir, "cache", "_helpers")
+	if _, err := embedded.ExtractTemplateSchema(forgeDir); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not extract template schema: %v\n", err)
+	}
 
 	// Set up language support files for intellisense.
 	switch lang {
@@ -1026,18 +1067,6 @@ func bootstrapForge(dir string, lang string) {
 		if err := embedded.EnsureSLNX(forgeDir); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: could not create ForgeScripts.slnx: %v\n", err)
 		}
-	}
-
-	// Extract schema for forge.yaml intellisense.
-	if _, err := embedded.ExtractSchema(forgeDir); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: could not extract schema: %v\n", err)
-	}
-
-	// Create an empty forge.yaml.
-	forgeYaml := "# yaml-language-server: $schema=.forge/forge-schema.json\ncommands:\n"
-	if err := os.WriteFile(manifestPath, []byte(forgeYaml), 0o644); err != nil {
-		fmt.Fprintf(os.Stderr, "error writing forge.yaml: %v\n", err)
-		os.Exit(1)
 	}
 
 	fmt.Printf("Initialized forge in %s\n", dir)
@@ -1093,17 +1122,14 @@ func runSetup(args []string) {
 		// CWD has its own .forge/ directory — set up here.
 		projectDir = cwd
 	} else {
-		// Fall back to the closest manifest's directory.
-		manifests, err := manifest.Discover(cwd)
+		// Fall back to the closest discovered scripts project.
+		manifests, err := manifest.DiscoverScripts(cwd)
 		if err != nil || len(manifests) == 0 {
-			fmt.Fprintf(os.Stderr, "error: no forge.yaml or .forge/ found — run 'forge init' first\n")
+			fmt.Fprintf(os.Stderr, "error: no .forge/scripts/ or .forge/ found — run 'forge init' first\n")
 			os.Exit(1)
 		}
 
-		for _, cmd := range manifests[0].Commands {
-			projectDir = cmd.ManifestDir
-			break
-		}
+		projectDir = manifests[len(manifests)-1].ManifestDir
 		if projectDir == "" {
 			projectDir = cwd
 		}
@@ -1250,6 +1276,11 @@ func runHelp(args []string) {
 		}
 
 		fmt.Println(authHelpText)
+		return
+	}
+
+	if args[0] == "templates" {
+		fmt.Println(templatesHelpText)
 		return
 	}
 
@@ -1514,13 +1545,12 @@ func runInit() {
 		os.Exit(1)
 	}
 
-	manifestPath := filepath.Join(cwd, manifest.ManifestFile)
 	forgeDir := filepath.Join(cwd, ".forge")
 	scriptsDir := filepath.Join(forgeDir, "scripts")
 
 	// Check if already initialized.
-	if _, err := os.Stat(manifestPath); err == nil {
-		fmt.Println("forge.yaml already exists in this directory.")
+	if _, err := os.Stat(forgeDir); err == nil {
+		fmt.Println(".forge already exists in this directory.")
 		return
 	}
 
@@ -1558,7 +1588,7 @@ func runInit() {
 	}
 
 	// Create .forge/.gitignore to exclude generated artifacts.
-	gitignore := "cache/\nforge-schema.json\n"
+	gitignore := "cache/\nforge-schema.json\ntemplate-schema.json\n"
 	if nodeAvailable {
 		gitignore += "node_modules/\npackage-lock.json\npnpm-lock.yaml\n"
 	}
@@ -1573,6 +1603,9 @@ func runInit() {
 
 	var created []string
 	helpersDir := filepath.Join(forgeDir, "cache", "_helpers")
+	if _, err := embedded.ExtractTemplateSchema(forgeDir); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not extract template schema: %v\n", err)
+	}
 
 	// --- Go scaffolding ---
 	if goAvailable {
@@ -1668,32 +1701,26 @@ Log.Success("Hello from forge!");
 		os.Exit(1)
 	}
 
-	// Create forge.yaml.
-	scriptPath := filepath.ToSlash(filepath.Join(".forge", "scripts", "hello", "hello"+helloExt))
-	forgeYaml := fmt.Sprintf(`# yaml-language-server: $schema=.forge/forge-schema.json
-commands:
-  hello:
-    description: "A starting point for your first forge script"
-    script: %s
-`, scriptPath)
-	if err := os.WriteFile(manifestPath, []byte(forgeYaml), 0o644); err != nil {
-		fmt.Fprintf(os.Stderr, "error writing forge.yaml: %v\n", err)
+	// Create .forge/scripts/hello/template.yaml.
+	helloTemplatePath := filepath.Join(helloDir, manifest.CommandTemplateFile)
+	if err := writeCommandTemplate(helloTemplatePath, "A starting point for your first forge script", "hello"+helloExt); err != nil {
+		fmt.Fprintf(os.Stderr, "error writing %s: %v\n", manifest.CommandTemplateFile, err)
 		os.Exit(1)
 	}
-
-	// Extract the JSON schema for forge.yaml intellisense.
-	if _, err := embedded.ExtractSchema(forgeDir); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: could not extract schema: %v\n", err)
+	helloExamplePath := filepath.Join(helloDir, "example.md")
+	if err := writeCommandExample(helloExamplePath, "hello", "A starting point for your first forge script", false); err != nil {
+		fmt.Fprintf(os.Stderr, "error writing example.md: %v\n", err)
+		os.Exit(1)
 	}
 
 	// Print summary.
 	fmt.Println("Initialized forge:")
-	fmt.Println("  created forge.yaml")
 	for _, f := range created {
 		fmt.Printf("  created %s\n", f)
 	}
 	fmt.Println("  created .forge/.gitignore")
-	fmt.Println("  created .forge/forge-schema.json")
+	fmt.Println("  created .forge/scripts/hello/template.yaml")
+	fmt.Println("  created .forge/scripts/hello/example.md")
 	fmt.Printf("  created .forge/scripts/hello/hello%s\n", helloExt)
 
 	// Show which runtimes were detected.

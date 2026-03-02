@@ -41,3 +41,5 @@ obj
 **/bin/Debug/**
 **/bin/Publish/**
 **/bin/Release/**
+
+forge-playground/forge.exe

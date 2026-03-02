@@ -19,6 +19,9 @@ var HelpersCSFS embed.FS
 //go:embed forge-schema.json
 var SchemaJSON []byte
 
+//go:embed forge-template-schema.json
+var TemplateSchemaJSON []byte
+
 // ExtractSchema writes the embedded JSON schema to the given directory.
 // Returns the path to the written schema file.
 func ExtractSchema(forgeDir string) (string, error) {
@@ -30,6 +33,22 @@ func ExtractSchema(forgeDir string) (string, error) {
 
 	if err := os.WriteFile(schemaPath, SchemaJSON, 0o644); err != nil {
 		return "", fmt.Errorf("writing schema: %w", err)
+	}
+
+	return schemaPath, nil
+}
+
+// ExtractTemplateSchema writes the embedded per-command template schema to the
+// given .forge directory. Returns the path to the written schema file.
+func ExtractTemplateSchema(forgeDir string) (string, error) {
+	schemaPath := filepath.Join(forgeDir, "template-schema.json")
+
+	if err := os.MkdirAll(forgeDir, 0o755); err != nil {
+		return "", fmt.Errorf("creating forge dir: %w", err)
+	}
+
+	if err := os.WriteFile(schemaPath, TemplateSchemaJSON, 0o644); err != nil {
+		return "", fmt.Errorf("writing template schema: %w", err)
 	}
 
 	return schemaPath, nil

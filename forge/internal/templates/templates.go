@@ -13,6 +13,7 @@ import (
 type TemplateMeta struct {
 	Description string             `yaml:"description"`
 	Variables   []TemplateVariable `yaml:"variables"`
+	Example     string             `yaml:"example,omitempty"`
 }
 
 // TemplateVariable defines a placeholder variable in a template.
@@ -108,6 +109,13 @@ func LoadFromDir(dir string) (*Template, error) {
 
 	if len(t.Scripts) == 0 {
 		return nil, fmt.Errorf("template '%s' has no script files (expected %s.{go,ts,cs})", name, name)
+	}
+
+	if strings.TrimSpace(t.Meta.Example) == "" {
+		examplePath := filepath.Join(dir, "example.md")
+		if data, err := os.ReadFile(examplePath); err == nil {
+			t.Meta.Example = string(data)
+		}
 	}
 
 	return t, nil

@@ -7,43 +7,45 @@ let FORGE_DATA = {};
 const metaStatus = {};
 /** @type {boolean} */
 let metaDone = false;
+/** @type {EventSource | null} */
+let metaSource = null;
+/** @type {boolean} */
+let refreshInProgress = false;
 
 // ─── Heartbeat ───
 setInterval(() => {
 	fetch('/api/ping', { method: 'POST' }).catch(() => {});
 }, 2000);
 
-// Signal server shutdown when the window is closed.
 window.addEventListener('beforeunload', () => {
+	if (metaSource) {
+		metaSource.close();
+		metaSource = null;
+	}
 	navigator.sendBeacon('/api/shutdown');
 });
 
 // ─── State ───
 /** @type {string | null} */
 let activeCommand = null;
-/** @type {string | null} */
-let activeTemplate = null;
 /** @type {string} */
 let searchQuery = '';
+/** @type {'tasks'|'registry'} */
+let activeView = 'tasks';
 
-// ─── Initialization ───
-/** Load command data and initialize the application. */
 async function init() {
 	const sidebar = document.querySelector('forge-sidebar');
 	const commandDetail = document.querySelector('forge-command');
 	const templateDetail = document.querySelector('forge-templates');
+	const registryDetail = document.querySelector('forge-registry');
 
 	setupSearch(sidebar);
 	setupKeyboard(sidebar);
+	setupNavigation(sidebar, commandDetail, templateDetail, registryDetail);
+	setupRefresh(sidebar, commandDetail, templateDetail, registryDetail);
 
-	// Listen for command selection from sidebar or command detail (step clicks).
 	document.addEventListener('command-select', (e) => {
-		selectCommand(e.detail.name, sidebar, commandDetail, templateDetail);
-	});
-
-	// Listen for template selection from sidebar.
-	document.addEventListener('template-select', (e) => {
-		selectTemplate(e.detail.name, sidebar, commandDetail, templateDetail);
+		selectCommand(e.detail.name, sidebar, commandDetail);
 	});
 
 	try {
@@ -56,7 +58,12 @@ async function init() {
 	}
 
 	document.getElementById('project-name').textContent = FORGE_DATA.projectName || 'forge';
-	document.getElementById('version').textContent = FORGE_DATA.version ? 'v' + FORGE_DATA.version : '';
+	const headerVersion = document.getElementById('version');
+	if (FORGE_DATA.version && FORGE_DATA.version !== 'dev') {
+		headerVersion.textContent = 'v' + FORGE_DATA.version;
+	} else {
+		headerVersion.textContent = '';
+	}
 
 	(FORGE_DATA.commands || []).forEach(cmd => {
 		if (cmd.commandType === 'script') metaStatus[cmd.name] = 'pending';
@@ -64,35 +71,35 @@ async function init() {
 
 	sidebarRender(sidebar);
 	renderWelcome();
-	connectSSE(sidebar, commandDetail, templateDetail);
+	connectSSE(sidebar, commandDetail);
+
+	if (registryDetail && registryDetail.initialize) {
+		registryDetail.initialize(FORGE_DATA.registrySources || [], FORGE_DATA.installTargets || []);
+	}
+
+	applyViewFromHash(sidebar, commandDetail, templateDetail, registryDetail);
 }
 
-// ─── Sidebar render helper ───
-/**
- * Re-render the sidebar with current state.
- * @param {ForgeSidebar} sidebar
- */
 function sidebarRender(sidebar) {
 	sidebar.render(
 		FORGE_DATA.commands || [],
-		FORGE_DATA.templates || [],
+		[],
 		metaStatus,
 		metaDone,
 		searchQuery,
 		activeCommand,
-		activeTemplate
+		null
 	);
 }
 
-// ─── SSE Connection ───
-/**
- * Connect to the server-sent events endpoint for progressive metadata updates.
- * @param {ForgeSidebar} sidebar
- * @param {ForgeCommand} commandDetail
- * @param {ForgeTemplates} templateDetail
- */
-function connectSSE(sidebar, commandDetail, templateDetail) {
+function connectSSE(sidebar, commandDetail) {
+	if (metaSource) {
+		metaSource.close();
+		metaSource = null;
+	}
+
 	const source = new EventSource('/api/events');
+	metaSource = source;
 
 	source.addEventListener('meta', (e) => {
 		const update = JSON.parse(e.data);
@@ -106,9 +113,9 @@ function connectSSE(sidebar, commandDetail, templateDetail) {
 				if (update.description && !cmd.description) cmd.description = update.description;
 			}
 
-			if (activeCommand === update.name) {
-				const cmd = (FORGE_DATA.commands || []).find(c => c.name === update.name);
-				if (cmd) commandDetail.render(cmd, metaStatus);
+			if (activeView === 'tasks' && activeCommand === update.name) {
+				const current = (FORGE_DATA.commands || []).find(c => c.name === update.name);
+				if (current) commandDetail.render(current, metaStatus);
 			}
 		}
 
@@ -119,29 +126,112 @@ function connectSSE(sidebar, commandDetail, templateDetail) {
 		metaDone = true;
 		sidebarRender(sidebar);
 		source.close();
+		if (metaSource === source) {
+			metaSource = null;
+		}
 	});
 
 	source.onerror = () => {
 		metaDone = true;
 		sidebarRender(sidebar);
 		source.close();
+		if (metaSource === source) {
+			metaSource = null;
+		}
 	};
 }
 
-// ─── Select Command ───
-/**
- * Select a command and render its detail view.
- * @param {string} name - Command name to select.
- * @param {ForgeSidebar} sidebar
- * @param {ForgeCommand} commandDetail
- * @param {ForgeTemplates} templateDetail
- */
-function selectCommand(name, sidebar, commandDetail, templateDetail) {
-	activeCommand = name;
-	activeTemplate = null;
+function resetMetaState() {
+	Object.keys(metaStatus).forEach(key => delete metaStatus[key]);
+	(FORGE_DATA.commands || []).forEach(cmd => {
+		if (cmd.commandType === 'script') {
+			metaStatus[cmd.name] = 'pending';
+		}
+	});
+	metaDone = false;
+}
 
-	document.getElementById('main-content').style.display = '';
-	document.getElementById('template-content').style.display = 'none';
+async function handleRefresh(sidebar, commandDetail, templateDetail, registryDetail) {
+	if (refreshInProgress) return;
+
+	const refreshBtn = document.getElementById('refresh-commands');
+	const previousLabel = refreshBtn ? refreshBtn.textContent : 'Refresh';
+	refreshInProgress = true;
+	if (refreshBtn) {
+		refreshBtn.disabled = true;
+		refreshBtn.textContent = 'Refreshing...';
+	}
+
+	try {
+		const res = await fetch('/api/refresh', { method: 'POST' });
+		if (!res.ok) {
+			throw new Error(await res.text());
+		}
+
+		FORGE_DATA = await res.json();
+		document.getElementById('project-name').textContent = FORGE_DATA.projectName || 'forge';
+
+		const headerVersion = document.getElementById('version');
+		if (FORGE_DATA.version && FORGE_DATA.version !== 'dev') {
+			headerVersion.textContent = 'v' + FORGE_DATA.version;
+		} else {
+			headerVersion.textContent = '';
+		}
+
+		if (!(FORGE_DATA.commands || []).some(c => c.name === activeCommand)) {
+			activeCommand = null;
+		}
+
+		resetMetaState();
+		sidebarRender(sidebar);
+
+		if (registryDetail && registryDetail.initialize) {
+			registryDetail.initialize(FORGE_DATA.registrySources || [], FORGE_DATA.installTargets || []);
+		}
+
+		if (activeView === 'tasks') {
+			if (activeCommand) {
+				const cmd = (FORGE_DATA.commands || []).find(c => c.name === activeCommand);
+				if (cmd) {
+					commandDetail.render(cmd, metaStatus);
+				} else {
+					renderWelcome();
+				}
+			} else {
+				renderWelcome();
+			}
+		}
+
+		connectSSE(sidebar, commandDetail);
+		applyViewFromHash(sidebar, commandDetail, templateDetail, registryDetail);
+	} catch (err) {
+		const main = document.getElementById('main-content');
+		if (main && activeView === 'tasks') {
+			main.innerHTML = '<div class="no-results"><p>Refresh failed: ' + esc(String(err && err.message ? err.message : err)) + '</p></div>';
+		}
+	} finally {
+		refreshInProgress = false;
+		if (refreshBtn) {
+			refreshBtn.disabled = false;
+			refreshBtn.textContent = previousLabel;
+		}
+	}
+}
+
+function setupRefresh(sidebar, commandDetail, templateDetail, registryDetail) {
+	const refreshBtn = document.getElementById('refresh-commands');
+	if (!refreshBtn) return;
+
+	refreshBtn.addEventListener('click', () => {
+		handleRefresh(sidebar, commandDetail, templateDetail, registryDetail);
+	});
+}
+
+function selectCommand(name, sidebar, commandDetail) {
+	activeCommand = name;
+	if (activeView !== 'tasks') {
+		window.location.hash = '#tasks';
+	}
 
 	sidebarRender(sidebar);
 
@@ -149,73 +239,40 @@ function selectCommand(name, sidebar, commandDetail, templateDetail) {
 	if (cmd) commandDetail.render(cmd, metaStatus);
 }
 
-// ─── Select Template ───
-/**
- * Select a template and render its detail view.
- * @param {string} name - Template name to select.
- * @param {ForgeSidebar} sidebar
- * @param {ForgeCommand} commandDetail
- * @param {ForgeTemplates} templateDetail
- */
-function selectTemplate(name, sidebar, commandDetail, templateDetail) {
-	activeTemplate = name;
-	activeCommand = null;
-
-	document.getElementById('main-content').style.display = 'none';
-	document.getElementById('template-content').style.display = '';
-
-	sidebarRender(sidebar);
-
-	const tpl = (FORGE_DATA.templates || []).find(t => t.name === name);
-	if (tpl) templateDetail.render(tpl, FORGE_DATA.installTargets || []);
-}
-
-// ─── Welcome Screen ───
-/** Render the welcome/landing page with command statistics. */
 function renderWelcome() {
 	const main = document.getElementById('main-content');
 	const commands = FORGE_DATA.commands || [];
-	const tpls = FORGE_DATA.templates || [];
 	const scriptCount = commands.filter(c => c.commandType === 'script').length;
 	const compositeCount = commands.filter(c => c.commandType === 'composite').length;
 	const localCount = commands.filter(c => !c.source || c.source === 'local').length;
 	const inheritedCount = commands.filter(c => c.source && c.source !== 'local').length;
+	const templateCount = FORGE_DATA.templateCount || 0;
 
 	main.innerHTML = '<div class="welcome">'
-		+ '<h1>Forge Documentation</h1>'
-		+ '<p>Select a command from the sidebar to view its documentation, arguments, and usage.</p>'
+		+ '<h1>Forge Tasks</h1>'
+		+ '<p>Select a task from the sidebar to view details, arguments, and usage.</p>'
 		+ '<div class="welcome-stats">'
-		+ '<div class="welcome-stat"><div class="number">' + commands.length + '</div><div class="label">Commands</div></div>'
+		+ '<div class="welcome-stat"><div class="number">' + commands.length + '</div><div class="label">Tasks</div></div>'
 		+ '<div class="welcome-stat"><div class="number">' + localCount + '</div><div class="label">Local</div></div>'
 		+ '<div class="welcome-stat"><div class="number">' + inheritedCount + '</div><div class="label">Inherited</div></div>'
 		+ '<div class="welcome-stat"><div class="number">' + scriptCount + '</div><div class="label">Scripts</div></div>'
 		+ '<div class="welcome-stat"><div class="number">' + compositeCount + '</div><div class="label">Composites</div></div>'
-		+ (tpls.length > 0
-			? '<div class="welcome-stat"><div class="number">' + tpls.length + '</div><div class="label">Templates</div></div>'
+		+ (templateCount > 0
+			? '<div class="welcome-stat"><div class="number">' + templateCount + '</div><div class="label">Templates</div></div>'
 			: '')
 		+ '</div>'
-		+ '<div class="welcome-hint">Press <kbd>/</kbd> to search · Click a command or template to view details</div>'
+		+ '<div class="welcome-hint">Press <kbd>/</kbd> to search tasks · Switch to <strong>Registry</strong> for template discovery</div>'
 		+ '</div>';
 }
 
-// ─── Search ───
-/**
- * Set up the search input handler.
- * @param {ForgeSidebar} sidebar
- */
 function setupSearch(sidebar) {
 	const input = document.getElementById('search');
 	input.addEventListener('input', () => {
 		searchQuery = input.value;
-		sidebarRender(sidebar);
+		if (activeView === 'tasks') sidebarRender(sidebar);
 	});
 }
 
-// ─── Keyboard ───
-/**
- * Set up global keyboard shortcuts (/ for search, Escape to clear).
- * @param {ForgeSidebar} sidebar
- */
 function setupKeyboard(sidebar) {
 	document.addEventListener('keydown', (e) => {
 		if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
@@ -226,10 +283,62 @@ function setupKeyboard(sidebar) {
 			document.getElementById('search').blur();
 			document.getElementById('search').value = '';
 			searchQuery = '';
-			sidebarRender(sidebar);
+			if (activeView === 'tasks') sidebarRender(sidebar);
 		}
 	});
 }
 
-// ─── Start ───
+function setupNavigation(sidebar, commandDetail, templateDetail, registryDetail) {
+	const tasksBtn = document.getElementById('nav-tasks');
+	const registryBtn = document.getElementById('nav-registry');
+
+	tasksBtn.addEventListener('click', () => {
+		window.location.hash = '#tasks';
+	});
+	registryBtn.addEventListener('click', () => {
+		window.location.hash = '#registry';
+	});
+
+	window.addEventListener('hashchange', () => {
+		applyViewFromHash(sidebar, commandDetail, templateDetail, registryDetail);
+	});
+}
+
+function applyViewFromHash(sidebar, commandDetail, templateDetail, registryDetail) {
+	const hash = (window.location.hash || '').toLowerCase();
+	activeView = hash === '#registry' ? 'registry' : 'tasks';
+
+	const tasksBtn = document.getElementById('nav-tasks');
+	const registryBtn = document.getElementById('nav-registry');
+	const layout = document.querySelector('.layout');
+	const search = document.querySelector('.search-wrapper');
+	const main = document.getElementById('main-content');
+	const template = document.getElementById('template-content');
+	const registry = document.getElementById('registry-content');
+
+	tasksBtn.classList.toggle('active', activeView === 'tasks');
+	registryBtn.classList.toggle('active', activeView === 'registry');
+	layout.classList.toggle('registry-view', activeView === 'registry');
+	search.classList.toggle('hidden', activeView !== 'tasks');
+
+	if (activeView === 'registry') {
+		main.style.display = 'none';
+		template.style.display = 'none';
+		registry.style.display = '';
+		activeCommand = null;
+		sidebarRender(sidebar);
+		return;
+	}
+
+	registry.style.display = 'none';
+	template.style.display = 'none';
+	main.style.display = '';
+	sidebarRender(sidebar);
+
+	if (activeCommand) {
+		const cmd = (FORGE_DATA.commands || []).find(c => c.name === activeCommand);
+		if (cmd) commandDetail.render(cmd, metaStatus);
+	}
+}
+
 init();

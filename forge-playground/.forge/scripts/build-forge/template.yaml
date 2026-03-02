@@ -1,0 +1,3 @@
+# yaml-language-server: $schema=../../template-schema.json
+description: "Build forge.exe into forge-playground for local testing"
+script: build-forge.go

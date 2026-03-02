@@ -214,6 +214,9 @@ func compileGo(scriptPath string, manifestDir string) (string, error) {
 	if _, err := embedded.ExtractSchema(forgeDir); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: could not extract schema: %v\n", err)
 	}
+	if _, err := embedded.ExtractTemplateSchema(forgeDir); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not extract template schema: %v\n", err)
+	}
 
 	// Compute content hash of the script to decide if recompilation is needed.
 	content, err := os.ReadFile(scriptPath)
@@ -327,6 +330,9 @@ func PrepareTs(scriptPath string, manifestDir string) (string, error) {
 	if _, err := embedded.ExtractSchema(forgeDir); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: could not extract schema: %v\n", err)
 	}
+	if _, err := embedded.ExtractTemplateSchema(forgeDir); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not extract template schema: %v\n", err)
+	}
 
 	// Resolve the absolute script path for node.
 	absScript, err := filepath.Abs(scriptPath)
@@ -385,6 +391,9 @@ func compileCs(scriptPath string, manifestDir string) (string, error) {
 	// Keep the schema up-to-date.
 	if _, err := embedded.ExtractSchema(forgeDir); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: could not extract schema: %v\n", err)
+	}
+	if _, err := embedded.ExtractTemplateSchema(forgeDir); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not extract template schema: %v\n", err)
 	}
 
 	// Ensure ForgeScripts.csproj exists for intellisense.

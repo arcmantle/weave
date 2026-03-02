@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=.forge/forge-schema.json
+commands:
+
+  test2:
+    description: ""
+    script: .forge/scripts/test2/test2.ts

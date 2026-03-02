@@ -29,6 +29,7 @@ type RegistryIndexItem struct {
 	Description string             `yaml:"description"`
 	Languages   []string           `yaml:"languages"`
 	Variables   []TemplateVariable `yaml:"variables"`
+	Example     string             `yaml:"example,omitempty"`
 }
 
 // Registry represents a loaded external template registry.
@@ -46,6 +47,7 @@ type TemplateInfo struct {
 	Description string
 	Languages   []string
 	Variables   []TemplateVariable
+	Example     string
 	LatestTag   string   // Latest tag discovered for this package (if any).
 	Versions    []string // Available historical versions (newest first).
 	Source      string // "built-in", registry name, or URL.
@@ -216,6 +218,7 @@ func loadRegistryIndexFromDir(dir string) (*Registry, error) {
 			Description: item.Description,
 			Languages:   item.Languages,
 			Variables:   item.Variables,
+			Example:     item.Example,
 			Source:      idx.Name,
 			Registry:    dir,
 			SourceType:  "folder-index",
@@ -287,6 +290,11 @@ func loadTemplateInfoFromLocalBranch(repoDir string, branch string, registryName
 		description = fmt.Sprintf("Template from branch %s", branch)
 	}
 
+	example := strings.TrimSpace(meta.Example)
+	if example == "" {
+		example = readLocalGitTemplateExample(repoDir, branch)
+	}
+
 	rootEntries, err := listLocalGitRootEntries(repoDir, branch)
 	if err != nil {
 		rootEntries = nil
@@ -297,6 +305,7 @@ func loadTemplateInfoFromLocalBranch(repoDir string, branch string, registryName
 		Description: description,
 		Languages:   detectTemplateLanguagesFromEntries(rootEntries),
 		Variables:   meta.Variables,
+		Example:     example,
 		Source:      registryName,
 		Registry:    repoDir,
 		SourceType:  "local-git",
@@ -328,11 +337,17 @@ func loadTemplateInfoFromBranch(repoURL string, branch string, registryName stri
 		description = fmt.Sprintf("Template from branch %s", branch)
 	}
 
+	example := strings.TrimSpace(meta.Example)
+	if example == "" {
+		example = readTemplateExample(dir)
+	}
+
 	return TemplateInfo{
 		Name:        branch,
 		Description: description,
 		Languages:   detectTemplateLanguages(dir),
 		Variables:   meta.Variables,
+		Example:     example,
 		Source:      registryName,
 		Registry:    repoURL,
 		SourceType:  "github-git",
@@ -392,6 +407,15 @@ func readReadmeSummary(dir string) string {
 	return ""
 }
 
+func readTemplateExample(dir string) string {
+	data, err := os.ReadFile(filepath.Join(dir, "example.md"))
+	if err != nil {
+		return ""
+	}
+
+	return string(data)
+}
+
 func readLocalGitReadmeSummary(repoDir string, ref string) string {
 	for _, candidate := range []string{"README.md", "Readme.md", "readme.md"} {
 		data, err := readLocalGitFileAtRef(repoDir, ref, candidate)
@@ -406,6 +430,15 @@ func readLocalGitReadmeSummary(repoDir string, ref string) string {
 	}
 
 	return ""
+}
+
+func readLocalGitTemplateExample(repoDir string, ref string) string {
+	data, err := readLocalGitFileAtRef(repoDir, ref, "example.md")
+	if err != nil {
+		return ""
+	}
+
+	return string(data)
 }
 
 func extractReadmeSummary(data []byte) string {
@@ -476,6 +509,7 @@ func loadTemplateInfosFromLocalBranchesBatch(repoDir string, branches []string, 
 	type branchPaths struct {
 		metaSpec   string
 		readmeSpec []string
+		exampleSpec string
 		scriptSpec map[string]string
 	}
 
@@ -490,6 +524,7 @@ func loadTemplateInfosFromLocalBranchesBatch(repoDir string, branches []string, 
 			fmt.Sprintf("%s:Readme.md", branch),
 			fmt.Sprintf("%s:readme.md", branch),
 		}
+		exampleSpec := fmt.Sprintf("%s:example.md", branch)
 		scriptByLang := map[string]string{
 			"go": fmt.Sprintf("%s:%s.go", branch, branch),
 			"ts": fmt.Sprintf("%s:%s.ts", branch, branch),
@@ -499,11 +534,13 @@ func loadTemplateInfosFromLocalBranchesBatch(repoDir string, branches []string, 
 		pathsByBranch[branch] = branchPaths{
 			metaSpec:   metaSpec,
 			readmeSpec: readmeSpecs,
+			exampleSpec: exampleSpec,
 			scriptSpec: scriptByLang,
 		}
 
 		contentSpecs = append(contentSpecs, metaSpec)
 		contentSpecs = append(contentSpecs, readmeSpecs...)
+		contentSpecs = append(contentSpecs, exampleSpec)
 		scriptSpecs = append(scriptSpecs, scriptByLang["go"], scriptByLang["ts"], scriptByLang["cs"])
 	}
 
@@ -549,6 +586,13 @@ func loadTemplateInfosFromLocalBranchesBatch(repoDir string, branches []string, 
 			description = fmt.Sprintf("Template from branch %s", branch)
 		}
 
+		example := strings.TrimSpace(meta.Example)
+		if example == "" {
+			if data, ok := contentBySpec[paths.exampleSpec]; ok {
+				example = string(data)
+			}
+		}
+
 		var langs []string
 		for _, lang := range []string{"go", "ts", "cs"} {
 			spec := paths.scriptSpec[lang]
@@ -566,6 +610,7 @@ func loadTemplateInfosFromLocalBranchesBatch(repoDir string, branches []string, 
 			Description: description,
 			Languages:   langs,
 			Variables:   meta.Variables,
+			Example:     example,
 			Source:      registryName,
 			Registry:    repoDir,
 			SourceType:  "local-git",
@@ -1400,6 +1445,11 @@ func scanRegistryDir(dir string, source string) (*Registry, error) {
 			continue
 		}
 
+		example := strings.TrimSpace(meta.Example)
+		if example == "" {
+			example = readTemplateExample(filepath.Join(dir, entry.Name()))
+		}
+
 		// Discover available languages.
 		var langs []string
 		templateDir := filepath.Join(dir, entry.Name())
@@ -1415,6 +1465,7 @@ func scanRegistryDir(dir string, source string) (*Registry, error) {
 			Description: meta.Description,
 			Languages:   langs,
 			Variables:   meta.Variables,
+			Example:     example,
 			Source:      reg.Name,
 			Registry:    source,
 			SourceType:  "folder-scan",

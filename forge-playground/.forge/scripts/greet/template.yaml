@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=../../template-schema.json
+description: "Say hello and world sequentially"
+run:
+  - hello
+  - world
