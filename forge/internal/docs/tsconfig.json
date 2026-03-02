@@ -1,0 +1,24 @@
+{
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		"lib": [
+			"ES2022",
+			"DOM"
+		],
+		"types": [
+			"bun",
+			"node"
+		],
+		"strict": true,
+		"noEmit": true,
+		"skipLibCheck": true,
+		"allowJs": false
+	},
+	"include": [
+		"src/**/*.ts",
+		"src/**/*.d.ts",
+		"build.ts"
+	]
+}

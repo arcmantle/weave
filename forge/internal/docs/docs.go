@@ -30,7 +30,7 @@ import (
 	"github.com/arcmantle/forge/internal/templates"
 )
 
-//go:embed index.html styles.css utils.js markdown.js runner.js forge-sidebar.js forge-command.js forge-templates.js forge-registry.js app.js
+//go:embed dist/index.html dist/styles.css dist/app.js
 var staticFiles embed.FS
 
 // DocData is the top-level JSON structure injected into the HTML template.
@@ -340,27 +340,21 @@ func Serve(m *manifest.Manifest, version string) error {
 
 	assets := map[string]staticAsset{}
 	for _, entry := range []struct {
+		name        string
 		path        string
 		contentType string
 	}{
-		{"index.html", "text/html; charset=utf-8"},
-		{"styles.css", "text/css; charset=utf-8"},
-		{"utils.js", "application/javascript; charset=utf-8"},
-		{"markdown.js", "application/javascript; charset=utf-8"},
-		{"runner.js", "application/javascript; charset=utf-8"},
-		{"forge-sidebar.js", "application/javascript; charset=utf-8"},
-		{"forge-command.js", "application/javascript; charset=utf-8"},
-		{"forge-templates.js", "application/javascript; charset=utf-8"},
-		{"forge-registry.js", "application/javascript; charset=utf-8"},
-		{"app.js", "application/javascript; charset=utf-8"},
+		{"index.html", "dist/index.html", "text/html; charset=utf-8"},
+		{"styles.css", "dist/styles.css", "text/css; charset=utf-8"},
+		{"app.js", "dist/app.js", "application/javascript; charset=utf-8"},
 	} {
 		data, _ := staticFiles.ReadFile(entry.path)
-		assets[entry.path] = staticAsset{data: data, contentType: entry.contentType}
+		assets[entry.name] = staticAsset{data: data, contentType: entry.contentType}
 	}
 
 	// Compute a combined ETag from all static assets.
 	h := sha256.New()
-	for _, name := range []string{"index.html", "styles.css", "utils.js", "markdown.js", "runner.js", "forge-sidebar.js", "forge-command.js", "forge-templates.js", "forge-registry.js", "app.js"} {
+	for _, name := range []string{"index.html", "styles.css", "app.js"} {
 		h.Write(assets[name].data)
 	}
 	etag := `"` + hex.EncodeToString(h.Sum(nil)[:8]) + `"`
@@ -383,13 +377,6 @@ func Serve(m *manifest.Manifest, version string) error {
 
 	mux.HandleFunc("/", serveAsset("index.html"))
 	mux.HandleFunc("/styles.css", serveAsset("styles.css"))
-	mux.HandleFunc("/utils.js", serveAsset("utils.js"))
-	mux.HandleFunc("/markdown.js", serveAsset("markdown.js"))
-	mux.HandleFunc("/runner.js", serveAsset("runner.js"))
-	mux.HandleFunc("/forge-sidebar.js", serveAsset("forge-sidebar.js"))
-	mux.HandleFunc("/forge-command.js", serveAsset("forge-command.js"))
-	mux.HandleFunc("/forge-templates.js", serveAsset("forge-templates.js"))
-	mux.HandleFunc("/forge-registry.js", serveAsset("forge-registry.js"))
 	mux.HandleFunc("/app.js", serveAsset("app.js"))
 
 	// Returns basic manifest data immediately (no compilation required).

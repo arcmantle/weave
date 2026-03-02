@@ -31,6 +31,26 @@ type target struct {
 	npmCpu string // npm "cpu" field value
 }
 
+func buildDocsFrontend(forgeDir string) error {
+	docsDir := filepath.Join(forgeDir, "internal", "docs")
+
+	if _, err := os.Stat(filepath.Join(docsDir, "package.json")); err != nil {
+		return fmt.Errorf("missing docs package.json: %w", err)
+	}
+
+	info("building docs frontend (bun run build)")
+	cmd := exec.Command("bun", "run", "build")
+	cmd.Dir = docsDir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("running bun build in %s: %w", docsDir, err)
+	}
+
+	return nil
+}
+
 var targets = []target{
 	{"linux", "amd64", "linux", "x64"},
 	{"linux", "arm64", "linux", "arm64"},
@@ -67,6 +87,10 @@ func main() {
 
 	if _, err := os.Stat(filepath.Join(forgeDir, "go.mod")); os.IsNotExist(err) {
 		fatal("build.go must be run from the forge/ directory")
+	}
+
+	if err := buildDocsFrontend(forgeDir); err != nil {
+		fatal("failed building docs frontend: %v", err)
 	}
 
 	// If no version provided, read it from package.json.
