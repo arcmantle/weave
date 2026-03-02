@@ -1,24 +1,24 @@
 {
+	"extends": "@arcmantle/tsconfig",
 	"compilerOptions": {
-		"target": "ES2022",
-		"module": "ESNext",
-		"moduleResolution": "Bundler",
-		"lib": [
-			"ES2022",
-			"DOM"
-		],
+		"rootDir": ".",
+		"baseUrl": ".",
+		"checkJs": true,
+		"allowJs": true,
+		"isolatedDeclarations": false,
 		"types": [
-			"bun",
-			"node"
-		],
-		"strict": true,
-		"noEmit": true,
-		"skipLibCheck": true,
-		"allowJs": false
+			"node",
+			"bun"
+		]
 	},
 	"include": [
 		"src/**/*.ts",
 		"src/**/*.d.ts",
+		"tests/**/*.ts",
+		"tests/**/*.d.ts",
 		"build.ts"
-	]
+	],
+	"exclude": [
+		"node_modules"
+	],
 }

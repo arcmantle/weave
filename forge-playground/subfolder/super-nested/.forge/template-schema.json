@@ -1,0 +1,71 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"title": "forge command template",
+	"description": "Configuration for a single forge command template.yaml file.",
+	"type": "object",
+	"additionalProperties": false,
+	"oneOf": [
+		{ "required": ["script"] },
+		{ "required": ["run"] }
+	],
+	"properties": {
+		"description": {
+			"type": "string",
+			"description": "A short description shown in forge command listings."
+		},
+		"script": {
+			"type": "string",
+			"description": "Script file path relative to this template file's directory.",
+			"pattern": "^.+\\.(go|ts|cs)$"
+		},
+		"run": {
+			"type": "array",
+			"description": "Composite command steps, executed sequentially.",
+			"items": {
+				"$ref": "#/definitions/runStep"
+			},
+			"minItems": 1
+		}
+	},
+	"definitions": {
+		"runStep": {
+			"description": "A step in a composite command.",
+			"oneOf": [
+				{
+					"type": "string",
+					"description": "Command name, optionally with inline args (e.g. 'clean --dryrun')."
+				},
+				{
+					"type": "object",
+					"required": ["parallel"],
+					"additionalProperties": false,
+					"properties": {
+						"parallel": {
+							"type": "array",
+							"items": {
+								"type": "string"
+							},
+							"minItems": 1
+						}
+					}
+				},
+				{
+					"type": "object",
+					"required": ["command"],
+					"additionalProperties": false,
+					"properties": {
+						"command": {
+							"type": "string"
+						},
+						"args": {
+							"type": "array",
+							"items": {
+								"type": "string"
+							}
+						}
+					}
+				}
+			]
+		}
+	}
+}

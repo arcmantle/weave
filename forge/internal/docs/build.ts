@@ -1,13 +1,13 @@
-import { join } from 'node:path';
 import { copyFile, mkdir, rm } from 'node:fs/promises';
+import { join } from 'node:path';
 
-type Entry = {
+interface Entry {
 	input: string;
 	output: string;
-};
+}
 
 const entries: Entry[] = [
-	{ input: join('src', 'app.ts'), output: 'app.js' }
+	{ input: join('src', 'app.ts'), output: 'app.js' },
 ];
 
 const distDir = 'dist';
@@ -26,21 +26,21 @@ const result = await Bun.build({
 	bundle: true,
 	minify: false,
 	sourcemap: 'none',
-	naming: '[name].js'
+	naming: '[name].js',
 } as any);
 
 if (!result.success) {
 	console.error('Failed building docs bundles:');
-	for (const log of result.logs) {
+	for (const log of result.logs)
 		console.error(log);
-	}
+
 	process.exit(1);
 }
 
 for (const entry of entries) {
 	const exists = await Bun.file(join(distDir, entry.output)).exists();
 	if (!exists) {
-		console.error(`Missing expected output: ${join(distDir, entry.output)}`);
+		console.error(`Missing expected output: ${ join(distDir, entry.output) }`);
 		process.exit(1);
 	}
 }

@@ -270,25 +270,20 @@ func Serve(m *manifest.Manifest, version string) error {
 		allowedInstallTargets[filepath.Clean(t.Path)] = true
 	}
 
-	// Find an available port, starting from a stable default.
+	// Use a stable fixed port; if an existing docs instance is running,
+	// request it to shut down and then reclaim the port.
 	const basePort = 4000
-	var listener net.Listener
-	for port := basePort; ; port++ {
-		l, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
-		if err == nil {
-			listener = l
-			break
+	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", basePort))
+	if err != nil {
+		requestExistingDocsShutdown(basePort)
+		listener, err = waitForDocsListener(basePort, 5*time.Second)
+		if err != nil {
+			return fmt.Errorf("could not start docs server on port %d: %w", basePort, err)
 		}
 	}
 
-	port := listener.Addr().(*net.TCPAddr).Port
+	port := basePort
 	url := fmt.Sprintf("http://localhost:%d", port)
-
-	// Heartbeat tracking for auto-close.
-	var (
-		mu       sync.Mutex
-		lastPing = time.Now()
-	)
 
 	// SSE event broadcasting — multiple browser tabs can connect.
 	// Events are buffered so late-connecting clients get the full history.
@@ -641,9 +636,6 @@ func Serve(m *manifest.Manifest, version string) error {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		mu.Lock()
-		lastPing = time.Now()
-		mu.Unlock()
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -807,36 +799,12 @@ func Serve(m *manifest.Manifest, version string) error {
 		}()
 	})
 
-	// Shutdown context — cancelled when heartbeat expires.
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	defer func() {
 		metaMu.Lock()
 		if metaCancel != nil {
 			metaCancel()
 		}
 		metaMu.Unlock()
-	}()
-
-	// Monitor heartbeat in background.
-	go func() {
-		ticker := time.NewTicker(3 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				mu.Lock()
-				elapsed := time.Since(lastPing)
-				mu.Unlock()
-				if elapsed > 8*time.Second {
-					cancel()
-					server.Shutdown(context.Background())
-					return
-				}
-			case <-ctx.Done():
-				return
-			}
-		}
 	}()
 
 	fmt.Printf("\033[36mforge tasks\033[0m serving at %s\n", url)
@@ -1350,6 +1318,43 @@ func openBrowserFallback(url string) {
 		return
 	}
 	cmd.Start()
+}
+
+func requestExistingDocsShutdown(port int) {
+	client := &http.Client{Timeout: 2 * time.Second}
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://127.0.0.1:%d/api/shutdown", port), nil)
+	if err != nil {
+		return
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	io.Copy(io.Discard, resp.Body)
+}
+
+func waitForDocsListener(port int, timeout time.Duration) (net.Listener, error) {
+	deadline := time.Now().Add(timeout)
+	address := fmt.Sprintf("127.0.0.1:%d", port)
+	var lastErr error
+
+	for time.Now().Before(deadline) {
+		listener, err := net.Listen("tcp", address)
+		if err == nil {
+			return listener, nil
+		}
+
+		lastErr = err
+		time.Sleep(200 * time.Millisecond)
+	}
+
+	if lastErr == nil {
+		lastErr = fmt.Errorf("timeout waiting for %s", address)
+	}
+
+	return nil, lastErr
 }
 
 func sortStrings(s []string) {
