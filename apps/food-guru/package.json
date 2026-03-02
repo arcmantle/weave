@@ -1,0 +1,15 @@
+{
+	"name": "@arcmantle/food-guru",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "node ./scripts/dev.mjs",
+		"dev:client": "pnpm --dir ./client dev",
+		"dev:server": "node ./scripts/dev-backend.mjs",
+		"build:client": "pnpm --dir ./client build",
+		"sync:embed": "node ./scripts/sync-embedded-assets.mjs",
+		"build:server": "cd ./server && go build ./...",
+		"build": "pnpm run build:client && pnpm run sync:embed && pnpm run build:server",
+		"run": "pnpm run build && cd ./server && go run ./cmd/food-guru"
+	}
+}
