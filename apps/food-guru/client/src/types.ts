@@ -9,8 +9,40 @@ export interface MealPlanItem {
 export interface IngredientItem {
 	id: string;
 	name: string;
-	quantity: string;
 	inStock: boolean;
+	categoryId: string;
+	notes: string;
+	tags: string[];
+	imageUrl: string;
+	nutrients: NutrientEntry[];
+	ingredientOrder: number;
+}
+
+export interface NutrientEntry {
+	key: string;
+	value: string;
+	unit: string;
+	pinned?: boolean;
+}
+
+export interface DishItem {
+	id: string;
+	name: string;
+	notes: string;
+	ingredientIds: string[];
+	dishOrder: number;
+}
+
+export interface IngredientUsage {
+	mealPlans: MealPlanItem[];
+	dishes: DishItem[];
+}
+
+export interface IngredientCategory {
+	id: string;
+	name: string;
+	categoryOrder: number;
+	isSystem: boolean;
 }
 
 export interface FoodGuruSettings {
@@ -21,6 +53,8 @@ export interface FoodGuruSettings {
 export interface FoodGuruState {
 	mealPlans: MealPlanItem[];
 	ingredients: IngredientItem[];
+	ingredientCategories: IngredientCategory[];
+	unassignedCategoryId: string;
 	settings: FoodGuruSettings;
 }
 

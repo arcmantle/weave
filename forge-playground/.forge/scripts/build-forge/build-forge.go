@@ -20,7 +20,20 @@ func main() {
 
 	repoRoot := filepath.Clean(filepath.Join(playgroundDir, ".."))
 	forgeDir := filepath.Join(repoRoot, "forge")
+	docsDir := filepath.Join(forgeDir, "internal", "docs")
 	outputPath := filepath.Join(playgroundDir, "forge.exe")
+
+	helpers.Info("Building docs client...")
+
+	docsBuildCmd := exec.Command("bun", "run", "build")
+	docsBuildCmd.Dir = docsDir
+	docsBuildCmd.Stdout = os.Stdout
+	docsBuildCmd.Stderr = os.Stderr
+
+	if err := docsBuildCmd.Run(); err != nil {
+		helpers.Error("docs client build failed: %v", err)
+		os.Exit(1)
+	}
 
 	helpers.Info("Building forge.exe...")
 

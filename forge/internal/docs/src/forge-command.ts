@@ -1,8 +1,9 @@
-import { html, LitElement, type TemplateResult } from 'lit';
+import { type CSSResultGroup, html, LitElement, type TemplateResult } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
 
+import { forgeCommandStyles } from './forge-command-styles';
 import { renderMarkdown } from './markdown-renderer';
 import type { DocArg, DocCommand, MetaStatus, RunnerRenderer, RunStep } from './types';
 import { fileSvg, vscodeFileUrl } from './utils';
@@ -22,9 +23,7 @@ class ForgeCommand extends LitElement {
 
 	protected errorMessage = '';
 
-	protected override createRenderRoot(): HTMLElement | DocumentFragment {
-		return this;
-	}
+	static override styles: CSSResultGroup = [ forgeCommandStyles ];
 
 	setCommand(command: DocCommand, metaStatus: MetaStatus): void {
 		this.command = command;
@@ -60,7 +59,7 @@ class ForgeCommand extends LitElement {
 			return;
 
 
-		const runner = this.querySelector('forge-runner') as RunnerRenderer | null;
+		const runner = this.renderRoot.querySelector('forge-runner') as RunnerRenderer | null;
 		if (runner)
 			runner.setCommand(this.command);
 	}

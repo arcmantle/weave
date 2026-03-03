@@ -1,0 +1,38 @@
+html,
+body {
+	margin: 0;
+	padding: 0;
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+}
+
+body {
+	background: #0f131a;
+	color: #e7edf5;
+}
+
+
+/* must define property to work properly for all browsers */
+@property --wc-loaded {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+body {
+  /* start timeout regardless if there are undefined components */
+  animation: showBody 0s linear 200ms forwards;
+
+  /* if there are undefined components, hide until defined or 200ms - whichever comes first */
+  &:has(:not(:defined)) {
+    opacity: var(--wc-loaded, 0);
+  }
+}
+
+/* update variable to prevent opactity flash for subsequent component loads */
+@keyframes showBody {
+  to {
+    --wc-loaded: 1;
+  }
+}

@@ -30,13 +30,14 @@ import (
 	"github.com/arcmantle/forge/internal/templates"
 )
 
-//go:embed dist/index.html dist/styles.css dist/app.js
+//go:embed dist/index.html dist/styles.css dist/app-shell.js
 var staticFiles embed.FS
 
 // DocData is the top-level JSON structure injected into the HTML template.
 type DocData struct {
 	ProjectName string        `json:"projectName"`
 	Version     string        `json:"version"`
+	RunCwd      string        `json:"runCwd,omitempty"`
 	Commands    []DocCommand  `json:"commands"`
 	TemplateCount int         `json:"templateCount,omitempty"`
 	RegistrySources []DocRegistrySource `json:"registrySources,omitempty"`
@@ -219,6 +220,7 @@ type DocCommand struct {
 	Description string    `json:"description"`
 	CommandType string    `json:"commandType"` // "script" or "composite"
 	Source      string    `json:"source,omitempty"`
+	RunPath     string    `json:"runPath,omitempty"`
 	SourcePath  string    `json:"sourcePath,omitempty"`
 	Script      string    `json:"script,omitempty"`
 	ScriptPath  string    `json:"scriptPath,omitempty"`
@@ -341,7 +343,7 @@ func Serve(m *manifest.Manifest, version string) error {
 	}{
 		{"index.html", "dist/index.html", "text/html; charset=utf-8"},
 		{"styles.css", "dist/styles.css", "text/css; charset=utf-8"},
-		{"app.js", "dist/app.js", "application/javascript; charset=utf-8"},
+		{"app-shell.js", "dist/app-shell.js", "application/javascript; charset=utf-8"},
 	} {
 		data, _ := staticFiles.ReadFile(entry.path)
 		assets[entry.name] = staticAsset{data: data, contentType: entry.contentType}
@@ -349,7 +351,7 @@ func Serve(m *manifest.Manifest, version string) error {
 
 	// Compute a combined ETag from all static assets.
 	h := sha256.New()
-	for _, name := range []string{"index.html", "styles.css", "app.js"} {
+	for _, name := range []string{"index.html", "styles.css", "app-shell.js"} {
 		h.Write(assets[name].data)
 	}
 	etag := `"` + hex.EncodeToString(h.Sum(nil)[:8]) + `"`
@@ -372,7 +374,7 @@ func Serve(m *manifest.Manifest, version string) error {
 
 	mux.HandleFunc("/", serveAsset("index.html"))
 	mux.HandleFunc("/styles.css", serveAsset("styles.css"))
-	mux.HandleFunc("/app.js", serveAsset("app.js"))
+	mux.HandleFunc("/app-shell.js", serveAsset("app-shell.js"))
 
 	// Returns basic manifest data immediately (no compilation required).
 	mux.HandleFunc("/api/data", func(w http.ResponseWriter, r *http.Request) {
@@ -631,11 +633,34 @@ func Serve(m *manifest.Manifest, version string) error {
 		}
 	})
 
+	const (
+		idleShutdownAfter = 20 * time.Second
+		shutdownGrace     = 3 * time.Second
+	)
+
+	var activityMu sync.Mutex
+	lastPing := time.Now()
+	shutdownRequestedAt := time.Time{}
+
+	markPing := func() {
+		activityMu.Lock()
+		lastPing = time.Now()
+		shutdownRequestedAt = time.Time{}
+		activityMu.Unlock()
+	}
+
+	requestShutdown := func() {
+		activityMu.Lock()
+		shutdownRequestedAt = time.Now()
+		activityMu.Unlock()
+	}
+
 	mux.HandleFunc("/api/ping", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
+		markPing()
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -705,12 +730,11 @@ func Serve(m *manifest.Manifest, version string) error {
 		cmdArgs := append([]string{req.Command}, req.Args...)
 		cmd := exec.CommandContext(cmdCtx, forgeBin, cmdArgs...)
 
-		// Set working directory to the command's manifest directory so that
-		// nested commands execute from the correct location.
-		if cmdDef, ok := activeManifest.Commands[req.Command]; ok && cmdDef.ManifestDir != "" {
-			cmd.Dir = cmdDef.ManifestDir
-		} else if wd, wdErr := os.Getwd(); wdErr == nil {
-			cmd.Dir = wd
+		fallbackRunDir := resolveManifestRunCwd(activeManifest)
+		if cmdDef, ok := activeManifest.Commands[req.Command]; ok {
+			cmd.Dir = resolveCommandRunCwd(cmdDef, fallbackRunDir)
+		} else {
+			cmd.Dir = fallbackRunDir
 		}
 
 		// Merge stdout and stderr.
@@ -785,18 +809,40 @@ func Serve(m *manifest.Manifest, version string) error {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	// Shutdown on explicit tab-close signal.
 	server := &http.Server{Handler: mux}
+
+	go func() {
+		ticker := time.NewTicker(2 * time.Second)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			now := time.Now()
+
+			activityMu.Lock()
+			idleFor := now.Sub(lastPing)
+			shutdownAt := shutdownRequestedAt
+			activityMu.Unlock()
+
+			if idleFor >= idleShutdownAfter {
+				server.Shutdown(context.Background())
+				return
+			}
+
+			if !shutdownAt.IsZero() && now.Sub(shutdownAt) >= shutdownGrace && idleFor >= shutdownGrace {
+				server.Shutdown(context.Background())
+				return
+			}
+		}
+	}()
+
+	// Legacy endpoint retained for compatibility; shutdown is now graceful.
 	mux.HandleFunc("/api/shutdown", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
+		requestShutdown()
 		w.WriteHeader(http.StatusOK)
-		go func() {
-			time.Sleep(200 * time.Millisecond)
-			server.Shutdown(context.Background())
-		}()
 	})
 
 	defer func() {
@@ -853,7 +899,8 @@ func collectBasicData(m *manifest.Manifest, version string, allTemplates []templ
 		Version:     version,
 	}
 
-	cwd, _ := os.Getwd()
+	cwd := resolveManifestRunCwd(m)
+	data.RunCwd = cwd
 
 	names := make([]string, 0, len(m.Commands))
 	for name := range m.Commands {
@@ -867,6 +914,7 @@ func collectBasicData(m *manifest.Manifest, version string, allTemplates []templ
 			Name:        name,
 			Description: cmd.Description,
 			Source:      commandSource(cmd.ManifestDir, cwd),
+			RunPath:     resolveCommandRunCwd(cmd, cwd),
 			SourcePath:  filepath.Join(cmd.ManifestDir, manifest.ForgeDirName, manifest.ScriptsDirName),
 		}
 
@@ -929,6 +977,57 @@ func collectBasicData(m *manifest.Manifest, version string, allTemplates []templ
 	data.InstallTargets = collectInstallTargets()
 
 	return data
+}
+
+func resolveManifestRunCwd(m *manifest.Manifest) string {
+	if cwd, err := os.Getwd(); err == nil && strings.TrimSpace(cwd) != "" {
+		if abs, absErr := filepath.Abs(cwd); absErr == nil {
+			return filepath.Clean(abs)
+		}
+
+		return filepath.Clean(cwd)
+	}
+
+	if m != nil {
+		if strings.TrimSpace(m.ManifestDir) != "" {
+			if abs, absErr := filepath.Abs(m.ManifestDir); absErr == nil {
+				return filepath.Clean(abs)
+			}
+
+			return filepath.Clean(m.ManifestDir)
+		}
+
+		for _, cmd := range m.Commands {
+			if strings.TrimSpace(cmd.ManifestDir) == "" {
+				continue
+			}
+
+			if abs, absErr := filepath.Abs(cmd.ManifestDir); absErr == nil {
+				return filepath.Clean(abs)
+			}
+
+			return filepath.Clean(cmd.ManifestDir)
+		}
+	}
+
+	return "."
+}
+
+func resolveCommandRunCwd(cmd manifest.Command, fallback string) string {
+	runDir := strings.TrimSpace(cmd.ManifestDir)
+	if runDir == "" {
+		runDir = strings.TrimSpace(fallback)
+	}
+
+	if runDir == "" {
+		runDir = "."
+	}
+
+	if abs, err := filepath.Abs(runDir); err == nil {
+		return filepath.Clean(abs)
+	}
+
+	return filepath.Clean(runDir)
 }
 
 func docSourceTypeLabel(sourceType string) string {

@@ -1,0 +1,110 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - img [ref=e5]
+      - generic [ref=e9]: Forge Tasks
+    - generic [ref=e10]: forge-playground
+    - generic [ref=e11]:
+      - button "Tasks" [ref=e12] [cursor=pointer]
+      - button "Registry" [ref=e13] [cursor=pointer]
+    - button "Refresh" [ref=e14] [cursor=pointer]
+    - generic [ref=e15]:
+      - img
+      - textbox "Search tasks..." [ref=e16]
+  - generic [ref=e17]:
+    - generic [ref=e18]:
+      - generic [ref=e19]:
+        - generic [ref=e20]:
+          - generic [ref=e21] [cursor=pointer]:
+            - img [ref=e22]
+            - text: alpha
+          - generic [ref=e25] [cursor=pointer]:
+            - generic "Loading..." [ref=e26]:
+              - img [ref=e27]
+            - text: run
+            - generic [ref=e30]: script
+        - generic [ref=e31]:
+          - generic [ref=e32] [cursor=pointer]:
+            - img [ref=e33]
+            - text: beta
+          - generic [ref=e36] [cursor=pointer]:
+            - generic "Loading..." [ref=e37]:
+              - img [ref=e38]
+            - text: run
+            - generic [ref=e41]: script
+        - generic [ref=e42]:
+          - generic [ref=e43] [cursor=pointer]:
+            - img [ref=e44]
+            - text: overflow
+          - generic [ref=e47] [cursor=pointer]:
+            - generic "Loading..." [ref=e48]:
+              - img [ref=e49]
+            - text: run
+            - generic [ref=e52]: script
+      - generic [ref=e54]:
+        - generic [ref=e55]: "3"
+        - text: local
+    - generic [ref=e57]:
+      - generic [ref=e58]:
+        - generic [ref=e59]:
+          - text: overflow:run
+          - generic [ref=e60]: script
+        - generic [ref=e61]: overflow command
+        - generic [ref=e63]: local
+      - generic [ref=e67]: Loading argument metadata...
+      - generic [ref=e68]:
+        - generic [ref=e69]: Usage
+        - generic [ref=e70]: $ forge overflow:run
+      - generic [ref=e72]:
+        - generic [ref=e73]: Run
+        - generic [ref=e74]:
+          - generic [ref=e75]:
+            - generic [ref=e76]: args
+            - textbox "Optional arguments..." [ref=e77]
+          - generic [ref=e78]:
+            - button "Run" [ref=e79] [cursor=pointer]:
+              - img [ref=e80]
+              - text: Run
+            - button "Stop" [disabled] [ref=e82]:
+              - img [ref=e83]
+              - text: Stop
+            - button "Clear" [ref=e85] [cursor=pointer]
+        - generic [ref=e86]:
+          - generic [ref=e87]:
+            - generic [ref=e88]: Output
+            - generic [ref=e91]: Completed
+          - generic [ref=e94]:
+            - generic [ref=e95]: overflow-line-000
+            - generic [ref=e96]: overflow-line-001
+            - generic [ref=e97]: overflow-line-002
+            - generic [ref=e98]: overflow-line-003
+            - generic [ref=e99]: overflow-line-004
+            - generic [ref=e100]: overflow-line-005
+            - generic [ref=e101]: overflow-line-006
+            - generic [ref=e102]: overflow-line-007
+            - generic [ref=e103]: overflow-line-008
+            - generic [ref=e104]: overflow-line-009
+            - generic [ref=e105]: overflow-line-010
+            - generic [ref=e106]: overflow-line-011
+            - generic [ref=e107]: overflow-line-012
+            - generic [ref=e108]: overflow-line-013
+            - generic [ref=e109]: overflow-line-014
+            - generic [ref=e110]: overflow-line-015
+            - generic [ref=e111]: overflow-line-016
+            - generic [ref=e112]: overflow-line-017
+            - generic [ref=e113]: overflow-line-018
+            - generic [ref=e114]: overflow-line-019
+            - generic [ref=e115]: overflow-line-020
+            - generic [ref=e116]: overflow-line-021
+            - generic [ref=e117]: overflow-line-022
+            - generic [ref=e118]: overflow-line-023
+            - generic [ref=e119]: overflow-line-024
+            - generic [ref=e120]: overflow-line-025
+            - generic [ref=e121]: overflow-line-026
+            - generic [ref=e122]: overflow-line-027
+            - generic [ref=e123]: overflow-line-028
+            - generic [ref=e124]: overflow-line-029
+```

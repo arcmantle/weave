@@ -154,12 +154,15 @@ export class FoodGuruLayout extends LitElement {
 
 	static override styles = css`
 		:host {
-			--fg-bg: #f4f6f8;
-			--fg-surface: #ffffff;
-			--fg-border: #dde3ea;
-			--fg-text: #10243a;
-			--fg-text-muted: #58708a;
-			--fg-primary: #2f7ad6;
+			--fg-bg: #0f131a;
+			--fg-surface: #161d27;
+			--fg-surface-soft: #1c2430;
+			--fg-border: #2a3645;
+			--fg-text: #e7edf5;
+			--fg-text-muted: #9cb0c6;
+			--fg-primary: #6ea8ff;
+			--fg-primary-soft: #223754;
+			color-scheme: dark;
 			display: flex;
 			flex-direction: column;
 			min-height: 100vh;
@@ -199,11 +202,11 @@ export class FoodGuruLayout extends LitElement {
 				font-size: 14px;
 				font-weight: 500;
 				&:hover {
-					background: #eff4fb;
+					background: var(--fg-surface-soft);
 					color: var(--fg-primary);
 				}
 				&[data-active] {
-					background: #e9f2ff;
+					background: var(--fg-primary-soft);
 					color: var(--fg-primary);
 				}
 			}
@@ -232,13 +235,15 @@ export class FoodGuruLayout extends LitElement {
 			padding: 8px 16px;
 			font-size: 13px;
 			color: var(--fg-primary);
-			background: #e9f2ff;
+			background: var(--fg-primary-soft);
 			border-bottom: 1px solid var(--fg-border);
 		}
 		main {
 			flex: 1;
 			display: grid;
-			padding: 16px;
+			padding: 0;
+			min-height: 0;
+			overflow: hidden;
 		}
 	`;
 

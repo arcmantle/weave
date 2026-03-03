@@ -127,3 +127,24 @@ maximum reusability. Pairs with `forge --docs` already existing.
 - [x] Update `getManifest()` in `forge/cmd/forge/main.go` to merge auto-discovered scripts
 - [x] Update `forge/README.md` with auto-discovered scripts documentation
 - [x] Build and verify compilation
+
+---
+
+## Food Guru: Ingredient Editing Implementation (In Progress)
+
+### Scope
+
+- [ ] Extend ingredient data model with editable `name`, image metadata (URL + uploaded path), and extensible nutrient fields
+- [ ] Add SQLite migrations for new ingredient columns and new dishes relationship tables
+- [ ] Add backend API support for rich ingredient updates and ingredient usage queries
+- [ ] Add backend image upload endpoint for ingredient images
+- [ ] Extend client types and store methods for detail editing, nutrients, upload, and usage retrieval
+- [ ] Implement ingredient side-panel editor on ingredients page
+- [ ] Add dishes entity linkage to ingredients for usage visibility
+- [ ] Validate with targeted tests/build checks and document outcomes
+
+### Review
+
+- [ ] Confirm side-panel UX flow is usable for image/name/nutrients edits
+- [ ] Confirm ingredient usage surfaces both meal-plan and dish links
+- [ ] Confirm schema migration works on existing local databases

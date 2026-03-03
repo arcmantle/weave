@@ -8,47 +8,11 @@
 <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-<!-- Header -->
-<div class="header">
-	<div class="header-logo">
-		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-			<path d="M12 2L2 7l10 5 10-5-10-5z"/>
-			<path d="M2 17l10 5 10-5"/>
-			<path d="M2 12l10 5 10-5"/>
-		</svg>
-		<span class="header-title">Forge Tasks</span>
-	</div>
-	<span class="header-project" id="project-name"></span>
-	<div class="header-nav" id="header-nav">
-		<button class="header-nav-btn active" id="nav-tasks" type="button">Tasks</button>
-		<button class="header-nav-btn" id="nav-registry" type="button">Registry</button>
-	</div>
-	<button class="header-refresh-btn" id="refresh-commands" type="button" title="Rediscover commands">Refresh</button>
-	<div class="header-spacer"></div>
-	<div class="search-wrapper">
-		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-			<circle cx="11" cy="11" r="8"/>
-			<line x1="21" y1="21" x2="16.65" y2="16.65"/>
-		</svg>
-		<input type="text" class="search-input" id="search" placeholder="Search tasks..." autocomplete="off">
-	</div>
-	<span class="header-version" id="version"></span>
-</div>
+<forge-docs-app></forge-docs-app>
 
-<!-- Layout -->
-<div class="layout">
-	<!-- Sidebar -->
-	<forge-sidebar class="sidebar">
-		<div class="sidebar-content" id="sidebar-list"></div>
-		<div class="sidebar-stats" id="sidebar-stats"></div>
-	</forge-sidebar>
-
-	<!-- Main -->
-	<forge-command class="main" id="main-content"></forge-command>
-	<forge-templates class="main" id="template-content" style="display:none"></forge-templates>
-	<forge-registry class="main registry-main" id="registry-content" style="display:none"></forge-registry>
-</div>
-
-<script type="module" src="/app.js"></script>
+<script type="module">
+	import { ForgeDocsApp } from './app-shell.js';
+	customElements.define('forge-docs-app', ForgeDocsApp);
+</script>
 </body>
 </html>

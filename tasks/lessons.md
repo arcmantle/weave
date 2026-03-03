@@ -13,3 +13,10 @@
 **Context**: User expected template `example.md` to survive publish and appear in registry template details.
 **Mistake**: Assuming discovery/listing support was enough without verifying the full path from publish output → registry metadata loaders → docs API payload → UI rendering.
 **Rule**: For any new template content, verify and implement end-to-end propagation across publish, loading/indexing, API models, and frontend rendering before considering the feature complete.
+
+## Scope test runs to the target project
+
+**Date**: 2026-03-03
+**Context**: Running tests from this monorepo can fan out across many unrelated projects.
+**Mistake**: Running broad test execution instead of restricting validation to the active Forge docs project.
+**Rule**: When validating changes in Forge docs, run only project-scoped checks/tests from `forge/internal/docs` (or explicitly targeted files in that project). Never run full workspace test suites unless explicitly requested.

@@ -1,7 +1,8 @@
-import { html, LitElement, type TemplateResult } from 'lit';
+import { type CSSResultGroup, html, LitElement, type TemplateResult } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
 
+import { forgeTemplatesStyles } from './forge-templates-styles';
 import type { DocInstallTarget, DocTemplate } from './types';
 
 class ForgeTemplates extends LitElement {
@@ -16,9 +17,7 @@ class ForgeTemplates extends LitElement {
 	protected copyLabel = 'Copy Log';
 	protected copyResetTimer: ReturnType<typeof setTimeout> | null = null;
 
-	protected override createRenderRoot(): HTMLElement | DocumentFragment {
-		return this;
-	}
+	static override styles: CSSResultGroup = [ forgeTemplatesStyles ];
 
 	setTemplate(template: DocTemplate, installTargets: DocInstallTarget[] = []): void {
 		this.templateData = template;
@@ -236,9 +235,9 @@ class ForgeTemplates extends LitElement {
 			return;
 
 
-		const nameInput = this.querySelector('#tpl-install-name') as HTMLInputElement | null;
-		const langSelect = this.querySelector('#tpl-install-lang') as HTMLSelectElement | null;
-		const targetSelect = this.querySelector('#tpl-install-target') as HTMLSelectElement | null;
+		const nameInput = this.renderRoot.querySelector('#tpl-install-name') as HTMLInputElement | null;
+		const langSelect = this.renderRoot.querySelector('#tpl-install-lang') as HTMLSelectElement | null;
+		const targetSelect = this.renderRoot.querySelector('#tpl-install-target') as HTMLSelectElement | null;
 		if (!nameInput || !langSelect)
 			return;
 

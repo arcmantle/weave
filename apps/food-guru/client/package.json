@@ -9,6 +9,7 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
+		"@arcmantle/chronicle": "workspace:^",
 		"@arcmantle/pivot-client-router": "workspace:^",
 		"lit": "catalog:apps",
 		"tslib": "catalog:apps"

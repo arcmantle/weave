@@ -2,13 +2,11 @@ import { copyFile, mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 
 interface Entry {
-	input: string;
+	input:  string;
 	output: string;
 }
 
-const entries: Entry[] = [
-	{ input: join('src', 'app.ts'), output: 'app.js' },
-];
+const entries: Entry[] = [ { input: join('src', 'app-shell.ts'), output: 'app-shell.js' } ];
 
 const distDir = 'dist';
 
@@ -20,13 +18,13 @@ await copyFile(join('src', 'styles.css'), join(distDir, 'styles.css'));
 
 const result = await Bun.build({
 	entrypoints: entries.map(entry => entry.input),
-	outdir: distDir,
-	target: 'browser',
-	format: 'esm',
-	bundle: true,
-	minify: false,
-	sourcemap: 'none',
-	naming: '[name].js',
+	outdir:      distDir,
+	target:      'browser',
+	format:      'esm',
+	bundle:      true,
+	minify:      false,
+	sourcemap:   'none',
+	naming:      '[name].js',
 } as any);
 
 if (!result.success) {
@@ -45,4 +43,4 @@ for (const entry of entries) {
 	}
 }
 
-console.log('Built docs client assets in dist/: index.html, styles.css, app.js');
+console.log('Built docs client assets in dist/: index.html, styles.css, app-shell.js');

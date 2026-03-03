@@ -1,8 +1,9 @@
-import { html, LitElement, nothing, type TemplateResult } from 'lit';
+import { type CSSResultGroup, html, LitElement, nothing, type TemplateResult } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
 
+import { forgeRegistryStyles } from './forge-registry-styles';
 import { renderMarkdown } from './markdown-renderer';
 import type {
 	DocInstallTarget,
@@ -58,9 +59,7 @@ class ForgeRegistry extends LitElement {
 
 	protected searchTimer: ReturnType<typeof setTimeout> | null = null;
 
-	protected override createRenderRoot(): HTMLElement | DocumentFragment {
-		return this;
-	}
+	static override styles: CSSResultGroup = [ forgeRegistryStyles ];
 
 	initialize(registrySources: DocRegistrySource[] = [], installTargets: DocInstallTarget[] = []): void {
 		this.state.sources = Array.isArray(registrySources) ? registrySources : [];
@@ -322,9 +321,9 @@ class ForgeRegistry extends LitElement {
 	}
 
 	protected async handleInstall(selectedRef: string): Promise<void> {
-		const nameInput = this.querySelector('#registry-install-name') as HTMLInputElement | null;
-		const langSelect = this.querySelector('#registry-install-lang') as HTMLSelectElement | null;
-		const targetSelect = this.querySelector('#registry-install-target') as HTMLSelectElement | null;
+		const nameInput = this.renderRoot.querySelector('#registry-install-name') as HTMLInputElement | null;
+		const langSelect = this.renderRoot.querySelector('#registry-install-lang') as HTMLSelectElement | null;
+		const targetSelect = this.renderRoot.querySelector('#registry-install-target') as HTMLSelectElement | null;
 		if (!nameInput || !langSelect)
 			return;
 

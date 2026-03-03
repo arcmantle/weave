@@ -54,6 +54,16 @@ func main() {
 	mux.Handle("POST /api/meals/{id}/toggle", handleToggleMeal(repository))
 	mux.Handle("POST /api/ingredients", handleAddIngredient(repository))
 	mux.Handle("POST /api/ingredients/{id}/toggle", handleToggleIngredient(repository))
+	mux.Handle("PUT /api/ingredients/{id}", handleUpdateIngredient(repository))
+	mux.Handle("GET /api/ingredients/{id}/usage", handleGetIngredientUsage(repository))
+	mux.Handle("POST /api/ingredients/reorder", handleReorderIngredients(repository))
+	mux.Handle("GET /api/dishes", handleListDishes(repository))
+	mux.Handle("POST /api/dishes", handleUpsertDish(repository))
+	mux.Handle("PUT /api/dishes/{id}", handleUpsertDish(repository))
+	mux.Handle("POST /api/ingredient-categories", handleAddIngredientCategory(repository))
+	mux.Handle("PUT /api/ingredient-categories/{id}", handleUpdateIngredientCategory(repository))
+	mux.Handle("DELETE /api/ingredient-categories/{id}", handleDeleteIngredientCategory(repository))
+	mux.Handle("POST /api/ingredient-categories/reorder", handleReorderIngredientCategories(repository))
 	mux.Handle("PUT /api/settings", handleUpdateSettings(repository))
 	mux.Handle("GET /api/update", handleUpdateStatus(updater))
 	mux.Handle("POST /api/update/apply", handleApplyUpdate(updater))
@@ -124,7 +134,8 @@ func resolveDatabasePath(flagDataDir string) (string, error) {
 func handleGetState(repository app.Repository) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tenantID := tenantIDFromRequest(r)
-		state, err := repository.GetState(r.Context(), tenantID)
+		userID := userIDFromRequest(r)
+		state, err := repository.GetState(r.Context(), tenantID, userID)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err)
 			return
@@ -194,8 +205,11 @@ func handleToggleMeal(repository app.Repository) http.Handler {
 
 func handleAddIngredient(repository app.Repository) http.Handler {
 	type request struct {
-		Name     string `json:"name"`
-		Quantity string `json:"quantity"`
+		Name       string   `json:"name"`
+		Quantity   string   `json:"quantity"`
+		CategoryID string   `json:"categoryId"`
+		Notes      string   `json:"notes"`
+		Tags       []string `json:"tags"`
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -211,11 +225,20 @@ func handleAddIngredient(repository app.Repository) http.Handler {
 		}
 
 		tenantID := tenantIDFromRequest(r)
-		ingredient, err := repository.AddIngredient(r.Context(), tenantID, app.AddIngredientInput{
-			Name:     body.Name,
-			Quantity: body.Quantity,
+		userID := userIDFromRequest(r)
+		ingredient, err := repository.AddIngredient(r.Context(), tenantID, userID, app.AddIngredientInput{
+			Name:       body.Name,
+			Quantity:   body.Quantity,
+			CategoryID: body.CategoryID,
+			Notes:      body.Notes,
+			Tags:       body.Tags,
 		})
 		if err != nil {
+			if err == app.ErrInvalid {
+				writeError(w, http.StatusBadRequest, err)
+				return
+			}
+
 			writeError(w, http.StatusInternalServerError, err)
 			return
 		}
@@ -233,7 +256,8 @@ func handleToggleIngredient(repository app.Repository) http.Handler {
 		}
 
 		tenantID := tenantIDFromRequest(r)
-		ingredient, err := repository.ToggleIngredientStock(r.Context(), tenantID, ingredientID)
+		userID := userIDFromRequest(r)
+		ingredient, err := repository.ToggleIngredientStock(r.Context(), tenantID, userID, ingredientID)
 		if err != nil {
 			if err == app.ErrNotFound {
 				writeError(w, http.StatusNotFound, err)
@@ -245,6 +269,321 @@ func handleToggleIngredient(repository app.Repository) http.Handler {
 		}
 
 		writeJSON(w, http.StatusOK, ingredient)
+	})
+}
+
+func handleUpdateIngredient(repository app.Repository) http.Handler {
+	type request struct {
+		Name       string   `json:"name"`
+		Quantity   string   `json:"quantity"`
+		CategoryID string   `json:"categoryId"`
+		Notes      string   `json:"notes"`
+		Tags       []string `json:"tags"`
+		ImageURL   string   `json:"imageUrl"`
+		Nutrients  []app.NutrientEntry `json:"nutrients"`
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ingredientID := strings.TrimSpace(r.PathValue("id"))
+		if ingredientID == "" {
+			writeError(w, http.StatusBadRequest, fmt.Errorf("missing ingredient id"))
+			return
+		}
+
+		var body request
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+
+		tenantID := tenantIDFromRequest(r)
+		userID := userIDFromRequest(r)
+		ingredient, err := repository.UpdateIngredient(r.Context(), tenantID, userID, ingredientID, app.UpdateIngredientInput{
+			Name:       body.Name,
+			Quantity:   body.Quantity,
+			CategoryID: body.CategoryID,
+			Notes:      body.Notes,
+			Tags:       body.Tags,
+			ImageURL:   body.ImageURL,
+			Nutrients:  body.Nutrients,
+		})
+		if err != nil {
+			if err == app.ErrNotFound {
+				writeError(w, http.StatusNotFound, err)
+				return
+			}
+
+			if err == app.ErrInvalid {
+				writeError(w, http.StatusBadRequest, err)
+				return
+			}
+
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, ingredient)
+	})
+}
+
+func handleGetIngredientUsage(repository app.Repository) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ingredientID := strings.TrimSpace(r.PathValue("id"))
+		if ingredientID == "" {
+			writeError(w, http.StatusBadRequest, fmt.Errorf("missing ingredient id"))
+			return
+		}
+
+		tenantID := tenantIDFromRequest(r)
+		userID := userIDFromRequest(r)
+		usage, err := repository.GetIngredientUsage(r.Context(), tenantID, userID, ingredientID)
+		if err != nil {
+			if err == app.ErrNotFound {
+				writeError(w, http.StatusNotFound, err)
+				return
+			}
+
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, usage)
+	})
+}
+
+func handleListDishes(repository app.Repository) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tenantID := tenantIDFromRequest(r)
+		userID := userIDFromRequest(r)
+
+		dishes, err := repository.ListDishes(r.Context(), tenantID, userID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, dishes)
+	})
+}
+
+func handleUpsertDish(repository app.Repository) http.Handler {
+	type request struct {
+		Name          string   `json:"name"`
+		Notes         string   `json:"notes"`
+		IngredientIDs []string `json:"ingredientIds"`
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body request
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+
+		dishID := ""
+		if r.Method == http.MethodPut {
+			dishID = strings.TrimSpace(r.PathValue("id"))
+			if dishID == "" {
+				writeError(w, http.StatusBadRequest, fmt.Errorf("missing dish id"))
+				return
+			}
+		}
+
+		tenantID := tenantIDFromRequest(r)
+		userID := userIDFromRequest(r)
+		dish, err := repository.UpsertDish(r.Context(), tenantID, userID, dishID, app.UpsertDishInput{
+			Name:          body.Name,
+			Notes:         body.Notes,
+			IngredientIDs: body.IngredientIDs,
+		})
+		if err != nil {
+			if err == app.ErrInvalid {
+				writeError(w, http.StatusBadRequest, err)
+				return
+			}
+
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+
+		if r.Method == http.MethodPost {
+			writeJSON(w, http.StatusCreated, dish)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, dish)
+	})
+}
+
+func handleReorderIngredients(repository app.Repository) http.Handler {
+	type request struct {
+		CategoryID    string   `json:"categoryId"`
+		IngredientIDs []string `json:"ingredientIds"`
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body request
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+
+		if strings.TrimSpace(body.CategoryID) == "" {
+			writeError(w, http.StatusBadRequest, fmt.Errorf("missing categoryId"))
+			return
+		}
+
+		tenantID := tenantIDFromRequest(r)
+		userID := userIDFromRequest(r)
+		err := repository.ReorderIngredients(r.Context(), tenantID, userID, body.CategoryID, body.IngredientIDs)
+		if err != nil {
+			if err == app.ErrNotFound {
+				writeError(w, http.StatusNotFound, err)
+				return
+			}
+
+			if err == app.ErrInvalid {
+				writeError(w, http.StatusBadRequest, err)
+				return
+			}
+
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	})
+}
+
+func handleAddIngredientCategory(repository app.Repository) http.Handler {
+	type request struct {
+		Name string `json:"name"`
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body request
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+
+		tenantID := tenantIDFromRequest(r)
+		userID := userIDFromRequest(r)
+		category, err := repository.AddIngredientCategory(r.Context(), tenantID, userID, app.AddIngredientCategoryInput{
+			Name: body.Name,
+		})
+		if err != nil {
+			if err == app.ErrInvalid {
+				writeError(w, http.StatusBadRequest, err)
+				return
+			}
+
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+
+		writeJSON(w, http.StatusCreated, category)
+	})
+}
+
+func handleUpdateIngredientCategory(repository app.Repository) http.Handler {
+	type request struct {
+		Name string `json:"name"`
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		categoryID := strings.TrimSpace(r.PathValue("id"))
+		if categoryID == "" {
+			writeError(w, http.StatusBadRequest, fmt.Errorf("missing category id"))
+			return
+		}
+
+		var body request
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+
+		tenantID := tenantIDFromRequest(r)
+		userID := userIDFromRequest(r)
+		category, err := repository.UpdateIngredientCategory(r.Context(), tenantID, userID, categoryID, app.UpdateIngredientCategoryInput{
+			Name: body.Name,
+		})
+		if err != nil {
+			if err == app.ErrNotFound {
+				writeError(w, http.StatusNotFound, err)
+				return
+			}
+
+			if err == app.ErrInvalid {
+				writeError(w, http.StatusBadRequest, err)
+				return
+			}
+
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, category)
+	})
+}
+
+func handleDeleteIngredientCategory(repository app.Repository) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		categoryID := strings.TrimSpace(r.PathValue("id"))
+		if categoryID == "" {
+			writeError(w, http.StatusBadRequest, fmt.Errorf("missing category id"))
+			return
+		}
+
+		tenantID := tenantIDFromRequest(r)
+		userID := userIDFromRequest(r)
+		err := repository.DeleteIngredientCategory(r.Context(), tenantID, userID, categoryID)
+		if err != nil {
+			if err == app.ErrNotFound {
+				writeError(w, http.StatusNotFound, err)
+				return
+			}
+
+			if err == app.ErrInvalid {
+				writeError(w, http.StatusBadRequest, err)
+				return
+			}
+
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	})
+}
+
+func handleReorderIngredientCategories(repository app.Repository) http.Handler {
+	type request struct {
+		CategoryIDs []string `json:"categoryIds"`
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body request
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+
+		tenantID := tenantIDFromRequest(r)
+		userID := userIDFromRequest(r)
+		err := repository.ReorderIngredientCategories(r.Context(), tenantID, userID, body.CategoryIDs)
+		if err != nil {
+			if err == app.ErrInvalid {
+				writeError(w, http.StatusBadRequest, err)
+				return
+			}
+
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	})
 }
 
@@ -321,6 +660,20 @@ func tenantIDFromRequest(request *http.Request) string {
 	}
 
 	return app.DefaultTenantID
+}
+
+func userIDFromRequest(request *http.Request) string {
+	userID := strings.TrimSpace(request.Header.Get("X-User-ID"))
+	if userID != "" {
+		return userID
+	}
+
+	userID = strings.TrimSpace(request.URL.Query().Get("user"))
+	if userID != "" {
+		return userID
+	}
+
+	return app.DefaultUserID
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {

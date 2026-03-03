@@ -1,7 +1,8 @@
-import { css, html, LitElement, type TemplateResult } from 'lit';
+import { html, LitElement, type TemplateResult } from 'lit';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 
 import { AnsiRenderer, type ParsedLine } from './ansi-renderer';
+import { forgeTerminalStyles } from './forge-terminal-styles';
 
 export class ForgeTerminal extends LitElement {
 
@@ -184,29 +185,7 @@ export class ForgeTerminal extends LitElement {
 			this.scheduleRender();
 	}
 
-	static override styles = css`
-		:host {
-			font-family: var(--font-mono);
-			font-size: 13px;
-			line-height: 1.6;
-			color: #cccccc;
-			display: block;
-			height: 400px;
-			overflow: auto;
-			tab-size: 4;
-			position: relative;
-		}
-
-		.runner-terminal-viewport {
-			padding: 0 16px;
-		}
-
-		.runner-terminal-line {
-			white-space: pre-wrap;
-			overflow-wrap: anywhere;
-			word-break: break-word;
-		}
-	`;
+	static override styles = [forgeTerminalStyles];
 
 }
 

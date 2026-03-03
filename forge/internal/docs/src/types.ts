@@ -17,6 +17,7 @@ export interface DocCommand {
 	description:  string;
 	commandType:  'script' | 'composite';
 	source?:      string;
+	runPath?:     string;
 	sourcePath?:  string;
 	script?:      string;
 	scriptPath?:  string;
@@ -41,6 +42,7 @@ export interface DocInstallTarget {
 export interface DocData {
 	projectName?:     string;
 	version?:         string;
+	runCwd?:          string;
 	commands?:        DocCommand[];
 	templateCount?:   number;
 	registrySources?: DocRegistrySource[];

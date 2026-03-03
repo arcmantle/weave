@@ -1,8 +1,9 @@
-import { html, LitElement, type TemplateResult } from 'lit';
+import { type CSSResultGroup, html, LitElement, type TemplateResult } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
 
+import { forgeSidebarStyles } from './forge-sidebar-styles';
 import type { DocCommand, DocTemplate, MetaStatus } from './types';
 import { chevronSvg, linkSvg, spinnerSvg, vscodeFileUrl } from './utils';
 
@@ -25,9 +26,7 @@ class ForgeSidebar extends LitElement {
 	protected closedGroups:          Set<string> = new Set();
 	protected collapsedPrefixGroups: Set<string> = new Set();
 
-	protected override createRenderRoot(): HTMLElement | DocumentFragment {
-		return this;
-	}
+	static override styles: CSSResultGroup = [ forgeSidebarStyles ];
 
 	setData(
 		commands: DocCommand[],
