@@ -148,6 +148,7 @@ export class PlannerPage extends LitElement {
 		}
 		h2 {
 			margin: 0 0 6px;
+			color: #2f7ad6;
 		}
 		p {
 			margin: 0;

@@ -1,5 +1,5 @@
 ---
-name: typescript & javascript
+name: typescript
 description: Guidelines for how to write typescript and javascript
 ---
 

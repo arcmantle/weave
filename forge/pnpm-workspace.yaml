@@ -1,0 +1,9 @@
+packages:
+  - docs
+
+catalogs:
+  forge:
+    vite: ^7.3.0
+
+onlyBuiltDependencies:
+  - esbuild

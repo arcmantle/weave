@@ -1,5 +1,5 @@
 ---
-name: lit html and lit elements
+name: lit
 description: Guidelines for how to write lit-html and lit elements and derivatives.
 ---
 

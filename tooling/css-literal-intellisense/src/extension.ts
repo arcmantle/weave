@@ -13,7 +13,9 @@ import type { DetectorOptions } from './css-region-detector';
 import { CSSDiagnosticsManager } from './diagnostics-manager';
 import { clearAll, invalidate } from './document-cache';
 import { CSSHoverProvider } from './hover-provider';
+import { initLogger, log } from './logger';
 
+console.log('[CSS-Literal] Module loaded');
 
 const SUPPORTED_LANGUAGES = [
 	'typescript',
@@ -42,7 +44,15 @@ function getDetectorOptions(): Partial<DetectorOptions> {
 
 
 export function activate(context: vscode.ExtensionContext): void {
-	let options = getDetectorOptions();
+	console.log('[CSS-Literal] activate() called');
+
+	try {
+	const outputChannel = initLogger();
+	log('Extension activating...');
+
+	const options: { current: Partial<DetectorOptions> } = {
+		current: getDetectorOptions(),
+	};
 	let validateEnabled = vscode.workspace
 		.getConfiguration('cssLiteralIntellisense')
 		.get<boolean>('validate', true);
@@ -97,7 +107,7 @@ export function activate(context: vscode.ExtensionContext): void {
 		if (!event.affectsConfiguration('cssLiteralIntellisense'))
 			return;
 
-		options = getDetectorOptions();
+		options.current = getDetectorOptions();
 		validateEnabled = vscode.workspace
 			.getConfiguration('cssLiteralIntellisense')
 			.get<boolean>('validate', true);
@@ -120,6 +130,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
 	// --- Register all disposables ---
 	context.subscriptions.push(
+		outputChannel,
 		completionRegistration,
 		hoverRegistration,
 		diagnosticCollection,
@@ -128,6 +139,14 @@ export function activate(context: vscode.ExtensionContext): void {
 		onDidClose,
 		onDidChangeConfig,
 	);
+
+	log('Extension activated successfully.');
+	console.log('[CSS-Literal] activate() completed successfully');
+
+	}
+	catch (err) {
+		console.error('[CSS-Literal] ACTIVATION FAILED:', err);
+	}
 }
 
 

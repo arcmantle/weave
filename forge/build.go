@@ -38,14 +38,14 @@ func buildDocsFrontend(forgeDir string) error {
 		return fmt.Errorf("missing docs package.json: %w", err)
 	}
 
-	info("building docs frontend (bun run build)")
-	cmd := exec.Command("bun", "run", "build")
+	info("building docs frontend (pnpm run build)")
+	cmd := exec.Command("pnpm", "run", "build")
 	cmd.Dir = docsDir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("running bun build in %s: %w", docsDir, err)
+		return fmt.Errorf("running pnpm build in %s: %w", docsDir, err)
 	}
 
 	return nil

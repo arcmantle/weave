@@ -7,18 +7,16 @@
 		"allowJs": true,
 		"isolatedDeclarations": false,
 		"types": [
-			"node",
-			"bun"
+			"node"
 		]
 	},
 	"include": [
 		"src/**/*.ts",
 		"src/**/*.d.ts",
 		"tests/**/*.ts",
-		"tests/**/*.d.ts",
-		"build.ts"
+		"tests/**/*.d.ts"
 	],
 	"exclude": [
 		"node_modules"
-	],
+	]
 }

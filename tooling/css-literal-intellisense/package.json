@@ -1,7 +1,7 @@
 {
 	"name": "css-literal-intellisense",
 	"displayName": "CSS Literal IntelliSense",
-	"version": "0.0.1",
+	"version": "0.0.5",
 	"description": "CSS IntelliSense, completion, hover, diagnostics, and syntax highlighting inside css`` tagged templates and /*css*/ annotated template literals.",
 	"categories": [
 		"Programming Languages",

@@ -9,6 +9,7 @@ import type { CompletionItem as LSPCompletionItem } from 'vscode-languageserver-
 import type { DetectorOptions } from './css-region-detector';
 import { getCSSCompletions, lspPositionToOffset } from './css-service';
 import { getRegions } from './document-cache';
+import { log } from './logger';
 import {
 	findRegionAtPosition,
 	sourcePositionToVirtual,
@@ -18,7 +19,7 @@ import {
 
 export class CSSCompletionProvider implements vscode.CompletionItemProvider {
 
-	constructor(private readonly options: Partial<DetectorOptions>) {}
+	constructor(private readonly options: { current: Partial<DetectorOptions> }) {}
 
 	provideCompletionItems(
 		document: vscode.TextDocument,
@@ -26,21 +27,34 @@ export class CSSCompletionProvider implements vscode.CompletionItemProvider {
 		_token: vscode.CancellationToken,
 		_context: vscode.CompletionContext,
 	): vscode.CompletionList | undefined {
-		const regions = getRegions(document, this.options);
-		const region = findRegionAtPosition(document, regions, position);
-		if (!region)
+		try {
+			const regions = getRegions(document, this.options.current);
+			const region = findRegionAtPosition(document, regions, position);
+			if (!region) {
+				return undefined;
+			}
+
+			const virtualOffset = sourcePositionToVirtual(document, region, position);
+			if (virtualOffset === undefined) {
+				log(`Completion: sourcePositionToVirtual returned undefined at ${position.line}:${position.character}`);
+
+				return undefined;
+			}
+
+			const uri = document.uri.toString() + '.css';
+			const completions = getCSSCompletions(region.cssText, virtualOffset, uri);
+
+			log(`Completion: ${completions.items.length} items at ${position.line}:${position.character}, virtualOffset=${virtualOffset}`);
+
+			const items = completions.items.map(item => this.convertCompletionItem(item, document, region));
+
+			return new vscode.CompletionList(items, completions.isIncomplete);
+		}
+		catch (err) {
+			log(`Completion ERROR: ${err instanceof Error ? err.message : String(err)}`);
+
 			return undefined;
-
-		const virtualOffset = sourcePositionToVirtual(document, region, position);
-		if (virtualOffset === undefined)
-			return undefined;
-
-		const uri = document.uri.toString() + '.css';
-		const completions = getCSSCompletions(region.cssText, virtualOffset, uri);
-
-		const items = completions.items.map(item => this.convertCompletionItem(item, document, region));
-
-		return new vscode.CompletionList(items, completions.isIncomplete);
+		}
 	}
 
 	private convertCompletionItem(

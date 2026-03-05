@@ -17,12 +17,12 @@ import { isDiagnosticInPlaceholder, virtualRangeToSourceRange } from './virtual-
 export class CSSDiagnosticsManager {
 
 	private readonly collection: vscode.DiagnosticCollection;
-	private readonly options:    Partial<DetectorOptions>;
+	private readonly options:    { current: Partial<DetectorOptions> };
 	private enabled:             boolean;
 
 	constructor(
 		collection: vscode.DiagnosticCollection,
-		options: Partial<DetectorOptions>,
+		options: { current: Partial<DetectorOptions> },
 		enabled: boolean,
 	) {
 		this.collection = collection;
@@ -44,7 +44,7 @@ export class CSSDiagnosticsManager {
 			return;
 		}
 
-		const regions = getRegions(document, this.options);
+		const regions = getRegions(document, this.options.current);
 		if (regions.length === 0) {
 			this.collection.delete(document.uri);
 

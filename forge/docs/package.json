@@ -3,10 +3,10 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"build": "bun run check && bun run build.ts",
-		"check": "bun x tsc --noEmit",
-		"test:e2e": "bun run build && bunx playwright test",
-		"test:e2e:headed": "bun run build && bunx playwright test --headed"
+		"build": "tsc --noEmit && vite build",
+		"check": "tsc --noEmit",
+		"test:e2e": "pnpm run build && pnpm exec playwright test",
+		"test:e2e:headed": "pnpm run build && pnpm exec playwright test --headed"
 	},
 	"dependencies": {
 		"lit": "^3.3.1",
@@ -16,8 +16,8 @@
 		"@arcmantle/eslint-config": "file:../../tooling/eslint-config",
 		"@arcmantle/tsconfig": "file:../../tooling/tsconfig-config",
 		"@playwright/test": "^1.58.2",
-		"@types/bun": "latest",
 		"@types/node": "latest",
-		"typescript": "latest"
+		"typescript": "latest",
+		"vite": "catalog:forge"
 	}
 }

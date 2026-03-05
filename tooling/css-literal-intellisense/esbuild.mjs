@@ -10,4 +10,5 @@ await esbuild.build({
 	sourcemap:   true,
 	external:    [ 'vscode' ],
 	minify:      false,
+	mainFields:  [ 'module', 'main' ],
 });

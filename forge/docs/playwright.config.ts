@@ -11,7 +11,7 @@ export default defineConfig({
 		headless: true,
 	},
 	webServer: {
-		command:             'bun ./tests/e2e/static-server.ts',
+		command:             'pnpm exec vite preview --port 4173',
 		url:                 'http://127.0.0.1:4173',
 		reuseExistingServer: true,
 		timeout:             15_000,
