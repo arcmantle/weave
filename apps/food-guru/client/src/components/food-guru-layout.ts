@@ -1,5 +1,5 @@
 import { router } from '@arcmantle/pivot-client-router';
-import { css, html, LitElement } from 'lit';
+import { css, type CSSResultGroup, html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
@@ -8,7 +8,7 @@ import type { UpdateStatus } from '../types.ts';
 
 
 interface NavItem {
-	path: string;
+	path:  string;
 	label: string;
 }
 
@@ -72,11 +72,13 @@ export class FoodGuruLayout extends LitElement {
 			if (!response.ok) {
 				this.isApplyingUpdate = false;
 				await this.checkForUpdates();
+
 				return;
 			}
 		}
 		catch {
 			this.isApplyingUpdate = false;
+
 			return;
 		}
 	}
@@ -142,7 +144,7 @@ export class FoodGuruLayout extends LitElement {
 
 		${ when(this.updateStatus?.available && !!this.updateStatus.latestVersion, () => html`
 		<div class="update-note">
-			Version ${ this.updateStatus.latestVersion } is available.
+			Version ${ this.updateStatus!.latestVersion } is available.
 		</div>
 		`, () => html``) }
 
@@ -152,7 +154,7 @@ export class FoodGuruLayout extends LitElement {
 		`;
 	}
 
-	static override styles = css`
+	static override styles: CSSResultGroup = css`
 		:host {
 			--fg-bg: #0f131a;
 			--fg-surface: #161d27;

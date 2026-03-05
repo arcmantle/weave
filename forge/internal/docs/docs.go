@@ -30,7 +30,7 @@ import (
 	"github.com/arcmantle/forge/internal/templates"
 )
 
-//go:embed dist/index.html dist/styles.css dist/app-shell.js
+//go:embed dist/index.html dist/styles.css dist/favicon.svg dist/app-shell.js
 var staticFiles embed.FS
 
 // DocData is the top-level JSON structure injected into the HTML template.
@@ -343,6 +343,7 @@ func Serve(m *manifest.Manifest, version string) error {
 	}{
 		{"index.html", "dist/index.html", "text/html; charset=utf-8"},
 		{"styles.css", "dist/styles.css", "text/css; charset=utf-8"},
+		{"favicon.svg", "dist/favicon.svg", "image/svg+xml"},
 		{"app-shell.js", "dist/app-shell.js", "application/javascript; charset=utf-8"},
 	} {
 		data, _ := staticFiles.ReadFile(entry.path)
@@ -351,7 +352,7 @@ func Serve(m *manifest.Manifest, version string) error {
 
 	// Compute a combined ETag from all static assets.
 	h := sha256.New()
-	for _, name := range []string{"index.html", "styles.css", "app-shell.js"} {
+	for _, name := range []string{"index.html", "styles.css", "favicon.svg", "app-shell.js"} {
 		h.Write(assets[name].data)
 	}
 	etag := `"` + hex.EncodeToString(h.Sum(nil)[:8]) + `"`
@@ -374,6 +375,7 @@ func Serve(m *manifest.Manifest, version string) error {
 
 	mux.HandleFunc("/", serveAsset("index.html"))
 	mux.HandleFunc("/styles.css", serveAsset("styles.css"))
+	mux.HandleFunc("/favicon.svg", serveAsset("favicon.svg"))
 	mux.HandleFunc("/app-shell.js", serveAsset("app-shell.js"))
 
 	// Returns basic manifest data immediately (no compilation required).

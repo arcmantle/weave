@@ -32,7 +32,7 @@ type target struct {
 }
 
 func buildDocsFrontend(forgeDir string) error {
-	docsDir := filepath.Join(forgeDir, "internal", "docs")
+	docsDir := filepath.Join(forgeDir, "docs")
 
 	if _, err := os.Stat(filepath.Join(docsDir, "package.json")); err != nil {
 		return fmt.Errorf("missing docs package.json: %w", err)

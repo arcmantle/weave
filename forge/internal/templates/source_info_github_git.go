@@ -17,17 +17,12 @@ func (githubGitSourceInfoProvider) LoadRegistry(repoURL string) (*Registry, erro
 		Source: repoURL,
 	}
 
-	graphqlTemplates, graphqlErr := loadTemplateInfosFromGitHubGraphQL(repoURL, branches, reg.Name)
-	if graphqlErr == nil {
-		reg.Templates = append(reg.Templates, graphqlTemplates...)
-	} else {
-		for _, branch := range branches {
-			tpl, loadErr := loadTemplateInfoFromBranch(repoURL, branch, reg.Name)
-			if loadErr != nil {
-				continue
-			}
-			reg.Templates = append(reg.Templates, tpl)
+	for _, branch := range branches {
+		tpls, loadErr := loadTemplateInfosFromGitHubBranch(repoURL, branch, reg.Name)
+		if loadErr != nil {
+			continue
 		}
+		reg.Templates = append(reg.Templates, tpls...)
 	}
 
 	applyPackageVersions(reg.Templates, tags)

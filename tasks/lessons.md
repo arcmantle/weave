@@ -20,3 +20,10 @@
 **Context**: Running tests from this monorepo can fan out across many unrelated projects.
 **Mistake**: Running broad test execution instead of restricting validation to the active Forge docs project.
 **Rule**: When validating changes in Forge docs, run only project-scoped checks/tests from `forge/internal/docs` (or explicitly targeted files in that project). Never run full workspace test suites unless explicitly requested.
+
+## Preserve intentional event semantics in UI flows
+
+**Date**: 2026-03-04
+**Context**: Ingredient editor bindings in Food Guru intentionally used `change` events.
+**Mistake**: Switching to `input` events as a first response to a save regression without first proving the failure path and honoring the established interaction design.
+**Rule**: When behavior appears broken, first write/review tests for the exact user flow and endpoint contract, then fix within existing semantics unless explicitly asked to change them.

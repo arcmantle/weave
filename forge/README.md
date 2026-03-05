@@ -365,6 +365,79 @@ forge templates
 | `release` | Version bump, changelog, git tag, and publish |
 | `db-migrate` | Run database migrations with rollback support |
 
+### `forge templates publish`
+
+Publish an existing command as a reusable template package.
+
+```bash
+forge templates publish deploy --version v1.2.0
+forge templates publish deploy --version v1.2.0 --registry ../forge-template-registry
+forge templates publish deploy --version v1.2.0 --registry https://github.com/org/forge-templates
+```
+
+Behavior differs by registry source:
+
+- **Non-GitHub registries**: forge publishes directly to branch `<template-name>`, creates tag `<template-name>/<version>`, and pushes refs.
+- **GitHub registries**: forge authenticates with your GitHub token (`forge auth github`), resolves your GitHub user login, and opens a PR from a publish branch to scope branch `<github-login>` (or `--scope <branch>`). Tag creation is expected to happen in repository workflow automation after merge.
+- **Composite commands**: publish emits a bundle template using `run` metadata plus child command templates/scripts, rather than generating a single wrapper script.
+
+For GitHub scoped publishes, template files are written under `<template-name>/` in the scope branch.
+
+### `forge templates init-repo`
+
+Create a GitHub-backed Forge template registry repository in your own account, scaffold it locally, and push it to GitHub.
+
+```bash
+forge templates init-repo --name my-forge-templates
+forge templates init-repo --name my-forge-templates --public --path ./my-forge-templates
+```
+
+Behavior:
+
+- Uses your configured GitHub auth (`forge auth github`) to create a new repository under your user account.
+- Scaffolds repository files locally, including policy workflows for publish validation/auto-merge and tag creation.
+- Initializes git, commits the scaffold, and pushes `main` to the new GitHub repo.
+
+Included workflows:
+
+- `forge-template-publish-pr.yml` validates publish PR changes and auto-merges valid publish PRs targeting the author's scope branch.
+- `forge-template-tag-on-scope-merge.yml` tags merged publish commits as `<scope>/<template>/<version>`.
+
+### `forge auth github`
+
+Configure GitHub credentials used by Forge for GitHub-backed template registries.
+
+```bash
+forge auth github --token <token>
+forge auth github --browser
+forge auth github --browser --client-id <oauth-client-id>
+forge auth github --browser --scopes repo,workflow
+forge auth github --status
+forge auth github --clear
+```
+
+Browser authentication uses GitHub Device Flow: Forge opens a browser, you approve access, and Forge stores the returned token in user config.
+
+Consumer experience:
+
+- In official builds with an embedded OAuth client ID, users can run `forge auth github --browser` with no extra setup.
+
+Maintainer setup (one-time):
+
+- Create a GitHub OAuth App in GitHub settings.
+- Enable Device Flow for that app.
+- Embed the OAuth client ID in your Forge build (for example via Go ldflags):
+
+```bash
+go build -ldflags "-X github.com/arcmantle/forge/internal/templates.defaultGitHubOAuthClientID=<oauth-client-id>" ./cmd/forge
+```
+
+Optional overrides:
+
+- Pass a client ID ad hoc with `--client-id`.
+- Set `GITHUB_OAUTH_CLIENT_ID` in environment.
+- Scopes default to `repo`; adjust with `--scopes` if needed.
+
 ### Template Registries
 
 A template registry is a directory (local or remote git repo) containing reusable template directories. Configure registries in `forge.yaml`:
@@ -395,7 +468,8 @@ If no `registry.yaml` exists, forge scans the directory for subdirectories conta
 
 For GitHub registry repos and local Git folders, forge supports a branch-based package model:
 
-- Each branch is treated as a template package name
+- A branch with root `template.yaml` is treated as a template package name
+- A branch without root `template.yaml` can expose packages from first-level subdirectories containing `template.yaml` (named as `<branch>/<subdir>`)
 - `forge templates` lists remote branches as templates
 - A local Git folder added in `registries:` behaves the same way (local branches become packages)
 - Tags that follow `package/tag` are used to determine the latest package version

@@ -16,7 +16,7 @@ class FoodGuruStore extends EventTarget {
 
 	protected initialized = false;
 	protected tenantID: string = this.resolveTenantID();
-	protected userID: string = this.resolveUserID();
+	protected userID:   string = this.resolveUserID();
 
 	async initialize(): Promise<void> {
 		if (this.initialized)
@@ -30,8 +30,8 @@ class FoodGuruStore extends EventTarget {
 		const normalizedState = this.normalizeState(this.state);
 
 		return {
-			mealPlans:            normalizedState.mealPlans.map((meal) => ({ ...meal })),
-			ingredients:          normalizedState.ingredients.map((ingredient) => ({
+			mealPlans:   normalizedState.mealPlans.map((meal) => ({ ...meal })),
+			ingredients: normalizedState.ingredients.map((ingredient) => ({
 				...ingredient,
 				tags:      [ ...ingredient.tags ],
 				nutrients: ingredient.nutrients.map((nutrient) => ({ ...nutrient })),
@@ -217,11 +217,11 @@ class FoodGuruStore extends EventTarget {
 		}));
 
 		return {
-			mealPlans: Array.isArray(nextState.mealPlans) ? nextState.mealPlans.map((meal) => ({ ...meal })) : [],
-			ingredients: normalizedIngredients,
+			mealPlans:            Array.isArray(nextState.mealPlans) ? nextState.mealPlans.map((meal) => ({ ...meal })) : [],
+			ingredients:          normalizedIngredients,
 			ingredientCategories: ingredientCategories,
 			unassignedCategoryId: fallbackCategoryId,
-			settings: {
+			settings:             {
 				dailyCalorieGoal:   Number(nextState.settings?.dailyCalorieGoal ?? 2000),
 				showCompletedMeals: Boolean(nextState.settings?.showCompletedMeals ?? true),
 			},
@@ -248,6 +248,7 @@ class FoodGuruStore extends EventTarget {
 			imageUrl:        String(ingredient.imageUrl ?? ''),
 			nutrients:       nutrients,
 			ingredientOrder: Number(ingredient.ingredientOrder ?? 0),
+			quantity:        String(ingredient.quantity ?? ''),
 		};
 	}
 

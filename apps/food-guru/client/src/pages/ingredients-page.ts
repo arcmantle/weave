@@ -4,8 +4,10 @@ import { customElement, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
 
+import { applyChronicleDraftHistoryMutation, rebindChronicleDraftRenderTracking } from '../state/chronicle-draft.ts';
 import { foodGuruStore } from '../state/food-guru-store.ts';
 import type { IngredientCategory, IngredientItem, IngredientUsage, NutrientEntry } from '../types.ts';
+
 
 interface IngredientDraft {
 	name:       string;
@@ -27,7 +29,7 @@ const MACRO_KEYS = [
 	{ key: 'fat',           label: 'Fat',           defaultUnit: 'g' },
 	{ key: 'fiber',         label: 'Fiber',         defaultUnit: 'g' },
 	{ key: 'sugar',         label: 'Sugar',         defaultUnit: 'g' },
-] as const satisfies readonly { key: string; label: string; defaultUnit: string; }[];
+] as { key: string; label: string; defaultUnit: string; }[];
 
 const MACRO_KEY_SET = new Set(MACRO_KEYS.map((m) => m.key));
 
@@ -40,7 +42,7 @@ export class IngredientsPage extends LitElement {
 	@state() protected isSeeding = false;
 	@state() protected selectedIngredientId = '';
 	@state() protected draft:           IngredientDraft | null = null;
-	@state() protected draftRevision = 0;
+	@state() protected draftRenderTick = 0;
 	@state() protected isSaving = false;
 	@state() protected saveError = '';
 	@state() protected usage = null as IngredientUsage | null;
@@ -52,6 +54,9 @@ export class IngredientsPage extends LitElement {
 	protected activeTooltipId = '';
 	protected initialSelectionApplied = false;
 	protected draftUnsub: (() => void) | null = null;
+	protected readonly bumpDraftRenderTick = (): void => {
+		this.draftRenderTick++;
+	};
 
 	protected onStoreChanged = (): void => {
 		const snapshot = foodGuruStore.getSnapshot();
@@ -383,8 +388,6 @@ export class IngredientsPage extends LitElement {
 	}
 
 	protected applyDraftFromIngredient(ingredient: IngredientItem): void {
-		this.draftUnsub?.();
-
 		const existingByKey = new Map(ingredient.nutrients.map((n) => [ n.key, n ]));
 		const macroEntries = MACRO_KEYS.map((macro) => existingByKey.get(macro.key) ?? {
 			key:    macro.key,
@@ -404,10 +407,11 @@ export class IngredientsPage extends LitElement {
 			imageUrl:   ingredient.imageUrl ?? '',
 			nutrients:  [ ...macroEntries, ...customEntries ],
 		});
-
-		this.draftUnsub = chronicle.onAny(this.draft, () => {
-			this.draftRevision++;
-		});
+		this.draftUnsub = rebindChronicleDraftRenderTracking(
+			this.draft,
+			this.bumpDraftRenderTick,
+			this.draftUnsub,
+		);
 	}
 
 	protected clearEditor(): void {
@@ -415,7 +419,7 @@ export class IngredientsPage extends LitElement {
 		this.draftUnsub = null;
 		this.selectedIngredientId = '';
 		this.draft = null;
-		this.draftRevision = 0;
+		this.draftRenderTick = 0;
 		this.usage = null;
 		this.usageLoading = false;
 		this.saveError = '';
@@ -679,7 +683,7 @@ export class IngredientsPage extends LitElement {
 		if (!dataURL)
 			return;
 
-		this.draft.imageUrl = dataURL;
+		this.draft!.imageUrl = dataURL;
 	}
 
 	protected async toDataURL(file: File): Promise<string> {
@@ -692,22 +696,30 @@ export class IngredientsPage extends LitElement {
 	}
 
 	protected handleUndo(): void {
-		if (!this.draft || !chronicle.canUndo(this.draft))
-			return;
-
-		chronicle.undoGroups(this.draft, 1);
+		applyChronicleDraftHistoryMutation(
+			this.draft,
+			(draft) => chronicle.canUndo(draft),
+			(draft) => chronicle.undo(draft, 1),
+			this.bumpDraftRenderTick,
+		);
 	}
 
 	protected handleRedo(): void {
-		if (!this.draft || !chronicle.canRedo(this.draft))
-			return;
-
-		chronicle.redoGroups(this.draft, 1);
+		applyChronicleDraftHistoryMutation(
+			this.draft,
+			(draft) => chronicle.canRedo(draft),
+			(draft) => chronicle.redo(draft, 1),
+			this.bumpDraftRenderTick,
+		);
 	}
 
 	protected async handleSaveIngredient(): Promise<void> {
 		const selected = this.selectedIngredient;
 		if (!selected || !this.draft)
+			return;
+
+		this.commitVisibleEditorControlValues();
+		if (chronicle.isPristine(this.draft))
 			return;
 
 		this.isSaving = true;
@@ -739,6 +751,71 @@ export class IngredientsPage extends LitElement {
 		}
 	}
 
+	protected commitVisibleEditorControlValues(): void {
+		if (!this.draft)
+			return;
+
+		const nameInput = this.renderRoot.querySelector('input[data-field="name"]') as HTMLInputElement | null;
+		if (nameInput && this.draft.name !== nameInput.value)
+			this.draft.name = nameInput.value;
+
+		const tagsInput = this.renderRoot.querySelector('input[data-field="tags"]') as HTMLInputElement | null;
+		if (tagsInput && this.draft.tags !== tagsInput.value)
+			this.draft.tags = tagsInput.value;
+
+		const imageUrlInput = this.renderRoot.querySelector('input[data-field="imageUrl"]') as HTMLInputElement | null;
+		if (imageUrlInput && this.draft.imageUrl !== imageUrlInput.value)
+			this.draft.imageUrl = imageUrlInput.value;
+
+		const notesTextArea = this.renderRoot.querySelector('.editor-section textarea') as HTMLTextAreaElement | null;
+		if (notesTextArea && this.draft.notes !== notesTextArea.value)
+			this.draft.notes = notesTextArea.value;
+
+		const categorySelect = this.renderRoot.querySelector('.editor-section select') as HTMLSelectElement | null;
+		if (categorySelect && this.draft.categoryId !== categorySelect.value)
+			this.draft.categoryId = categorySelect.value;
+
+		const macroInputs = this.renderRoot.querySelectorAll(
+			'.macro-grid input[data-key][data-field]',
+		) as NodeListOf<HTMLInputElement>;
+		for (const input of macroInputs) {
+			const key = input.dataset['key'] ?? '';
+			const field = input.dataset['field'] ?? '';
+			if (!key)
+				continue;
+
+			const nutrient = this.draft.nutrients.find((n) => n.key === key);
+			if (!nutrient)
+				continue;
+
+			if (field === 'value' && nutrient.value !== input.value)
+				nutrient.value = input.value;
+			if (field === 'unit' && nutrient.unit !== input.value)
+				nutrient.unit = input.value;
+		}
+
+		const nutrientInputs = this.renderRoot.querySelectorAll(
+			'.nutrient-row input[data-index][data-field]',
+		) as NodeListOf<HTMLInputElement>;
+		for (const input of nutrientInputs) {
+			const index = Number(input.dataset['index'] ?? '-1');
+			const field = input.dataset['field'] ?? '';
+			if (index < 0 || index >= this.draft.nutrients.length)
+				continue;
+
+			const nutrient = this.draft.nutrients[index];
+			if (!nutrient)
+				continue;
+
+			if (field === 'key' && nutrient.key !== input.value)
+				nutrient.key = input.value;
+			if (field === 'value' && nutrient.value !== input.value)
+				nutrient.value = input.value;
+			if (field === 'unit' && nutrient.unit !== input.value)
+				nutrient.unit = input.value;
+		}
+	}
+
 	override render(): unknown {
 		const selected = this.selectedIngredient;
 		const draft = this.draft;
@@ -747,7 +824,7 @@ export class IngredientsPage extends LitElement {
 		const isDirty = draft !== null && !chronicle.isPristine(draft);
 		const canUndo = draft !== null && chronicle.canUndo(draft);
 		const canRedo = draft !== null && chronicle.canRedo(draft);
-		void this.draftRevision;
+		void this.draftRenderTick;
 
 		return html`
 		<section class="workspace">
@@ -776,76 +853,84 @@ export class IngredientsPage extends LitElement {
 						<span>${ this.getCategoryCount(category.id) } ingredients</span>
 					</div>
 					<div class="tile-grid">
-						${ repeat(this.getCategoryIngredients(category.id), (ingredient) => ingredient.id, (ingredient) => html`
-						<article
-							class="ingredient-tile"
-							data-ingredient-id=${ ingredient.id }
-							data-tooltip-id=${ `ingredient-tooltip-${ ingredient.id }` }
-							@click=${ this.handleTileClick }
-							@mouseenter=${ this.handleTooltipOpen }
-							@mouseleave=${ this.handleTooltipClose }
-							@focusin=${ this.handleTooltipOpen }
-							@focusout=${ this.handleTooltipClose }
-							style=${ `anchor-name: --ingredient-anchor-${ ingredient.id };` }
-						>
-							<button
-								class="tile-handle"
-								type="button"
-								aria-label=${ `Move ${ ingredient.name } to another group` }
-								popovertarget=${ `ingredient-move-menu-${ ingredient.id }` }
-								popovertargetaction="toggle"
-								@pointerdown=${ this.handleMoveHandlePointerDown }
-								style=${ `anchor-name: --ingredient-menu-anchor-${ ingredient.id };` }
+						${ repeat(
+							this.getCategoryIngredients(category.id),
+							ingredient => ingredient.id,
+							ingredient => html`
+							<article
+								class="ingredient-tile"
+								data-ingredient-id=${ ingredient.id }
+								data-tooltip-id=${ `ingredient-tooltip-${ ingredient.id }` }
+								@click=${ this.handleTileClick }
+								@mouseenter=${ this.handleTooltipOpen }
+								@mouseleave=${ this.handleTooltipClose }
+								@focusin=${ this.handleTooltipOpen }
+								@focusout=${ this.handleTooltipClose }
+								style=${ `anchor-name: --ingredient-anchor-${ ingredient.id };` }
 							>
-								⋮
-							</button>
-							<div class="tile-image">
-								<div class="icon">${ this.getIngredientIcon(ingredient) }</div>
-							</div>
-							<span class="tile-label">${ ingredient.name }</span>
-							<div
-								id=${ `ingredient-move-menu-${ ingredient.id }` }
-								class="move-menu"
-								popover="auto"
-								style=${ `position-anchor: --ingredient-menu-anchor-${ ingredient.id };` }
-								@click=${ this.handleMoveMenuClick }
-							>
-								${ repeat(this.getMoveTargetCategories(ingredient), (targetCategory) => targetCategory.id, (targetCategory) => html`
 								<button
+									class="tile-handle"
 									type="button"
-									class="move-option"
-									data-ingredient-id=${ ingredient.id }
-									data-target-category-id=${ targetCategory.id }
-									data-menu-id=${ `ingredient-move-menu-${ ingredient.id }` }
-									@click=${ this.handleMoveIngredientClick }
+									aria-label=${ `Move ${ ingredient.name } to another group` }
+									popovertarget=${ `ingredient-move-menu-${ ingredient.id }` }
+									popovertargetaction="toggle"
+									@pointerdown=${ this.handleMoveHandlePointerDown }
+									style=${ `anchor-name: --ingredient-menu-anchor-${ ingredient.id };` }
 								>
-									Move to ${ targetCategory.name }
+									⋮
 								</button>
-								`) }
-							</div>
-							<div
-								id=${ `ingredient-tooltip-${ ingredient.id }` }
-								class="hover-card"
-								popover="manual"
-								style=${ `position-anchor: --ingredient-anchor-${ ingredient.id };` }
-							>
-								<strong>${ ingredient.name }</strong>
-								<p>${ ingredient.quantity }</p>
-								${ when(ingredient.notes.trim().length > 0, () => html`
-								<p>${ ingredient.notes }</p>
-								`, () => html`
-								<p>No notes yet.</p>
-								`) }
-								${ when(ingredient.tags.length > 0, () => html`
-								<div class="tag-list">
-									${ repeat(ingredient.tags, (tag) => tag, (tag) => html`
-									<span>${ tag }</span>
+								<div class="tile-image">
+									<div class="icon">${ this.getIngredientIcon(ingredient) }</div>
+								</div>
+								<span class="tile-label">${ ingredient.name }</span>
+								<div
+									id=${ `ingredient-move-menu-${ ingredient.id }` }
+									class="move-menu"
+									popover="auto"
+									style=${ `position-anchor: --ingredient-menu-anchor-${ ingredient.id };` }
+									@click=${ this.handleMoveMenuClick }
+								>
+									${ repeat(
+										this.getMoveTargetCategories(ingredient),
+										targetCategory => targetCategory.id,
+										targetCategory => html`
+										<button
+											type="button"
+											class="move-option"
+											data-ingredient-id=${ ingredient.id }
+											data-target-category-id=${ targetCategory.id }
+											data-menu-id=${ `ingredient-move-menu-${ ingredient.id }` }
+											@click=${ this.handleMoveIngredientClick }
+										>
+											Move to ${ targetCategory.name }
+										</button>
+										`,
+									) }
+								</div>
+								<div
+									id=${ `ingredient-tooltip-${ ingredient.id }` }
+									class="hover-card"
+									popover="manual"
+									style=${ `position-anchor: --ingredient-anchor-${ ingredient.id };` }
+								>
+									<strong>${ ingredient.name }</strong>
+									<p>${ ingredient.quantity }</p>
+									${ when(ingredient.notes.trim().length > 0, () => html`
+									<p>${ ingredient.notes }</p>
+									`, () => html`
+									<p>No notes yet.</p>
+									`) }
+									${ when(ingredient.tags.length > 0, () => html`
+									<div class="tag-list">
+										${ repeat(ingredient.tags, (tag) => tag, (tag) => html`
+										<span>${ tag }</span>
+										`) }
+									</div>
 									`) }
 								</div>
-								`) }
-							</div>
-						</article>
-						`) }
+							</article>
+							`,
+						) }
 					</div>
 				</section>
 				`) }
@@ -859,8 +944,20 @@ export class IngredientsPage extends LitElement {
 						${ when(isDirty, () => html`
 						<span class="dirty-indicator">Unsaved changes</span>
 						`) }
-						<button type="button" class="undo-redo-button" @click=${ this.handleUndo } ?disabled=${ !canUndo } title="Undo">↩</button>
-						<button type="button" class="undo-redo-button" @click=${ this.handleRedo } ?disabled=${ !canRedo } title="Redo">↪</button>
+						<button
+							type="button"
+							class="undo-redo-button"
+							?disabled=${ !canUndo }
+							title="Undo"
+							@click=${ this.handleUndo }
+						>↩</button>
+						<button
+							type="button"
+							class="undo-redo-button"
+							?disabled=${ !canRedo }
+							title="Redo"
+							@click=${ this.handleRedo }
+						>↪</button>
 						<button type="button" @click=${ this.handleCloseEditor }>Close</button>
 					</div>
 				</div>
@@ -884,7 +981,7 @@ export class IngredientsPage extends LitElement {
 						<h4>Overview</h4>
 						<label>
 							<span>Name</span>
-							<input data-field="name" .value=${ draft!.name } @input=${ this.handleDraftInput }>
+							<input data-field="name" .value=${ draft!.name } @change=${ this.handleDraftInput }>
 						</label>
 						<label>
 							<span>Category</span>
@@ -896,11 +993,11 @@ export class IngredientsPage extends LitElement {
 						</label>
 						<label>
 							<span>Tags (comma separated)</span>
-							<input data-field="tags" .value=${ draft!.tags } @input=${ this.handleDraftInput }>
+							<input data-field="tags" .value=${ draft!.tags } @change=${ this.handleDraftInput }>
 						</label>
 						<label>
 							<span>Notes</span>
-							<textarea .value=${ draft!.notes } @input=${ this.handleDraftTextArea }></textarea>
+							<textarea .value=${ draft!.notes } @change=${ this.handleDraftTextArea }></textarea>
 						</label>
 						<div class="nutrient-snapshot">
 							<span class="nutrient-snapshot-title">Macros</span>
@@ -941,7 +1038,7 @@ export class IngredientsPage extends LitElement {
 						<h4>Image</h4>
 						<label>
 							<span>Image URL</span>
-							<input data-field="imageUrl" .value=${ draft!.imageUrl } @input=${ this.handleDraftInput }>
+							<input data-field="imageUrl" .value=${ draft!.imageUrl } @change=${ this.handleDraftInput }>
 						</label>
 						<label>
 							<span>Upload image file</span>
@@ -970,14 +1067,14 @@ export class IngredientsPage extends LitElement {
 										data-key=${ macro.key }
 										data-field="value"
 										.value=${ entry?.value ?? '' }
-										@input=${ this.handleMacroInput }
+										@change=${ this.handleMacroInput }
 									>
 									<input
 										placeholder="Unit"
 										data-key=${ macro.key }
 										data-field="unit"
 										.value=${ entry?.unit ?? macro.defaultUnit }
-										@input=${ this.handleMacroInput }
+										@change=${ this.handleMacroInput }
 									>
 								</div>
 								`;
@@ -990,9 +1087,27 @@ export class IngredientsPage extends LitElement {
 						<div class="nutrient-grid">
 							${ repeat(this.customNutrientEntries, ({ index }) => index, ({ nutrient, index }) => html`
 							<div class="nutrient-row">
-								<input placeholder="Nutrient" data-index=${ String(index) } data-field="key" .value=${ nutrient.key } @input=${ this.handleNutrientInput }>
-								<input placeholder="Value" data-index=${ String(index) } data-field="value" .value=${ nutrient.value } @input=${ this.handleNutrientInput }>
-								<input placeholder="Unit" data-index=${ String(index) } data-field="unit" .value=${ nutrient.unit } @input=${ this.handleNutrientInput }>
+								<input
+									placeholder="Nutrient"
+									data-index=${ String(index) }
+									data-field="key"
+									.value=${ nutrient.key }
+									@change=${ this.handleNutrientInput }
+								>
+								<input
+									placeholder="Value"
+									data-index=${ String(index) }
+									data-field="value"
+									.value=${ nutrient.value }
+									@change=${ this.handleNutrientInput }
+								>
+								<input
+									placeholder="Unit"
+									data-index=${ String(index) }
+									data-field="unit"
+									.value=${ nutrient.unit }
+									@change=${ this.handleNutrientInput }
+								>
 								<button
 									type="button"
 									class="pin-button"
@@ -1001,7 +1116,11 @@ export class IngredientsPage extends LitElement {
 									title=${ nutrient.pinned ? 'Unpin from overview' : 'Pin to overview' }
 									@click=${ this.handleToggleNutrientPin }
 								>📌</button>
-								<button type="button" data-index=${ String(index) } @click=${ this.handleRemoveNutrient }>✕</button>
+								<button
+									type="button"
+									data-index=${ String(index) }
+									@click=${ this.handleRemoveNutrient }
+								>✕</button>
 							</div>
 							`) }
 						</div>
@@ -1019,7 +1138,11 @@ export class IngredientsPage extends LitElement {
 								<strong>Meal Plans</strong>
 								<ul>
 									${ when((usage?.mealPlans.length ?? 0) > 0, () => html`
-										${ repeat(usage?.mealPlans ?? [], (meal) => meal.id, (meal) => html`<li>${ meal.day } · ${ meal.name }</li>`) }
+										${ repeat(
+											usage?.mealPlans ?? [],
+											meal => meal.id,
+											meal => html`<li>${ meal.day } · ${ meal.name }</li>`,
+										) }
 									`, () => html`<li>None yet</li>`) }
 								</ul>
 							</div>
@@ -1027,7 +1150,11 @@ export class IngredientsPage extends LitElement {
 								<strong>Dishes</strong>
 								<ul>
 									${ when((usage?.dishes.length ?? 0) > 0, () => html`
-										${ repeat(usage?.dishes ?? [], (dish) => dish.id, (dish) => html`<li>${ dish.name }</li>`) }
+										${ repeat(
+											usage?.dishes ?? [],
+											dish => dish.id,
+											dish => html`<li>${ dish.name }</li>`,
+										) }
 									`, () => html`<li>None yet</li>`) }
 								</ul>
 							</div>
@@ -1047,7 +1174,11 @@ export class IngredientsPage extends LitElement {
 						${ when(this.saveError.length > 0, () => html`
 						<span class="save-error">${ this.saveError }</span>
 						`) }
-						<button type="button" @click=${ this.handleSaveIngredient } ?disabled=${ this.isSaving || !isDirty }>${ this.isSaving ? 'Saving…' : 'Save Changes' }</button>
+						<button
+							type="button"
+							?disabled=${ this.isSaving }
+							@click=${ this.handleSaveIngredient }
+						>${ this.isSaving ? 'Saving…' : 'Save Changes' }</button>
 					</div>
 				</div>
 				`, () => html`

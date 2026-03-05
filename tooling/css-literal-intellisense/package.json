@@ -1,0 +1,83 @@
+{
+	"name": "css-literal-intellisense",
+	"displayName": "CSS Literal IntelliSense",
+	"version": "0.0.1",
+	"description": "CSS IntelliSense, completion, hover, diagnostics, and syntax highlighting inside css`` tagged templates and /*css*/ annotated template literals.",
+	"categories": [
+		"Programming Languages",
+		"Linters"
+	],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/arcmantle/weave"
+	},
+	"license": "MIT",
+	"publisher": "arcmantle",
+	"main": "./dist/extension.js",
+	"engines": {
+		"vscode": "^1.85.0"
+	},
+	"activationEvents": [
+		"onLanguage:typescript",
+		"onLanguage:javascript",
+		"onLanguage:typescriptreact",
+		"onLanguage:javascriptreact"
+	],
+	"scripts": {
+		"compile": "tsc -p ./ --noEmit && node esbuild.mjs",
+		"watch": "tsc -watch -p ./",
+		"package": "pnpm run compile && pnpx @vscode/vsce package --allow-missing-repository --no-dependencies",
+		"test": "vitest run"
+	},
+	"contributes": {
+		"grammars": [
+			{
+				"scopeName": "inline.css.tagged-template",
+				"path": "./syntaxes/css-tagged-template.json",
+				"injectTo": [
+					"source.ts",
+					"source.js",
+					"source.tsx",
+					"source.jsx"
+				],
+				"embeddedLanguages": {
+					"meta.embedded.block.css": "css"
+				}
+			}
+		],
+		"configuration": {
+			"title": "CSS Literal IntelliSense",
+			"properties": {
+				"cssLiteralIntellisense.tagNames": {
+					"type": "array",
+					"default": ["css"],
+					"items": { "type": "string" },
+					"description": "Tag function names to treat as CSS template literals."
+				},
+				"cssLiteralIntellisense.commentMarkers": {
+					"type": "array",
+					"default": ["css"],
+					"items": { "type": "string" },
+					"description": "Comment markers (e.g. /*css*/) that indicate a following template literal contains CSS."
+				},
+				"cssLiteralIntellisense.validate": {
+					"type": "boolean",
+					"default": true,
+					"description": "Enable or disable CSS diagnostics inside template literals."
+				}
+			}
+		}
+	},
+	"devDependencies": {
+		"@types/node": "^22.0.0",
+		"@types/vscode": "^1.85.0",
+		"esbuild": "^0.24.0",
+		"typescript": "^5.7.0",
+		"vitest": "^3.0.0"
+	},
+	"dependencies": {
+		"vscode-css-languageservice": "^6.3.0",
+		"vscode-languageserver-textdocument": "^1.0.0",
+		"vscode-languageserver-types": "^3.17.0"
+	}
+}

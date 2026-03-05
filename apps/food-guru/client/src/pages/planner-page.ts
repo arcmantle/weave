@@ -1,4 +1,4 @@
-import { css, html, LitElement } from 'lit';
+import { css, type CSSResultGroup, html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
@@ -21,7 +21,7 @@ export class PlannerPage extends LitElement {
 		'Friday',
 		'Saturday',
 		'Sunday',
-	];
+	] as const;
 
 	protected onStoreChanged = (): void => {
 		const snapshot = foodGuruStore.getSnapshot();
@@ -64,7 +64,7 @@ export class PlannerPage extends LitElement {
 
 	protected handleMealToggle(event: Event): void {
 		const button = event.currentTarget as HTMLButtonElement;
-		const mealId = button.dataset.mealId;
+		const mealId = button.dataset['mealId'];
 
 		if (!mealId)
 			return;
@@ -140,7 +140,7 @@ export class PlannerPage extends LitElement {
 		`;
 	}
 
-	static override styles = css`
+	static override styles: CSSResultGroup = css`
 		:host {
 			display: grid;
 			grid-template-columns: 1fr;

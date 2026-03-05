@@ -148,3 +148,72 @@ maximum reusability. Pairs with `forge --docs` already existing.
 - [ ] Confirm side-panel UX flow is usable for image/name/nutrients edits
 - [ ] Confirm ingredient usage surfaces both meal-plan and dish links
 - [ ] Confirm schema migration works on existing local databases
+
+---
+
+## Forge: GitHub-Scoped Template Publish Path (Completed)
+
+### Scope
+
+- [x] Add GitHub-specific publish path in `forge templates publish`
+- [x] Resolve GitHub actor from authenticated token and use actor login as default scope branch
+- [x] Create PR head branch and open PR to scope branch for GitHub registry sources
+- [x] Keep non-GitHub publish flow unchanged (direct branch/tag push)
+- [x] Update CLI help and README with GitHub-scoped publish behavior
+- [x] Validate with targeted Go package test runs
+
+### Review
+
+- [x] `go test ./cmd/forge` passes
+- [x] `go test ./internal/templates` passes
+- [x] No diagnostics in modified files via editor error checks
+
+---
+
+## Forge: Template Registry Bootstrap Command (Completed)
+
+### Scope
+
+- [x] Add `forge templates init-repo` command to scaffold a template registry repository
+- [x] Create GitHub repository via authenticated user token and push scaffolded repo to `main`
+- [x] Include registry workflows for publish PR validation/auto-merge and scope tag creation
+- [x] Wire new subcommand into templates command routing and CLI help
+- [x] Update Forge README with command usage and behavior
+
+### Review
+
+- [x] `go test ./cmd/forge ./internal/templates` passes
+- [x] No diagnostics in modified Go files via editor error checks
+
+---
+
+## Food Guru: Ingredient Save Regression Tests (Completed)
+
+### Scope
+
+- [x] Revert accidental editor event-binding changes in ingredient editor
+- [x] Add Go test for `PUT /api/ingredients/{id}` endpoint behavior
+- [x] Add Playwright test for editing ingredient fields and pressing Save
+- [x] Run targeted test validation for both new tests
+
+### Review
+
+- [x] Go test proves update endpoint behavior for provided vs omitted fields
+- [x] Playwright test proves UI save keeps edited values after save round-trip
+
+---
+
+## Forge: GitHub Browser Auth Device Flow (Completed)
+
+### Scope
+
+- [x] Add browser-based GitHub auth path to `forge auth github` via Device Flow
+- [x] Open browser for user approval and poll GitHub OAuth token endpoint
+- [x] Save returned token through existing Forge GitHub token storage path
+- [x] Add CLI flags for browser auth (`--browser`, `--client-id`, `--scopes`)
+- [x] Update CLI help and README with setup and usage guidance
+
+### Review
+
+- [x] `go test ./cmd/forge ./internal/templates` passes
+- [x] No diagnostics in modified Go files via editor error checks

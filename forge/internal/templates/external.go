@@ -50,9 +50,9 @@ type TemplateInfo struct {
 	Example     string
 	LatestTag   string   // Latest tag discovered for this package (if any).
 	Versions    []string // Available historical versions (newest first).
-	Source      string // "built-in", registry name, or URL.
-	Registry    string // Registry source string (empty for built-in).
-	SourceType  string // "built-in", "github-git", "local-git", "folder-index", "folder-scan"
+	Source      string   // "built-in", registry name, or URL.
+	Registry    string   // Registry source string (empty for built-in).
+	SourceType  string   // "built-in", "github-git", "local-git", "folder-index", "folder-scan"
 }
 
 // LoadRegistryIndex reads the registry.yaml index from a source (local
@@ -312,45 +312,119 @@ func loadTemplateInfoFromLocalBranch(repoDir string, branch string, registryName
 	}, nil
 }
 
-func loadTemplateInfoFromBranch(repoURL string, branch string, registryName string) (TemplateInfo, error) {
+func loadTemplateInfosFromGitHubBranch(repoURL string, branch string, registryName string) ([]TemplateInfo, error) {
 	dir, cleanup, err := cloneRegistryRepoBranch(repoURL, branch)
 	if err != nil {
-		return TemplateInfo{}, err
+		return nil, err
 	}
 	if cleanup != nil {
 		defer cleanup()
 	}
 
-	metaPath := filepath.Join(dir, "template.yaml")
+	return loadTemplateInfosFromBranchDir(dir, branch, registryName, repoURL)
+}
+
+func loadTemplateInfoFromBranch(repoURL string, branch string, registryName string) (TemplateInfo, error) {
+	templates, err := loadTemplateInfosFromGitHubBranch(repoURL, branch, registryName)
+	if err != nil {
+		return TemplateInfo{}, err
+	}
+	if len(templates) == 0 {
+		return TemplateInfo{}, fmt.Errorf("template not found in branch %s", branch)
+	}
+
+	return templates[0], nil
+}
+
+func loadTemplateInfosFromBranchDir(dir string, branch string, registryName string, registrySource string) ([]TemplateInfo, error) {
+	rootMetaPath := filepath.Join(dir, "template.yaml")
+	if _, err := os.Stat(rootMetaPath); err == nil {
+		tpl, buildErr := buildTemplateInfoFromDir(
+			dir,
+			branch,
+			fmt.Sprintf("Template from branch %s", branch),
+			registryName,
+			registrySource,
+			"github-git",
+		)
+		if buildErr != nil {
+			return nil, buildErr
+		}
+
+		return []TemplateInfo{tpl}, nil
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, fmt.Errorf("reading branch %s: %w", branch, err)
+	}
+
+	var templates []TemplateInfo
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		templateDir := filepath.Join(dir, entry.Name())
+		metaPath := filepath.Join(templateDir, "template.yaml")
+		if _, err := os.Stat(metaPath); err != nil {
+			continue
+		}
+
+		templateName := branch + "/" + entry.Name()
+		tpl, buildErr := buildTemplateInfoFromDir(
+			templateDir,
+			templateName,
+			fmt.Sprintf("Template %s from branch %s", entry.Name(), branch),
+			registryName,
+			registrySource,
+			"github-git",
+		)
+		if buildErr != nil {
+			continue
+		}
+
+		templates = append(templates, tpl)
+	}
+
+	if len(templates) == 0 {
+		return nil, fmt.Errorf("no templates discovered in branch %s", branch)
+	}
+
+	return templates, nil
+}
+
+func buildTemplateInfoFromDir(templateDir string, name string, fallbackDescription string, sourceName string, registrySource string, sourceType string) (TemplateInfo, error) {
+	metaPath := filepath.Join(templateDir, "template.yaml")
 	var meta TemplateMeta
 	if data, err := os.ReadFile(metaPath); err == nil {
 		if err := yaml.Unmarshal(data, &meta); err != nil {
-			return TemplateInfo{}, fmt.Errorf("parsing template metadata in branch %s: %w", branch, err)
+			return TemplateInfo{}, fmt.Errorf("parsing template metadata in %s: %w", templateDir, err)
 		}
 	}
 
 	description := strings.TrimSpace(meta.Description)
 	if description == "" {
-		description = readReadmeSummary(dir)
+		description = readReadmeSummary(templateDir)
 	}
 	if description == "" {
-		description = fmt.Sprintf("Template from branch %s", branch)
+		description = fallbackDescription
 	}
 
 	example := strings.TrimSpace(meta.Example)
 	if example == "" {
-		example = readTemplateExample(dir)
+		example = readTemplateExample(templateDir)
 	}
 
 	return TemplateInfo{
-		Name:        branch,
+		Name:        name,
 		Description: description,
-		Languages:   detectTemplateLanguages(dir),
+		Languages:   detectTemplateLanguages(templateDir),
 		Variables:   meta.Variables,
 		Example:     example,
-		Source:      registryName,
-		Registry:    repoURL,
-		SourceType:  "github-git",
+		Source:      sourceName,
+		Registry:    registrySource,
+		SourceType:  sourceType,
 	}, nil
 }
 
@@ -370,7 +444,6 @@ func detectTemplateLanguages(templateDir string) []string {
 
 	return detectTemplateLanguagesFromEntries(names)
 }
-
 
 func detectTemplateLanguagesFromEntries(entries []string) []string {
 	seen := map[string]bool{}
@@ -507,10 +580,10 @@ func loadTemplateInfosFromLocalBranchesBatch(repoDir string, branches []string, 
 	}
 
 	type branchPaths struct {
-		metaSpec   string
-		readmeSpec []string
+		metaSpec    string
+		readmeSpec  []string
 		exampleSpec string
-		scriptSpec map[string]string
+		scriptSpec  map[string]string
 	}
 
 	pathsByBranch := make(map[string]branchPaths, len(branches))
@@ -532,10 +605,10 @@ func loadTemplateInfosFromLocalBranchesBatch(repoDir string, branches []string, 
 		}
 
 		pathsByBranch[branch] = branchPaths{
-			metaSpec:   metaSpec,
-			readmeSpec: readmeSpecs,
+			metaSpec:    metaSpec,
+			readmeSpec:  readmeSpecs,
 			exampleSpec: exampleSpec,
-			scriptSpec: scriptByLang,
+			scriptSpec:  scriptByLang,
 		}
 
 		contentSpecs = append(contentSpecs, metaSpec)
@@ -941,13 +1014,14 @@ func listLocalTags(repoDir string) ([]string, error) {
 }
 
 func parsePackageTagRef(tag string) (string, string, bool) {
-	parts := strings.SplitN(strings.TrimSpace(tag), "/", 2)
-	if len(parts) != 2 {
+	trimmed := strings.TrimSpace(tag)
+	idx := strings.LastIndex(trimmed, "/")
+	if idx <= 0 || idx == len(trimmed)-1 {
 		return "", "", false
 	}
 
-	pkg := strings.TrimSpace(parts[0])
-	version := strings.TrimSpace(parts[1])
+	pkg := strings.TrimSpace(trimmed[:idx])
+	version := strings.TrimSpace(trimmed[idx+1:])
 	if pkg == "" || version == "" {
 		return "", "", false
 	}
@@ -1179,11 +1253,13 @@ func extractZipToDir(zipPath string, dstDir string) error {
 }
 
 func loadTemplateFromGitRef(repoURL string, branch string, ref string) (*Template, error) {
+	selector := strings.TrimSpace(branch)
+	branchName, subdir := splitScopedTemplateSelector(selector)
 	if strings.TrimSpace(ref) == "" {
-		return loadTemplateFromBranch(repoURL, branch)
+		return loadTemplateFromBranch(repoURL, selector)
 	}
 
-	dir, cleanup, err := cloneRegistryRepoRefWithTemplateFallback(repoURL, branch, ref)
+	dir, cleanup, err := cloneRegistryRepoRefWithTemplateFallback(repoURL, selector, ref)
 	if err != nil {
 		return nil, err
 	}
@@ -1191,17 +1267,27 @@ func loadTemplateFromGitRef(repoURL string, branch string, ref string) (*Templat
 		defer cleanup()
 	}
 
-	if tpl, err := tryLoadTemplateFromRootOrSingleDirWithName(dir, branch); err == nil {
+	if subdir != "" {
+		templateDir := filepath.Join(dir, filepath.FromSlash(subdir))
+		tpl, loadErr := loadTemplateFromDirWithName(templateDir, filepath.Base(subdir))
+		if loadErr != nil {
+			return nil, fmt.Errorf("template '%s' not found at ref '%s' in '%s'", selector, ref, repoURL)
+		}
+		tpl.Name = selector
 		return tpl, nil
 	}
 
-	templateDir := filepath.Join(dir, branch)
+	if tpl, err := tryLoadTemplateFromRootOrSingleDirWithName(dir, selector); err == nil {
+		return tpl, nil
+	}
+
+	templateDir := filepath.Join(dir, branchName)
 	metaPath := filepath.Join(templateDir, "template.yaml")
 	if _, err := os.Stat(metaPath); err == nil {
 		return LoadFromDir(templateDir)
 	}
 
-	return nil, fmt.Errorf("template '%s' not found at ref '%s' in '%s'", branch, ref, repoURL)
+	return nil, fmt.Errorf("template '%s' not found at ref '%s' in '%s'", selector, ref, repoURL)
 }
 
 func cloneRegistryRepoRefWithTemplateFallback(repoURL string, templateName string, ref string) (string, func(), error) {
@@ -1224,7 +1310,10 @@ func cloneRegistryRepoRefWithTemplateFallback(repoURL string, templateName strin
 }
 
 func loadTemplateFromBranch(repoURL string, branch string) (*Template, error) {
-	dir, cleanup, err := cloneRegistryRepoBranch(repoURL, branch)
+	selector := strings.TrimSpace(branch)
+	branchName, subdir := splitScopedTemplateSelector(selector)
+
+	dir, cleanup, err := cloneRegistryRepoBranch(repoURL, branchName)
 	if err != nil {
 		return nil, err
 	}
@@ -1232,11 +1321,31 @@ func loadTemplateFromBranch(repoURL string, branch string) (*Template, error) {
 		defer cleanup()
 	}
 
-	if tpl, err := tryLoadTemplateFromRootOrSingleDirWithName(dir, branch); err == nil {
+	if subdir != "" {
+		templateDir := filepath.Join(dir, filepath.FromSlash(subdir))
+		tpl, loadErr := loadTemplateFromDirWithName(templateDir, filepath.Base(subdir))
+		if loadErr != nil {
+			return nil, fmt.Errorf("template '%s' not found in branch registry '%s'", selector, repoURL)
+		}
+		tpl.Name = selector
 		return tpl, nil
 	}
 
-	return nil, fmt.Errorf("template '%s' not found in branch registry '%s'", branch, repoURL)
+	if tpl, err := tryLoadTemplateFromRootOrSingleDirWithName(dir, selector); err == nil {
+		return tpl, nil
+	}
+
+	return nil, fmt.Errorf("template '%s' not found in branch registry '%s'", selector, repoURL)
+}
+
+func splitScopedTemplateSelector(selector string) (string, string) {
+	trimmed := strings.TrimSpace(selector)
+	idx := strings.Index(trimmed, "/")
+	if idx <= 0 || idx == len(trimmed)-1 {
+		return trimmed, ""
+	}
+
+	return trimmed[:idx], trimmed[idx+1:]
 }
 
 func tryLoadTemplateFromRootOrSingleDir(dir string) (*Template, error) {
@@ -1310,37 +1419,7 @@ func tryLoadTemplateFromRootOrSingleDirWithName(dir string, templateName string)
 }
 
 func loadTemplateFromDirWithName(dir string, templateName string) (*Template, error) {
-	metaPath := filepath.Join(dir, "template.yaml")
-	metaData, err := os.ReadFile(metaPath)
-	if err != nil {
-		return nil, fmt.Errorf("reading template.yaml: %w", err)
-	}
-
-	var meta TemplateMeta
-	if err := yaml.Unmarshal(metaData, &meta); err != nil {
-		return nil, fmt.Errorf("parsing template.yaml: %w", err)
-	}
-
-	t := &Template{
-		Name:    templateName,
-		Meta:    meta,
-		Scripts: make(map[string]string),
-	}
-
-	for _, ext := range []string{".go", ".ts", ".cs"} {
-		scriptPath := filepath.Join(dir, templateName+ext)
-		data, err := os.ReadFile(scriptPath)
-		if err != nil {
-			continue
-		}
-		t.Scripts[ext] = string(data)
-	}
-
-	if len(t.Scripts) == 0 {
-		return nil, fmt.Errorf("template '%s' has no script files (expected %s.{go,ts,cs})", templateName, templateName)
-	}
-
-	return t, nil
+	return loadTemplateFromDirNamed(dir, templateName)
 }
 
 func resolveRegistryDirWithRef(source string, ref string) (string, func(), error) {

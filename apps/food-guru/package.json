@@ -10,6 +10,11 @@
 		"sync:embed": "node ./scripts/sync-embedded-assets.mjs",
 		"build:server": "cd ./server && go build ./...",
 		"build": "pnpm run build:client && pnpm run sync:embed && pnpm run build:server",
-		"run": "pnpm run build && cd ./server && go run ./cmd/food-guru"
+		"run": "pnpm run build && cd ./server && go run ./cmd/food-guru",
+		"test:e2e": "playwright test --config=playwright.config.ts",
+		"test:e2e:headed": "playwright test --config=playwright.config.ts --headed"
+	},
+	"devDependencies": {
+		"@playwright/test": "^1.58.2"
 	}
 }

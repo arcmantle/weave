@@ -33,6 +33,10 @@ func resolveGitHubToken() (string, error) {
 	return token, nil
 }
 
+func ResolveGitHubToken() (string, error) {
+	return resolveGitHubToken()
+}
+
 func GitHubTokenStatus() (envConfigured bool, configConfigured bool, configPath string, err error) {
 	path, err := githubTokenConfigPath()
 	if err != nil {
