@@ -1,0 +1,41 @@
+{
+	"scopeName": "inline.html.tagged-template",
+	"injectionSelector": "L:source.ts, L:source.tsx, L:source.js, L:source.jsx",
+	"patterns": [
+		{ "include": "#html-tagged-template" },
+		{ "include": "#html-comment-template" }
+	],
+	"repository": {
+		"html-tagged-template": {
+			"comment": "Matches html`...` tagged template literals",
+			"begin": "(?i)\\b(html)\\s*(`)",
+			"beginCaptures": {
+				"1": { "name": "entity.name.function.tagged-template.html" },
+				"2": { "name": "punctuation.definition.string.template.begin.js" }
+			},
+			"end": "(`)",
+			"endCaptures": {
+				"1": { "name": "punctuation.definition.string.template.end.js" }
+			},
+			"contentName": "meta.embedded.block.html",
+			"patterns": [
+				{ "include": "text.html.basic" }
+			]
+		},
+		"html-comment-template": {
+			"comment": "Matches /*html*/ `...` or /* html */ `...` annotated template literals",
+			"begin": "(?:/\\*\\*?\\s*\\??\\s*html\\s*\\*/|//\\s*html)\\s*(`)",
+			"beginCaptures": {
+				"1": { "name": "punctuation.definition.string.template.begin.js" }
+			},
+			"end": "(`)",
+			"endCaptures": {
+				"1": { "name": "punctuation.definition.string.template.end.js" }
+			},
+			"contentName": "meta.embedded.block.html",
+			"patterns": [
+				{ "include": "text.html.basic" }
+			]
+		}
+	}
+}

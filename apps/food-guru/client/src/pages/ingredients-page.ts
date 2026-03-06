@@ -827,7 +827,9 @@ export class IngredientsPage extends LitElement {
 		void this.draftRenderTick;
 
 		return html`
-		<section class="workspace">
+		<section class="workspace"  @click=${ 'dawdwad' } @input=${ (event) => {
+			console.log('input event', event);
+		} }>
 			<aside class="bucket-strip">
 				<div class="bucket-strip-header">
 					<h3>Ingredient Groups</h3>
@@ -939,7 +941,7 @@ export class IngredientsPage extends LitElement {
 			<aside class="editor-panel">
 				${ when(selected !== null && draft !== null, () => html`
 				<div class="editor-header">
-					<h3>Edit Ingredient</h3>
+					<h3></h3>
 					<div class="editor-header-actions">
 						${ when(isDirty, () => html`
 						<span class="dirty-indicator">Unsaved changes</span>
@@ -963,7 +965,7 @@ export class IngredientsPage extends LitElement {
 				</div>
 				<div class="editor-body">
 					<div class="editor-tabs" role="tablist" aria-label="Ingredient details tabs">
-						${ repeat(this.editorTabs, (tab) => tab.id, (tab) => html`
+						${ repeat(this.editorTabs, tab => tab.id, (tab) => html`
 						<button
 							type="button"
 							class="editor-tab"
@@ -997,6 +999,7 @@ export class IngredientsPage extends LitElement {
 						</label>
 						<label>
 							<span>Notes</span>
+							<input value="4">
 							<textarea .value=${ draft!.notes } @change=${ this.handleDraftTextArea }></textarea>
 						</label>
 						<div class="nutrient-snapshot">
@@ -1007,7 +1010,9 @@ export class IngredientsPage extends LitElement {
 									const hasValue = (entry?.value ?? '').trim().length > 0;
 
 									return html`
-									<div class="nutrient-pill" ?data-empty=${ !hasValue }>
+									<div class="nutrient-pill" ?data-empty=${ !hasValue } @blur=${ (ev) => {
+
+									} }>
 										<span class="nutrient-pill-label">${ macro.label }</span>
 										<span class="nutrient-pill-value">${ hasValue ? `${ entry!.value } ${ entry!.unit }` : '—' }</span>
 									</div>

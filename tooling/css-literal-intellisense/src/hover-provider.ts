@@ -18,7 +18,7 @@ import {
 
 export class CSSHoverProvider implements vscode.HoverProvider {
 
-	constructor(private readonly options: { current: Partial<DetectorOptions> }) {}
+	constructor(private readonly options: { current: Partial<DetectorOptions>; }) {}
 
 	provideHover(
 		document: vscode.TextDocument,
@@ -28,13 +28,13 @@ export class CSSHoverProvider implements vscode.HoverProvider {
 		try {
 			const regions = getRegions(document, this.options.current);
 			const region = findRegionAtPosition(document, regions, position);
-			if (!region) {
+			if (!region)
 				return undefined;
-			}
+
 
 			const virtualOffset = sourcePositionToVirtual(document, region, position);
 			if (virtualOffset === undefined) {
-				log(`Hover: sourcePositionToVirtual returned undefined at ${position.line}:${position.character}`);
+				log(`Hover: sourcePositionToVirtual returned undefined at ${ position.line }:${ position.character }`);
 
 				return undefined;
 			}
@@ -42,12 +42,12 @@ export class CSSHoverProvider implements vscode.HoverProvider {
 			const uri = document.uri.toString() + '.css';
 			const hover = getCSSHover(region.cssText, virtualOffset, uri);
 			if (!hover) {
-				log(`Hover: CSS service returned null at virtualOffset ${virtualOffset}`);
+				log(`Hover: CSS service returned null at virtualOffset ${ virtualOffset }`);
 
 				return undefined;
 			}
 
-			log(`Hover: got result at ${position.line}:${position.character}, virtualOffset=${virtualOffset}`);
+			log(`Hover: got result at ${ position.line }:${ position.character }, virtualOffset=${ virtualOffset }`);
 
 			const markdown = convertHoverContents(hover.contents);
 
@@ -61,7 +61,7 @@ export class CSSHoverProvider implements vscode.HoverProvider {
 			return new vscode.Hover(markdown, range);
 		}
 		catch (err) {
-			log(`Hover ERROR: ${err instanceof Error ? err.message : String(err)}`);
+			log(`Hover ERROR: ${ err instanceof Error ? err.message : String(err) }`);
 
 			return undefined;
 		}
@@ -75,13 +75,13 @@ type HoverContents = import('vscode-languageserver-types').Hover['contents'];
 // Converts LSP hover contents to a VS Code MarkdownString.
 // Handles: string, MarkupContent, MarkedString, and MarkedString[].
 function convertHoverContents(contents: HoverContents): vscode.MarkdownString {
-	if (typeof contents === 'string') {
+	if (typeof contents === 'string')
 		return new vscode.MarkdownString(contents);
-	}
 
-	if ('kind' in contents && !Array.isArray(contents)) {
+
+	if ('kind' in contents && !Array.isArray(contents))
 		return new vscode.MarkdownString(contents.value);
-	}
+
 
 	if (Array.isArray(contents)) {
 		const parts = contents.map(c => {
@@ -89,12 +89,12 @@ function convertHoverContents(contents: HoverContents): vscode.MarkdownString {
 				return c;
 
 			// MarkedString with language → render as fenced code block
-			return `\`\`\`${c.language}\n${c.value}\n\`\`\``;
+			return `\`\`\`${ c.language }\n${ c.value }\n\`\`\``;
 		});
 
 		return new vscode.MarkdownString(parts.join('\n\n'));
 	}
 
 	// Single MarkedString with language
-	return new vscode.MarkdownString(`\`\`\`${contents.language}\n${contents.value}\n\`\`\``);
+	return new vscode.MarkdownString(`\`\`\`${ contents.language }\n${ contents.value }\n\`\`\``);
 }

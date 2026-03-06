@@ -17,12 +17,12 @@ import { isDiagnosticInPlaceholder, virtualRangeToSourceRange } from './virtual-
 export class CSSDiagnosticsManager {
 
 	private readonly collection: vscode.DiagnosticCollection;
-	private readonly options:    { current: Partial<DetectorOptions> };
+	private readonly options:    { current: Partial<DetectorOptions>; };
 	private enabled:             boolean;
 
 	constructor(
 		collection: vscode.DiagnosticCollection,
-		options: { current: Partial<DetectorOptions> },
+		options: { current: Partial<DetectorOptions>; },
 		enabled: boolean,
 	) {
 		this.collection = collection;

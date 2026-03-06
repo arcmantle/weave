@@ -1,0 +1,54 @@
+{
+	"scopeName": "inline.html.template-literals",
+	"injectionSelector": "L:meta.embedded.block.html",
+	"patterns": [
+		{ "include": "#template-interpolation" },
+		{ "include": "#lit-property-binding" },
+		{ "include": "#lit-boolean-binding" },
+		{ "include": "#lit-event-binding" }
+	],
+	"repository": {
+		"template-interpolation": {
+			"comment": "Matches ${...} template expressions inside HTML blocks at any nesting level",
+			"begin": "\\$\\{",
+			"beginCaptures": {
+				"0": { "name": "punctuation.definition.template-expression.begin.js" }
+			},
+			"end": "\\}",
+			"endCaptures": {
+				"0": { "name": "punctuation.definition.template-expression.end.js" }
+			},
+			"contentName": "meta.template.expression.js",
+			"patterns": [
+				{ "include": "source.ts" }
+			]
+		},
+		"lit-property-binding": {
+			"comment": "Matches .property= Lit property binding syntax in HTML tags",
+			"match": "(\\.)([-\\w]+)\\s*(=)",
+			"captures": {
+				"1": { "name": "punctuation.definition.binding.property.html" },
+				"2": { "name": "entity.other.attribute-name.html" },
+				"3": { "name": "punctuation.separator.key-value.html" }
+			}
+		},
+		"lit-boolean-binding": {
+			"comment": "Matches ?attribute= Lit boolean binding syntax in HTML tags",
+			"match": "(\\?)([-\\w]+)\\s*(=)",
+			"captures": {
+				"1": { "name": "punctuation.definition.binding.boolean.html" },
+				"2": { "name": "entity.other.attribute-name.html" },
+				"3": { "name": "punctuation.separator.key-value.html" }
+			}
+		},
+		"lit-event-binding": {
+			"comment": "Matches @event= Lit event binding syntax in HTML tags",
+			"match": "(@)([-\\w]+)\\s*(=)",
+			"captures": {
+				"1": { "name": "punctuation.definition.binding.event.html" },
+				"2": { "name": "entity.other.attribute-name.html" },
+				"3": { "name": "punctuation.separator.key-value.html" }
+			}
+		}
+	}
+}

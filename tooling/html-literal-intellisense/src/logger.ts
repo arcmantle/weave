@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 let outputChannel: vscode.OutputChannel | undefined;
 
 export function initLogger(): vscode.OutputChannel {
-	outputChannel = vscode.window.createOutputChannel('CSS Literal IntelliSense');
+	outputChannel = vscode.window.createOutputChannel('HTML Literal IntelliSense');
 
 	return outputChannel;
 }

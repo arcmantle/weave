@@ -1,29 +1,31 @@
 //
-// CSS Region Detector
+// HTML Region Detector
 //
-// Detects CSS regions inside TypeScript/JavaScript files by scanning for:
-// 1. Tagged template expressions where the tag name matches configured names (default: css)
-// 2. Template literals preceded by a comment marker like  /* css */
+// Detects HTML regions inside TypeScript/JavaScript files by scanning for:
+// 1. Tagged template expressions where the tag name matches configured names (default: html)
+// 2. Template literals preceded by a comment marker like  /* html */
 //
 // Uses the TypeScript compiler API for robust AST-based detection.
 //
 import * as ts from 'typescript';
 
 
-/** A detected CSS region within a source file. */
-export interface CSSRegion {
-	/** 0-based start offset of the CSS content (after the opening backtick). */
+/** A detected HTML region within a source file. */
+export interface HTMLRegion {
+	/** Whether this region contains HTML or CSS content. */
+	kind:         'html' | 'css';
+	/** 0-based start offset of the HTML content (after the opening backtick). */
 	start:        number;
-	/** 0-based end offset of the CSS content (before the closing backtick). */
+	/** 0-based end offset of the HTML content (before the closing backtick). */
 	end:          number;
-	/** The raw CSS text (with interpolation expressions replaced by placeholders). */
-	cssText:      string;
+	/** The raw HTML text (with interpolation expressions replaced by placeholders). */
+	htmlText:     string;
 	/**
-	 * Maps from virtual CSS document offset to source file offset.
+	 * Maps from virtual HTML document offset to source file offset.
 	 * Each entry is [virtualStart, virtualEnd, sourceStart, sourceEnd].
 	 */
 	mappings:     OffsetMapping[];
-	/** Ranges in the virtual CSS that are placeholders for interpolations. */
+	/** Ranges in the virtual HTML that are placeholders for interpolations. */
 	placeholders: PlaceholderRange[];
 }
 
@@ -41,29 +43,37 @@ export interface PlaceholderRange {
 
 
 export interface DetectorOptions {
-	/** Tag function names to match (case-insensitive). Default: ['css'] */
-	tagNames:       string[];
-	/** Comment body markers. Default: ['css'] */
-	commentMarkers: string[];
+	/** Tag function names to match (case-insensitive). Default: ['html'] */
+	tagNames:         string[];
+	/** Comment body markers. Default: ['html'] */
+	commentMarkers:   string[];
+	/** Tag function names to treat as CSS template literals. Default: ['css'] */
+	cssTagNames:      string[];
+	/** Comment markers for CSS template literals. Default: ['css'] */
+	cssCommentMarkers: string[];
 }
 
 const defaultOptions: DetectorOptions = {
-	tagNames:       [ 'css' ],
-	commentMarkers: [ 'css' ],
+	tagNames:          [ 'html' ],
+	commentMarkers:    [ 'html' ],
+	cssTagNames:       [ 'css' ],
+	cssCommentMarkers: [ 'css' ],
 };
 
 
 /**
- * Detects all CSS template literal regions in the given source text.
+ * Detects all HTML template literal regions in the given source text.
  */
-export function detectCSSRegions(
+export function detectHTMLRegions(
 	sourceText: string,
 	fileName: string,
 	options: Partial<DetectorOptions> = {},
-): CSSRegion[] {
+): HTMLRegion[] {
 	const opts = { ...defaultOptions, ...options };
 	const tagNamesLower = new Set(opts.tagNames.map(n => n.toLowerCase()));
 	const markerBodies = new Set(opts.commentMarkers.map(m => m.toLowerCase().trim()));
+	const cssTagNamesLower = new Set(opts.cssTagNames.map(n => n.toLowerCase()));
+	const cssMarkerBodies = new Set(opts.cssCommentMarkers.map(m => m.toLowerCase().trim()));
 
 	const scriptKind = getScriptKind(fileName);
 	const sourceFile = ts.createSourceFile(
@@ -74,33 +84,55 @@ export function detectCSSRegions(
 		scriptKind,
 	);
 
-	const regions: CSSRegion[] = [];
+	const regions: HTMLRegion[] = [];
 
 	function visit(node: ts.Node): void {
-		// Case 1: Tagged template expression  (e.g. css tag)
+		// Case 1: Tagged template expression  (e.g. html or css tag)
 		if (ts.isTaggedTemplateExpression(node)) {
 			const tagName = extractTagName(node.tag);
-			if (tagName && tagNamesLower.has(tagName.toLowerCase())) {
-				const region = extractRegion(node.template, sourceText);
-				if (region)
-					regions.push(region);
+			if (tagName) {
+				const nameLower = tagName.toLowerCase();
+				const isHTMLTag = tagNamesLower.has(nameLower);
+				const isCSSTag = cssTagNamesLower.has(nameLower);
 
-				// Don't recurse into the template itself again
-				ts.forEachChild(node.tag, visit);
+				if (isHTMLTag || isCSSTag) {
+					const region = extractRegion(node.template, sourceText);
+					if (region)
+						regions.push(isCSSTag ? wrapCSSRegion(region) : region);
 
-				return;
+					// Recurse into tag expression
+					ts.forEachChild(node.tag, visit);
+
+					// Recurse into interpolation expressions to find nested blocks
+					const template = node.template;
+					if (ts.isTemplateExpression(template)) {
+						for (const span of template.templateSpans)
+							visit(span.expression);
+					}
+
+					return;
+				}
 			}
 		}
 
-		// Case 2: Untagged template literal with leading /*css*/ comment
+		// Case 2: Untagged template literal with leading /*html*/ or /*css*/ comment
 		if (
 			(ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateExpression(node))
 			&& !ts.isTaggedTemplateExpression(node.parent)
 		) {
-			if (hasLeadingCSSComment(node, sourceText, markerBodies)) {
+			const isHTMLComment = hasLeadingHTMLComment(node, sourceText, markerBodies);
+			const isCSSComment = !isHTMLComment && hasLeadingHTMLComment(node, sourceText, cssMarkerBodies);
+
+			if (isHTMLComment || isCSSComment) {
 				const region = extractRegion(node, sourceText);
 				if (region)
-					regions.push(region);
+					regions.push(isCSSComment ? wrapCSSRegion(region) : region);
+
+				// Recurse into interpolation expressions for nested templates
+				if (ts.isTemplateExpression(node)) {
+					for (const span of node.templateSpans)
+						visit(span.expression);
+				}
 
 				return;
 			}
@@ -120,7 +152,7 @@ function extractTagName(tag: ts.Expression): string | undefined {
 	if (ts.isIdentifier(tag))
 		return tag.text;
 
-	// Support property access like LitElement.css (take the last part)
+	// Support property access like LitElement.html (take the last part)
 	if (ts.isPropertyAccessExpression(tag))
 		return tag.name.text;
 
@@ -143,12 +175,9 @@ function getScriptKind(fileName: string): ts.ScriptKind {
 
 
 // Checks whether the given node has a leading comment whose body matches
-// one of the CSS markers (e.g. css).
+// one of the HTML markers (e.g. html).
 // Supports block comments, JSDoc comments, and line comments.
-// Uses backward scanning from the template literal start because
-// TypeScript's getLeadingCommentRanges only works for comments
-// at line/file boundaries, not for mid-expression comments.
-function hasLeadingCSSComment(
+function hasLeadingHTMLComment(
 	node: ts.Node,
 	sourceText: string,
 	markers: Set<string>,
@@ -191,8 +220,7 @@ function hasLeadingCSSComment(
 		return markers.has(body.toLowerCase());
 	}
 
-	// Check for line comment: // css (scan backward to find //)
-	// The line comment must be on the line directly before or same line
+	// Check for line comment: // html (scan backward to find //)
 	const lineStart = sourceText.lastIndexOf('\n', start - 1);
 	const lineContent = sourceText.slice(lineStart + 1, start);
 	const lineCommentMatch = lineContent.match(/\/\/\s*(\S+)\s*$/);
@@ -230,30 +258,31 @@ function extractCommentBody(comment: string): string {
 
 
 /**
- * Extracts a CSSRegion from a template literal node,
- * handling interpolations by inserting CSS-valid placeholders.
+ * Extracts an HTMLRegion from a template literal node,
+ * handling interpolations by inserting HTML-valid placeholders.
  */
 function extractRegion(
 	template: ts.TemplateLiteral | ts.NoSubstitutionTemplateLiteral | ts.TemplateExpression,
 	sourceText: string,
-): CSSRegion | undefined {
+): HTMLRegion | undefined {
 	if (ts.isNoSubstitutionTemplateLiteral(template)) {
 		// Simple case: no interpolations
 		const start = template.getStart() + 1; // skip opening backtick
 		const end = template.getEnd() - 1;     // skip closing backtick
-		const cssText = sourceText.slice(start, end);
+		const htmlText = sourceText.slice(start, end);
 
-		if (!cssText.trim())
+		if (!htmlText.trim())
 			return undefined;
 
 		return {
+			kind: 'html',
 			start,
 			end,
-			cssText,
+			htmlText,
 			mappings: [
 				{
 					virtualStart: 0,
-					virtualEnd:   cssText.length,
+					virtualEnd:   htmlText.length,
 					sourceStart:  start,
 					sourceEnd:    end,
 				},
@@ -273,17 +302,17 @@ function extractRegion(
 /**
  * Handles template expressions with interpolations.
  *
- * Strategy: replace each interpolation with a CSS-parseable placeholder
- * that preserves the structural validity of the CSS.
- * Uses CSS custom property values like var(--_ph_N) as placeholders.
+ * Strategy: replace each interpolation with an HTML-parseable placeholder.
+ * Uses __ph_N__ as placeholders, which are valid in both attribute value
+ * and content contexts without breaking HTML parsing.
  */
 function extractInterpolatedRegion(
 	template: ts.TemplateExpression,
 	sourceText: string,
-): CSSRegion | undefined {
+): HTMLRegion | undefined {
 	const mappings: OffsetMapping[] = [];
 	const placeholders: PlaceholderRange[] = [];
-	let cssText = '';
+	let htmlText = '';
 	let virtualOffset = 0;
 
 	// Process the head
@@ -297,7 +326,7 @@ function extractInterpolatedRegion(
 		sourceStart:  headStart,
 		sourceEnd:    headEnd,
 	});
-	cssText += headText;
+	htmlText += headText;
 	virtualOffset += headText.length;
 
 	// Process each template span (expression + literal)
@@ -305,12 +334,12 @@ function extractInterpolatedRegion(
 		const span = template.templateSpans[i]!;
 
 		// Insert placeholder for the expression
-		const placeholder = `var(--_ph_${ i })`;
+		const placeholder = `__ph_${ i }__`;
 		placeholders.push({
 			virtualStart: virtualOffset,
 			virtualEnd:   virtualOffset + placeholder.length,
 		});
-		cssText += placeholder;
+		htmlText += placeholder;
 		virtualOffset += placeholder.length;
 
 		// Process the literal part after the expression
@@ -328,22 +357,52 @@ function extractInterpolatedRegion(
 				sourceStart:  litStart,
 				sourceEnd:    litEnd,
 			});
-			cssText += litText;
+			htmlText += litText;
 			virtualOffset += litText.length;
 		}
 	}
 
-	if (!cssText.trim())
+	if (!htmlText.trim())
 		return undefined;
 
 	const regionStart = template.head.getStart() + 1;
 	const regionEnd = template.templateSpans[template.templateSpans.length - 1]!.literal.getEnd() - 1;
 
 	return {
+		kind: 'html',
 		start: regionStart,
 		end:   regionEnd,
-		cssText,
+		htmlText,
 		mappings,
 		placeholders,
+	};
+}
+
+
+const CSS_WRAPPER_PREFIX = '<style>';
+const CSS_WRAPPER_SUFFIX = '</style>';
+
+/**
+ * Wraps a raw CSS region in <style> tags so the HTML language service
+ * provides CSS intellisense. Shifts all virtual offsets accordingly.
+ */
+function wrapCSSRegion(region: HTMLRegion): HTMLRegion {
+	const shift = CSS_WRAPPER_PREFIX.length;
+
+	return {
+		kind:         'css',
+		start:        region.start,
+		end:          region.end,
+		htmlText:     CSS_WRAPPER_PREFIX + region.htmlText + CSS_WRAPPER_SUFFIX,
+		mappings:     region.mappings.map(m => ({
+			virtualStart: m.virtualStart + shift,
+			virtualEnd:   m.virtualEnd + shift,
+			sourceStart:  m.sourceStart,
+			sourceEnd:    m.sourceEnd,
+		})),
+		placeholders: region.placeholders.map(p => ({
+			virtualStart: p.virtualStart + shift,
+			virtualEnd:   p.virtualEnd + shift,
+		})),
 	};
 }

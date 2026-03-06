@@ -1,0 +1,124 @@
+{
+	"name": "html-literal-intellisense",
+	"displayName": "HTML Literal IntelliSense",
+	"version": "0.0.1",
+	"description": "HTML IntelliSense, completion, hover, and syntax highlighting inside html`` tagged templates and /*html*/ annotated template literals.",
+	"categories": [
+		"Programming Languages"
+	],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/arcmantle/weave"
+	},
+	"license": "MIT",
+	"publisher": "arcmantle",
+	"main": "./dist/extension.js",
+	"scripts": {
+		"compile": "tsc -p ./ --noEmit && vite build --config vite.build.config.ts && vite build --config vite.ts-plugin.config.ts",
+		"package": "pnpm run compile && pnpx @vscode/vsce package --allow-missing-repository --no-dependencies",
+		"test": "vitest run",
+		"watch": "tsc -watch -p ./"
+	},
+	"contributes": {
+		"configuration": {
+			"title": "HTML Literal IntelliSense",
+			"properties": {
+				"htmlLiteralIntellisense.tagNames": {
+					"type": "array",
+					"default": [
+						"html"
+					],
+					"items": {
+						"type": "string"
+					},
+					"description": "Tag function names to treat as HTML template literals."
+				},
+				"htmlLiteralIntellisense.commentMarkers": {
+					"type": "array",
+					"default": [
+						"html"
+					],
+					"items": {
+						"type": "string"
+					},
+					"description": "Comment markers (e.g. /*html*/) that indicate a following template literal contains HTML."
+				},
+				"htmlLiteralIntellisense.cssTagNames": {
+					"type": "array",
+					"default": [
+						"css"
+					],
+					"items": {
+						"type": "string"
+					},
+					"description": "Tag function names to treat as CSS template literals."
+				},
+				"htmlLiteralIntellisense.cssCommentMarkers": {
+					"type": "array",
+					"default": [
+						"css"
+					],
+					"items": {
+						"type": "string"
+					},
+					"description": "Comment markers (e.g. /*css*/) that indicate a following template literal contains CSS."
+				}
+			}
+		},
+		"typescriptServerPlugins": [
+			{
+				"name": "./dist/ts-plugin",
+				"enableForWorkspaceTypeScriptVersions": true
+			}
+		],
+		"grammars": [
+			{
+				"scopeName": "inline.html.tagged-template",
+				"path": "./syntaxes/html-tagged-template.json",
+				"injectTo": [
+					"source.ts",
+					"source.js",
+					"source.tsx",
+					"source.jsx"
+				],
+				"embeddedLanguages": {
+					"meta.embedded.block.html": "html"
+				}
+			},
+			{
+				"scopeName": "inline.html.template-literals",
+				"path": "./syntaxes/html-template-literals.json",
+				"injectTo": [
+					"source.ts",
+					"source.js",
+					"source.tsx",
+					"source.jsx"
+				],
+				"embeddedLanguages": {
+					"meta.template.expression.js": "typescript"
+				}
+			}
+		]
+	},
+	"activationEvents": [
+		"onLanguage:typescript",
+		"onLanguage:javascript",
+		"onLanguage:typescriptreact",
+		"onLanguage:javascriptreact"
+	],
+	"dependencies": {
+		"vscode-html-languageservice": "^5.3.0",
+		"vscode-languageserver-textdocument": "^1.0.0",
+		"vscode-languageserver-types": "^3.17.0"
+	},
+	"devDependencies": {
+		"@types/node": "^22.0.0",
+		"@types/vscode": "^1.85.0",
+		"typescript": "^5.7.0",
+		"vite": "8.0.0-beta.16",
+		"vitest": "^3.0.0"
+	},
+	"engines": {
+		"vscode": "^1.85.0"
+	}
+}

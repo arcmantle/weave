@@ -17,6 +17,7 @@
 		".vscode-test",
 		"tests",
 		"vitest.config.ts",
-		"vite.build.config.ts"
+		"vite.build.config.ts",
+		"vite.ts-plugin.config.ts"
 	]
 }

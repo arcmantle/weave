@@ -19,7 +19,7 @@ import {
 
 export class CSSCompletionProvider implements vscode.CompletionItemProvider {
 
-	constructor(private readonly options: { current: Partial<DetectorOptions> }) {}
+	constructor(private readonly options: { current: Partial<DetectorOptions>; }) {}
 
 	provideCompletionItems(
 		document: vscode.TextDocument,
@@ -30,13 +30,13 @@ export class CSSCompletionProvider implements vscode.CompletionItemProvider {
 		try {
 			const regions = getRegions(document, this.options.current);
 			const region = findRegionAtPosition(document, regions, position);
-			if (!region) {
+			if (!region)
 				return undefined;
-			}
+
 
 			const virtualOffset = sourcePositionToVirtual(document, region, position);
 			if (virtualOffset === undefined) {
-				log(`Completion: sourcePositionToVirtual returned undefined at ${position.line}:${position.character}`);
+				log(`Completion: sourcePositionToVirtual returned undefined at ${ position.line }:${ position.character }`);
 
 				return undefined;
 			}
@@ -44,14 +44,15 @@ export class CSSCompletionProvider implements vscode.CompletionItemProvider {
 			const uri = document.uri.toString() + '.css';
 			const completions = getCSSCompletions(region.cssText, virtualOffset, uri);
 
-			log(`Completion: ${completions.items.length} items at ${position.line}:${position.character}, virtualOffset=${virtualOffset}`);
+			log(`Completion: ${ completions.items.length } `
+				+ `items at ${ position.line }:${ position.character }, virtualOffset=${ virtualOffset }`);
 
 			const items = completions.items.map(item => this.convertCompletionItem(item, document, region));
 
 			return new vscode.CompletionList(items, completions.isIncomplete);
 		}
 		catch (err) {
-			log(`Completion ERROR: ${err instanceof Error ? err.message : String(err)}`);
+			log(`Completion ERROR: ${ err instanceof Error ? err.message : String(err) }`);
 
 			return undefined;
 		}
