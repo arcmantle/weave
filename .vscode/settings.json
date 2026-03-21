@@ -40,7 +40,6 @@
 	"javascript.preferences.importModuleSpecifierEnding": "js",
 	"typescript.preferences.quoteStyle": "single",
 	"javascript.preferences.quoteStyle": "single",
-	"typescript.tsdk": "node_modules\\typescript\\lib",
 	"workbench.colorCustomizations": {
 		"activityBar.activeBackground": "#39596f",
 		"activityBar.background": "#39596f",
@@ -190,5 +189,5 @@
 		"*.db": "sqlite-viewer.option",
 		"*.svg": "default",
 		"*.sprite": "d2rmodding.spriteViewer"
-	}
+	},
 }

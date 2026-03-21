@@ -20,4 +20,7 @@ catalogs:
 onlyBuiltDependencies:
   - esbuild
 
+publicHoistPattern:
+  - '*eslint*'
+
 pnpmfile: ../.pnpmfile.cjs

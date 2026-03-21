@@ -827,9 +827,7 @@ export class IngredientsPage extends LitElement {
 		void this.draftRenderTick;
 
 		return html`
-		<section class="workspace"  @click=${ 'dawdwad' } @input=${ (event) => {
-			console.log('input event', event);
-		} }>
+		<section class="workspace">
 			<aside class="bucket-strip">
 				<div class="bucket-strip-header">
 					<h3>Ingredient Groups</h3>
@@ -1010,9 +1008,7 @@ export class IngredientsPage extends LitElement {
 									const hasValue = (entry?.value ?? '').trim().length > 0;
 
 									return html`
-									<div class="nutrient-pill" ?data-empty=${ !hasValue } @blur=${ (ev) => {
-
-									} }>
+									<div class="nutrient-pill" ?data-empty=${ !hasValue }>
 										<span class="nutrient-pill-label">${ macro.label }</span>
 										<span class="nutrient-pill-value">${ hasValue ? `${ entry!.value } ${ entry!.unit }` : '—' }</span>
 									</div>

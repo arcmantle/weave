@@ -1,6 +1,7 @@
-import { render } from 'lit';
-import { classes, Component } from '../src/raw-components.ts';
 import { Signal, signal } from '@preact/signals-core';
+import { render } from 'lit';
+
+import { classes, Component } from '../src/raw-components.ts';
 
 
 const app = Component.create((raw, css) => () => {
@@ -41,9 +42,9 @@ const app = Component.create((raw, css) => () => {
 
 
 const aside = Component.create((raw, css) => (props: {
-	activePage:     Signal<'home' | 'settings'>,
-	availablePages: Signal<string[]>,
-	setPage:        (input: 'home' | 'settings') => void
+	activePage:     Signal<'home' | 'settings'>;
+	availablePages: Signal<string[]>;
+	setPage:        (input: 'home' | 'settings') => void;
 }) => {
 	css`
 	.aside {
