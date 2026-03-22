@@ -1,20 +1,29 @@
 import { makeAloneSprite } from '@orillusion/core';
 
 export interface SpriteAnimationDefinition {
-	id:    string;
-	label: string;
-	fps:   number;
+	id:            string;
+	label:         string;
+	fps:           number;
+	invertFacing?: boolean;
+	nativeFps?:    number;
+	playbackMode?: 'loop' | 'ping-pong';
 }
 
 export interface SpriteSheetFrames {
-	frameCount:  number;
-	frameHeight: number;
-	frameWidth:  number;
-	height:      number;
-	leftOffsetX: number;
-	leftSprites: ReturnType<typeof makeAloneSprite>[];
-	sprites:     ReturnType<typeof makeAloneSprite>[];
-	width:       number;
+	baselineOffsetFactor:  number;
+	contentBottomInset:    number;
+	contentLeftInset:      number;
+	contentRightInset:     number;
+	frameCount:            number;
+	frameHeight:           number;
+	frameWidth:            number;
+	height:                number;
+	leftContentLeftInset:  number;
+	leftContentRightInset: number;
+	leftOffsetX:           number;
+	leftSprites:           ReturnType<typeof makeAloneSprite>[];
+	sprites:               ReturnType<typeof makeAloneSprite>[];
+	width:                 number;
 }
 
 export interface CharacterStatus {

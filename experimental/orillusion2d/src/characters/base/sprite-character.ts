@@ -1,4 +1,4 @@
-import { Object3D, UIImage } from '@orillusion/core';
+import { Color, Object3D, UIImage } from '@orillusion/core';
 
 import {
 	type CharacterInstance,
@@ -9,9 +9,11 @@ import {
 	type SpriteSheetLoader,
 } from './types';
 
+
 const DEFAULT_BASELINE_OFFSET_FACTOR = 0.7;
 const WIDTH_SCALE_DIVISOR = 8 / 3;
 const HEIGHT_SCALE_DIVISOR = 11 / 4;
+
 
 export interface SpriteCharacterOptions<
 	TDefinition extends SpriteAnimationDefinition,
@@ -27,6 +29,12 @@ export interface SpriteCharacterOptions<
 	playing?:              boolean;
 	screenX?:              number;
 	spriteScale?:          number;
+}
+
+interface ScriptedFramePlayback {
+	fps:           number;
+	frameIndices:  number[];
+	sequenceIndex: number;
 }
 
 export class SpriteCharacter<
@@ -46,16 +54,18 @@ export class SpriteCharacter<
 	readonly #root:                 Object3D;
 
 	#animationToken = 0;
-	#currentDefinition: TDefinition | null = null;
-	#currentFrames:     TFrames | null = null;
-	#facing:            -1 | 1 = 1;
+	#currentDefinition:     TDefinition | null = null;
+	#currentFrames:         TFrames | null = null;
+	#facing:                -1 | 1 = 1;
 	#frameIndex = 0;
 	#lastFrameTime = 0;
 	#motionOffsetY = 0;
-	#playing:           boolean;
-	#screenX:           number;
+	#playbackDirection:     -1 | 1 = 1;
+	#playing:               boolean;
+	#screenX:               number;
 	#screenY = 0;
-	#spriteScale:       number | null;
+	#scriptedFramePlayback: ScriptedFramePlayback | null = null;
+	#spriteScale:           number | null;
 	#viewportHeight = 0;
 	#viewportWidth = 0;
 
@@ -73,6 +83,7 @@ export class SpriteCharacter<
 		this.#root = new Object3D();
 		options.panelRoot.addChild(this.#root);
 		this.#image = this.#root.addComponent(UIImage);
+		this.#image.color = new Color(1, 1, 1, 0);
 	}
 
 	async setAnimation(definition: TDefinition): Promise<void> {
@@ -85,6 +96,8 @@ export class SpriteCharacter<
 		this.#currentFrames = frames;
 		this.#frameIndex = 0;
 		this.#lastFrameTime = performance.now();
+		this.#playbackDirection = 1;
+		this.#scriptedFramePlayback = null;
 		this.#applyFrame();
 		this.#layoutSprite();
 	}
@@ -97,6 +110,30 @@ export class SpriteCharacter<
 	restart(): void {
 		this.#frameIndex = 0;
 		this.#lastFrameTime = performance.now();
+		this.#playbackDirection = 1;
+		this.#scriptedFramePlayback = null;
+		this.#applyFrame();
+		this.#layoutSprite();
+	}
+
+	playFrameSequence(frameIndices: readonly number[], fps?: number): void {
+		const frames = this.#currentFrames;
+		if (!frames || frameIndices.length === 0)
+			return;
+
+		const sanitizedFrameIndices = frameIndices
+			.map((frameIndex) => Math.max(0, Math.min(frames.frameCount - 1, Math.round(frameIndex))));
+		if (sanitizedFrameIndices.length === 0)
+			return;
+
+		this.#scriptedFramePlayback = {
+			fps:           Math.max(1, fps ?? this.#currentDefinition?.fps ?? 1),
+			frameIndices:  sanitizedFrameIndices,
+			sequenceIndex: 0,
+		};
+		this.#frameIndex = sanitizedFrameIndices[0]!;
+		this.#playing = true;
+		this.#lastFrameTime = performance.now();
 		this.#applyFrame();
 		this.#layoutSprite();
 	}
@@ -106,6 +143,7 @@ export class SpriteCharacter<
 			return;
 
 		this.#frameIndex = Math.max(0, this.#currentFrames.frameCount - 1);
+		this.#scriptedFramePlayback = null;
 		this.#playing = false;
 		this.#lastFrameTime = performance.now();
 		this.#applyFrame();
@@ -126,12 +164,23 @@ export class SpriteCharacter<
 		if (!definition || !frames || !this.#playing)
 			return false;
 
-		const frameDuration = 1000 / definition.fps;
+		const playbackFps = this.#scriptedFramePlayback?.fps ?? definition.fps;
+		const frameDuration = 1000 / playbackFps;
 		if (timestamp - this.#lastFrameTime < frameDuration)
 			return false;
 
 		const skippedFrames = Math.max(1, Math.floor((timestamp - this.#lastFrameTime) / frameDuration));
-		this.#frameIndex = (this.#frameIndex + skippedFrames) % frames.frameCount;
+		if (this.#scriptedFramePlayback) {
+			this.#advanceScriptedFrame(skippedFrames);
+		}
+		else if (definition.playbackMode === 'ping-pong') {
+			for (let skippedFrame = 0; skippedFrame < skippedFrames; skippedFrame += 1)
+				this.#advancePingPongFrame(frames.frameCount);
+		}
+		else {
+			this.#frameIndex = (this.#frameIndex + skippedFrames) % frames.frameCount;
+		}
+
 		this.#lastFrameTime = timestamp;
 		this.#applyFrame();
 		this.#layoutSprite();
@@ -234,15 +283,42 @@ export class SpriteCharacter<
 		const frameWidth = this.#currentFrames?.frameWidth ?? this.#defaultFrameWidth;
 		const frameHeight = this.#currentFrames?.frameHeight ?? this.#defaultFrameHeight;
 		const scale = this.#spriteScale ?? this.#resolveSpriteScale(frameWidth, frameHeight);
+		const contentBottomInset = (this.#currentFrames?.contentBottomInset ?? 0) * scale;
 
 		this.#spriteScale = scale;
 		this.#image.uiTransform.resize(frameWidth * scale, frameHeight * scale);
 		this.#image.uiTransform.x = this.#screenX + this.#resolveFacingOffsetX(scale);
-		const groundScreenY = Math.round(
-			(-this.#viewportHeight / 2) + (frameHeight * scale * this.#baselineOffsetFactor),
-		);
+		const groundScreenY = this.#currentFrames
+			? Math.round((-this.#viewportHeight / 2) + ((frameHeight * scale) / 2) - contentBottomInset)
+			: Math.round((-this.#viewportHeight / 2) + (frameHeight * scale * this.#baselineOffsetFactor));
 		this.#screenY = groundScreenY + this.#motionOffsetY;
 		this.#image.uiTransform.y = this.#screenY;
+	}
+
+	protected resolveViewportClampX(direction: 'left' | 'right'): number {
+		const frameWidth = this.#currentFrames?.frameWidth ?? this.#defaultFrameWidth;
+		const scale = this.#spriteScale
+			?? this.#resolveSpriteScale(frameWidth, this.#currentFrames?.frameHeight ?? this.#defaultFrameHeight);
+		const renderedFacing = this.#resolveRenderedFacing();
+
+		const frameWidthScaled = frameWidth * scale;
+		const facingOffsetX = this.#resolveFacingOffsetX(scale);
+		const visibleLeftInset = renderedFacing === -1
+			? (this.#currentFrames?.leftContentLeftInset ?? 0) * scale
+			: (this.#currentFrames?.contentLeftInset ?? 0) * scale;
+		const visibleRightInset = renderedFacing === -1
+			? (this.#currentFrames?.leftContentRightInset ?? 0) * scale
+			: (this.#currentFrames?.contentRightInset ?? 0) * scale;
+
+		if (direction === 'left') {
+			return Math.round(
+				(-this.#viewportWidth / 2) - facingOffsetX + (frameWidthScaled / 2) - visibleLeftInset,
+			);
+		}
+
+		return Math.round(
+			(this.#viewportWidth / 2) - facingOffsetX - (frameWidthScaled / 2) + visibleRightInset,
+		);
 	}
 
 	#resolveSpriteScale(frameWidth: number, frameHeight: number): number {
@@ -252,20 +328,67 @@ export class SpriteCharacter<
 		return Math.max(3, Math.min(6, Math.floor(Math.min(widthScale, heightScale))));
 	}
 
+	#advanceScriptedFrame(skippedFrames: number): void {
+		const scriptedFramePlayback = this.#scriptedFramePlayback;
+		if (!scriptedFramePlayback)
+			return;
+
+		const lastSequenceIndex = scriptedFramePlayback.frameIndices.length - 1;
+		scriptedFramePlayback.sequenceIndex = Math.min(
+			lastSequenceIndex,
+			scriptedFramePlayback.sequenceIndex + skippedFrames,
+		);
+		this.#frameIndex = scriptedFramePlayback.frameIndices[scriptedFramePlayback.sequenceIndex]!;
+		if (scriptedFramePlayback.sequenceIndex >= lastSequenceIndex) {
+			this.#scriptedFramePlayback = null;
+			this.#playing = false;
+		}
+	}
+
 	#resolveFacingOffsetX(scale: number): number {
-		if (this.#facing !== -1 || !this.#currentFrames)
+		if (this.#resolveRenderedFacing() !== -1 || !this.#currentFrames)
 			return 0;
 
 		return this.#currentFrames.leftOffsetX * scale;
+	}
+
+	#resolveRenderedFacing(): -1 | 1 {
+		if (!this.#currentDefinition?.invertFacing)
+			return this.#facing;
+
+		return this.#facing === 1 ? -1 : 1;
+	}
+
+	#advancePingPongFrame(frameCount: number): void {
+		if (frameCount <= 1)
+			return;
+
+		const nextFrameIndex = this.#frameIndex + this.#playbackDirection;
+		if (nextFrameIndex >= frameCount) {
+			this.#playbackDirection = -1;
+			this.#frameIndex = frameCount - 1;
+
+			return;
+		}
+
+		if (nextFrameIndex < 0) {
+			this.#playbackDirection = 1;
+			this.#frameIndex = 0;
+
+			return;
+		}
+
+		this.#frameIndex = nextFrameIndex;
 	}
 
 	#applyFrame(): void {
 		if (!this.#currentFrames)
 			return;
 
-		const frameSet = this.#facing === -1 ? this.#currentFrames.leftSprites : this.#currentFrames.sprites;
+		const frameSet = this.#resolveRenderedFacing() === -1 ? this.#currentFrames.leftSprites : this.#currentFrames.sprites;
 
 		this.#image.sprite = frameSet[this.#frameIndex]!;
+		this.#image.color = new Color(1, 1, 1, 1);
 	}
 
 }

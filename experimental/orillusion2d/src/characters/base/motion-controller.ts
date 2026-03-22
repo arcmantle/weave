@@ -28,6 +28,7 @@ export type CharacterMotionCommand<TContext = void> =
 	| ({
 		direction:        -1 | 1;
 		distance:         number;
+		facing?:          -1 | 1;
 		speedPxPerSecond: number;
 		type:             'walk';
 	} & InterruptibleMotionOptions<TContext>)
@@ -167,6 +168,7 @@ interface JumpMotion {
 
 type HorizontalMotion =
 	| {
+		facing?:           -1 | 1;
 		type:              'distance';
 		direction:         -1 | 1;
 		remainingDistance: number;
@@ -317,7 +319,7 @@ export class CharacterMotionController<TContext = void> {
 				this.#horizontalMotion.speedPxPerSecond * deltaSeconds,
 			);
 
-			adapter.setFacing(this.#horizontalMotion.direction);
+			adapter.setFacing(this.#horizontalMotion.facing ?? this.#horizontalMotion.direction);
 			adapter.moveScreenX(step * this.#horizontalMotion.direction);
 			this.#horizontalMotion.remainingDistance -= step;
 			if (this.#horizontalMotion.remainingDistance <= 0.5) {
@@ -345,7 +347,7 @@ export class CharacterMotionController<TContext = void> {
 		adapter.moveScreenX(step * direction);
 	}
 
-	walkDistance(direction: -1 | 1, distance: number, speedPxPerSecond: number): void {
+	walkDistance(direction: -1 | 1, distance: number, speedPxPerSecond: number, facing?: -1 | 1): void {
 		if (distance <= 0 || speedPxPerSecond <= 0) {
 			this.#horizontalMotion = null;
 			this.#clearActiveCommand();
@@ -356,6 +358,7 @@ export class CharacterMotionController<TContext = void> {
 		this.#waitMotion = null;
 		this.#horizontalMotion = {
 			direction,
+			facing,
 			remainingDistance: distance,
 			speedPxPerSecond,
 			type:              'distance',
@@ -459,7 +462,7 @@ export class CharacterMotionController<TContext = void> {
 			return true;
 
 		case 'walk':
-			this.walkDistance(command.direction, command.distance, command.speedPxPerSecond);
+			this.walkDistance(command.direction, command.distance, command.speedPxPerSecond, command.facing);
 			this.#activeCommand = {
 				interruptWhen: command.interruptWhen,
 				label:         'walk',

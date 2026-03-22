@@ -3,10 +3,28 @@ import { type SpriteAnimationDefinition } from '../base/types';
 
 export const KNIGHT_FRAME_WIDTH = 120;
 export const KNIGHT_FRAME_HEIGHT = 80;
+const OBSERVATION_FPS = 12;
 
 export interface KnightAnimationDefinition extends SpriteAnimationDefinition {
 	sheetUrl: string;
 }
+
+const defineKnightAnimation = (
+	id: string,
+	label: string,
+	fileName: string,
+	nativeFps: number,
+	playbackMode?: KnightAnimationDefinition['playbackMode'],
+	invertFacing = false,
+): KnightAnimationDefinition => ({
+	id,
+	label,
+	sheetUrl: buildSheetUrl(fileName),
+	fps:      OBSERVATION_FPS,
+	invertFacing,
+	nativeFps,
+	playbackMode,
+});
 
 const sheetModules = import.meta.glob('../../../assets/knight/Colour2/Outline/120x80_PNGSheets/*.png', {
 	eager:  true,
@@ -24,36 +42,36 @@ const buildSheetUrl = (fileName: string): string => {
 };
 
 export const knightAnimations: KnightAnimationDefinition[] = [
-	{ id: 'idle',                  label: 'Idle', sheetUrl: buildSheetUrl('_Idle.png'), fps: 6 },
-	{ id: 'run',                   label: 'Run', sheetUrl: buildSheetUrl('_Run.png'), fps: 11 },
-	{ id: 'attack',                label: 'Attack', sheetUrl: buildSheetUrl('_Attack.png'), fps: 12 },
-	{ id: 'attackNoMovement',      label: 'Attack No Movement', sheetUrl: buildSheetUrl('_AttackNoMovement.png'), fps: 12 },
-	{ id: 'attack2',               label: 'Attack 2', sheetUrl: buildSheetUrl('_Attack2.png'), fps: 12 },
-	{ id: 'attack2NoMovement',     label: 'Attack 2 No Movement', sheetUrl: buildSheetUrl('_Attack2NoMovement.png'), fps: 12 },
-	{ id: 'attackCombo',           label: 'Attack Combo', sheetUrl: buildSheetUrl('_AttackCombo.png'), fps: 14 },
-	{ id: 'attackComboNoMovement', label: 'Attack Combo No Movement', sheetUrl: buildSheetUrl('_AttackComboNoMovement.png'), fps: 14 },
-	{ id: 'crouch',                label: 'Crouch', sheetUrl: buildSheetUrl('_Crouch.png'), fps: 6 },
-	{ id: 'crouchAll',             label: 'Crouch All', sheetUrl: buildSheetUrl('_CrouchAll.png'), fps: 8 },
-	{ id: 'crouchAttack',          label: 'Crouch Attack', sheetUrl: buildSheetUrl('_CrouchAttack.png'), fps: 10 },
-	{ id: 'crouchTransition',      label: 'Crouch Transition', sheetUrl: buildSheetUrl('_CrouchTransition.png'), fps: 8 },
-	{ id: 'crouchWalk',            label: 'Crouch Walk', sheetUrl: buildSheetUrl('_CrouchWalk.png'), fps: 8 },
-	{ id: 'dash',                  label: 'Dash', sheetUrl: buildSheetUrl('_Dash.png'), fps: 12 },
-	{ id: 'death',                 label: 'Death', sheetUrl: buildSheetUrl('_Death.png'), fps: 9 },
-	{ id: 'deathNoMovement',       label: 'Death No Movement', sheetUrl: buildSheetUrl('_DeathNoMovement.png'), fps: 9 },
-	{ id: 'fall',                  label: 'Fall', sheetUrl: buildSheetUrl('_Fall.png'), fps: 8 },
-	{ id: 'hit',                   label: 'Hit', sheetUrl: buildSheetUrl('_Hit.png'), fps: 8 },
-	{ id: 'jump',                  label: 'Jump', sheetUrl: buildSheetUrl('_Jump.png'), fps: 9 },
-	{ id: 'jumpFallInbetween',     label: 'Jump Fall Inbetween', sheetUrl: buildSheetUrl('_JumpFallInbetween.png'), fps: 8 },
-	{ id: 'roll',                  label: 'Roll', sheetUrl: buildSheetUrl('_Roll.png'), fps: 12 },
-	{ id: 'slide',                 label: 'Slide', sheetUrl: buildSheetUrl('_Slide.png'), fps: 10 },
-	{ id: 'slideAll',              label: 'Slide All', sheetUrl: buildSheetUrl('_SlideAll.png'), fps: 10 },
-	{ id: 'slideTransitionStart',  label: 'Slide Transition Start', sheetUrl: buildSheetUrl('_SlideTransitionStart.png'), fps: 10 },
-	{ id: 'slideTransitionEnd',    label: 'Slide Transition End', sheetUrl: buildSheetUrl('_SlideTransitionEnd.png'), fps: 10 },
-	{ id: 'turnAround',            label: 'Turn Around', sheetUrl: buildSheetUrl('_TurnAround.png'), fps: 10 },
-	{ id: 'wallClimb',             label: 'Wall Climb', sheetUrl: buildSheetUrl('_WallClimb.png'), fps: 8 },
-	{ id: 'wallClimbNoMovement',   label: 'Wall Climb No Movement', sheetUrl: buildSheetUrl('_WallClimbNoMovement.png'), fps: 8 },
-	{ id: 'wallHang',              label: 'Wall Hang', sheetUrl: buildSheetUrl('_WallHang.png'), fps: 6 },
-	{ id: 'wallSlide',             label: 'Wall Slide', sheetUrl: buildSheetUrl('_WallSlide.png'), fps: 8 },
+	defineKnightAnimation('idle', 'Idle', '_Idle.png', 6),
+	defineKnightAnimation('run', 'Run', '_Run.png', 11),
+	defineKnightAnimation('attack', 'Attack', '_Attack.png', 12),
+	defineKnightAnimation('attackNoMovement', 'Attack No Movement', '_AttackNoMovement.png', 12),
+	defineKnightAnimation('attack2', 'Attack 2', '_Attack2.png', 12),
+	defineKnightAnimation('attack2NoMovement', 'Attack 2 No Movement', '_Attack2NoMovement.png', 12),
+	defineKnightAnimation('attackCombo', 'Attack Combo', '_AttackCombo.png', 14),
+	defineKnightAnimation('attackComboNoMovement', 'Attack Combo No Movement', '_AttackComboNoMovement.png', 14),
+	defineKnightAnimation('crouch', 'Crouch', '_Crouch.png', 6),
+	defineKnightAnimation('crouchAll', 'Crouch All', '_CrouchAll.png', 8),
+	defineKnightAnimation('crouchAttack', 'Crouch Attack', '_CrouchAttack.png', 10),
+	defineKnightAnimation('crouchTransition', 'Crouch Transition', '_CrouchTransition.png', 8),
+	defineKnightAnimation('crouchWalk', 'Crouch Walk', '_CrouchWalk.png', 8),
+	defineKnightAnimation('dash', 'Dash', '_Dash.png', 12),
+	defineKnightAnimation('death', 'Death', '_Death.png', 9),
+	defineKnightAnimation('deathNoMovement', 'Death No Movement', '_DeathNoMovement.png', 9),
+	defineKnightAnimation('fall', 'Fall', '_Fall.png', 8),
+	defineKnightAnimation('hit', 'Hit', '_Hit.png', 8),
+	defineKnightAnimation('jump', 'Jump', '_Jump.png', 9),
+	defineKnightAnimation('jumpFallInbetween', 'Jump Fall Inbetween', '_JumpFallInbetween.png', 8),
+	defineKnightAnimation('roll', 'Roll', '_Roll.png', 12, undefined, true),
+	defineKnightAnimation('slide', 'Slide', '_Slide.png', 10),
+	defineKnightAnimation('slideAll', 'Slide All', '_SlideAll.png', 10),
+	defineKnightAnimation('slideTransitionStart', 'Slide Transition Start', '_SlideTransitionStart.png', 10),
+	defineKnightAnimation('slideTransitionEnd', 'Slide Transition End', '_SlideTransitionEnd.png', 10),
+	defineKnightAnimation('turnAround', 'Turn Around', '_TurnAround.png', 10),
+	defineKnightAnimation('wallClimb', 'Wall Climb', '_WallClimb.png', 8),
+	defineKnightAnimation('wallClimbNoMovement', 'Wall Climb No Movement', '_WallClimbNoMovement.png', 8),
+	defineKnightAnimation('wallHang', 'Wall Hang', '_WallHang.png', 6),
+	defineKnightAnimation('wallSlide', 'Wall Slide', '_WallSlide.png', 8),
 ];
 
 export const knightAnimationMap: Map<string, KnightAnimationDefinition> = new Map(

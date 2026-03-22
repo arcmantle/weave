@@ -10,6 +10,8 @@ import {
 } from './animation-manifest';
 import { KnightSpriteSheetLoader } from './sprite-sheet';
 
+const DEFAULT_MOVEMENT_PIXELS_PER_SECOND_PER_FPS = 15;
+
 export interface KnightCharacterStatus extends CharacterStatus {
 	actionId?: string;
 }
@@ -18,7 +20,8 @@ export interface KnightCharacterOptions extends Omit<
 	SpriteCharacterOptions<KnightAnimationDefinition, SpriteSheetFrames>,
 	'characterType' | 'defaultFrameHeight' | 'defaultFrameWidth' | 'loader'
 > {
-	loader?: KnightSpriteSheetLoader;
+	loader?:                        KnightSpriteSheetLoader;
+	movementPixelsPerSecondPerFps?: number;
 }
 
 export type KnightMotionCommand = CharacterMotionCommand<CharacterUpdateContext>;
@@ -63,6 +66,7 @@ export interface KnightCharacterActions {
 	crouchAttack(options?: KnightTimedActionOptions): KnightActionHandle;
 	dash(options?: KnightDistanceActionOptions): KnightActionHandle;
 	die(options?: KnightTimedActionOptions): KnightActionHandle;
+	dodge(options?: KnightDistanceActionOptions): KnightActionHandle;
 	hit(options?: KnightTimedActionOptions): KnightActionHandle;
 	jump(options?: KnightJumpActionOptions): KnightActionHandle;
 	moveLeft(options?: KnightMoveActionOptions): KnightActionHandle;
@@ -99,9 +103,10 @@ export class KnightCharacter extends SpriteCharacter<
 
 	readonly #motionController: CharacterMotionController<CharacterUpdateContext> = new CharacterMotionController();
 
-	#currentAction:   KnightActionRuntime | null = null;
-	#currentActionId: string | null = null;
+	#currentAction:                 KnightActionRuntime | null = null;
+	#currentActionId:               string | null = null;
 	#lastMotionUpdateTime = 0;
+	#movementPixelsPerSecondPerFps: number;
 
 	constructor(options: KnightCharacterOptions) {
 		super({
@@ -116,6 +121,11 @@ export class KnightCharacter extends SpriteCharacter<
 			screenX:              options.screenX,
 			spriteScale:          options.spriteScale,
 		});
+
+		this.#movementPixelsPerSecondPerFps = Math.max(
+			0,
+			options.movementPixelsPerSecondPerFps ?? DEFAULT_MOVEMENT_PIXELS_PER_SECOND_PER_FPS,
+		);
 
 		const character = this;
 
@@ -143,6 +153,9 @@ export class KnightCharacter extends SpriteCharacter<
 			},
 			die(actionOptions?: KnightTimedActionOptions) {
 				return character.#startDieAction(actionOptions);
+			},
+			dodge(actionOptions?: KnightDistanceActionOptions) {
+				return character.#startDodgeAction(actionOptions);
 			},
 			hit(actionOptions?: KnightTimedActionOptions) {
 				return character.#startAnimationAction('hit', 'hit', actionOptions);
@@ -182,7 +195,11 @@ export class KnightCharacter extends SpriteCharacter<
 	}
 
 	moveToward(targetX: number, speedPxPerSecond: number, arrivalThreshold = 0.5): void {
-		this.#motionController.moveToward(targetX, speedPxPerSecond, arrivalThreshold);
+		this.#motionController.moveToward(
+			targetX,
+			this.#resolveAnimationScaledSpeedPxPerSecond(speedPxPerSecond),
+			arrivalThreshold,
+		);
 	}
 
 	stopMotion(): void {
@@ -202,11 +219,23 @@ export class KnightCharacter extends SpriteCharacter<
 	}
 
 	walkDistance(direction: -1 | 1, distance: number, speedPxPerSecond: number): void {
-		this.#motionController.walkDistance(direction, distance, speedPxPerSecond);
+		this.#motionController.walkDistance(
+			direction,
+			distance,
+			this.#resolveAnimationScaledSpeedPxPerSecond(speedPxPerSecond),
+		);
 	}
 
 	get hasActiveHorizontalMotion(): boolean {
 		return this.#motionController.hasActiveHorizontalMotion;
+	}
+
+	get movementPixelsPerSecondPerFps(): number {
+		return this.#movementPixelsPerSecondPerFps;
+	}
+
+	setMovementPixelsPerSecondPerFps(value: number): void {
+		this.#movementPixelsPerSecondPerFps = Math.max(0, value);
 	}
 
 	get hasQueuedMotionCommands(): boolean {
@@ -230,11 +259,11 @@ export class KnightCharacter extends SpriteCharacter<
 	}
 
 	get maxScreenX(): number {
-		return Math.round((this.viewportWidth / 2) - this.#resolveHalfCharacterWidth());
+		return this.resolveViewportClampX('right');
 	}
 
 	get minScreenX(): number {
-		return Math.round((-this.viewportWidth / 2) + this.#resolveHalfCharacterWidth());
+		return this.resolveViewportClampX('left');
 	}
 
 	override dispose(): void {
@@ -264,12 +293,6 @@ export class KnightCharacter extends SpriteCharacter<
 			actionId:      this.#currentActionId ?? undefined,
 			motionCommand: this.motionCommandLabel ?? undefined,
 		};
-	}
-
-	#resolveHalfCharacterWidth(): number {
-		const spriteScale = this.spriteScale ?? 4;
-
-		return Math.round((KNIGHT_FRAME_WIDTH * spriteScale) / 2);
 	}
 
 	async #setAnimationById(animationId: string): Promise<void> {
@@ -359,6 +382,30 @@ export class KnightCharacter extends SpriteCharacter<
 			return fallbackDurationMs;
 
 		return Math.round((frames.frameCount / definition.fps) * 1000);
+	}
+
+	#resolveCurrentAnimationDistancePx(fallbackDistancePx: number): number {
+		const frames = this.currentFrames;
+		if (!frames)
+			return Math.max(1, fallbackDistancePx);
+
+		return Math.max(1, frames.frameCount * this.#movementPixelsPerSecondPerFps);
+	}
+
+	#resolveDistanceMatchedAnimationSpeedPxPerSecond(distancePx: number, fallbackSpeedPxPerSecond: number): number {
+		const animationDurationMs = this.#resolveCurrentAnimationDurationMs(0);
+		if (animationDurationMs <= 0 || distancePx <= 0)
+			return this.#resolveAnimationScaledSpeedPxPerSecond(fallbackSpeedPxPerSecond);
+
+		return Math.max(1, distancePx / (animationDurationMs / 1000));
+	}
+
+	#resolveAnimationScaledSpeedPxPerSecond(_speedPxPerSecond: number): number {
+		const definition = this.currentDefinition;
+		if (!definition || definition.fps <= 0)
+			return this.#movementPixelsPerSecondPerFps;
+
+		return Math.max(1, definition.fps * this.#movementPixelsPerSecondPerFps);
 	}
 
 	#returnToIdle(): void {
@@ -470,6 +517,74 @@ export class KnightCharacter extends SpriteCharacter<
 		});
 	}
 
+	#startDodgeAction(options?: KnightDistanceActionOptions): KnightActionHandle {
+		return this.#createAction('dodge', async () => {
+			const retreatDirection = options?.direction ?? this.facing;
+			const rollFacing = retreatDirection === 1 ? -1 : 1;
+			const distancePx = Math.max(0, options?.distancePx ?? 96);
+			const speedPxPerSecond = options?.speedPxPerSecond ?? 196;
+
+			this.stopMotion();
+			await this.#setAnimationById('turnAround');
+			this.restart();
+			this.setPlaying(true);
+			this.turnTo(retreatDirection);
+
+			const turnDurationMs = this.#resolveCurrentAnimationDurationMs(450);
+			const turnFinishAt = performance.now() + turnDurationMs;
+			let rollReady = false;
+			let rollStarted = false;
+			let rollStartAt = 0;
+			let rollFinishAt = 0;
+
+			const startRoll = (): void => {
+				if (rollStarted)
+					return;
+
+				rollStarted = true;
+				void this.#setAnimationById('roll').then(() => {
+					if (!this.#currentAction || this.#currentActionId !== 'dodge')
+						return;
+
+					this.restart();
+					this.setPlaying(true);
+					this.turnTo(rollFacing);
+					rollStartAt = performance.now();
+					const rollDurationMs = this.#resolveCurrentAnimationDurationMs(550);
+					rollFinishAt = rollStartAt + rollDurationMs;
+					rollReady = true;
+					if (distancePx > 0) {
+						const matchedSpeedPxPerSecond = rollDurationMs > 0
+							? Math.max(1, distancePx / (rollDurationMs / 1000))
+							: this.#resolveAnimationScaledSpeedPxPerSecond(speedPxPerSecond);
+						this.#motionController.walkDistance(
+							retreatDirection,
+							distancePx,
+							matchedSpeedPxPerSecond,
+							rollFacing,
+						);
+					}
+				});
+			};
+
+			return {
+				completeWhen: (timestamp) => (
+					(timestamp >= turnFinishAt && (startRoll(), true))
+					&& rollReady
+					&& timestamp >= rollFinishAt
+					&& !this.hasActiveHorizontalMotion
+					&& !this.hasQueuedMotionCommands
+				),
+				onCancel: () => {
+					this.#returnToIdle();
+				},
+				onComplete: () => {
+					this.#returnToIdle();
+				},
+			};
+		});
+	}
+
 	#startJumpAction(options?: KnightJumpActionOptions): KnightActionHandle {
 		return this.#createAction('jump', async () => {
 			const deltaX = options?.deltaX ?? 0;
@@ -507,7 +622,11 @@ export class KnightCharacter extends SpriteCharacter<
 			await this.#setAnimationById(animationId);
 			this.restart();
 			this.turnTo(direction);
-			this.walkDistance(direction, distancePx, speedPxPerSecond);
+			this.walkDistance(
+				direction,
+				distancePx,
+				this.#resolveAnimationScaledSpeedPxPerSecond(speedPxPerSecond),
+			);
 
 			return {
 				completeWhen: () => !this.hasActiveHorizontalMotion && !this.hasQueuedMotionCommands,
@@ -523,17 +642,36 @@ export class KnightCharacter extends SpriteCharacter<
 
 	#startMoveAction(direction: -1 | 1, options?: KnightMoveActionOptions): KnightActionHandle {
 		return this.#createAction(direction < 0 ? 'moveLeft' : 'moveRight', async () => {
-			const distancePx = options?.distancePx ?? 96;
+			const requestedDistancePx = options?.distancePx ?? 96;
 			const speedPxPerSecond = options?.speedPxPerSecond ?? 156;
 
 			await this.#setAnimationById('run');
 			this.restart();
 			this.turnTo(direction);
-			this.walkDistance(direction, distancePx, speedPxPerSecond);
+			const runCycleDurationMs = this.#resolveCurrentAnimationDurationMs(0);
+			const runCycleDistancePx = this.#resolveCurrentAnimationDistancePx(requestedDistancePx);
+			const runCycleCount = runCycleDistancePx <= 0
+				? 1
+				: Math.max(1, Math.ceil(requestedDistancePx / runCycleDistancePx));
+			const distancePx = runCycleDistancePx * runCycleCount;
+			const finishAt = performance.now() + (runCycleDurationMs * runCycleCount);
+			const matchedSpeedPxPerSecond = this.#resolveDistanceMatchedAnimationSpeedPxPerSecond(
+				distancePx,
+				speedPxPerSecond,
+			);
+			this.#motionController.walkDistance(
+				direction,
+				distancePx,
+				matchedSpeedPxPerSecond,
+			);
 
 			return {
-				completeWhen: () => !this.hasActiveHorizontalMotion && !this.hasQueuedMotionCommands,
-				onCancel:     () => {
+				completeWhen: (timestamp) => (
+					timestamp >= finishAt
+					&& !this.hasActiveHorizontalMotion
+					&& !this.hasQueuedMotionCommands
+				),
+				onCancel: () => {
 					this.#returnToIdle();
 				},
 				onComplete: () => {

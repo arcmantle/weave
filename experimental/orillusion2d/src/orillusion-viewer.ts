@@ -29,9 +29,23 @@ export interface SpawnCharacterOptions {
 	spriteScale?:          number;
 }
 
+export interface ViewerSystem {
+	dispose?(): void;
+	update(viewer: OrillusionKnightViewer, timestamp: number, context: CharacterUpdateContext): void;
+}
+
 type StatusListener = (status: ViewerStatus) => void;
+type RosterListener = (characterIds: string[]) => void;
 
 const getDevicePixelRatio = (): number => Math.max(1, window.devicePixelRatio || 1);
+const getViewportWidth = (): number => Math.max(
+	1,
+	Math.round(window.visualViewport?.width ?? window.innerWidth),
+);
+const getViewportHeight = (): number => Math.max(
+	1,
+	Math.round(window.visualViewport?.height ?? window.innerHeight),
+);
 
 export class OrillusionKnightViewer {
 
@@ -40,6 +54,8 @@ export class OrillusionKnightViewer {
 	readonly #behaviors:      Map<string, KnightBehaviorModel> = new Map();
 	readonly #loader = new KnightSpriteSheetLoader();
 	readonly #onStatusChange: StatusListener;
+	readonly #onRosterChange: RosterListener;
+	readonly #systems:        Set<ViewerSystem> = new Set();
 
 	#animationFrameHandle = 0;
 	#characterSequence = 0;
@@ -54,13 +70,18 @@ export class OrillusionKnightViewer {
 	#resizeObserver:    ResizeObserver | null = null;
 	#running = false;
 
-	constructor(canvas: HTMLCanvasElement, onStatusChange: StatusListener) {
+	constructor(
+		canvas: HTMLCanvasElement,
+		onStatusChange: StatusListener,
+		onRosterChange: RosterListener = () => {},
+	) {
 		this.#canvas = canvas;
 		this.#container = canvas.parentElement instanceof HTMLElement ? canvas.parentElement : canvas;
 		this.#onStatusChange = onStatusChange;
+		this.#onRosterChange = onRosterChange;
 	}
 
-	async start(initialAnimation: KnightAnimationDefinition, initialBehavior?: KnightBehaviorModel | null): Promise<void> {
+	async start(initialAnimation: KnightAnimationDefinition | null, initialBehavior?: KnightBehaviorModel | null): Promise<void> {
 		if (!navigator.gpu)
 			throw new Error('WebGPU is not available in this browser. Use a recent Chrome or Edge build.');
 
@@ -68,7 +89,7 @@ export class OrillusionKnightViewer {
 
 		await Engine3D.init({
 			canvasConfig: {
-				alpha:  true,
+				alpha:  false,
 				canvas: this.#canvas,
 			},
 		});
@@ -93,10 +114,12 @@ export class OrillusionKnightViewer {
 		uiCanvas.addChild(panelRoot);
 		this.#resizePanel();
 
-		await this.spawnCharacter({
-			animation: initialAnimation,
-			behavior:  initialBehavior,
-		});
+		if (initialAnimation) {
+			await this.spawnCharacter({
+				animation: initialAnimation,
+				behavior:  initialBehavior,
+			});
+		}
 
 		this.#resizeObserver = new ResizeObserver(() => {
 			this.#handleResize();
@@ -123,9 +146,25 @@ export class OrillusionKnightViewer {
 		for (const behavior of this.#behaviors.values())
 			behavior.dispose?.();
 
+		for (const system of this.#systems)
+			system.dispose?.();
+
 		this.#behaviors.clear();
+		this.#systems.clear();
 		this.#panelRoot = null;
 		this.#activeCharacterId = null;
+		this.#emitRosterChange();
+	}
+
+	addSystem(system: ViewerSystem): void {
+		this.#systems.add(system);
+	}
+
+	removeSystem(system: ViewerSystem): void {
+		if (!this.#systems.delete(system))
+			return;
+
+		system.dispose?.();
 	}
 
 	async setAnimation(definition: KnightAnimationDefinition): Promise<void> {
@@ -162,6 +201,10 @@ export class OrillusionKnightViewer {
 		return [ ...this.#characters.keys() ];
 	}
 
+	getCharacter(id: string): KnightCharacter | null {
+		return this.#characters.get(id) ?? null;
+	}
+
 	getCharacterStatuses(): KnightCharacterStatus[] {
 		return [ ...this.#characters.values() ]
 			.map((character) => character.getStatus())
@@ -194,6 +237,8 @@ export class OrillusionKnightViewer {
 		if (!this.#activeCharacterId)
 			this.#activeCharacterId = id;
 
+		this.#emitRosterChange();
+
 		if (id === this.#activeCharacterId)
 			this.#emitStatus();
 
@@ -212,6 +257,7 @@ export class OrillusionKnightViewer {
 		if (this.#activeCharacterId === id)
 			this.#activeCharacterId = this.#characters.keys().next().value ?? null;
 
+		this.#emitRosterChange();
 		this.#emitStatus();
 	}
 
@@ -227,6 +273,9 @@ export class OrillusionKnightViewer {
 			if (id === this.#activeCharacterId)
 				shouldEmitStatus = true;
 		}
+
+		for (const system of this.#systems)
+			system.update(this, timestamp, updateContext);
 
 		if (shouldEmitStatus)
 			this.#emitStatus();
@@ -250,6 +299,10 @@ export class OrillusionKnightViewer {
 			behaviorLabel: behavior?.label,
 			behaviorPhase: behavior?.getPhaseLabel?.(),
 		});
+	}
+
+	#emitRosterChange(): void {
+		this.#onRosterChange(this.getCharacterIds());
 	}
 
 	#handleResize = (): void => {
@@ -286,13 +339,19 @@ export class OrillusionKnightViewer {
 	#displayWidth(): number {
 		const rect = this.#container.getBoundingClientRect();
 
-		return Math.max(1, Math.round(rect.width || this.#container.clientWidth || window.innerWidth));
+		return Math.max(
+			getViewportWidth(),
+			Math.round(rect.width || this.#container.clientWidth || 0),
+		);
 	}
 
 	#displayHeight(): number {
 		const rect = this.#container.getBoundingClientRect();
 
-		return Math.max(1, Math.round(rect.height || this.#container.clientHeight || window.innerHeight));
+		return Math.max(
+			getViewportHeight(),
+			Math.round(rect.height || this.#container.clientHeight || 0),
+		);
 	}
 
 	#aspectRatio(): number {

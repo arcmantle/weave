@@ -9,6 +9,7 @@ import {
 	type KnightBehaviorId,
 } from './characters/knight/behavior-model';
 import { OrillusionKnightViewer, type ViewerStatus } from './orillusion-viewer';
+import { KnightSkirmishArena } from './skirmish/knight-skirmish-arena';
 
 const appShell = document.querySelector<HTMLDivElement>('.app-shell');
 const canvas = document.querySelector<HTMLCanvasElement>('#app-canvas');
@@ -18,9 +19,12 @@ const select = document.querySelector<HTMLSelectElement>('#animation-select');
 const playToggle = document.querySelector<HTMLButtonElement>('#play-toggle');
 const restartButton = document.querySelector<HTMLButtonElement>('#restart-animation');
 const status = document.querySelector<HTMLDivElement>('#animation-status');
+const arenaStatus = document.querySelector<HTMLDivElement>('#arena-status');
 
-if (!appShell || !canvas || !behaviorSelect || !characterSelect || !select || !playToggle || !restartButton || !status)
+if (!appShell || !canvas || !behaviorSelect || !characterSelect || !select || !playToggle || !restartButton || !status || !arenaStatus)
 	throw new Error('Viewer UI failed to initialize.');
+
+canvas.hidden = false;
 
 status.textContent = 'Loading viewer...';
 
@@ -28,6 +32,7 @@ const syncCharacterSelector = (viewer: OrillusionKnightViewer): void => {
 	const knownStatuses = new Map(
 		viewer.getCharacterStatuses().map((characterStatus) => [ characterStatus.characterId, characterStatus ]),
 	);
+	const previousValue = characterSelect.value;
 
 	characterSelect.replaceChildren();
 	for (const characterId of viewer.getCharacterIds()) {
@@ -39,6 +44,11 @@ const syncCharacterSelector = (viewer: OrillusionKnightViewer): void => {
 			: characterId;
 		characterSelect.appendChild(option);
 	}
+
+	if (viewer.getCharacterIds().includes(previousValue))
+		characterSelect.value = previousValue;
+	else if (characterSelect.options.length > 0)
+		characterSelect.value = characterSelect.options[0]!.value;
 };
 
 const renderStatus = (viewerStatus: ViewerStatus): void => {
@@ -58,7 +68,9 @@ const renderStatus = (viewerStatus: ViewerStatus): void => {
 		`Playback: ${ viewerStatus.fps } fps`,
 	].join('\n');
 	behaviorSelect.value = viewerStatus.behaviorId ?? 'manual';
-	characterSelect.value = viewerStatus.characterId;
+	if ([ ...characterSelect.options ].some((option) => option.value === viewerStatus.characterId))
+		characterSelect.value = viewerStatus.characterId;
+
 	select.value = viewerStatus.animationId;
 };
 
@@ -81,10 +93,42 @@ for (const definition of knightAnimations) {
 	select.appendChild(option);
 }
 
-const viewer = new OrillusionKnightViewer(canvas, renderStatus);
+const viewer = new OrillusionKnightViewer(canvas, renderStatus, () => {
+	syncCharacterSelector(viewer);
+	if (viewer.getCharacterIds().length === 0)
+		status.textContent = 'Awaiting arena combatants...';
+});
+const arena = new KnightSkirmishArena({
+	onStatusChange: (nextStatus) => {
+		arenaStatus.textContent = nextStatus.summary;
+	},
+});
+
+const waitForNextFrame = async (): Promise<void> => {
+	await new Promise<void>((resolve) => {
+		window.requestAnimationFrame(() => {
+			resolve();
+		});
+	});
+};
+
+const waitForStableFirstSceneFrame = async (viewer: OrillusionKnightViewer, timeoutMs: number = 3000): Promise<void> => {
+	const timeoutAt = performance.now() + timeoutMs;
+
+	while (viewer.getCharacterIds().length === 0 && performance.now() < timeoutAt)
+		await waitForNextFrame();
+
+	await waitForNextFrame();
+	await waitForNextFrame();
+};
 
 let activeDefinition: KnightAnimationDefinition = knightAnimations[0]!;
 let playing = true;
+
+behaviorSelect.disabled = true;
+select.disabled = true;
+playToggle.disabled = true;
+restartButton.disabled = true;
 
 characterSelect.addEventListener('change', () => {
 	viewer.setActiveCharacter(characterSelect.value);
@@ -123,13 +167,18 @@ window.addEventListener('beforeunload', () => {
 });
 
 try {
-	await viewer.start(activeDefinition, createKnightBehaviorModel('lazy-bursts'));
+	await viewer.start(null);
+	viewer.addSystem(arena);
 	syncCharacterSelector(viewer);
+	arenaStatus.textContent = 'Spawning duelists.';
+	await waitForStableFirstSceneFrame(viewer);
 	appShell.classList.add('is-ready');
 }
 catch (error) {
 	const message = error instanceof Error ? error.message : 'Unknown startup failure.';
+	canvas.hidden = true;
 	status.textContent = `Startup failed:\n${ message }`;
+	arenaStatus.textContent = 'Arena unavailable.';
 	behaviorSelect.disabled = true;
 	characterSelect.disabled = true;
 	playToggle.disabled = true;
