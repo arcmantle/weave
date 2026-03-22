@@ -9,6 +9,7 @@ import {
 	type KnightBehaviorId,
 } from './characters/knight/behavior-model';
 import { OrillusionKnightViewer, type ViewerStatus } from './orillusion-viewer';
+import { KnightHitboxDiagnostics } from './skirmish/knight-hitbox-diagnostics';
 import { KnightSkirmishArena } from './skirmish/knight-skirmish-arena';
 
 const appShell = document.querySelector<HTMLDivElement>('.app-shell');
@@ -103,6 +104,7 @@ const arena = new KnightSkirmishArena({
 		arenaStatus.textContent = nextStatus.summary;
 	},
 });
+const hitboxDiagnostics = new KnightHitboxDiagnostics(appShell);
 
 const waitForNextFrame = async (): Promise<void> => {
 	await new Promise<void>((resolve) => {
@@ -169,6 +171,7 @@ window.addEventListener('beforeunload', () => {
 try {
 	await viewer.start(null);
 	viewer.addSystem(arena);
+	viewer.addSystem(hitboxDiagnostics);
 	syncCharacterSelector(viewer);
 	arenaStatus.textContent = 'Spawning duelists.';
 	await waitForStableFirstSceneFrame(viewer);

@@ -57,11 +57,13 @@ interface OpaqueBounds {
 	maxX: number;
 	maxY: number;
 	minX: number;
+	minY: number;
 }
 
 const measureOpaqueBounds = (context: CanvasRenderingContext2D, frameWidth: number, frameHeight: number): OpaqueBounds | null => {
 	const { data } = context.getImageData(0, 0, frameWidth, frameHeight);
 	let minX = frameWidth;
+	let minY = frameHeight;
 	let maxX = -1;
 	let maxY = -1;
 
@@ -74,6 +76,8 @@ const measureOpaqueBounds = (context: CanvasRenderingContext2D, frameWidth: numb
 		const y = Math.floor(pixelOffset / frameWidth);
 		if (x < minX)
 			minX = x;
+		if (y < minY)
+			minY = y;
 		if (x > maxX)
 			maxX = x;
 		if (y > maxY)
@@ -83,7 +87,7 @@ const measureOpaqueBounds = (context: CanvasRenderingContext2D, frameWidth: numb
 	if (maxX < 0 || maxY < 0)
 		return null;
 
-	return { maxX, maxY, minX };
+	return { maxX, maxY, minX, minY };
 };
 
 const createSheetCanvas = (width: number, height: number): HTMLCanvasElement => {
@@ -262,6 +266,7 @@ export class KnightSpriteSheetLoader {
 		const contentBottomInsets: number[] = [];
 		const contentLeftInsets: number[] = [];
 		const contentRightInsets: number[] = [];
+		const contentTopInsets: number[] = [];
 		const leftSprites: ReturnType<typeof makeGUISprite>[] = [];
 		const sprites: ReturnType<typeof makeGUISprite>[] = [];
 
@@ -283,6 +288,7 @@ export class KnightSpriteSheetLoader {
 				contentLeftInsets.push(opaqueBounds.minX);
 				contentRightInsets.push(KNIGHT_FRAME_WIDTH - opaqueBounds.maxX - 1);
 				contentBottomInsets.push(KNIGHT_FRAME_HEIGHT - opaqueBounds.maxY - 1);
+				contentTopInsets.push(opaqueBounds.minY);
 				baselineOffsets.push((opaqueBounds.maxY + 1) / KNIGHT_FRAME_HEIGHT);
 			}
 
@@ -313,6 +319,9 @@ export class KnightSpriteSheetLoader {
 		const averageContentRightInset = contentRightInsets.length === 0
 			? 0
 			: contentRightInsets.reduce((total, inset) => total + inset, 0) / contentRightInsets.length;
+		const averageContentTopInset = contentTopInsets.length === 0
+			? 0
+			: contentTopInsets.reduce((total, inset) => total + inset, 0) / contentTopInsets.length;
 		const minimumContentBottomInset = contentBottomInsets.length === 0
 			? 0
 			: Math.min(...contentBottomInsets);
@@ -325,6 +334,7 @@ export class KnightSpriteSheetLoader {
 			contentBottomInset:    minimumContentBottomInset,
 			contentLeftInset:      Math.round(averageContentLeftInset),
 			contentRightInset:     Math.round(averageContentRightInset),
+			contentTopInset:       Math.round(averageContentTopInset),
 			frameCount,
 			frameHeight:           KNIGHT_FRAME_HEIGHT,
 			frameWidth:            KNIGHT_FRAME_WIDTH,

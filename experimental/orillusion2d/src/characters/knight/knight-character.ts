@@ -11,6 +11,34 @@ import {
 import { KnightSpriteSheetLoader } from './sprite-sheet';
 
 const DEFAULT_MOVEMENT_PIXELS_PER_SECOND_PER_FPS = 15;
+const ROLL_MOVEMENT_DISTANCE_MULTIPLIER = 1.75;
+const RUN_CANCEL_FINISH_FPS_MULTIPLIER = 2.5;
+
+const resolveRunCancellationFrameIndices = (
+	frameCount: number,
+	currentFrameIndex: number,
+): number[] => {
+	const lastFrameIndex = Math.max(0, frameCount - 1);
+	const startFrameIndex = Math.max(0, Math.min(lastFrameIndex, currentFrameIndex));
+	const midpointFrameIndex = Math.max(0, Math.min(lastFrameIndex, Math.round(lastFrameIndex / 2)));
+	const candidateTargets = [ midpointFrameIndex, lastFrameIndex ]
+		.filter((frameIndex, index, values) => frameIndex >= startFrameIndex && values.indexOf(frameIndex) === index);
+	const targetFrameIndex = candidateTargets.reduce<number | null>((closestFrameIndex, frameIndex) => {
+		if (closestFrameIndex === null)
+			return frameIndex;
+
+		return (frameIndex - startFrameIndex) < (closestFrameIndex - startFrameIndex)
+			? frameIndex
+			: closestFrameIndex;
+	}, null);
+	if (targetFrameIndex === null || targetFrameIndex <= startFrameIndex)
+		return [];
+
+	return Array.from(
+		{ length: targetFrameIndex - startFrameIndex + 1 },
+		(_, index) => startFrameIndex + index,
+	);
+};
 
 export interface KnightCharacterStatus extends CharacterStatus {
 	actionId?: string;
@@ -35,6 +63,12 @@ export interface KnightActionHandle {
 export interface KnightMoveActionOptions {
 	distancePx?:       number;
 	speedPxPerSecond?: number;
+}
+
+export interface KnightMoveToActionOptions {
+	arrivalThreshold?: number;
+	speedPxPerSecond?: number;
+	targetX:           number;
 }
 
 export interface KnightJumpActionOptions {
@@ -70,6 +104,7 @@ export interface KnightCharacterActions {
 	hit(options?: KnightTimedActionOptions): KnightActionHandle;
 	jump(options?: KnightJumpActionOptions): KnightActionHandle;
 	moveLeft(options?: KnightMoveActionOptions): KnightActionHandle;
+	moveTo(options: KnightMoveToActionOptions): KnightActionHandle;
 	moveRight(options?: KnightMoveActionOptions): KnightActionHandle;
 	roll(options?: KnightDistanceActionOptions): KnightActionHandle;
 	slide(options?: KnightDistanceActionOptions): KnightActionHandle;
@@ -106,7 +141,9 @@ export class KnightCharacter extends SpriteCharacter<
 	#currentAction:                 KnightActionRuntime | null = null;
 	#currentActionId:               string | null = null;
 	#lastMotionUpdateTime = 0;
+	#locomotionRequestToken = 0;
 	#movementPixelsPerSecondPerFps: number;
+	#postMoveToIdleToken = 0;
 
 	constructor(options: KnightCharacterOptions) {
 		super({
@@ -166,6 +203,9 @@ export class KnightCharacter extends SpriteCharacter<
 			moveLeft(actionOptions?: KnightMoveActionOptions) {
 				return character.#startMoveAction(-1, actionOptions);
 			},
+			moveTo(actionOptions: KnightMoveToActionOptions) {
+				return character.#startMoveToAction(actionOptions);
+			},
 			moveRight(actionOptions?: KnightMoveActionOptions) {
 				return character.#startMoveAction(1, actionOptions);
 			},
@@ -224,6 +264,52 @@ export class KnightCharacter extends SpriteCharacter<
 			distance,
 			this.#resolveAnimationScaledSpeedPxPerSecond(speedPxPerSecond),
 		);
+	}
+
+	runToward(targetX: number, speedPxPerSecond: number, arrivalThreshold = 0.5): void {
+		if (this.hasActiveAction)
+			return;
+
+		this.#postMoveToIdleToken += 1;
+		const direction = targetX >= this.screenX ? 1 : -1;
+		const scaledSpeedPxPerSecond = this.#resolveAnimationScaledSpeedPxPerSecond(speedPxPerSecond);
+		const resolvedArrivalThreshold = Math.max(0.5, arrivalThreshold);
+		const beginRun = (): void => {
+			if (this.hasActiveAction)
+				return;
+
+			this.turnTo(direction);
+			if (!this.playing)
+				this.setPlaying(true);
+
+			this.moveToward(targetX, scaledSpeedPxPerSecond, resolvedArrivalThreshold);
+		};
+
+		if (this.animationId === 'run') {
+			beginRun();
+
+			return;
+		}
+
+		const locomotionRequestToken = ++this.#locomotionRequestToken;
+		void this.#setAnimationById('run').then(() => {
+			if (this.#locomotionRequestToken !== locomotionRequestToken)
+				return;
+
+			this.restart();
+			beginRun();
+		});
+	}
+
+	stopRunning(): void {
+		this.#locomotionRequestToken += 1;
+		this.#postMoveToIdleToken += 1;
+		if (this.hasActiveAction)
+			return;
+
+		this.stopMotion();
+		if (this.animationId === 'run')
+			this.#returnToIdle();
 	}
 
 	get hasActiveHorizontalMotion(): boolean {
@@ -389,7 +475,10 @@ export class KnightCharacter extends SpriteCharacter<
 		if (!frames)
 			return Math.max(1, fallbackDistancePx);
 
-		return Math.max(1, frames.frameCount * this.#movementPixelsPerSecondPerFps);
+		return Math.max(
+			1,
+			frames.frameCount * this.#movementPixelsPerSecondPerFps * this.#resolveCurrentAnimationTravelMultiplier(),
+		);
 	}
 
 	#resolveDistanceMatchedAnimationSpeedPxPerSecond(distancePx: number, fallbackSpeedPxPerSecond: number): number {
@@ -405,13 +494,62 @@ export class KnightCharacter extends SpriteCharacter<
 		if (!definition || definition.fps <= 0)
 			return this.#movementPixelsPerSecondPerFps;
 
-		return Math.max(1, definition.fps * this.#movementPixelsPerSecondPerFps);
+		return Math.max(
+			1,
+			definition.fps * this.#movementPixelsPerSecondPerFps * this.#resolveCurrentAnimationTravelMultiplier(),
+		);
+	}
+
+	#resolveCurrentAnimationTravelMultiplier(): number {
+		return this.currentDefinition?.id === 'roll'
+			? ROLL_MOVEMENT_DISTANCE_MULTIPLIER
+			: 1;
 	}
 
 	#returnToIdle(): void {
+		this.#postMoveToIdleToken += 1;
 		this.stopMotion();
 		this.setPlaying(true);
 		void this.#setAnimationById('idle');
+	}
+
+	#finishRunCancellationToIdle(): void {
+		const definition = this.currentDefinition;
+		const frames = this.currentFrames;
+		if (!definition || !frames || definition.id !== 'run') {
+			this.#returnToIdle();
+
+			return;
+		}
+
+		const remainingFrameIndices = resolveRunCancellationFrameIndices(
+			frames.frameCount,
+			this.currentFrameIndex,
+		);
+		if (remainingFrameIndices.length <= 1) {
+			this.#returnToIdle();
+
+			return;
+		}
+
+		const finishToken = ++this.#postMoveToIdleToken;
+		const finishFps = Math.max(1, definition.fps * RUN_CANCEL_FINISH_FPS_MULTIPLIER);
+		const finishDurationMs = Math.max(1, Math.round(((remainingFrameIndices.length - 1) / finishFps) * 1000));
+
+		this.stopMotion();
+		this.playFrameSequence(remainingFrameIndices, finishFps);
+		setTimeout(() => {
+			if (this.#postMoveToIdleToken !== finishToken)
+				return;
+
+			if (this.hasActiveAction)
+				return;
+
+			if (this.animationId !== 'run')
+				return;
+
+			this.#returnToIdle();
+		}, finishDurationMs);
 	}
 
 	#settleAction(action: KnightActionRuntime, completed: boolean): void {
@@ -521,7 +659,7 @@ export class KnightCharacter extends SpriteCharacter<
 		return this.#createAction('dodge', async () => {
 			const retreatDirection = options?.direction ?? this.facing;
 			const rollFacing = retreatDirection === 1 ? -1 : 1;
-			const distancePx = Math.max(0, options?.distancePx ?? 96);
+			const requestedDistancePx = Math.max(0, options?.distancePx ?? 96);
 			const speedPxPerSecond = options?.speedPxPerSecond ?? 196;
 
 			this.stopMotion();
@@ -551,6 +689,7 @@ export class KnightCharacter extends SpriteCharacter<
 					this.turnTo(rollFacing);
 					rollStartAt = performance.now();
 					const rollDurationMs = this.#resolveCurrentAnimationDurationMs(550);
+					const distancePx = requestedDistancePx * this.#resolveCurrentAnimationTravelMultiplier();
 					rollFinishAt = rollStartAt + rollDurationMs;
 					rollReady = true;
 					if (distancePx > 0) {
@@ -676,6 +815,38 @@ export class KnightCharacter extends SpriteCharacter<
 				},
 				onComplete: () => {
 					this.#returnToIdle();
+				},
+			};
+		});
+	}
+
+	#startMoveToAction(options: KnightMoveToActionOptions): KnightActionHandle {
+		return this.#createAction('moveTo', async () => {
+			const targetX = options.targetX;
+			const speedPxPerSecond = options.speedPxPerSecond ?? 156;
+			const arrivalThreshold = Math.max(0.5, options.arrivalThreshold ?? 0.5);
+
+			await this.#setAnimationById('run');
+			this.restart();
+			this.turnTo(targetX >= this.screenX ? 1 : -1);
+			this.moveToward(
+				targetX,
+				this.#resolveAnimationScaledSpeedPxPerSecond(speedPxPerSecond),
+				arrivalThreshold,
+			);
+
+			return {
+				completeWhen: () => (
+					!this.hasActiveHorizontalMotion
+					&& !this.hasQueuedMotionCommands
+					&& Math.abs(this.screenX - targetX) <= arrivalThreshold
+				),
+				onCancel: () => {
+					this.#finishRunCancellationToIdle();
+				},
+				onComplete: () => {
+					this.setScreenX(targetX);
+					this.#finishRunCancellationToIdle();
 				},
 			};
 		});

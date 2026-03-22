@@ -14,6 +14,7 @@ export interface SpriteSheetFrames {
 	contentBottomInset:    number;
 	contentLeftInset:      number;
 	contentRightInset:     number;
+	contentTopInset:       number;
 	frameCount:            number;
 	frameHeight:           number;
 	frameWidth:            number;

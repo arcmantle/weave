@@ -26,7 +26,9 @@ interface KnightSkirmishArenaOptions {
 
 const DEFAULT_CORPSE_HOLD_MS = 1800;
 const DEFAULT_RESPAWN_DELAY_MS = 1200;
-const ENGAGE_DISTANCE_PX = 134;
+const ATTACK_DISTANCE_MAX_PX = 134;
+const ATTACK_DISTANCE_MIN_PX = 112;
+const PREFERRED_COMBAT_DISTANCE_PX = 123;
 const ROUND_CLEARANCE_MS = 220;
 
 export class KnightSkirmishArena implements ViewerSystem {
@@ -81,9 +83,13 @@ export class KnightSkirmishArena implements ViewerSystem {
 		this.#right.character.turnTo(-1);
 
 		const distance = Math.abs(this.#right.positionX - this.#left.positionX);
-		if (!this.#left.isDead && !this.#right.isDead && distance > ENGAGE_DISTANCE_PX) {
+		if (!this.#left.isDead && !this.#right.isDead && distance > ATTACK_DISTANCE_MAX_PX) {
 			this.#phase = 'combat';
-			this.#advanceCombatants(timestamp);
+			this.#positionCombatantsAtPreferredDistance(timestamp);
+		}
+		else if (!this.#left.isDead && !this.#right.isDead && distance < ATTACK_DISTANCE_MIN_PX) {
+			this.#phase = 'combat';
+			this.#separateCombatants();
 		}
 		else if (!this.#left.isDead && !this.#right.isDead) {
 			this.#phase = 'combat';
@@ -146,18 +152,46 @@ export class KnightSkirmishArena implements ViewerSystem {
 			viewer.removeCharacter(this.#left.id);
 			this.#left = null;
 			this.#standingWinner = 'right';
-			this.#right.resetToIdle();
+			this.#runWinnerToCenter(this.#right, timestamp);
 		}
 		else {
 			viewer.removeCharacter(this.#right.id);
 			this.#right = null;
 			this.#standingWinner = 'left';
-			this.#left.resetToIdle();
+			this.#runWinnerToCenter(this.#left, timestamp);
 		}
 
 		this.#phase = 'respawning';
-		this.#nextSpawnAt = timestamp + this.#respawnDelayMs;
 		this.#roundResolvedAt = 0;
+	}
+
+	#runWinnerToCenter(winner: KnightCombatant, timestamp: number): void {
+		winner.resetToIdle();
+		winner.character.actions.cancelCurrent();
+		winner.character.stopMotion();
+
+		if (Math.abs(winner.positionX) <= 0.5) {
+			winner.character.setScreenX(0);
+			this.#nextSpawnAt = timestamp + this.#respawnDelayMs;
+
+			return;
+		}
+
+		this.#nextSpawnAt = Number.POSITIVE_INFINITY;
+		const moveHandle = winner.character.actions.moveTo({ targetX: 0 });
+		void moveHandle.finished
+			.then((completed) => {
+				if (!completed)
+					return;
+
+				winner.character.setScreenX(0);
+				this.#nextSpawnAt = performance.now() + this.#respawnDelayMs;
+			})
+			.catch((error: unknown) => {
+				console.error('Failed to return winning knight to center.', error);
+				winner.character.setScreenX(0);
+				this.#nextSpawnAt = performance.now() + this.#respawnDelayMs;
+			});
 	}
 
 	#emitStatus(distance?: number): void {
@@ -182,15 +216,25 @@ export class KnightSkirmishArena implements ViewerSystem {
 		const left = this.#left?.status;
 		const right = this.#right?.status;
 		if (!left || !right) {
-			const countdownSeconds = Math.max(0, Math.ceil((this.#nextSpawnAt - performance.now()) / 1000));
+			const countdownSeconds = Number.isFinite(this.#nextSpawnAt)
+				? Math.max(0, Math.ceil((this.#nextSpawnAt - performance.now()) / 1000))
+				: null;
 			if (this.#phase === 'respawning') {
-				if (left)
-					return `Round ${ this.#round }\nLeft knight holds ground with ${ left.currentHealth } HP. Next challenger in ${ countdownSeconds }s.`;
+				if (left) {
+					return countdownSeconds === null
+						? `Round ${ this.#round }\nLeft knight runs back to center with ${ left.currentHealth } HP.`
+						: `Round ${ this.#round }\nLeft knight holds ground with ${ left.currentHealth } HP. Next challenger in ${ countdownSeconds }s.`;
+				}
 
-				if (right)
-					return `Round ${ this.#round }\nRight knight holds ground with ${ right.currentHealth } HP. Next challenger in ${ countdownSeconds }s.`;
+				if (right) {
+					return countdownSeconds === null
+						? `Round ${ this.#round }\nRight knight runs back to center with ${ right.currentHealth } HP.`
+						: `Round ${ this.#round }\nRight knight holds ground with ${ right.currentHealth } HP. Next challenger in ${ countdownSeconds }s.`;
+				}
 
-				return `Arena resetting. Next round in ${ countdownSeconds }s.`;
+				return countdownSeconds === null
+					? 'Arena resetting.'
+					: `Arena resetting. Next round in ${ countdownSeconds }s.`;
 			}
 
 			return 'Spawning duelists.';
@@ -207,27 +251,46 @@ export class KnightSkirmishArena implements ViewerSystem {
 		].join('\n');
 	}
 
-	#advanceCombatants(timestamp: number): void {
+	#positionCombatantsAtPreferredDistance(timestamp: number): void {
 		if (!this.#left || !this.#right)
 			return;
 
 		if (this.#standingWinner === 'left') {
 			this.#left.resetToIdle();
-			this.#right.advanceToward(this.#left.positionX + ENGAGE_DISTANCE_PX, timestamp);
+			this.#right.advanceToward(this.#left.positionX + PREFERRED_COMBAT_DISTANCE_PX, timestamp);
 
 			return;
 		}
 
 		if (this.#standingWinner === 'right') {
 			this.#right.resetToIdle();
-			this.#left.advanceToward(this.#right.positionX - ENGAGE_DISTANCE_PX, timestamp);
+			this.#left.advanceToward(this.#right.positionX - PREFERRED_COMBAT_DISTANCE_PX, timestamp);
 
 			return;
 		}
 
 		const midpointX = (this.#left.positionX + this.#right.positionX) / 2;
-		this.#left.advanceToward(midpointX - (ENGAGE_DISTANCE_PX / 2), timestamp);
-		this.#right.advanceToward(midpointX + (ENGAGE_DISTANCE_PX / 2), timestamp);
+		this.#left.advanceToward(midpointX - (PREFERRED_COMBAT_DISTANCE_PX / 2), timestamp);
+		this.#right.advanceToward(midpointX + (PREFERRED_COMBAT_DISTANCE_PX / 2), timestamp);
+	}
+
+	#separateCombatants(): void {
+		if (!this.#left || !this.#right)
+			return;
+
+		this.#left.character.actions.cancelCurrent();
+		this.#right.character.actions.cancelCurrent();
+		this.#left.character.stopMotion();
+		this.#right.character.stopMotion();
+		this.#left.resetToIdle();
+		this.#right.resetToIdle();
+
+		const midpointX = (this.#left.positionX + this.#right.positionX) / 2;
+		const halfSpacing = PREFERRED_COMBAT_DISTANCE_PX / 2;
+		this.#left.character.setScreenX(midpointX - halfSpacing);
+		this.#right.character.setScreenX(midpointX + halfSpacing);
+		this.#left.character.turnTo(1);
+		this.#right.character.turnTo(-1);
 	}
 
 	async #spawnRound(viewer: OrillusionKnightViewer, context: CharacterUpdateContext): Promise<void> {

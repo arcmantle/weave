@@ -37,6 +37,17 @@ interface ScriptedFramePlayback {
 	sequenceIndex: number;
 }
 
+export interface SpriteContentBounds {
+	bottom:  number;
+	centerX: number;
+	centerY: number;
+	height:  number;
+	left:    number;
+	right:   number;
+	top:     number;
+	width:   number;
+}
+
 export class SpriteCharacter<
 	TDefinition extends SpriteAnimationDefinition,
 	TFrames extends SpriteSheetFrames,
@@ -225,6 +236,42 @@ export class SpriteCharacter<
 		return this.#screenY;
 	}
 
+	getCurrentContentBounds(): SpriteContentBounds | null {
+		const frames = this.#currentFrames;
+		const scale = this.#spriteScale;
+		if (!frames || !scale)
+			return null;
+
+		const renderedFacing = this.#resolveRenderedFacing();
+		const frameWidth = frames.frameWidth * scale;
+		const frameHeight = frames.frameHeight * scale;
+		const frameCenterX = this.#screenX + this.#resolveFacingOffsetX(scale);
+		const frameCenterY = this.#screenY;
+		const frameLeft = frameCenterX - (frameWidth / 2);
+		const frameRight = frameCenterX + (frameWidth / 2);
+		const frameTop = frameCenterY + (frameHeight / 2);
+		const frameBottom = frameCenterY - (frameHeight / 2);
+		const contentLeftInset = renderedFacing === -1 ? frames.leftContentLeftInset : frames.contentLeftInset;
+		const contentRightInset = renderedFacing === -1 ? frames.leftContentRightInset : frames.contentRightInset;
+		const left = frameLeft + (contentLeftInset * scale);
+		const right = frameRight - (contentRightInset * scale);
+		const top = frameTop - (frames.contentTopInset * scale);
+		const bottom = frameBottom + (frames.contentBottomInset * scale);
+		const width = Math.max(0, right - left);
+		const height = Math.max(0, top - bottom);
+
+		return {
+			bottom,
+			centerX: left + (width / 2),
+			centerY: bottom + (height / 2),
+			height,
+			left,
+			right,
+			top,
+			width,
+		};
+	}
+
 	get spriteScale(): number | null {
 		return this.#spriteScale;
 	}
@@ -239,6 +286,10 @@ export class SpriteCharacter<
 
 	get animationId(): string | null {
 		return this.#currentDefinition?.id ?? null;
+	}
+
+	get currentFrameIndex(): number {
+		return this.#frameIndex;
 	}
 
 	get facing(): -1 | 1 {

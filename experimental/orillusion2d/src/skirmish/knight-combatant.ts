@@ -7,7 +7,11 @@ import {
 	type KnightActionHandle,
 	KnightCharacter,
 } from '../characters/knight/knight-character';
-import { type Hitbox } from './hitboxes';
+import {
+	type Hitbox,
+	resolveKnightBodyHitbox,
+	SPRITE_SCALE_FALLBACK,
+} from './hitboxes';
 
 type FighterSide = 'left' | 'right';
 type CombatState = 'advancing' | 'cooldown' | 'dead' | 'dodging' | 'dying' | 'idle' | 'staggered';
@@ -50,16 +54,12 @@ export interface KnightCombatantStatus {
 	maxHealth:     number;
 }
 
-const BODY_HEIGHT_FACTOR = 0.72;
-const BODY_WIDTH_FACTOR = 0.34;
-const BODY_VERTICAL_OFFSET_FACTOR = 0.1;
 const DEFAULT_HEALTH = 5;
 const DODGE_CHANCE = 0.28;
 const DODGE_DISTANCE_PX = 96;
 const DODGE_RECOVERY_MS = 180;
-const MOVE_DISTANCE_PX = 64;
+const MOVE_ARRIVAL_THRESHOLD_PX = 6;
 const MOVE_SPEED_PX_PER_SECOND = 156;
-const SPRITE_SCALE_FALLBACK = 4;
 const STAGGER_DURATION_MS = 380;
 
 const resolveAnimationDurationMs = (animationId: string): number => {
@@ -157,16 +157,11 @@ export class KnightCombatant {
 	}
 
 	advanceToward(targetX: number, timestamp: number): void {
-		if (!this.canAct(timestamp))
+		this.#refreshAttackState(timestamp);
+		if (this.isDead || this.character.hasActiveAction)
 			return;
 
-		const direction = targetX >= this.positionX ? 1 : -1;
-		const distancePx = Math.max(20, Math.min(MOVE_DISTANCE_PX, Math.abs(targetX - this.positionX)));
-		this.character.turnTo(direction);
-		if (direction < 0)
-			this.character.actions.moveLeft({ distancePx, speedPxPerSecond: MOVE_SPEED_PX_PER_SECOND });
-		else
-			this.character.actions.moveRight({ distancePx, speedPxPerSecond: MOVE_SPEED_PX_PER_SECOND });
+		this.character.runToward(targetX, MOVE_SPEED_PX_PER_SECOND, MOVE_ARRIVAL_THRESHOLD_PX);
 
 		this.#state = 'advancing';
 	}
@@ -209,17 +204,7 @@ export class KnightCombatant {
 	}
 
 	getBodyHitbox(): Hitbox {
-		const scale = this.character.spriteScale ?? SPRITE_SCALE_FALLBACK;
-		const width = KNIGHT_FRAME_WIDTH * scale * BODY_WIDTH_FACTOR;
-		const height = KNIGHT_FRAME_HEIGHT * scale * BODY_HEIGHT_FACTOR;
-		const centerY = this.character.screenY + (KNIGHT_FRAME_HEIGHT * scale * BODY_VERTICAL_OFFSET_FACTOR);
-
-		return {
-			centerX: this.positionX,
-			centerY,
-			height,
-			width,
-		};
+		return resolveKnightBodyHitbox(this.character);
 	}
 
 	markAttackHit(): void {
@@ -259,6 +244,7 @@ export class KnightCombatant {
 		if (this.isDead)
 			return;
 
+		this.character.stopRunning();
 		this.#state = 'idle';
 	}
 
