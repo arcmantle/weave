@@ -4,7 +4,6 @@
 		"isolatedDeclarations": false,
 		"outDir": "../dist",
 		"rootDir": ".",
-		"baseUrl": ".",
 		"checkJs": true,
 	},
 }

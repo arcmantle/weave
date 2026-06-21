@@ -6,7 +6,6 @@
 		"target": "ESNext",
 		"outDir": "./dist",
 		"rootDir": ".",
-		"baseUrl": ".",
 		"noEmit": true,
 		"emitDeclarationOnly": false,
 		"incremental": false,

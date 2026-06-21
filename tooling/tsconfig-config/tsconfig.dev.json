@@ -6,7 +6,6 @@
 		"types": [],
 		"outDir": "${configDir}/../dist",
 		"rootDir": "${configDir}",
-		"baseUrl": "${configDir}",
 		// output
 		"noEmit": false,
 		"emitDeclarationOnly": false,

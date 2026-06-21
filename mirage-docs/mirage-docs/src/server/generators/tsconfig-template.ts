@@ -1,7 +1,6 @@
 export const tsconfigTemplate =
 `{
 	"compilerOptions": {
-		"baseUrl": ".",
 		"noEmit": true,
 		"incremental": false,
 		"target": "ESNext",
