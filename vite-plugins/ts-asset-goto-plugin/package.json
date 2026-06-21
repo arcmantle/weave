@@ -1,0 +1,36 @@
+{
+	"name": "@arcmantle/ts-asset-goto-plugin",
+	"version": "1.0.0",
+	"description": "TypeScript language-service plugin: Go to Definition on asset imports (*.css, *.svg, *.json, ...) jumps to the real file instead of the wildcard module declaration.",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/arcmantle/ts-asset-goto-plugin.git"
+	},
+	"license": "Apache-2.0",
+	"author": "Kristoffer Roen-Lie",
+	"main": "./dist/index.js",
+	"exports": {
+		".": "./dist/index.js",
+		"./css": {
+			"types": "./css.d.ts"
+		},
+		"./css.d.ts": "./css.d.ts"
+	},
+	"files": [
+		"dist",
+		"src",
+		"css.d.ts",
+		"README.md"
+	],
+	"scripts": {
+		"build": "tsc --project ./src/tsconfig.json",
+		"prepare": "tsc --project ./src/tsconfig.json"
+	},
+	"devDependencies": {
+		"@types/node": "catalog:vite-plugins",
+		"typescript": "catalog:vite-plugins"
+	},
+	"engines": {
+		"node": ">=22"
+	}
+}
