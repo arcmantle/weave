@@ -8,6 +8,9 @@
 	},
 	"license": "Apache-2.0",
 	"author": "Kristoffer Roen-Lie",
+	"publishConfig": {
+		"access": "public"
+	},
 	"main": "./dist/index.js",
 	"exports": {
 		".": "./dist/index.js",
