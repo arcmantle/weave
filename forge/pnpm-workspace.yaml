@@ -1,6 +1,9 @@
 packages:
   - docs
 
+allowBuilds:
+  esbuild: true
+
 catalogs:
   forge:
     vite: ^7.3.0

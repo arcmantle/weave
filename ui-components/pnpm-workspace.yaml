@@ -2,6 +2,11 @@ packages:
   - '*'
   - '**'
 
+allowBuilds:
+  '@parcel/watcher': true
+  esbuild: true
+  rs-module-lexer: true
+
 catalogs:
   ui-components:
     '@arcmantle/adapter-element': ^1.0.0

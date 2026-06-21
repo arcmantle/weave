@@ -2,6 +2,10 @@ packages:
   - '*'
   - '**'
 
+allowBuilds:
+  esbuild: true
+  rs-module-lexer: true
+
 catalogs:
   lit:
     '@arcmantle/library': ^1.0.0

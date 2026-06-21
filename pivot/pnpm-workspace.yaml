@@ -1,8 +1,8 @@
 pnpmfile: ../.pnpmfile.cjs
 
 packages:
-  - "*"
-  - "**"
+  - '*'
+  - '**'
 
 catalogs:
   pivot:
@@ -42,9 +42,12 @@ onlyBuiltDependencies:
   - esbuild
 
 overrides:
-  "@arcmantle/pivot-client-router": "workspace:^"
-  "@arcmantle/pivot-client-auth": "workspace:^"
-  "@arcmantle/pivot-coordinator-client": "workspace:^"
+  '@arcmantle/pivot-client-router': 'workspace:^'
+  '@arcmantle/pivot-client-auth': 'workspace:^'
+  '@arcmantle/pivot-coordinator-client': 'workspace:^'
 
 publicHoistPattern:
   - '*eslint*'
+
+allowBuilds:
+  esbuild: true

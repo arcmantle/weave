@@ -24,3 +24,6 @@ publicHoistPattern:
   - '*eslint*'
 
 pnpmfile: ../.pnpmfile.cjs
+
+allowBuilds:
+  esbuild: true

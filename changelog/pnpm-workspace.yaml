@@ -2,6 +2,9 @@ packages:
   - '*'
   - '**'
 
+allowBuilds:
+  esbuild: true
+
 catalogs:
   changelog:
     '@types/node': ^25.0.3

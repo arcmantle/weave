@@ -2,6 +2,16 @@ packages:
   - '*'
   - '**'
 
+allowBuilds:
+  '@firebase/util': true
+  '@nestjs/core': true
+  bcrypt: true
+  better-sqlite3: true
+  esbuild: true
+  protobufjs: true
+  rs-module-lexer: true
+  tesseract.js: true
+
 catalogs:
   apps:
     '@arcmantle/adapter-element': ^1.0.0
@@ -113,16 +123,6 @@ catalogs:
     vitest: ^4.0.16
     weaviate-client: ^3.5.2
     ws: ^8.18.1
-
-onlyBuiltDependencies:
-  - '@firebase/util'
-  - '@nestjs/core'
-  - bcrypt
-  - better-sqlite3
-  - esbuild
-  - protobufjs
-  - rs-module-lexer
-  - tesseract.js
 
 pnpmfile: ../.pnpmfile.cjs
 

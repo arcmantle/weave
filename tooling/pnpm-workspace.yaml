@@ -2,6 +2,9 @@ packages:
   - '*'
   - '**'
 
+allowBuilds:
+  esbuild: true
+
 catalogs:
   tooling:
     '@actions/core': ^1.11.1
