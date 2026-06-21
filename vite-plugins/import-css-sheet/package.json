@@ -9,6 +9,9 @@
 	"license": "Apache-2.0",
 	"author": "Kristoffer Roen-Lie",
 	"type": "module",
+	"publishConfig": {
+		"access": "public"
+	},
 	"exports": {
 		".": "./dist/index.js",
 		"./client": "./client.d.ts"
@@ -22,7 +25,8 @@
 		"README.md"
 	],
 	"scripts": {
-		"build": "rimraf dist && tsc --project ./src/tsconfig.json",
+		"build": "tsc --project ./src/tsconfig.json",
+		"prepack": "pnpm build",
 		"dev": "pnpm vite --config ./demo/vite.config.ts"
 	},
 	"dependencies": {
