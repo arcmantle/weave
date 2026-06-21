@@ -56,7 +56,11 @@ export class ImportCSSSheet {
 	}
 
 	cssImportAssertRegex(str: string): RegExp {
-		return new RegExp(str + `['"] *(?:with|assert) *{ *type: *['"]css['"]`);
+		// Escape regex metacharacters in the (possibly relative) specifier so that
+		// e.g. `.` matches a literal dot rather than any character.
+		const escaped = str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+		return new RegExp(escaped + `['"] *(?:with|assert) *{ *type: *['"]css['"]`);
 	}
 
 	async resolveId(
@@ -92,7 +96,15 @@ export class ImportCSSSheet {
 		const regexp = this.cssImportAssertRegex(source);
 
 		if (regexp.test(importerContent)) {
-			const modId = '\0virtual:' + source.replace('.css', '.stylesheet');
+			// Derive the virtual module id from the resolved absolute path rather
+			// than the raw import specifier. The specifier works for sibling
+			// (`./x.css`) imports but breaks for cross-directory (`../x.css`) ones:
+			// Vite turns the `\0` virtual id into a dev-server URL and the `../`
+			// segments get collapsed by URL normalization, so the id handed back to
+			// `load` no longer matches the key stored here. An absolute path has no
+			// `../` segments and is unique per file, which also dedupes two
+			// importers that reference the same stylesheet via different specifiers.
+			const modId = '\0virtual:' + resolvedId.replace(/\.css$/, '.stylesheet');
 			this.virtualModules.set(modId, resolvedId);
 
 			return modId;
